@@ -5,10 +5,10 @@ const authOptions = {
   providers: [
     // !!! Should be stored in .env file.
     Auth0Provider({
-      clientId: "AcinJvjWp1Dr41gPcJeQ20r5vcsteks4",
+      clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
       clientSecret:
-        "y3pj2KaTiNgING-5e8_JYmX_bIQSwvkp_XgDcA75sEPSSB2zmi0n-3UoTfH0pOTP",
-      issuer: "https://dev-y38p834gjptooc4g.us.auth0.com",
+        "Nfayt26AhphY4q_qzANYIIgNDFQ4Sh8lM_NKoDPVpmb9NCsiPW7uLPeT1yilNVPV",
+      issuer: "https://dev-w0dm4z23pib7oeui.us.auth0.com",
     }),
   ],
   secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
