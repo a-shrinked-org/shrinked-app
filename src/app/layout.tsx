@@ -12,12 +12,37 @@ export const metadata: Metadata = {
   },
 };
 
-// Create dark theme
+// Create dark theme with more specific color settings
 const theme = createTheme({
   primaryColor: 'blue',
-  white: '#fff',
-  black: '#1a1b1e',
+  // Dark theme colors
+  colors: {
+    // Add custom dark theme colors
+    dark: [
+      '#C1C2C5',
+      '#A6A7AB',
+      '#909296',
+      '#5c5f66',
+      '#373A40',
+      '#2C2E33',
+      '#25262b',
+      '#1A1B1E',
+      '#141517',
+      '#101113',
+    ],
+  },
+  // Set dark theme as default
   defaultRadius: 'sm',
+  white: '#fff',
+  black: '#1A1B1E',
+  // Component specific overrides
+  components: {
+    Paper: {
+      defaultProps: {
+        bg: 'dark.7',
+      },
+    },
+  },
 });
 
 export default function RootLayout({
@@ -26,12 +51,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-mantine-color-scheme="dark">
       <head>
         <meta name="color-scheme" content="dark" />
       </head>
-      <body>
-        <MantineProvider theme={theme} defaultColorScheme="dark">
+      <body style={{ backgroundColor: '#1A1B1E', color: '#fff' }}>
+        <MantineProvider 
+          theme={theme} 
+          defaultColorScheme="dark"
+          forceColorScheme="dark"
+        >
           <Suspense>
             <RefineContext>{children}</RefineContext>
           </Suspense>
