@@ -71,7 +71,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
               size="sm"
               hiddenFrom="sm"
             />
-            <Title order={3}>Refine App</Title>
+            <Title order={3}>Shrinked</Title>
           </Group>
         </Group>
       </AppShell.Header>

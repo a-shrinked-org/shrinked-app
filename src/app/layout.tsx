@@ -44,6 +44,13 @@ const theme = createTheme({
   black: '#1A1B1E',
   
   components: {
+    AppShell: {
+      styles: {
+        main: {
+          backgroundColor: 'var(--mantine-color-dark-9)',
+        }
+      }
+    },
     Button: {
       defaultProps: {
         color: 'blue',
@@ -115,7 +122,7 @@ export default function RootLayout({
         <ColorSchemeScript forceColorScheme="dark" />
         <meta name="color-scheme" content="dark" />
       </head>
-      <body style={{ backgroundColor: '#1A1B1E', color: '#fff' }}>
+      <body style={{ backgroundColor: 'var(--mantine-color-dark-9)', color: '#fff' }}>
         <MantineProvider 
           theme={theme} 
           forceColorScheme="dark"
