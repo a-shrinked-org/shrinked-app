@@ -11,7 +11,8 @@ import {
   Avatar,
   Text,
   useMantineTheme,
-  Box
+  Box,
+  Container
 } from '@mantine/core';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from "next-auth/react";
@@ -121,11 +122,13 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Stack>
-          <Breadcrumb />
-          {children}
-        </Stack>
-      </AppShell.Main>
-    </AppShell>
-  );
-};
+              <Container size={768} px="md">
+                <Stack>
+                  <Breadcrumb />
+                  {children}
+                </Stack>
+              </Container>
+            </AppShell.Main>
+          </AppShell>
+        );
+      };

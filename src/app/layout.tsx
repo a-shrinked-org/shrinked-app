@@ -58,7 +58,7 @@ const theme = createTheme({
       },
       styles: {
         root: {
-          backgroundColor: 'var(--mantine-color-dark-9)',
+          backgroundColor: 'var(--mantine-color-dark-8)',
           color: 'var(--mantine-color-white)',
           '&:hover': {
             backgroundColor: 'var(--mantine-color-blue-7)',
