@@ -95,7 +95,6 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
 
   return (
     <>
-      <GitHubBanner />
       <RefineKbarProvider>
         <Refine
           routerProvider={routerProvider}
