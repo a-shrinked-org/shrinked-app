@@ -5,9 +5,8 @@ const API_URL = "https://api.fake-rest.refine.dev";
 
 const simpleRestProvider = dataProviderSimpleRest(API_URL);
 
-export const dataProvider = {
+const mappedDataProvider = {
   ...simpleRestProvider,
-  // Override methods to map "jobs" to "blog_posts"
   getList: async ({ resource, ...rest }) => {
 	const mappedResource = resource === "jobs" ? "blog_posts" : resource;
 	return simpleRestProvider.getList({ resource: mappedResource, ...rest });
@@ -36,4 +35,9 @@ export const dataProvider = {
 	const mappedResource = resource === "jobs" ? "blog_posts" : resource;
 	return simpleRestProvider.custom({ resource: mappedResource, ...rest });
   },
+};
+
+// Export with default provider
+export const dataProvider = {
+  default: mappedDataProvider,
 };
