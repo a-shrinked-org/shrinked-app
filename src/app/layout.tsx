@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import React, { Suspense } from "react";
 import { RefineContext } from "./_refine_context";
-import { MantineProvider, createTheme } from '@mantine/core';
+import { MantineProvider, createTheme, ColorSchemeScript } from '@mantine/core';
 import '@mantine/core/styles.css';
 
 export const metadata: Metadata = {
@@ -14,10 +14,9 @@ export const metadata: Metadata = {
 
 const theme = createTheme({
   primaryColor: 'blue',
-  // Color scheme
   colors: {
     dark: [
-      '#C1C2C5', // Text color
+      '#C1C2C5',
       '#A6A7AB',
       '#909296',
       '#5c5f66',
@@ -44,22 +43,21 @@ const theme = createTheme({
   white: '#fff',
   black: '#1A1B1E',
   
-  // Component specific themes
   components: {
     Button: {
       defaultProps: {
         color: 'blue',
         variant: 'filled',
       },
-      styles: (theme) => ({
+      styles: {
         root: {
-          backgroundColor: theme.colors.blue[6],
-          color: theme.white,
+          backgroundColor: 'var(--mantine-color-blue-6)',
+          color: 'var(--mantine-color-white)',
           '&:hover': {
-            backgroundColor: theme.colors.blue[7],
+            backgroundColor: 'var(--mantine-color-blue-7)',
           },
         },
-      }),
+      },
     },
     Paper: {
       defaultProps: {
@@ -70,38 +68,38 @@ const theme = createTheme({
       defaultProps: {
         color: 'blue',
       },
-      styles: (theme) => ({
+      styles: {
         root: {
-          color: theme.white,
+          color: 'var(--mantine-color-white)',
         },
-      }),
+      },
     },
     Input: {
-      styles: (theme) => ({
+      styles: {
         input: {
-          backgroundColor: theme.colors.dark[7],
-          color: theme.white,
-          borderColor: theme.colors.dark[4],
+          backgroundColor: 'var(--mantine-color-dark-7)',
+          color: 'var(--mantine-color-white)',
+          borderColor: 'var(--mantine-color-dark-4)',
           '&:focus': {
-            borderColor: theme.colors.blue[6],
+            borderColor: 'var(--mantine-color-blue-6)',
           },
         },
-      }),
-    }),
+      },
+    },
     Table: {
-      styles: (theme) => ({
+      styles: {
         root: {
-          backgroundColor: theme.colors.dark[7],
-          color: theme.white,
+          backgroundColor: 'var(--mantine-color-dark-7)',
+          color: 'var(--mantine-color-white)',
         },
         th: {
-          backgroundColor: theme.colors.dark[6],
-          color: theme.white,
+          backgroundColor: 'var(--mantine-color-dark-6)',
+          color: 'var(--mantine-color-white)',
         },
         td: {
-          color: theme.white,
+          color: 'var(--mantine-color-white)',
         },
-      }),
+      },
     },
   },
 });
