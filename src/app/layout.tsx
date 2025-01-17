@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import React, { Suspense } from "react";
 import { RefineContext } from "./_refine_context";
+import { ColorSchemeScript } from '@mantine/core';
+import '@mantine/core/styles.css';
 
 export const metadata: Metadata = {
   title: "Refine",
@@ -16,7 +18,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-mantine-color-scheme="dark">
+      <head>
+        <ColorSchemeScript forceColorScheme="dark" />
+      </head>
       <body>
         <Suspense>
           <RefineContext>{children}</RefineContext>
