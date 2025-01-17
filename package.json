@@ -13,32 +13,35 @@
     "refine": "refine"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@mantine/core": "^7.16.0",
+    "@mantine/hooks": "^7.16.0",
     "@refinedev/cli": "^2.16.21",
     "@refinedev/core": "^4.47.1",
     "@refinedev/devtools": "^1.1.32",
-    "@refinedev/nextjs-router": "^6.0.0",
     "@refinedev/kbar": "^1.3.6",
-    "next": "^14.1.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "@refinedev/simple-rest": "^5.0.1",
+    "@refinedev/nextjs-router": "^6.0.0",
     "@refinedev/react-hook-form": "^4.8.14",
     "@refinedev/react-table": "^5.6.6",
+    "@refinedev/simple-rest": "^5.0.1",
     "@tanstack/react-table": "^8.2.6",
-    "next-auth": "^4.24.5"
+    "next": "^14.1.0",
+    "next-auth": "^4.24.5",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
+    "@types/node": "^18.16.2",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
-    "@types/node": "^18.16.2",
     "@typescript-eslint/parser": "^6.21.0",
-    "typescript": "^5.4.2",
+    "autoprefixer": "^10.4.19",
     "cross-env": "^7.0.3",
     "eslint": "^8",
     "eslint-config-next": "^14.1.0",
-    "tailwindcss": "^3.4.3",
     "postcss": "^8.4.38",
-    "autoprefixer": "^10.4.19"
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.2"
   },
   "refine": {
     "projectId": "R7V0PP-JGO6IA-jelxD0"
