@@ -4,6 +4,19 @@ import { GetManyResponse, useMany, useNavigation } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
 import React from "react";
+import { 
+  Table, 
+  Button, 
+  Group, 
+  Title, 
+  Box,
+  Select,
+  NumberInput,
+  Stack,
+  ActionIcon,
+  Pagination
+} from '@mantine/core';
+import { IconEye, IconEdit, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
 export default function JobList() {
   const columns = React.useMemo<ColumnDef<any>[]>(
@@ -64,29 +77,20 @@ export default function JobList() {
         header: "Actions",
         cell: function render({ getValue }) {
           return (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: "4px",
-              }}
-            >
-              <button
-                onClick={() => {
-                  show("jobs", getValue() as string);
-                }}
+            <Group gap="xs">
+              <ActionIcon
+                variant="default"
+                onClick={() => show("jobs", getValue() as string)}
               >
-                Show
-              </button>
-              <button
-                onClick={() => {
-                  edit("jobs", getValue() as string);
-                }}
+                <IconEye size={16} />
+              </ActionIcon>
+              <ActionIcon
+                variant="default"
+                onClick={() => edit("jobs", getValue() as string)}
               >
-                Edit
-              </button>
-            </div>
+                <IconEdit size={16} />
+              </ActionIcon>
+            </Group>
           );
         },
       },
@@ -133,96 +137,116 @@ export default function JobList() {
   }));
 
   return (
-    <div style={{ padding: "16px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <h1>{"List"}</h1>
-        <button onClick={() => create("jobs")}>{"Create"}</button>
-      </div>
-      <div style={{ maxWidth: "100%", overflowY: "scroll" }}>
-        <table>
-          <thead>
+    <Stack p="md">
+      <Group justify="space-between" align="center">
+        <Title order={2}>Jobs List</Title>
+        <Button onClick={() => create("jobs")}>Create Job</Button>
+      </Group>
+
+      <Box style={{ overflowX: 'auto' }}>
+        <Table highlightOnHover>
+          <Table.Thead>
             {getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
+              <Table.Tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <th key={header.id}>
+                  <Table.Th key={header.id}>
                     {!header.isPlaceholder &&
                       flexRender(
                         header.column.columnDef.header,
                         header.getContext()
                       )}
-                  </th>
+                  </Table.Th>
                 ))}
-              </tr>
+              </Table.Tr>
             ))}
-          </thead>
-          <tbody>
+          </Table.Thead>
+          <Table.Tbody>
             {getRowModel().rows.map((row) => (
-              <tr key={row.id}>
+              <Table.Tr key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id}>
+                  <Table.Td key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
+                  </Table.Td>
                 ))}
-              </tr>
+              </Table.Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
-      <div style={{ marginTop: "12px" }}>
-        <button
-          onClick={() => setPageIndex(0)}
-          disabled={!getCanPreviousPage()}
-        >
-          {"<<"}
-        </button>
-        <button onClick={() => previousPage()} disabled={!getCanPreviousPage()}>
-          {"<"}
-        </button>
-        <button onClick={() => nextPage()} disabled={!getCanNextPage()}>
-          {">"}
-        </button>
-        <button
-          onClick={() => setPageIndex(getPageCount() - 1)}
-          disabled={!getCanNextPage()}
-        >
-          {">>"}
-        </button>
-        <span>
-          <strong>
-            {" "}
-            {getState().pagination.pageIndex + 1} / {getPageCount()}{" "}
-          </strong>
-        </span>
-        <span>
-          | {"Go"}:{" "}
-          <input
-            type="number"
-            defaultValue={getState().pagination.pageIndex + 1}
-            onChange={(e) => {
-              const page = e.target.value ? Number(e.target.value) - 1 : 0;
-              setPageIndex(page);
+          </Table.Tbody>
+        </Table>
+      </Box>
+
+      <Group justify="space-between" align="center">
+        <Group>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setPageIndex(0)}
+            disabled={!getCanPreviousPage()}
+            leftSection={<IconChevronLeft size={14} />}
+          >
+            First
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => previousPage()}
+            disabled={!getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => nextPage()}
+            disabled={!getCanNextPage()}
+          >
+            Next
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setPageIndex(getPageCount() - 1)}
+            disabled={!getCanNextPage()}
+            rightSection={<IconChevronRight size={14} />}
+          >
+            Last
+          </Button>
+        </Group>
+
+        <Group align="center">
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>Page</span>
+            <strong>
+              {getState().pagination.pageIndex + 1} of {getPageCount()}
+            </strong>
+          </Box>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>Go to page:</span>
+            <NumberInput
+              size="xs"
+              style={{ width: '70px' }}
+              min={1}
+              max={getPageCount()}
+              defaultValue={getState().pagination.pageIndex + 1}
+              onChange={(value) => {
+                const page = value ? Number(value) - 1 : 0;
+                setPageIndex(page);
+              }}
+            />
+          </Box>
+          <Select
+            size="xs"
+            style={{ width: '130px' }}
+            value={getState().pagination.pageSize.toString()}
+            onChange={(value) => {
+              setPageSize(Number(value));
             }}
+            data={[10, 20, 30, 40, 50].map((pageSize) => ({
+              value: pageSize.toString(),
+              label: `Show ${pageSize}`
+            }))}
           />
-        </span>{" "}
-        <select
-          value={getState().pagination.pageSize}
-          onChange={(e) => {
-            setPageSize(Number(e.target.value));
-          }}
-        >
-          {[10, 20, 30, 40, 50].map((pageSize) => (
-            <option key={pageSize} value={pageSize}>
-              {"Show"} {pageSize}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
+        </Group>
+      </Group>
+    </Stack>
   );
 }
