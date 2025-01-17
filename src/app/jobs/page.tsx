@@ -5,7 +5,7 @@ import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
 import React from "react";
 
-export default function BlogPostList() {
+export default function JobList() {
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
       {
@@ -74,14 +74,14 @@ export default function BlogPostList() {
             >
               <button
                 onClick={() => {
-                  show("blog_posts", getValue() as string);
+                  show("jobs", getValue() as string);
                 }}
               >
                 Show
               </button>
               <button
                 onClick={() => {
-                  edit("blog_posts", getValue() as string);
+                  edit("jobs", getValue() as string);
                 }}
               >
                 Edit
@@ -142,7 +142,7 @@ export default function BlogPostList() {
         }}
       >
         <h1>{"List"}</h1>
-        <button onClick={() => create("blog_posts")}>{"Create"}</button>
+        <button onClick={() => create("jobs")}>{"Create"}</button>
       </div>
       <div style={{ maxWidth: "100%", overflowY: "scroll" }}>
         <table>

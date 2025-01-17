@@ -2,7 +2,7 @@
 
 import { useNavigation, useOne, useResource, useShow } from "@refinedev/core";
 
-export default function BlogPostShow() {
+export default function JobPostShow() {
   const { edit, list } = useNavigation();
   const { id } = useResource();
   const { queryResult } = useShow({});
@@ -29,8 +29,8 @@ export default function BlogPostShow() {
       >
         <h1>{"Show"}</h1>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button onClick={() => list("blog_posts")}>{"List"}</button>
-          <button onClick={() => edit("blog_posts", id ?? "")}>{"Edit"}</button>
+          <button onClick={() => list("jobs")}>{"List"}</button>
+          <button onClick={() => edit("jobs", id ?? "")}>{"Edit"}</button>
         </div>
       </div>
       <div>
