@@ -12,14 +12,12 @@ export const metadata: Metadata = {
   },
 };
 
-// Create dark theme with more specific color settings
 const theme = createTheme({
   primaryColor: 'blue',
-  // Dark theme colors
+  // Color scheme
   colors: {
-    // Add custom dark theme colors
     dark: [
-      '#C1C2C5',
+      '#C1C2C5', // Text color
       '#A6A7AB',
       '#909296',
       '#5c5f66',
@@ -30,17 +28,80 @@ const theme = createTheme({
       '#141517',
       '#101113',
     ],
+    blue: [
+      '#e6f3ff',
+      '#cce3ff',
+      '#99c2ff',
+      '#66a1ff',
+      '#3380ff',
+      '#005fff',
+      '#0044cc',
+      '#003399',
+      '#002266',
+      '#001133'
+    ],
   },
-  // Set dark theme as default
-  defaultRadius: 'sm',
   white: '#fff',
   black: '#1A1B1E',
-  // Component specific overrides
+  
+  // Component specific themes
   components: {
+    Button: {
+      defaultProps: {
+        color: 'blue',
+        variant: 'filled',
+      },
+      styles: (theme) => ({
+        root: {
+          backgroundColor: theme.colors.blue[6],
+          color: theme.white,
+          '&:hover': {
+            backgroundColor: theme.colors.blue[7],
+          },
+        },
+      }),
+    },
     Paper: {
       defaultProps: {
         bg: 'dark.7',
       },
+    },
+    ActionIcon: {
+      defaultProps: {
+        color: 'blue',
+      },
+      styles: (theme) => ({
+        root: {
+          color: theme.white,
+        },
+      }),
+    },
+    Input: {
+      styles: (theme) => ({
+        input: {
+          backgroundColor: theme.colors.dark[7],
+          color: theme.white,
+          borderColor: theme.colors.dark[4],
+          '&:focus': {
+            borderColor: theme.colors.blue[6],
+          },
+        },
+      }),
+    }),
+    Table: {
+      styles: (theme) => ({
+        root: {
+          backgroundColor: theme.colors.dark[7],
+          color: theme.white,
+        },
+        th: {
+          backgroundColor: theme.colors.dark[6],
+          color: theme.white,
+        },
+        td: {
+          color: theme.white,
+        },
+      }),
     },
   },
 });
@@ -53,12 +114,12 @@ export default function RootLayout({
   return (
     <html lang="en" data-mantine-color-scheme="dark">
       <head>
+        <ColorSchemeScript forceColorScheme="dark" />
         <meta name="color-scheme" content="dark" />
       </head>
       <body style={{ backgroundColor: '#1A1B1E', color: '#fff' }}>
         <MantineProvider 
           theme={theme} 
-          defaultColorScheme="dark"
           forceColorScheme="dark"
         >
           <Suspense>
