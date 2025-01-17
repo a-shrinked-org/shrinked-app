@@ -5,7 +5,6 @@ import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React from "react";
-import { MantineProvider } from "@mantine/core";
 
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
@@ -18,24 +17,8 @@ export const RefineContext = (
 ) => {
   return (
     <SessionProvider>
-      <MantineWrapper>
-        <App {...props} />
-      </MantineWrapper>
+      <App {...props} />
     </SessionProvider>
-  );
-};
-
-const MantineWrapper = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <MantineProvider
-      theme={{
-        colorScheme: "dark"
-      }}
-      withNormalizeCSS
-      withGlobalStyles
-    >
-      {children}
-    </MantineProvider>
   );
 };
 
