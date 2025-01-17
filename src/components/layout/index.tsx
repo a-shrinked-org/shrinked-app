@@ -22,8 +22,9 @@ import {
   IconLogout 
 } from '@tabler/icons-react';
 import { CanAccess } from "@refinedev/core";
+import { Breadcrumb } from "../breadcrumb";
 
-export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
+export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, setOpened] = useState(true);
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -126,37 +127,5 @@ export const Layout: React.FC<PropsWithChildren> = ({ children }) => {
         </Stack>
       </AppShell.Main>
     </AppShell>
-  );
-};
-
-// src/components/breadcrumb/index.tsx
-import { Breadcrumbs, Anchor, Group } from '@mantine/core';
-import { useBreadcrumb } from "@refinedev/core";
-import { usePathname } from 'next/navigation';
-
-export const Breadcrumb: React.FC = () => {
-  const { breadcrumbs } = useBreadcrumb();
-  const pathname = usePathname();
-
-  // Don't show breadcrumbs on home page
-  if (pathname === '/') return null;
-
-  const items = breadcrumbs.map((breadcrumb, index) => (
-    <Anchor
-      key={breadcrumb.label}
-      onClick={() => {
-        if (breadcrumb.href) {
-          router.push(breadcrumb.href)
-        }
-      }}
-    >
-      {breadcrumb.label}
-    </Anchor>
-  ));
-
-  return (
-    <Group>
-      <Breadcrumbs>{items}</Breadcrumbs>
-    </Group>
   );
 };
