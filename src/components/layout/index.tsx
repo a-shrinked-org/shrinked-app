@@ -20,7 +20,8 @@ import {
   IconLayoutDashboard, 
   IconBriefcase, 
   IconCategory, 
-  IconLogout 
+  IconLogout,
+  IconFiles 
 } from '@tabler/icons-react';
 import { CanAccess } from "@refinedev/core";
 import { Breadcrumb } from "../breadcrumb";
@@ -44,6 +45,12 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       icon: IconBriefcase,
       href: '/jobs',
       resource: "jobs" 
+    },
+    { 
+      label: 'Files', 
+      icon: IconFiles,
+      href: '/output',
+      resource: "output" 
     },
     { 
       label: 'Categories', 
@@ -122,13 +129,13 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       </AppShell.Navbar>
 
       <AppShell.Main>
-              <Container size={768} px="md">
-                <Stack>
-                  <Breadcrumb />
-                  {children}
-                </Stack>
-              </Container>
-            </AppShell.Main>
-          </AppShell>
-        );
-      };
+        <Container size={768} px="md">
+          <Stack>
+            <Breadcrumb />
+            {children}
+          </Stack>
+        </Container>
+      </AppShell.Main>
+    </AppShell>
+  );
+};
