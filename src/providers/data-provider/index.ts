@@ -1,18 +1,22 @@
 "use client";
-import dataProviderSimpleRest from "@refinedev/simple-rest";
-import { DataProvider, CreateParams, BaseRecord } from "@refinedev/core";
 
-// Update the interface to extend BaseRecord
-interface R2Variables extends BaseRecord {
-  file: File;
-  [key: string]: any;
-}
+import dataProviderSimpleRest from "@refinedev/simple-rest";
+import { 
+  DataProvider,
+  CrudFilters,
+  CrudSorting,
+  CrudOperators,
+  BaseRecord,
+  HttpError,
+  MetaDataQuery
+} from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
 const R2_API_URL = process.env.NEXT_PUBLIC_R2_BASE_URL;
 
 const simpleRestProvider = dataProviderSimpleRest(API_URL);
 
+// Main provider for regular API endpoints
 const mainProvider: DataProvider = {
   ...simpleRestProvider,
   getList: async ({ resource, ...params }) => {
@@ -53,12 +57,19 @@ const mainProvider: DataProvider = {
   }
 };
 
+// R2 provider for file operations
 const r2Provider: DataProvider = {
-  getList: async ({ resource, pagination, sorters, filters }) => {
+  getList: async ({ 
+	resource,
+	pagination,
+	filters,
+	sorters,
+	meta
+  }) => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/list`);
 	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
+		throw new HttpError(response);
 	  }
 	  const data = await response.json();
 	  
@@ -75,90 +86,118 @@ const r2Provider: DataProvider = {
 		total: (data.objects || []).length,
 	  };
 	} catch (error) {
-	  console.error('Error fetching list:', error);
-	  throw error;
+	  throw new HttpError(error as Response);
 	}
   },
 
-  getOne: async ({ resource, id }) => {
+  getOne: async ({ 
+	resource,
+	id,
+	meta
+  }) => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/object/${id}`);
 	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
+		throw new HttpError(response);
 	  }
 	  const data = await response.json();
 	  return { data };
 	} catch (error) {
-	  console.error('Error fetching file:', error);
-	  throw error;
+	  throw new HttpError(error as Response);
 	}
   },
 
-  // Fixed create method with proper types
-  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: CreateParams<TVariables>
-  ) => {
+  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}> ({ 
+	resource,
+	variables,
+	meta
+  }) => {
 	try {
-	  const variables = params.variables as R2Variables;
 	  const formData = new FormData();
-	  formData.append('file', variables.file);
+	  const file = (variables as any).file;
+	  if (file) {
+		formData.append('file', file);
+	  }
 	  
 	  const response = await fetch(`${R2_API_URL}/upload`, {
 		method: 'POST',
 		body: formData,
 	  });
+	  
 	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
+		throw new HttpError(response);
 	  }
+	  
 	  const data = await response.json();
 	  return { data: data as TData };
 	} catch (error) {
-	  console.error('Error uploading file:', error);
-	  throw error;
+	  throw new HttpError(error as Response);
 	}
   },
 
-  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: DeleteOneParams<TVariables>
-  ): Promise<DeleteOneResponse<TData>> => {
+  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}> ({ 
+	resource,
+	id,
+	variables,
+	meta
+  }) => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/object/${params.id}`, {
+	  const response = await fetch(`${R2_API_URL}/object/${id}`, {
 		method: 'DELETE',
 	  });
 	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
+		throw new HttpError(response);
 	  }
-	  // Return an empty object cast as TData instead of null
 	  return { data: {} as TData };
 	} catch (error) {
-	  console.error('Error deleting file:', error);
-	  throw error;
+	  throw new HttpError(error as Response);
 	}
   },
   
-  update: async ({ resource, id, variables }) => {
-	return { data: null };
+  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}> ({ 
+	resource,
+	id,
+	variables,
+	meta
+  }) => {
+	return { data: {} as TData };
   },
 
-  getMany: async ({ resource, ids }) => {
+  getMany: async ({ 
+	resource,
+	ids,
+	meta
+  }) => {
 	try {
 	  const data = await Promise.all(
 		ids.map(async (id) => {
 		  const response = await fetch(`${R2_API_URL}/object/${id}`);
 		  if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
+			throw new HttpError(response);
 		  }
 		  return response.json();
 		})
 	  );
 	  return { data };
 	} catch (error) {
-	  console.error('Error fetching multiple files:', error);
-	  throw error;
+	  throw new HttpError(error as Response);
 	}
   },
 
   getApiUrl: () => R2_API_URL || "",
+
+  custom: async ({ 
+	url,
+	method,
+	filters,
+	sorters,
+	payload,
+	query,
+	headers,
+	meta 
+  }) => {
+	return { data: {} };
+  },
 };
 
 export const dataProvider = {
