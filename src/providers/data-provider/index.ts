@@ -5,7 +5,10 @@ import {
   DataProvider,
   CrudFilters,
   CrudSorting,
-  BaseRecord
+  BaseRecord,
+  CreateParams,
+  UpdateParams,
+  DeleteOneParams
 } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
@@ -106,14 +109,12 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}> ({ 
-	resource,
-	variables,
-	meta
-  }) => {
+  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: CreateParams<TVariables>
+  ) => {
 	try {
 	  const formData = new FormData();
-	  const file = (variables as any).file;
+	  const file = (params.variables as any).file;
 	  if (file) {
 		formData.append('file', file);
 	  }
@@ -135,14 +136,11 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}> ({ 
-	resource,
-	id,
-	variables,
-	meta
-  }) => {
+  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: DeleteOneParams<TVariables>
+  ) => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/object/${id}`, {
+	  const response = await fetch(`${R2_API_URL}/object/${params.id}`, {
 		method: 'DELETE',
 	  });
 	  if (!response.ok) {
@@ -155,13 +153,9 @@ const r2Provider: DataProvider = {
 	}
   },
   
-  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}> ({ 
-	resource,
-	id,
-	variables,
-	meta
-  }) => {
-	// Return empty object as TData since update is not implemented for R2
+  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: UpdateParams<TVariables>
+  ) => {
 	return { data: {} as TData };
   },
 
@@ -189,7 +183,6 @@ const r2Provider: DataProvider = {
 
   getApiUrl: () => R2_API_URL || "",
 
-  // Required method for the DataProvider interface
   custom: async ({ 
 	url,
 	method,
