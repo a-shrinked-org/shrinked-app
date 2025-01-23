@@ -1,9 +1,9 @@
 "use client";
 import dataProviderSimpleRest from "@refinedev/simple-rest";
-import { DataProvider } from "@refinedev/core";
+import { DataProvider, CreateParams, BaseRecord } from "@refinedev/core";
 
-// Add this interface for the file upload
-interface R2Variables {
+// Update the interface to extend BaseRecord
+interface R2Variables extends BaseRecord {
   file: File;
   [key: string]: any;
 }
@@ -94,9 +94,12 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  // Update the create method with the proper type
-  create: async ({ resource, variables }: { resource: string; variables: R2Variables }) => {
+  // Fixed create method with proper types
+  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: CreateParams<TVariables>
+  ) => {
 	try {
+	  const variables = params.variables as R2Variables;
 	  const formData = new FormData();
 	  formData.append('file', variables.file);
 	  
@@ -108,14 +111,13 @@ const r2Provider: DataProvider = {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 	  const data = await response.json();
-	  return { data };
+	  return { data: data as TData };
 	} catch (error) {
 	  console.error('Error uploading file:', error);
 	  throw error;
 	}
   },
 
-  // Rest of the provider remains the same...
   deleteOne: async ({ resource, id }) => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/object/${id}`, {
