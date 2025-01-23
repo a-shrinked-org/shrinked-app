@@ -48,14 +48,13 @@ const mainProvider: DataProvider = {
 };
 
 const r2Provider: DataProvider = {
-getList: async ({ resource, pagination, sorters, filters }) => {
+getList: async ({ resource, pagination }) => {
 	const response = await fetch(`${R2_API_URL}/list`);
 	const data = await response.json();
-	
 	let items = data.objects || [];
 	
-	// Handle pagination
-	if (pagination) {
+	// Handle pagination with safe checks
+	if (pagination && typeof pagination.current !== 'undefined' && typeof pagination.pageSize !== 'undefined') {
 		const start = (pagination.current - 1) * pagination.pageSize;
 		const end = start + pagination.pageSize;
 		items = items.slice(start, end);
@@ -67,55 +66,47 @@ getList: async ({ resource, pagination, sorters, filters }) => {
 	};
 },
 
-  getOne: async ({ resource, id }) => {
-	  try {
-		  const response = await fetch(`${R2_API_URL}/object/${id}`);
-		  if (!response.ok) {
-			  throw new Error(`HTTP error! status: ${response.status}`);
-		  }
-		  const data = await response.json();
-		  return { data };
-	  } catch (error) {
-		  console.error('Error fetching file:', error);
-		  throw error;
-	  }
-  },
-
-  create: async ({ resource, variables }) => {
-	const formData = new FormData();
-	formData.append('file', variables.file);
-	
-	const response = await fetch(`${R2_API_URL}/upload`, {
-	  method: 'POST',
-	  body: formData,
-	});
-	const data = await response.json();
-	return { data };
-  },
-
-  deleteOne: async ({ resource, id }) => {
-	await fetch(`${R2_API_URL}/object/${id}`, {
-	  method: 'DELETE',
-	});
-	return { data: null };
-  },
-  
-  update: async ({ resource, id, variables }) => {
-	  return { data: null }; // or implement if needed
-  },
-
-  getMany: async ({ resource, ids }) => {
-	const data = await Promise.all(
-	  ids.map(async (id) => {
+ getOne: async ({ resource, id }) => {
 		const response = await fetch(`${R2_API_URL}/object/${id}`);
-		return response.json();
-	  })
-	);
-	return { data };
-  },
+		const data = await response.json();
+		return { data };
+	},
 
-  // Required method
-  getApiUrl: () => R2_API_URL || "",
+	create: async ({ resource, variables }) => {
+		const formData = new FormData();
+		formData.append('file', variables.file);
+		
+		const response = await fetch(`${R2_API_URL}/upload`, {
+			method: 'POST',
+			body: formData,
+		});
+		const data = await response.json();
+		return { data };
+	},
+
+	update: async ({ resource, id, variables }) => {
+		// Required by interface but not used
+		return { data: null };
+	},
+
+	deleteOne: async ({ resource, id }) => {
+		await fetch(`${R2_API_URL}/object/${id}`, {
+			method: 'DELETE',
+		});
+		return { data: null };
+	},
+
+	getMany: async ({ resource, ids }) => {
+		const data = await Promise.all(
+			ids.map(async (id) => {
+				const response = await fetch(`${R2_API_URL}/object/${id}`);
+				return response.json();
+			})
+		);
+		return { data };
+	},
+
+	getApiUrl: () => R2_API_URL || "",
 };
 
 export const dataProvider = {
