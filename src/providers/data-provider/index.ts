@@ -17,6 +17,7 @@ import {
   GetListResponse,
   GetListParams
 } from "@refinedev/core";
+import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const API_URL = "https://api.fake-rest.refine.dev";
 
@@ -26,12 +27,14 @@ const R2_BUCKET_NAME = process.env.NEXT_PUBLIC_R2_BUCKET_NAME;
 const R2_ACCESS_KEY_ID = process.env.NEXT_PUBLIC_R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.NEXT_PUBLIC_R2_SECRET_ACCESS_KEY;
 
-// Debug logging for environment variables
-console.log('Environment Variables Check:', {
-  ACCOUNT_ID: process.env.NEXT_PUBLIC_R2_ACCOUNT_ID ? 'exists' : 'missing',
-  BUCKET_NAME: process.env.NEXT_PUBLIC_R2_BUCKET_NAME ? 'exists' : 'missing',
-  ACCESS_KEY: process.env.NEXT_PUBLIC_R2_ACCESS_KEY_ID ? 'exists' : 'missing',
-  SECRET_KEY: process.env.NEXT_PUBLIC_R2_SECRET_ACCESS_KEY ? 'exists' : 'missing'
+// Initialize S3 client for R2
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+	accessKeyId: R2_ACCESS_KEY_ID!,
+	secretAccessKey: R2_SECRET_ACCESS_KEY!
+  }
 });
 
 // R2 file interface
@@ -42,41 +45,6 @@ interface R2FileRecord extends BaseRecord {
   etag: string;
   contentType?: string;
 }
-
-// Construct the R2 API URL
-const R2_API_URL = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-const S3_ENDPOINT = R2_API_URL;
-const BUCKET_PATH = R2_BUCKET_NAME;
-
-// Log the configuration for debugging
-console.log('R2 Configuration:', {
-  endpoint: S3_ENDPOINT,
-  bucket: BUCKET_PATH,
-  fullUrl: `${S3_ENDPOINT}/${BUCKET_PATH}`
-});
-
-// Helper function to get authorization headers
-const getAuthHeaders = () => {
-  if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-	console.error('R2 credentials check:', {
-	  hasAccessKey: !!R2_ACCESS_KEY_ID,
-	  hasSecretKey: !!R2_SECRET_ACCESS_KEY,
-	  hasAccountId: !!R2_ACCOUNT_ID,
-	  hasBucketName: !!R2_BUCKET_NAME
-	});
-	throw new Error('R2 credentials not configured - missing required credentials');
-  }
-
-  const headers = new Headers({
-	'Authorization': 'Basic ' + btoa(`${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}`),
-	'Content-Type': 'application/json',
-	'Access-Control-Allow-Origin': '*',
-	'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-	'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-  });
-  
-  return headers;
-};
 
 const simpleRestProvider = dataProviderSimpleRest(API_URL);
 
@@ -127,40 +95,36 @@ const r2Provider: DataProvider = {
 	params: GetListParams
   ): Promise<GetListResponse<TData>> => {
 	try {
-	  const response = await fetch(`${S3_ENDPOINT}/${BUCKET_PATH}/?list-type=2`, {
-		method: 'GET',
-		headers: getAuthHeaders(),
-		mode: 'cors',
-		credentials: 'include'
+	  const command = new ListObjectsV2Command({
+		Bucket: R2_BUCKET_NAME,
 	  });
 
-	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	  }
-
-	  const data = await response.json();
+	  const response = await s3Client.send(command);
 	  
-	  let items = data.objects || [];
+	  let items = response.Contents || [];
 	  
 	  // Transform the R2 objects into the format we need
-	  items = items.map((item: any) => ({
-		id: item.key,
-		key: item.key,
-		size: item.size,
-		lastModified: item.lastModified,
-		etag: item.etag,
-		contentType: item.contentType
+	  const transformedItems = items.map((item) => ({
+		id: item.Key,
+		key: item.Key,
+		size: item.Size,
+		lastModified: item.LastModified?.toISOString(),
+		etag: item.ETag?.replace(/"/g, ''), // Remove quotes from ETag
+		contentType: undefined // S3 API doesn't return content type in list
 	  }));
 	  
 	  if (params.pagination?.current !== undefined && params.pagination?.pageSize !== undefined) {
 		const start = (params.pagination.current - 1) * params.pagination.pageSize;
 		const end = start + params.pagination.pageSize;
-		items = items.slice(start, end);
+		return {
+		  data: transformedItems.slice(start, end) as unknown as TData[],
+		  total: transformedItems.length,
+		};
 	  }
 	  
 	  return {
-		data: items as unknown as TData[],
-		total: (data.objects || []).length,
+		data: transformedItems as unknown as TData[],
+		total: transformedItems.length,
 	  };
 	} catch (error) {
 	  console.error('R2 getList error:', error);
@@ -175,26 +139,21 @@ const r2Provider: DataProvider = {
 	params: GetOneParams
   ): Promise<GetOneResponse<TData>> => {
 	try {
-	  const response = await fetch(`${S3_ENDPOINT}/${BUCKET_PATH}/${params.id}`, {
-		method: 'GET',
-		headers: getAuthHeaders(),
-		mode: 'cors',
-		credentials: 'include'
+	  const command = new GetObjectCommand({
+		Bucket: R2_BUCKET_NAME,
+		Key: params.id.toString(),
 	  });
 	  
-	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	  }
+	  const response = await s3Client.send(command);
 	  
-	  const data = await response.json();
 	  return { 
 		data: {
-		  id: data.key,
-		  key: data.key,
-		  size: data.size,
-		  lastModified: data.lastModified,
-		  etag: data.etag,
-		  contentType: data.contentType
+		  id: params.id,
+		  key: params.id,
+		  size: response.ContentLength,
+		  lastModified: response.LastModified?.toISOString(),
+		  etag: response.ETag?.replace(/"/g, ''),
+		  contentType: response.ContentType
 		} as unknown as TData
 	  };
 	} catch (error) {
@@ -212,20 +171,14 @@ const r2Provider: DataProvider = {
 		throw new Error('No file provided');
 	  }
 
-	  const headers = getAuthHeaders();
-	  headers.set('Content-Type', file.type);
-
-	  const response = await fetch(`${S3_ENDPOINT}/${BUCKET_PATH}/${file.name}`, {
-		method: 'PUT',
-		headers: headers,
-		body: file,
-		mode: 'cors',
-		credentials: 'include'
+	  const command = new PutObjectCommand({
+		Bucket: R2_BUCKET_NAME,
+		Key: file.name,
+		Body: file,
+		ContentType: file.type
 	  });
-	  
-	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	  }
+
+	  const response = await s3Client.send(command);
 	  
 	  return {
 		data: {
@@ -233,7 +186,7 @@ const r2Provider: DataProvider = {
 		  key: file.name,
 		  size: file.size,
 		  lastModified: new Date().toISOString(),
-		  etag: response.headers.get('etag') || '',
+		  etag: response.ETag?.replace(/"/g, ''),
 		  contentType: file.type
 		} as unknown as TData
 	  };
@@ -247,16 +200,12 @@ const r2Provider: DataProvider = {
 	params: DeleteOneParams<TVariables>
   ): Promise<DeleteOneResponse<TData>> => {
 	try {
-	  const response = await fetch(`${S3_ENDPOINT}/${BUCKET_PATH}/${params.id}`, {
-		method: 'DELETE',
-		headers: getAuthHeaders(),
-		mode: 'cors',
-		credentials: 'include'
+	  const command = new DeleteObjectCommand({
+		Bucket: R2_BUCKET_NAME,
+		Key: params.id.toString()
 	  });
-	  
-	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	  }
+
+	  await s3Client.send(command);
 	  
 	  return {
 		data: { id: params.id } as unknown as TData
@@ -273,23 +222,18 @@ const r2Provider: DataProvider = {
 	try {
 	  const data = await Promise.all(
 		params.ids.map(async (id) => {
-		  const response = await fetch(`${S3_ENDPOINT}/${BUCKET_PATH}/${id}`, {
-			method: 'GET',
-			headers: getAuthHeaders(),
-			mode: 'cors',
-			credentials: 'include'
+		  const command = new GetObjectCommand({
+			Bucket: R2_BUCKET_NAME,
+			Key: id.toString()
 		  });
-		  if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
-		  }
-		  const fileData = await response.json();
+		  const response = await s3Client.send(command);
 		  return {
-			id: fileData.key,
-			key: fileData.key,
-			size: fileData.size,
-			lastModified: fileData.lastModified,
-			etag: fileData.etag,
-			contentType: fileData.contentType
+			id: id,
+			key: id,
+			size: response.ContentLength,
+			lastModified: response.LastModified?.toISOString(),
+			etag: response.ETag?.replace(/"/g, ''),
+			contentType: response.ContentType
 		  };
 		})
 	  );
@@ -300,7 +244,7 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  getApiUrl: () => `${S3_ENDPOINT}/${BUCKET_PATH}`,
+  getApiUrl: () => `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
 
   custom: async <TData extends BaseRecord = BaseRecord>(
 	params: CustomParams
