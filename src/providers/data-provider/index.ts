@@ -2,6 +2,12 @@
 import dataProviderSimpleRest from "@refinedev/simple-rest";
 import { DataProvider } from "@refinedev/core";
 
+// Add this interface for the file upload
+interface R2Variables {
+  file: File;
+  [key: string]: any;
+}
+
 const API_URL = "https://api.fake-rest.refine.dev";
 const R2_API_URL = process.env.NEXT_PUBLIC_R2_BASE_URL;
 
@@ -48,65 +54,106 @@ const mainProvider: DataProvider = {
 };
 
 const r2Provider: DataProvider = {
-getList: async ({ resource, pagination }) => {
-	const response = await fetch(`${R2_API_URL}/list`);
-	const data = await response.json();
-	let items = data.objects || [];
-	
-	// Handle pagination with safe checks
-	if (pagination && typeof pagination.current !== 'undefined' && typeof pagination.pageSize !== 'undefined') {
+  getList: async ({ resource, pagination, sorters, filters }) => {
+	try {
+	  const response = await fetch(`${R2_API_URL}/list`);
+	  if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	  }
+	  const data = await response.json();
+	  
+	  let items = data.objects || [];
+	  
+	  if (pagination?.current !== undefined && pagination?.pageSize !== undefined) {
 		const start = (pagination.current - 1) * pagination.pageSize;
 		const end = start + pagination.pageSize;
 		items = items.slice(start, end);
-	}
-	
-	return {
+	  }
+	  
+	  return {
 		data: items,
 		total: (data.objects || []).length,
-	};
-},
+	  };
+	} catch (error) {
+	  console.error('Error fetching list:', error);
+	  throw error;
+	}
+  },
 
- getOne: async ({ resource, id }) => {
-		const response = await fetch(`${R2_API_URL}/object/${id}`);
-		const data = await response.json();
-		return { data };
-	},
+  getOne: async ({ resource, id }) => {
+	try {
+	  const response = await fetch(`${R2_API_URL}/object/${id}`);
+	  if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	  }
+	  const data = await response.json();
+	  return { data };
+	} catch (error) {
+	  console.error('Error fetching file:', error);
+	  throw error;
+	}
+  },
 
-	create: async ({ resource, variables }) => {
-		const formData = new FormData();
-		formData.append('file', variables.file);
-		
-		const response = await fetch(`${R2_API_URL}/upload`, {
-			method: 'POST',
-			body: formData,
-		});
-		const data = await response.json();
-		return { data };
-	},
+  // Update the create method with the proper type
+  create: async ({ resource, variables }: { resource: string; variables: R2Variables }) => {
+	try {
+	  const formData = new FormData();
+	  formData.append('file', variables.file);
+	  
+	  const response = await fetch(`${R2_API_URL}/upload`, {
+		method: 'POST',
+		body: formData,
+	  });
+	  if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	  }
+	  const data = await response.json();
+	  return { data };
+	} catch (error) {
+	  console.error('Error uploading file:', error);
+	  throw error;
+	}
+  },
 
-	update: async ({ resource, id, variables }) => {
-		// Required by interface but not used
-		return { data: null };
-	},
+  // Rest of the provider remains the same...
+  deleteOne: async ({ resource, id }) => {
+	try {
+	  const response = await fetch(`${R2_API_URL}/object/${id}`, {
+		method: 'DELETE',
+	  });
+	  if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	  }
+	  return { data: null };
+	} catch (error) {
+	  console.error('Error deleting file:', error);
+	  throw error;
+	}
+  },
+  
+  update: async ({ resource, id, variables }) => {
+	return { data: null };
+  },
 
-	deleteOne: async ({ resource, id }) => {
-		await fetch(`${R2_API_URL}/object/${id}`, {
-			method: 'DELETE',
-		});
-		return { data: null };
-	},
+  getMany: async ({ resource, ids }) => {
+	try {
+	  const data = await Promise.all(
+		ids.map(async (id) => {
+		  const response = await fetch(`${R2_API_URL}/object/${id}`);
+		  if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		  }
+		  return response.json();
+		})
+	  );
+	  return { data };
+	} catch (error) {
+	  console.error('Error fetching multiple files:', error);
+	  throw error;
+	}
+  },
 
-	getMany: async ({ resource, ids }) => {
-		const data = await Promise.all(
-			ids.map(async (id) => {
-				const response = await fetch(`${R2_API_URL}/object/${id}`);
-				return response.json();
-			})
-		);
-		return { data };
-	},
-
-	getApiUrl: () => R2_API_URL || "",
+  getApiUrl: () => R2_API_URL || "",
 };
 
 export const dataProvider = {
