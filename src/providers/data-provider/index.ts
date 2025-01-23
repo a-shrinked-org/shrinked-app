@@ -15,7 +15,37 @@ import {
 } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
-const R2_API_URL = process.env.NEXT_PUBLIC_R2_BASE_URL;
+
+// Construct the R2 endpoint URL
+const R2_ACCOUNT_ID = process.env.NEXT_PUBLIC_R2_ACCOUNT_ID;
+const R2_BUCKET_NAME = process.env.NEXT_PUBLIC_R2_BUCKET_NAME;
+const R2_ACCESS_KEY_ID = process.env.NEXT_PUBLIC_R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.NEXT_PUBLIC_R2_SECRET_ACCESS_KEY;
+
+// Construct the R2 API URL
+const R2_API_URL = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET_NAME}`;
+
+console.log('Debug - R2 Config:', { 
+  accountId: R2_ACCOUNT_ID, 
+  bucketName: R2_BUCKET_NAME,
+  hasAccessKey: !!R2_ACCESS_KEY_ID,
+  hasSecretKey: !!R2_SECRET_ACCESS_KEY
+});
+
+// Helper function to get authorization headers
+const getAuthHeaders = () => {
+  if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+	console.error('R2 credentials not found');
+	throw new Error('R2 credentials not configured');
+  }
+
+  // Basic authentication for R2
+  const headers = new Headers();
+  headers.append('Authorization', 'Basic ' + btoa(`${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}`));
+  headers.append('Content-Type', 'application/json');
+  
+  return headers;
+};
 
 const simpleRestProvider = dataProviderSimpleRest(API_URL);
 
@@ -64,13 +94,33 @@ const mainProvider: DataProvider = {
 const r2Provider: DataProvider = {
   getList: async ({ resource, pagination, filters, sorters }) => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/list`);
+	  console.log('Fetching from R2:', `${R2_API_URL}/`);
+	  
+	  const response = await fetch(`${R2_API_URL}/`, {
+		headers: getAuthHeaders(),
+	  });
+
 	  if (!response.ok) {
+		console.error('R2 Error:', response.status, response.statusText);
+		const text = await response.text();
+		console.error('Response:', text);
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
+
 	  const data = await response.json();
+	  console.log('R2 Response:', data);
 	  
 	  let items = data.objects || [];
+	  
+	  // Transform the R2 objects into the format we need
+	  items = items.map((item: any) => ({
+		id: item.key,
+		key: item.key,
+		size: item.size,
+		lastModified: item.lastModified,
+		etag: item.etag,
+		contentType: item.contentType
+	  }));
 	  
 	  if (pagination?.current !== undefined && pagination?.pageSize !== undefined) {
 		const start = (pagination.current - 1) * pagination.pageSize;
@@ -83,19 +133,37 @@ const r2Provider: DataProvider = {
 		total: (data.objects || []).length,
 	  };
 	} catch (error) {
-	  throw error;
+	  console.error('R2 getList error:', error);
+	  return {
+		data: [],
+		total: 0
+	  };
 	}
   },
 
   getOne: async ({ resource, id }) => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/object/${id}`);
+	  const response = await fetch(`${R2_API_URL}/${id}`, {
+		headers: getAuthHeaders(),
+	  });
+	  
 	  if (!response.ok) {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
+	  
 	  const data = await response.json();
-	  return { data };
+	  return { 
+		data: {
+		  id: data.key,
+		  key: data.key,
+		  size: data.size,
+		  lastModified: data.lastModified,
+		  etag: data.etag,
+		  contentType: data.contentType
+		}
+	  };
 	} catch (error) {
+	  console.error('R2 getOne error:', error);
 	  throw error;
 	}
   },
@@ -104,52 +172,57 @@ const r2Provider: DataProvider = {
 	params: CreateParams<TVariables>
   ): Promise<CreateResponse<TData>> => {
 	try {
-	  const formData = new FormData();
 	  const file = (params.variables as any).file;
-	  if (file) {
-		formData.append('file', file);
+	  if (!file) {
+		throw new Error('No file provided');
 	  }
-	  
-	  const response = await fetch(`${R2_API_URL}/upload`, {
-		method: 'POST',
-		body: formData,
+
+	  const headers = getAuthHeaders();
+	  headers.set('Content-Type', file.type);
+
+	  const response = await fetch(`${R2_API_URL}/${file.name}`, {
+		method: 'PUT',
+		headers: headers,
+		body: file
 	  });
 	  
 	  if (!response.ok) {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 	  
-	  const data = await response.json();
 	  return {
-		data: data as TData,
+		data: {
+		  id: file.name,
+		  key: file.name,
+		  size: file.size,
+		  contentType: file.type,
+		  lastModified: new Date().toISOString()
+		} as TData,
 	  };
 	} catch (error) {
+	  console.error('R2 create error:', error);
 	  throw error;
 	}
-  },
-
-  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: UpdateParams<TVariables>
-  ): Promise<UpdateResponse<TData>> => {
-	return {
-	  data: {} as TData,
-	};
   },
 
   deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
 	params: DeleteOneParams<TVariables>
   ): Promise<DeleteOneResponse<TData>> => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/object/${params.id}`, {
+	  const response = await fetch(`${R2_API_URL}/${params.id}`, {
 		method: 'DELETE',
+		headers: getAuthHeaders(),
 	  });
+	  
 	  if (!response.ok) {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
+	  
 	  return {
 		data: {} as TData,
 	  };
 	} catch (error) {
+	  console.error('R2 deleteOne error:', error);
 	  throw error;
 	}
   },
@@ -158,7 +231,9 @@ const r2Provider: DataProvider = {
 	try {
 	  const data = await Promise.all(
 		ids.map(async (id) => {
-		  const response = await fetch(`${R2_API_URL}/object/${id}`);
+		  const response = await fetch(`${R2_API_URL}/${id}`, {
+			headers: getAuthHeaders(),
+		  });
 		  if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		  }
@@ -167,15 +242,24 @@ const r2Provider: DataProvider = {
 	  );
 	  return { data };
 	} catch (error) {
+	  console.error('R2 getMany error:', error);
 	  throw error;
 	}
   },
 
-  getApiUrl: () => R2_API_URL || "",
+  getApiUrl: () => R2_API_URL,
 
   custom: async <TData extends BaseRecord = BaseRecord, TQuery = unknown, TPayload = unknown>(
 	params: CustomParams<TQuery, TPayload>
   ): Promise<CustomResponse<TData>> => {
+	return {
+	  data: {} as TData,
+	};
+  },
+
+  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: UpdateParams<TVariables>
+  ): Promise<UpdateResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
