@@ -11,7 +11,10 @@ import {
   DeleteOneResponse,
   CustomResponse,
   CustomParams,
-  BaseRecord
+  BaseRecord,
+  GetOneResponse,
+  GetOneParams,
+  GetListResponse
 } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
@@ -21,6 +24,15 @@ const R2_ACCOUNT_ID = process.env.NEXT_PUBLIC_R2_ACCOUNT_ID;
 const R2_BUCKET_NAME = process.env.NEXT_PUBLIC_R2_BUCKET_NAME;
 const R2_ACCESS_KEY_ID = process.env.NEXT_PUBLIC_R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.NEXT_PUBLIC_R2_SECRET_ACCESS_KEY;
+
+// R2 file interface
+interface R2FileRecord extends BaseRecord {
+  key: string;
+  size: number;
+  lastModified: string;
+  etag: string;
+  contentType?: string;
+}
 
 // Construct the R2 API URL
 const R2_API_URL = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET_NAME}`;
@@ -141,32 +153,35 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  getOne: async ({ resource, id }) => {
-	try {
-	  const response = await fetch(`${R2_API_URL}/${id}`, {
-		headers: getAuthHeaders(),
-	  });
-	  
-	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	  }
-	  
-	  const data = await response.json();
-	  return { 
-		data: {
-		  id: data.key,
-		  key: data.key,
-		  size: data.size,
-		  lastModified: data.lastModified,
-		  etag: data.etag,
-		  contentType: data.contentType
+  getOne: async <TData extends BaseRecord = R2FileRecord>({ 
+	  resource,
+	  id 
+	}: GetOneParams): Promise<GetOneResponse<TData>> => {
+	  try {
+		const response = await fetch(`${R2_API_URL}/${id}`, {
+		  headers: getAuthHeaders(),
+		});
+		
+		if (!response.ok) {
+		  throw new Error(`HTTP error! status: ${response.status}`);
 		}
-	  };
-	} catch (error) {
-	  console.error('R2 getOne error:', error);
-	  throw error;
-	}
-  },
+		
+		const data = await response.json();
+		return { 
+		  data: {
+			id: data.key,
+			key: data.key,
+			size: data.size,
+			lastModified: data.lastModified,
+			etag: data.etag,
+			contentType: data.contentType
+		  } as TData
+		};
+	  } catch (error) {
+		console.error('R2 getOne error:', error);
+		throw error;
+	  }
+	},
 
   create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
 	params: CreateParams<TVariables>
