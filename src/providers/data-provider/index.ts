@@ -21,10 +21,10 @@ import {
 const API_URL = "https://api.fake-rest.refine.dev";
 
 // Construct the R2 endpoint URL
-const R2_ACCOUNT_ID = process.env.NEXT_PUBLIC_R2_ACCOUNT_ID;
-const R2_BUCKET_NAME = process.env.NEXT_PUBLIC_R2_BUCKET_NAME;
-const R2_ACCESS_KEY_ID = process.env.NEXT_PUBLIC_R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.NEXT_PUBLIC_R2_SECRET_ACCESS_KEY;
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 
 // R2 file interface
 interface R2FileRecord extends BaseRecord {
