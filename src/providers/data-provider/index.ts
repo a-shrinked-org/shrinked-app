@@ -37,15 +37,6 @@ const s3Client = new S3Client({
   }
 });
 
-// R2 file interface
-interface R2FileRecord extends BaseRecord {
-  key: string;
-  size: number;
-  lastModified: string;
-  etag: string;
-  contentType?: string;
-}
-
 const simpleRestProvider = dataProviderSimpleRest(API_URL);
 
 // Main provider for regular API endpoints
@@ -112,25 +103,25 @@ const r2Provider: DataProvider = {
 		lastModified: item.LastModified?.toISOString() ?? new Date().toISOString(),
 		etag: item.ETag?.replace(/"/g, '') ?? '',
 		contentType: undefined
-	  }));
+	  } as unknown as TData));
 	  
 	  if (pagination?.current && pagination?.pageSize) {
 		const start = (pagination.current - 1) * pagination.pageSize;
 		const end = start + pagination.pageSize;
 		return {
-		  data: transformedItems.slice(start, end) as TData[],
+		  data: transformedItems.slice(start, end),
 		  total: transformedItems.length,
 		};
 	  }
 	  
 	  return {
-		data: transformedItems as TData[],
+		data: transformedItems,
 		total: transformedItems.length,
 	  };
 	} catch (error) {
 	  console.error('R2 getList error:', error);
 	  return {
-		data: [] as TData[],
+		data: [],
 		total: 0
 	  };
 	}
@@ -149,16 +140,16 @@ const r2Provider: DataProvider = {
 	  
 	  const response = await s3Client.send(command);
 	  
-	  return { 
-		data: {
-		  id,
-		  key: id.toString(),
-		  size: response.ContentLength ?? 0,
-		  lastModified: response.LastModified?.toISOString() ?? new Date().toISOString(),
-		  etag: response.ETag?.replace(/"/g, '') ?? '',
-		  contentType: response.ContentType
-		} as TData
-	  };
+	  const data = {
+		id,
+		key: id.toString(),
+		size: response.ContentLength ?? 0,
+		lastModified: response.LastModified?.toISOString() ?? new Date().toISOString(),
+		etag: response.ETag?.replace(/"/g, '') ?? '',
+		contentType: response.ContentType
+	  } as unknown as TData;
+	  
+	  return { data };
 	} catch (error) {
 	  console.error('R2 getOne error:', error);
 	  throw error;
@@ -183,16 +174,16 @@ const r2Provider: DataProvider = {
 
 	  const response = await s3Client.send(command);
 	  
-	  return {
-		data: {
-		  id: file.name,
-		  key: file.name,
-		  size: file.size,
-		  lastModified: new Date().toISOString(),
-		  etag: response.ETag?.replace(/"/g, '') ?? '',
-		  contentType: file.type
-		} as TData
-	  };
+	  const data = {
+		id: file.name,
+		key: file.name,
+		size: file.size,
+		lastModified: new Date().toISOString(),
+		etag: response.ETag?.replace(/"/g, '') ?? '',
+		contentType: file.type
+	  } as unknown as TData;
+
+	  return { data };
 	} catch (error) {
 	  console.error('R2 create error:', error);
 	  throw error;
@@ -213,7 +204,7 @@ const r2Provider: DataProvider = {
 	  await s3Client.send(command);
 	  
 	  return {
-		data: { id } as TData
+		data: { id } as unknown as TData
 	  };
 	} catch (error) {
 	  console.error('R2 deleteOne error:', error);
@@ -225,7 +216,7 @@ const r2Provider: DataProvider = {
 	ids
   }: { ids: BaseRecord['id'][] }): Promise<{ data: TData[] }> => {
 	try {
-	  if (!ids || ids.length === 0) return { data: [] as TData[] };
+	  if (!ids || ids.length === 0) return { data: [] };
 
 	  const data = await Promise.all(
 		ids.map(async (id) => {
@@ -235,7 +226,9 @@ const r2Provider: DataProvider = {
 			Bucket: R2_BUCKET_NAME ?? '',
 			Key: id.toString()
 		  });
+		  
 		  const response = await s3Client.send(command);
+		  
 		  return {
 			id,
 			key: id.toString(),
@@ -243,10 +236,11 @@ const r2Provider: DataProvider = {
 			lastModified: response.LastModified?.toISOString() ?? new Date().toISOString(),
 			etag: response.ETag?.replace(/"/g, '') ?? '',
 			contentType: response.ContentType
-		  };
+		  } as unknown as TData;
 		})
 	  );
-	  return { data: data as TData[] };
+	  
+	  return { data };
 	} catch (error) {
 	  console.error('R2 getMany error:', error);
 	  throw error;
