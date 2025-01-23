@@ -5,10 +5,7 @@ import {
   DataProvider,
   CrudFilters,
   CrudSorting,
-  CrudOperators,
-  BaseRecord,
-  HttpError,
-  MetaDataQuery
+  BaseRecord
 } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
@@ -69,7 +66,7 @@ const r2Provider: DataProvider = {
 	try {
 	  const response = await fetch(`${R2_API_URL}/list`);
 	  if (!response.ok) {
-		throw new HttpError(response);
+		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 	  const data = await response.json();
 	  
@@ -86,7 +83,8 @@ const r2Provider: DataProvider = {
 		total: (data.objects || []).length,
 	  };
 	} catch (error) {
-	  throw new HttpError(error as Response);
+	  console.error('Error fetching list:', error);
+	  throw error;
 	}
   },
 
@@ -98,12 +96,13 @@ const r2Provider: DataProvider = {
 	try {
 	  const response = await fetch(`${R2_API_URL}/object/${id}`);
 	  if (!response.ok) {
-		throw new HttpError(response);
+		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 	  const data = await response.json();
 	  return { data };
 	} catch (error) {
-	  throw new HttpError(error as Response);
+	  console.error('Error fetching file:', error);
+	  throw error;
 	}
   },
 
@@ -125,13 +124,14 @@ const r2Provider: DataProvider = {
 	  });
 	  
 	  if (!response.ok) {
-		throw new HttpError(response);
+		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 	  
 	  const data = await response.json();
 	  return { data: data as TData };
 	} catch (error) {
-	  throw new HttpError(error as Response);
+	  console.error('Error uploading file:', error);
+	  throw error;
 	}
   },
 
@@ -146,11 +146,12 @@ const r2Provider: DataProvider = {
 		method: 'DELETE',
 	  });
 	  if (!response.ok) {
-		throw new HttpError(response);
+		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 	  return { data: {} as TData };
 	} catch (error) {
-	  throw new HttpError(error as Response);
+	  console.error('Error deleting file:', error);
+	  throw error;
 	}
   },
   
@@ -160,6 +161,7 @@ const r2Provider: DataProvider = {
 	variables,
 	meta
   }) => {
+	// Return empty object as TData since update is not implemented for R2
 	return { data: {} as TData };
   },
 
@@ -173,19 +175,21 @@ const r2Provider: DataProvider = {
 		ids.map(async (id) => {
 		  const response = await fetch(`${R2_API_URL}/object/${id}`);
 		  if (!response.ok) {
-			throw new HttpError(response);
+			throw new Error(`HTTP error! status: ${response.status}`);
 		  }
 		  return response.json();
 		})
 	  );
 	  return { data };
 	} catch (error) {
-	  throw new HttpError(error as Response);
+	  console.error('Error fetching multiple files:', error);
+	  throw error;
 	}
   },
 
   getApiUrl: () => R2_API_URL || "",
 
+  // Required method for the DataProvider interface
   custom: async ({ 
 	url,
 	method,
