@@ -32,8 +32,8 @@ const s3Client = new S3Client({
   region: 'auto',
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-	accessKeyId: R2_ACCESS_KEY_ID!,
-	secretAccessKey: R2_SECRET_ACCESS_KEY!
+	accessKeyId: R2_ACCESS_KEY_ID ?? '',
+	secretAccessKey: R2_SECRET_ACCESS_KEY ?? ''
   }
 });
 
@@ -91,12 +91,13 @@ const mainProvider: DataProvider = {
 
 // R2 provider for file operations
 const r2Provider: DataProvider = {
-  getList: async <TData extends BaseRecord = BaseRecord>(
-	params: GetListParams
-  ): Promise<GetListResponse<TData>> => {
+  getList: async <TData extends BaseRecord = BaseRecord>({ 
+	resource, 
+	pagination 
+  }: GetListParams): Promise<GetListResponse<TData>> => {
 	try {
 	  const command = new ListObjectsV2Command({
-		Bucket: R2_BUCKET_NAME,
+		Bucket: R2_BUCKET_NAME ?? '',
 	  });
 
 	  const response = await s3Client.send(command);
@@ -105,56 +106,58 @@ const r2Provider: DataProvider = {
 	  
 	  // Transform the R2 objects into the format we need
 	  const transformedItems = items.map((item) => ({
-		id: item.Key,
-		key: item.Key,
-		size: item.Size,
-		lastModified: item.LastModified?.toISOString(),
-		etag: item.ETag?.replace(/"/g, ''), // Remove quotes from ETag
-		contentType: undefined // S3 API doesn't return content type in list
+		id: item.Key ?? '',
+		key: item.Key ?? '',
+		size: item.Size ?? 0,
+		lastModified: item.LastModified?.toISOString() ?? new Date().toISOString(),
+		etag: item.ETag?.replace(/"/g, '') ?? '',
+		contentType: undefined
 	  }));
 	  
-	  if (params.pagination?.current !== undefined && params.pagination?.pageSize !== undefined) {
-		const start = (params.pagination.current - 1) * params.pagination.pageSize;
-		const end = start + params.pagination.pageSize;
+	  if (pagination?.current && pagination?.pageSize) {
+		const start = (pagination.current - 1) * pagination.pageSize;
+		const end = start + pagination.pageSize;
 		return {
-		  data: transformedItems.slice(start, end) as unknown as TData[],
+		  data: transformedItems.slice(start, end) as TData[],
 		  total: transformedItems.length,
 		};
 	  }
 	  
 	  return {
-		data: transformedItems as unknown as TData[],
+		data: transformedItems as TData[],
 		total: transformedItems.length,
 	  };
 	} catch (error) {
 	  console.error('R2 getList error:', error);
 	  return {
-		data: [] as unknown as TData[],
+		data: [] as TData[],
 		total: 0
 	  };
 	}
   },
 
-  getOne: async <TData extends BaseRecord = BaseRecord>(
-	params: GetOneParams
-  ): Promise<GetOneResponse<TData>> => {
+  getOne: async <TData extends BaseRecord = BaseRecord>({
+	id,
+  }: GetOneParams): Promise<GetOneResponse<TData>> => {
 	try {
+	  if (!id) throw new Error('No id provided');
+
 	  const command = new GetObjectCommand({
-		Bucket: R2_BUCKET_NAME,
-		Key: params.id.toString(),
+		Bucket: R2_BUCKET_NAME ?? '',
+		Key: id.toString(),
 	  });
 	  
 	  const response = await s3Client.send(command);
 	  
 	  return { 
 		data: {
-		  id: params.id,
-		  key: params.id,
-		  size: response.ContentLength,
-		  lastModified: response.LastModified?.toISOString(),
-		  etag: response.ETag?.replace(/"/g, ''),
+		  id,
+		  key: id.toString(),
+		  size: response.ContentLength ?? 0,
+		  lastModified: response.LastModified?.toISOString() ?? new Date().toISOString(),
+		  etag: response.ETag?.replace(/"/g, '') ?? '',
 		  contentType: response.ContentType
-		} as unknown as TData
+		} as TData
 	  };
 	} catch (error) {
 	  console.error('R2 getOne error:', error);
@@ -162,17 +165,17 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: CreateParams<TVariables>
-  ): Promise<CreateResponse<TData>> => {
+  create: async <TData extends BaseRecord = BaseRecord>({
+	variables
+  }: CreateParams): Promise<CreateResponse<TData>> => {
 	try {
-	  const file = (params.variables as any).file;
+	  const file = (variables as any).file;
 	  if (!file) {
 		throw new Error('No file provided');
 	  }
 
 	  const command = new PutObjectCommand({
-		Bucket: R2_BUCKET_NAME,
+		Bucket: R2_BUCKET_NAME ?? '',
 		Key: file.name,
 		Body: file,
 		ContentType: file.type
@@ -186,9 +189,9 @@ const r2Provider: DataProvider = {
 		  key: file.name,
 		  size: file.size,
 		  lastModified: new Date().toISOString(),
-		  etag: response.ETag?.replace(/"/g, ''),
+		  etag: response.ETag?.replace(/"/g, '') ?? '',
 		  contentType: file.type
-		} as unknown as TData
+		} as TData
 	  };
 	} catch (error) {
 	  console.error('R2 create error:', error);
@@ -196,19 +199,21 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: DeleteOneParams<TVariables>
-  ): Promise<DeleteOneResponse<TData>> => {
+  deleteOne: async <TData extends BaseRecord = BaseRecord>({
+	id
+  }: DeleteOneParams): Promise<DeleteOneResponse<TData>> => {
 	try {
+	  if (!id) throw new Error('No id provided');
+
 	  const command = new DeleteObjectCommand({
-		Bucket: R2_BUCKET_NAME,
-		Key: params.id.toString()
+		Bucket: R2_BUCKET_NAME ?? '',
+		Key: id.toString()
 	  });
 
 	  await s3Client.send(command);
 	  
 	  return {
-		data: { id: params.id } as unknown as TData
+		data: { id } as TData
 	  };
 	} catch (error) {
 	  console.error('R2 deleteOne error:', error);
@@ -216,28 +221,32 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  getMany: async <TData extends BaseRecord = BaseRecord>(
-	params: { ids: BaseRecord['id'][] }
-  ): Promise<{ data: TData[] }> => {
+  getMany: async <TData extends BaseRecord = BaseRecord>({
+	ids
+  }: { ids: BaseRecord['id'][] }): Promise<{ data: TData[] }> => {
 	try {
+	  if (!ids || ids.length === 0) return { data: [] as TData[] };
+
 	  const data = await Promise.all(
-		params.ids.map(async (id) => {
+		ids.map(async (id) => {
+		  if (!id) throw new Error('Invalid id in getMany');
+
 		  const command = new GetObjectCommand({
-			Bucket: R2_BUCKET_NAME,
+			Bucket: R2_BUCKET_NAME ?? '',
 			Key: id.toString()
 		  });
 		  const response = await s3Client.send(command);
 		  return {
-			id: id,
-			key: id,
-			size: response.ContentLength,
-			lastModified: response.LastModified?.toISOString(),
-			etag: response.ETag?.replace(/"/g, ''),
+			id,
+			key: id.toString(),
+			size: response.ContentLength ?? 0,
+			lastModified: response.LastModified?.toISOString() ?? new Date().toISOString(),
+			etag: response.ETag?.replace(/"/g, '') ?? '',
 			contentType: response.ContentType
 		  };
 		})
 	  );
-	  return { data: data as unknown as TData[] };
+	  return { data: data as TData[] };
 	} catch (error) {
 	  console.error('R2 getMany error:', error);
 	  throw error;
@@ -246,17 +255,15 @@ const r2Provider: DataProvider = {
 
   getApiUrl: () => `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
 
-  custom: async <TData extends BaseRecord = BaseRecord>(
-	params: CustomParams
-  ): Promise<CustomResponse<TData>> => {
+  custom: async <TData extends BaseRecord = BaseRecord>({
+  }: CustomParams): Promise<CustomResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
   },
 
-  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: UpdateParams<TVariables>
-  ): Promise<UpdateResponse<TData>> => {
+  update: async <TData extends BaseRecord = BaseRecord>({
+  }: UpdateParams): Promise<UpdateResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
