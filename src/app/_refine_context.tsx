@@ -111,6 +111,15 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
               },
             },
             {
+              name: "output",
+              list: "/output",
+              show: "/output/show/:id",
+              meta: {
+                canDelete: true,
+                dataProviderName: "r2" // This will use the R2 provider
+              },
+            },
+            {
               name: "categories",
               list: "/categories",
               create: "/categories/create",

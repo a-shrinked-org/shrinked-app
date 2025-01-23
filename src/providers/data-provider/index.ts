@@ -3,10 +3,11 @@ import dataProviderSimpleRest from "@refinedev/simple-rest";
 import { DataProvider } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
+const R2_API_URL = process.env.NEXT_PUBLIC_R2_BASE_URL;
 
 const simpleRestProvider = dataProviderSimpleRest(API_URL);
 
-export const dataProvider: DataProvider = {
+const mainProvider: DataProvider = {
   ...simpleRestProvider,
   getList: async ({ resource, ...params }) => {
 	return simpleRestProvider.getList({ 
@@ -44,4 +45,80 @@ export const dataProvider: DataProvider = {
 	  ...params 
 	});
   }
+};
+
+const r2Provider: DataProvider = {
+getList: async ({ resource, pagination, sorters, filters }) => {
+	const response = await fetch(`${R2_API_URL}/list`);
+	const data = await response.json();
+	
+	let items = data.objects || [];
+	
+	// Handle pagination
+	if (pagination) {
+		const start = (pagination.current - 1) * pagination.pageSize;
+		const end = start + pagination.pageSize;
+		items = items.slice(start, end);
+	}
+	
+	return {
+		data: items,
+		total: (data.objects || []).length,
+	};
+},
+
+  getOne: async ({ resource, id }) => {
+	  try {
+		  const response = await fetch(`${R2_API_URL}/object/${id}`);
+		  if (!response.ok) {
+			  throw new Error(`HTTP error! status: ${response.status}`);
+		  }
+		  const data = await response.json();
+		  return { data };
+	  } catch (error) {
+		  console.error('Error fetching file:', error);
+		  throw error;
+	  }
+  },
+
+  create: async ({ resource, variables }) => {
+	const formData = new FormData();
+	formData.append('file', variables.file);
+	
+	const response = await fetch(`${R2_API_URL}/upload`, {
+	  method: 'POST',
+	  body: formData,
+	});
+	const data = await response.json();
+	return { data };
+  },
+
+  deleteOne: async ({ resource, id }) => {
+	await fetch(`${R2_API_URL}/object/${id}`, {
+	  method: 'DELETE',
+	});
+	return { data: null };
+  },
+  
+  update: async ({ resource, id, variables }) => {
+	  return { data: null }; // or implement if needed
+  },
+
+  getMany: async ({ resource, ids }) => {
+	const data = await Promise.all(
+	  ids.map(async (id) => {
+		const response = await fetch(`${R2_API_URL}/object/${id}`);
+		return response.json();
+	  })
+	);
+	return { data };
+  },
+
+  // Required method
+  getApiUrl: () => R2_API_URL || "",
+};
+
+export const dataProvider = {
+  default: mainProvider,
+  r2: r2Provider,
 };
