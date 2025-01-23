@@ -3,12 +3,15 @@
 import dataProviderSimpleRest from "@refinedev/simple-rest";
 import { 
   DataProvider,
-  CrudFilters,
-  CrudSorting,
-  BaseRecord,
   CreateParams,
   UpdateParams,
-  DeleteOneParams
+  DeleteOneParams,
+  UpdateResponse,
+  CreateResponse,
+  DeleteOneResponse,
+  CustomResponse,
+  CustomParams,
+  BaseRecord
 } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
@@ -59,13 +62,7 @@ const mainProvider: DataProvider = {
 
 // R2 provider for file operations
 const r2Provider: DataProvider = {
-  getList: async ({ 
-	resource,
-	pagination,
-	filters,
-	sorters,
-	meta
-  }) => {
+  getList: async ({ resource, pagination, filters, sorters }) => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/list`);
 	  if (!response.ok) {
@@ -86,16 +83,11 @@ const r2Provider: DataProvider = {
 		total: (data.objects || []).length,
 	  };
 	} catch (error) {
-	  console.error('Error fetching list:', error);
 	  throw error;
 	}
   },
 
-  getOne: async ({ 
-	resource,
-	id,
-	meta
-  }) => {
+  getOne: async ({ resource, id }) => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/object/${id}`);
 	  if (!response.ok) {
@@ -104,14 +96,13 @@ const r2Provider: DataProvider = {
 	  const data = await response.json();
 	  return { data };
 	} catch (error) {
-	  console.error('Error fetching file:', error);
 	  throw error;
 	}
   },
 
   create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
 	params: CreateParams<TVariables>
-  ) => {
+  ): Promise<CreateResponse<TData>> => {
 	try {
 	  const formData = new FormData();
 	  const file = (params.variables as any).file;
@@ -129,16 +120,25 @@ const r2Provider: DataProvider = {
 	  }
 	  
 	  const data = await response.json();
-	  return { data: data as TData };
+	  return {
+		data: data as TData,
+	  };
 	} catch (error) {
-	  console.error('Error uploading file:', error);
 	  throw error;
 	}
   },
 
+  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: UpdateParams<TVariables>
+  ): Promise<UpdateResponse<TData>> => {
+	return {
+	  data: {} as TData,
+	};
+  },
+
   deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
 	params: DeleteOneParams<TVariables>
-  ) => {
+  ): Promise<DeleteOneResponse<TData>> => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/object/${params.id}`, {
 		method: 'DELETE',
@@ -146,24 +146,15 @@ const r2Provider: DataProvider = {
 	  if (!response.ok) {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
-	  return { data: {} as TData };
+	  return {
+		data: {} as TData,
+	  };
 	} catch (error) {
-	  console.error('Error deleting file:', error);
 	  throw error;
 	}
   },
-  
-  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: UpdateParams<TVariables>
-  ) => {
-	return { data: {} as TData };
-  },
 
-  getMany: async ({ 
-	resource,
-	ids,
-	meta
-  }) => {
+  getMany: async ({ resource, ids }) => {
 	try {
 	  const data = await Promise.all(
 		ids.map(async (id) => {
@@ -176,24 +167,18 @@ const r2Provider: DataProvider = {
 	  );
 	  return { data };
 	} catch (error) {
-	  console.error('Error fetching multiple files:', error);
 	  throw error;
 	}
   },
 
   getApiUrl: () => R2_API_URL || "",
 
-  custom: async ({ 
-	url,
-	method,
-	filters,
-	sorters,
-	payload,
-	query,
-	headers,
-	meta 
-  }) => {
-	return { data: {} };
+  custom: async <TData extends BaseRecord = BaseRecord, TQuery = unknown, TPayload = unknown>(
+	params: CustomParams<TQuery, TPayload>
+  ): Promise<CustomResponse<TData>> => {
+	return {
+	  data: {} as TData,
+	};
   },
 };
 
