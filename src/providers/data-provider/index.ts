@@ -156,9 +156,9 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  create: async <TData extends BaseRecord = BaseRecord>({
+  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>({
 	variables
-  }: CreateParams): Promise<CreateResponse<TData>> => {
+  }: CreateParams<TVariables>): Promise<CreateResponse<TData>> => {
 	try {
 	  const file = (variables as any).file;
 	  if (!file) {
@@ -190,9 +190,9 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  deleteOne: async <TData extends BaseRecord = BaseRecord>({
+  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>({
 	id
-  }: DeleteOneParams): Promise<DeleteOneResponse<TData>> => {
+  }: DeleteOneParams<TVariables>): Promise<DeleteOneResponse<TData>> => {
 	try {
 	  if (!id) throw new Error('No id provided');
 
@@ -249,15 +249,15 @@ const r2Provider: DataProvider = {
 
   getApiUrl: () => `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
 
-  custom: async <TData extends BaseRecord = BaseRecord>({
-  }: CustomParams): Promise<CustomResponse<TData>> => {
+  custom: async <TData extends BaseRecord = BaseRecord, TVariables = {}>({
+  }: CustomParams<TVariables>): Promise<CustomResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
   },
 
-  update: async <TData extends BaseRecord = BaseRecord>({
-  }: UpdateParams): Promise<UpdateResponse<TData>> => {
+  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>({
+  }: UpdateParams<TVariables>): Promise<UpdateResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
