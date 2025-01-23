@@ -1,24 +1,23 @@
 "use client";
 
-import React from 'react';
+import { useNavigation } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
+import React from "react";
 import { 
   Table, 
   Button, 
   Group, 
   Title, 
   Box,
+  Select,
+  NumberInput,
   Stack,
-  ActionIcon
+  ActionIcon,
 } from '@mantine/core';
-import { IconEye, IconTrash } from '@tabler/icons-react';
-import { useNavigation, useDelete } from "@refinedev/core";
+import { IconEye, IconDownload, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
-export default function ArchiveList() {
-  // Move useDelete hook to component level
-  const { mutate: deleteFile } = useDelete();
-
+export default function OutputList() {
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
       {
@@ -32,7 +31,10 @@ export default function ArchiveList() {
         header: "Size",
         cell: function render({ getValue }) {
           const bytes = getValue<number>();
-          return formatBytes(bytes);
+          if (bytes < 1024) return `${bytes} B`;
+          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+          if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+          return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
         },
       },
       {
@@ -40,7 +42,9 @@ export default function ArchiveList() {
         accessorKey: "uploaded",
         header: "Upload Date",
         cell: function render({ getValue }) {
-          return new Date(getValue<string>()).toLocaleString();
+          return new Date(getValue<string>()).toLocaleString(undefined, {
+            timeZone: "UTC",
+          });
         },
       },
       {
@@ -52,35 +56,49 @@ export default function ArchiveList() {
             <Group gap="xs">
               <ActionIcon
                 variant="default"
-                onClick={() => window.open(`${process.env.NEXT_PUBLIC_R2_BASE_URL}/object/${getValue()}`, '_blank')}
+                onClick={() => show("output", getValue() as string)}
               >
                 <IconEye size={16} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
-                color="red"
-                onClick={() => {
-                  deleteFile({
-                    resource: "output",
-                    id: getValue() as string,
-                    dataProviderName: "r2" // Add this to ensure it uses R2 provider
-                  });
-                }}
+                onClick={() => handleDownload(getValue() as string)}
+                color="blue"
               >
-                <IconTrash size={16} />
+                <IconDownload size={16} />
               </ActionIcon>
             </Group>
           );
         },
       },
     ],
-    [deleteFile] // Add deleteFile to dependencies
+    []
   );
+
+  const handleDownload = async (key: string) => {
+    try {
+      // Use your R2_API_URL to construct the download URL
+      const downloadUrl = `${process.env.NEXT_PUBLIC_R2_BASE_URL}/object/${key}`;
+      window.open(downloadUrl, '_blank');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
+  const { show } = useNavigation();
 
   const {
     getHeaderGroups,
     getRowModel,
     refineCore: { tableQueryResult: { data: tableData } },
+    getState,
+    setPageIndex,
+    getCanPreviousPage,
+    getPageCount,
+    getCanNextPage,
+    nextPage,
+    previousPage,
+    setPageSize,
   } = useTable({
     columns,
     refineCoreProps: {
@@ -92,7 +110,7 @@ export default function ArchiveList() {
   return (
     <Stack p="md">
       <Group justify="space-between" align="center">
-        <Title order={2}>Output Files</Title>
+        <Title order={2}>Files List</Title>
       </Group>
 
       <Box style={{ overflowX: 'auto' }}>
@@ -125,14 +143,80 @@ export default function ArchiveList() {
           </Table.Tbody>
         </Table>
       </Box>
+
+      <Group justify="space-between" align="center">
+        <Group>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setPageIndex(0)}
+            disabled={!getCanPreviousPage()}
+            leftSection={<IconChevronLeft size={14} />}
+          >
+            First
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => previousPage()}
+            disabled={!getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => nextPage()}
+            disabled={!getCanNextPage()}
+          >
+            Next
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setPageIndex(getPageCount() - 1)}
+            disabled={!getCanNextPage()}
+            rightSection={<IconChevronRight size={14} />}
+          >
+            Last
+          </Button>
+        </Group>
+
+        <Group align="center">
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>Page</span>
+            <strong>
+              {getState().pagination.pageIndex + 1} of {getPageCount()}
+            </strong>
+          </Box>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>Go to page:</span>
+            <NumberInput
+              size="xs"
+              style={{ width: '70px' }}
+              min={1}
+              max={getPageCount()}
+              defaultValue={getState().pagination.pageIndex + 1}
+              onChange={(value) => {
+                const page = value ? Number(value) - 1 : 0;
+                setPageIndex(page);
+              }}
+            />
+          </Box>
+          <Select
+            size="xs"
+            style={{ width: '130px' }}
+            value={getState().pagination.pageSize.toString()}
+            onChange={(value) => {
+              setPageSize(Number(value));
+            }}
+            data={[10, 20, 30, 40, 50].map((pageSize) => ({
+              value: pageSize.toString(),
+              label: `Show ${pageSize}`
+            }))}
+          />
+        </Group>
+      </Group>
     </Stack>
   );
-}
-
-function formatBytes(bytes: number) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
