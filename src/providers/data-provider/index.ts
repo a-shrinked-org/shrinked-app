@@ -118,15 +118,18 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  deleteOne: async ({ resource, id }) => {
+  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: DeleteOneParams<TVariables>
+  ): Promise<DeleteOneResponse<TData>> => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/object/${id}`, {
+	  const response = await fetch(`${R2_API_URL}/object/${params.id}`, {
 		method: 'DELETE',
 	  });
 	  if (!response.ok) {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
-	  return { data: null };
+	  // Return an empty object cast as TData instead of null
+	  return { data: {} as TData };
 	} catch (error) {
 	  console.error('Error deleting file:', error);
 	  throw error;
