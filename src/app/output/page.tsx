@@ -15,7 +15,10 @@ import {
 import { IconEye, IconTrash } from '@tabler/icons-react';
 import { useNavigation, useDelete } from "@refinedev/core";
 
-export default function OutputList() {
+export default function ArchiveList() {
+  // Move useDelete hook to component level
+  const { mutate: deleteFile } = useDelete();
+
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
       {
@@ -45,8 +48,6 @@ export default function OutputList() {
         accessorKey: "key",
         header: "Actions",
         cell: function render({ getValue }) {
-          const { mutate: deleteFile } = useDelete();
-          
           return (
             <Group gap="xs">
               <ActionIcon
@@ -62,6 +63,7 @@ export default function OutputList() {
                   deleteFile({
                     resource: "output",
                     id: getValue() as string,
+                    dataProviderName: "r2" // Add this to ensure it uses R2 provider
                   });
                 }}
               >
@@ -72,7 +74,7 @@ export default function OutputList() {
         },
       },
     ],
-    []
+    [deleteFile] // Add deleteFile to dependencies
   );
 
   const {
@@ -83,14 +85,14 @@ export default function OutputList() {
     columns,
     refineCoreProps: {
       resource: "output",
-      dataProviderName: "r2",
+      dataProviderName: "r2"
     }
   });
 
   return (
     <Stack p="md">
       <Group justify="space-between" align="center">
-        <Title order={2}>output</Title>
+        <Title order={2}>Output Files</Title>
       </Group>
 
       <Box style={{ overflowX: 'auto' }}>
