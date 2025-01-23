@@ -14,7 +14,8 @@ import {
   BaseRecord,
   GetOneResponse,
   GetOneParams,
-  GetListResponse
+  GetListResponse,
+  GetListParams
 } from "@refinedev/core";
 
 const API_URL = "https://api.fake-rest.refine.dev";
@@ -96,7 +97,9 @@ const mainProvider: DataProvider = {
 
 // R2 provider for file operations
 const r2Provider: DataProvider = {
-  getList: async ({ resource, pagination, filters, sorters }): Promise<GetListResponse<R2FileRecord>> => {
+  getList: async <TData extends BaseRecord = BaseRecord>(
+	params: GetListParams
+  ): Promise<GetListResponse<TData>> => {
 	try {
 	  const response = await fetch(`${R2_API_URL}/`, {
 		headers: getAuthHeaders(),
@@ -111,7 +114,7 @@ const r2Provider: DataProvider = {
 	  let items = data.objects || [];
 	  
 	  // Transform the R2 objects into the format we need
-	  items = items.map((item: any): R2FileRecord => ({
+	  items = items.map((item: any) => ({
 		id: item.key,
 		key: item.key,
 		size: item.size,
@@ -120,28 +123,30 @@ const r2Provider: DataProvider = {
 		contentType: item.contentType
 	  }));
 	  
-	  if (pagination?.current !== undefined && pagination?.pageSize !== undefined) {
-		const start = (pagination.current - 1) * pagination.pageSize;
-		const end = start + pagination.pageSize;
+	  if (params.pagination?.current !== undefined && params.pagination?.pageSize !== undefined) {
+		const start = (params.pagination.current - 1) * params.pagination.pageSize;
+		const end = start + params.pagination.pageSize;
 		items = items.slice(start, end);
 	  }
 	  
 	  return {
-		data: items,
+		data: items as unknown as TData[],
 		total: (data.objects || []).length,
 	  };
 	} catch (error) {
 	  console.error('R2 getList error:', error);
 	  return {
-		data: [],
+		data: [] as unknown as TData[],
 		total: 0
 	  };
 	}
   },
 
-  getOne: async ({ resource, id }): Promise<GetOneResponse<R2FileRecord>> => {
+  getOne: async <TData extends BaseRecord = BaseRecord>(
+	params: GetOneParams
+  ): Promise<GetOneResponse<TData>> => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/${id}`, {
+	  const response = await fetch(`${R2_API_URL}/${params.id}`, {
 		headers: getAuthHeaders(),
 	  });
 	  
@@ -158,7 +163,7 @@ const r2Provider: DataProvider = {
 		  lastModified: data.lastModified,
 		  etag: data.etag,
 		  contentType: data.contentType
-		}
+		} as unknown as TData
 	  };
 	} catch (error) {
 	  console.error('R2 getOne error:', error);
@@ -166,9 +171,11 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  create: async ({ resource, variables }): Promise<CreateResponse<R2FileRecord>> => {
+  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: CreateParams<TVariables>
+  ): Promise<CreateResponse<TData>> => {
 	try {
-	  const file = (variables as any).file;
+	  const file = (params.variables as any).file;
 	  if (!file) {
 		throw new Error('No file provided');
 	  }
@@ -194,7 +201,7 @@ const r2Provider: DataProvider = {
 		  lastModified: new Date().toISOString(),
 		  etag: response.headers.get('etag') || '',
 		  contentType: file.type
-		}
+		} as unknown as TData
 	  };
 	} catch (error) {
 	  console.error('R2 create error:', error);
@@ -202,9 +209,11 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  deleteOne: async ({ resource, id }): Promise<DeleteOneResponse<R2FileRecord>> => {
+  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: DeleteOneParams<TVariables>
+  ): Promise<DeleteOneResponse<TData>> => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/${id}`, {
+	  const response = await fetch(`${R2_API_URL}/${params.id}`, {
 		method: 'DELETE',
 		headers: getAuthHeaders(),
 	  });
@@ -214,7 +223,7 @@ const r2Provider: DataProvider = {
 	  }
 	  
 	  return {
-		data: { id } as R2FileRecord
+		data: { id: params.id } as unknown as TData
 	  };
 	} catch (error) {
 	  console.error('R2 deleteOne error:', error);
@@ -222,10 +231,12 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  getMany: async ({ resource, ids }): Promise<{ data: R2FileRecord[] }> => {
+  getMany: async <TData extends BaseRecord = BaseRecord>(
+	params: { ids: BaseRecord['id'][] }
+  ): Promise<{ data: TData[] }> => {
 	try {
 	  const data = await Promise.all(
-		ids.map(async (id) => {
+		params.ids.map(async (id) => {
 		  const response = await fetch(`${R2_API_URL}/${id}`, {
 			headers: getAuthHeaders(),
 		  });
@@ -243,7 +254,7 @@ const r2Provider: DataProvider = {
 		  };
 		})
 	  );
-	  return { data };
+	  return { data: data as unknown as TData[] };
 	} catch (error) {
 	  console.error('R2 getMany error:', error);
 	  throw error;
@@ -252,15 +263,19 @@ const r2Provider: DataProvider = {
 
   getApiUrl: () => R2_API_URL,
 
-  custom: async <TData extends BaseRecord = R2FileRecord>(): Promise<CustomResponse<TData>> => {
+  custom: async <TData extends BaseRecord = BaseRecord>(
+	params: CustomParams
+  ): Promise<CustomResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
   },
 
-  update: async (): Promise<UpdateResponse<R2FileRecord>> => {
+  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
+	params: UpdateParams<TVariables>
+  ): Promise<UpdateResponse<TData>> => {
 	return {
-	  data: {} as R2FileRecord,
+	  data: {} as TData,
 	};
   },
 };
