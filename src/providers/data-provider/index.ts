@@ -37,13 +37,6 @@ interface R2FileRecord extends BaseRecord {
 // Construct the R2 API URL
 const R2_API_URL = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET_NAME}`;
 
-console.log('Debug - R2 Config:', { 
-  accountId: R2_ACCOUNT_ID, 
-  bucketName: R2_BUCKET_NAME,
-  hasAccessKey: !!R2_ACCESS_KEY_ID,
-  hasSecretKey: !!R2_SECRET_ACCESS_KEY
-});
-
 // Helper function to get authorization headers
 const getAuthHeaders = () => {
   if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
@@ -51,7 +44,6 @@ const getAuthHeaders = () => {
 	throw new Error('R2 credentials not configured');
   }
 
-  // Basic authentication for R2
   const headers = new Headers();
   headers.append('Authorization', 'Basic ' + btoa(`${R2_ACCESS_KEY_ID}:${R2_SECRET_ACCESS_KEY}`));
   headers.append('Content-Type', 'application/json');
@@ -104,28 +96,22 @@ const mainProvider: DataProvider = {
 
 // R2 provider for file operations
 const r2Provider: DataProvider = {
-  getList: async ({ resource, pagination, filters, sorters }) => {
+  getList: async ({ resource, pagination, filters, sorters }): Promise<GetListResponse<R2FileRecord>> => {
 	try {
-	  console.log('Fetching from R2:', `${R2_API_URL}/`);
-	  
 	  const response = await fetch(`${R2_API_URL}/`, {
 		headers: getAuthHeaders(),
 	  });
 
 	  if (!response.ok) {
-		console.error('R2 Error:', response.status, response.statusText);
-		const text = await response.text();
-		console.error('Response:', text);
 		throw new Error(`HTTP error! status: ${response.status}`);
 	  }
 
 	  const data = await response.json();
-	  console.log('R2 Response:', data);
 	  
 	  let items = data.objects || [];
 	  
 	  // Transform the R2 objects into the format we need
-	  items = items.map((item: any) => ({
+	  items = items.map((item: any): R2FileRecord => ({
 		id: item.key,
 		key: item.key,
 		size: item.size,
@@ -153,41 +139,36 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  getOne: async <TData extends BaseRecord = R2FileRecord>({ 
-	  resource,
-	  id 
-	}: GetOneParams): Promise<GetOneResponse<TData>> => {
-	  try {
-		const response = await fetch(`${R2_API_URL}/${id}`, {
-		  headers: getAuthHeaders(),
-		});
-		
-		if (!response.ok) {
-		  throw new Error(`HTTP error! status: ${response.status}`);
-		}
-		
-		const data = await response.json();
-		return { 
-		  data: {
-			id: data.key,
-			key: data.key,
-			size: data.size,
-			lastModified: data.lastModified,
-			etag: data.etag,
-			contentType: data.contentType
-		  } as TData
-		};
-	  } catch (error) {
-		console.error('R2 getOne error:', error);
-		throw error;
-	  }
-	},
-
-  create: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: CreateParams<TVariables>
-  ): Promise<CreateResponse<TData>> => {
+  getOne: async ({ resource, id }): Promise<GetOneResponse<R2FileRecord>> => {
 	try {
-	  const file = (params.variables as any).file;
+	  const response = await fetch(`${R2_API_URL}/${id}`, {
+		headers: getAuthHeaders(),
+	  });
+	  
+	  if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	  }
+	  
+	  const data = await response.json();
+	  return { 
+		data: {
+		  id: data.key,
+		  key: data.key,
+		  size: data.size,
+		  lastModified: data.lastModified,
+		  etag: data.etag,
+		  contentType: data.contentType
+		}
+	  };
+	} catch (error) {
+	  console.error('R2 getOne error:', error);
+	  throw error;
+	}
+  },
+
+  create: async ({ resource, variables }): Promise<CreateResponse<R2FileRecord>> => {
+	try {
+	  const file = (variables as any).file;
 	  if (!file) {
 		throw new Error('No file provided');
 	  }
@@ -210,9 +191,10 @@ const r2Provider: DataProvider = {
 		  id: file.name,
 		  key: file.name,
 		  size: file.size,
-		  contentType: file.type,
-		  lastModified: new Date().toISOString()
-		} as TData,
+		  lastModified: new Date().toISOString(),
+		  etag: response.headers.get('etag') || '',
+		  contentType: file.type
+		}
 	  };
 	} catch (error) {
 	  console.error('R2 create error:', error);
@@ -220,11 +202,9 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  deleteOne: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: DeleteOneParams<TVariables>
-  ): Promise<DeleteOneResponse<TData>> => {
+  deleteOne: async ({ resource, id }): Promise<DeleteOneResponse<R2FileRecord>> => {
 	try {
-	  const response = await fetch(`${R2_API_URL}/${params.id}`, {
+	  const response = await fetch(`${R2_API_URL}/${id}`, {
 		method: 'DELETE',
 		headers: getAuthHeaders(),
 	  });
@@ -234,7 +214,7 @@ const r2Provider: DataProvider = {
 	  }
 	  
 	  return {
-		data: {} as TData,
+		data: { id } as R2FileRecord
 	  };
 	} catch (error) {
 	  console.error('R2 deleteOne error:', error);
@@ -242,7 +222,7 @@ const r2Provider: DataProvider = {
 	}
   },
 
-  getMany: async ({ resource, ids }) => {
+  getMany: async ({ resource, ids }): Promise<{ data: R2FileRecord[] }> => {
 	try {
 	  const data = await Promise.all(
 		ids.map(async (id) => {
@@ -252,7 +232,15 @@ const r2Provider: DataProvider = {
 		  if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
 		  }
-		  return response.json();
+		  const fileData = await response.json();
+		  return {
+			id: fileData.key,
+			key: fileData.key,
+			size: fileData.size,
+			lastModified: fileData.lastModified,
+			etag: fileData.etag,
+			contentType: fileData.contentType
+		  };
 		})
 	  );
 	  return { data };
@@ -264,19 +252,15 @@ const r2Provider: DataProvider = {
 
   getApiUrl: () => R2_API_URL,
 
-  custom: async <TData extends BaseRecord = BaseRecord, TQuery = unknown, TPayload = unknown>(
-	params: CustomParams<TQuery, TPayload>
-  ): Promise<CustomResponse<TData>> => {
+  custom: async <TData extends BaseRecord = R2FileRecord>(): Promise<CustomResponse<TData>> => {
 	return {
 	  data: {} as TData,
 	};
   },
 
-  update: async <TData extends BaseRecord = BaseRecord, TVariables = {}>(
-	params: UpdateParams<TVariables>
-  ): Promise<UpdateResponse<TData>> => {
+  update: async (): Promise<UpdateResponse<R2FileRecord>> => {
 	return {
-	  data: {} as TData,
+	  data: {} as R2FileRecord,
 	};
   },
 };
