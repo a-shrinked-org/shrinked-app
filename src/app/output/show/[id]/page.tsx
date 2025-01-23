@@ -9,14 +9,22 @@ import {
   Stack,
   Button,
   Text,
-  Divider
+  Divider,
+  LoadingOverlay
 } from '@mantine/core';
 import { IconDownload, IconArrowLeft } from '@tabler/icons-react';
+
+interface FileData {
+  key: string;
+  size: number;
+  uploaded: string;
+  contentType?: string;
+}
 
 export default function OutputShow({ params }: { params: { id: string } }) {
   const { list } = useNavigation();
   
-  const { data, isLoading } = useOne({
+  const { data, isLoading } = useOne<FileData>({
     resource: "output",
     id: decodeURIComponent(params.id),
     dataProviderName: "r2"
@@ -32,10 +40,31 @@ export default function OutputShow({ params }: { params: { id: string } }) {
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <Stack p="md" style={{ position: 'relative', minHeight: '200px' }}>
+        <LoadingOverlay visible={true} />
+      </Stack>
+    );
   }
 
   const file = data?.data;
+
+  if (!file) {
+    return (
+      <Stack p="md">
+        <Group>
+          <Button 
+            variant="default" 
+            onClick={() => list("output")}
+            leftSection={<IconArrowLeft size={14} />}
+          >
+            Back to List
+          </Button>
+        </Group>
+        <Text>File not found</Text>
+      </Stack>
+    );
+  }
 
   return (
     <Stack p="md">
@@ -90,10 +119,12 @@ export default function OutputShow({ params }: { params: { id: string } }) {
             </Text>
           </Group>
 
-          <Group>
-            <Text fw={500}>Content Type:</Text>
-            <Text>{file.contentType || 'Unknown'}</Text>
-          </Group>
+          {file.contentType && (
+            <Group>
+              <Text fw={500}>Content Type:</Text>
+              <Text>{file.contentType}</Text>
+            </Group>
+          )}
         </Stack>
       </Card>
     </Stack>
