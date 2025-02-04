@@ -1,11 +1,9 @@
 "use client";
-
 import { Refine, type AuthProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React from "react";
-
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import "@styles/global.css";
@@ -25,7 +23,7 @@ export const RefineContext = (
 type AppProps = {};
 
 const App = (props: React.PropsWithChildren<AppProps>) => {
-  const { data, status } = useSession();
+  const { data: session, status } = useSession();
   const to = usePathname();
 
   if (status === "loading") {
@@ -38,7 +36,6 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
         callbackUrl: to ? to.toString() : "/",
         redirect: true,
       });
-
       return {
         success: true,
       };
@@ -48,7 +45,6 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
         redirect: true,
         callbackUrl: "/login",
       });
-
       return {
         success: true,
       };
@@ -59,7 +55,6 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
           logout: true,
         };
       }
-
       return {
         error,
       };
@@ -71,7 +66,6 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
           redirectTo: "/login",
         };
       }
-
       return {
         authenticated: true,
       };
@@ -80,14 +74,15 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
       return null;
     },
     getIdentity: async () => {
-      if (data?.user) {
-        const { user } = data;
+      if (session?.user) {
         return {
-          name: user.name,
-          avatar: user.image,
+          name: session.user.name,
+          avatar: session.user.image,
+          // Add token for Auth0 status check
+          token: session.accessToken as string,
+          email: session.user.email,
         };
       }
-
       return null;
     },
   };
@@ -116,7 +111,7 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
               show: "/output/show/:id",
               meta: {
                 canDelete: true,
-                dataProviderName: "r2" // This will use the R2 provider
+                dataProviderName: "r2"
               },
             },
             {
@@ -128,7 +123,8 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
               meta: {
                 canDelete: true,
               },
-              {
+            },
+            {
               name: "logic",
               list: "/logic",
               create: "/logic/create",
@@ -137,7 +133,7 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
               meta: {
                 canDelete: true,
               },
-            },
+            }
           ]}
           options={{
             syncWithLocation: true,
