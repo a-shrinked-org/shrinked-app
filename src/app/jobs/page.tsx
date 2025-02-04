@@ -1,9 +1,9 @@
 "use client";
 
-import { GetManyResponse, useMany, useNavigation } from "@refinedev/core";
+import { GetManyResponse, useMany, useNavigation, useGetIdentity } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
-import React from "react";
+import React, { useState } from "react";
 import { 
   Table, 
   Button, 
@@ -14,11 +14,21 @@ import {
   NumberInput,
   Stack,
   ActionIcon,
-  Pagination
+  Modal,
+  Text,
+  LoadingOverlay
 } from '@mantine/core';
 import { IconEye, IconEdit, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
 export default function JobList() {
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusResult, setStatusResult] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { data: identity } = useGetIdentity<{
+    token: string;
+  }>();
+
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
       {
@@ -121,8 +131,7 @@ export default function JobList() {
 
   const { data: categoryData } = useMany({
     resource: "categories",
-    ids:
-      tableData?.data?.map((item) => item?.category?.id).filter(Boolean) ?? [],
+    ids: tableData?.data?.map((item) => item?.category?.id).filter(Boolean) ?? [],
     queryOptions: {
       enabled: !!tableData?.data,
     },
@@ -136,11 +145,62 @@ export default function JobList() {
     },
   }));
 
+  const checkStatus = async () => {
+    setIsLoading(true);
+    setIsStatusModalOpen(true);
+    
+    try {
+      const response = await fetch("https://sandbox.temporary.name/status", {
+        headers: {
+          Authorization: `Bearer ${identity?.token}`,
+        },
+      });
+
+      if (response.status === 502) {
+        setStatusResult("Our servers are currently undergoing maintenance. Please try again later.");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setStatusResult(`Current conversion status: ${result.status}`);
+    } catch (error) {
+      console.error("Error checking status:", error);
+      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Stack p="md">
+      <Modal
+        opened={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        title="Conversion Status"
+        size="md"
+      >
+        <LoadingOverlay visible={isLoading} />
+        <Text>{statusResult || 'Checking status...'}</Text>
+      </Modal>
+
       <Group justify="space-between" align="center">
         <Title order={2}>Jobs List</Title>
-        <Button onClick={() => create("jobs")}>Create Job</Button>
+        <Group>
+          <Button 
+            variant="light" 
+            color="blue" 
+            onClick={checkStatus}
+            disabled={!identity?.token}
+            loading={isLoading}
+          >
+            Check Conversion Status
+          </Button>
+          <Button onClick={() => create("jobs")}>Create Job</Button>
+        </Group>
       </Group>
 
       <Box style={{ overflowX: 'auto' }}>

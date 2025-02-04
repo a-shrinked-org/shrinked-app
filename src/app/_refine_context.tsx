@@ -128,6 +128,15 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
               meta: {
                 canDelete: true,
               },
+              {
+              name: "logic",
+              list: "/logic",
+              create: "/logic/create",
+              edit: "/logic/edit/:id",
+              show: "/logic/show/:id",
+              meta: {
+                canDelete: true,
+              },
             },
           ]}
           options={{
