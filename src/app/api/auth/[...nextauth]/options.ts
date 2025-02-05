@@ -11,8 +11,8 @@ interface CustomSession extends Session {
   accessToken?: string;
 }
 
-// Change to export const
-export const authOptions = {
+// Keep both export types so it works with both import styles
+const authOptions = {
   providers: [
     Auth0Provider({
       clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
@@ -40,3 +40,7 @@ export const authOptions = {
     }
   }
 };
+
+// Export both ways to support different import styles
+export { authOptions };
+export default authOptions;
