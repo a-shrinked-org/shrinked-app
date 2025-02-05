@@ -9,6 +9,7 @@ import { dataProvider } from "@providers/data-provider";
 import "@styles/global.css";
 
 type RefineContextProps = {};
+<reference path="../@types/next-auth.d.ts" />
 
 export const RefineContext = (
   props: React.PropsWithChildren<RefineContextProps>
@@ -78,8 +79,7 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
         return {
           name: session.user.name,
           avatar: session.user.image,
-          // Add token for Auth0 status check
-          token: session.accessToken as string,
+          token: token || "", // Provide fallback empty string
           email: session.user.email,
         };
       }
