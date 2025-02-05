@@ -9,13 +9,14 @@ import { dataProvider } from "@providers/data-provider";
 import { Session } from "next-auth";
 import "@styles/global.css";
 
-interface CustomSession extends Session {
+// Modified interface to properly extend Session
+interface CustomSession extends Omit<Session, "user"> {
   accessToken?: string;
-  user?: {
+  user: {
     name?: string | null;
     email?: string | null;
     image?: string | null;
-  }
+  };
 }
 
 type RefineContextProps = {};
@@ -39,7 +40,6 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
   };
   const to = usePathname();
 
-  // Debug logs for session updates
   React.useEffect(() => {
     console.log("Session state:", {
       status,
@@ -97,14 +97,13 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
     },
     getIdentity: async () => {
       if (session?.user) {
-        // Debug log for token
         console.log("GetIdentity called with token:", session.accessToken);
         
         return {
-          name: session.user.name || "",
-          avatar: session.user.image || "",
-          token: session.accessToken || "",
-          email: session.user.email || "",
+          name: session.user.name ?? "",
+          avatar: session.user.image ?? "",
+          token: session.accessToken ?? "", 
+          email: session.user.email ?? "",
         };
       }
       return null;
