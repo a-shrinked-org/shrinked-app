@@ -68,7 +68,7 @@ export default function JobList() {
       setIsLoading(false);
     }
   }, [identity?.token]);
-
+  
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
       {
@@ -184,36 +184,6 @@ export default function JobList() {
       categoryData,
     },
   }));
-
-  const checkStatus = async () => {
-    setIsLoading(true);
-    setIsStatusModalOpen(true);
-    
-    try {
-      const response = await fetch("https://sandbox.temporary.name/status", {
-        headers: {
-          Authorization: `Bearer ${identity?.token}`,
-        },
-      });
-
-      if (response.status === 502) {
-        setStatusResult("Our servers are currently undergoing maintenance. Please try again later.");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      setStatusResult(`Current conversion status: ${result.status}`);
-    } catch (error) {
-      console.error("Error checking status:", error);
-      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
   <Stack p="md">
