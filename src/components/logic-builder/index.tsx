@@ -1,12 +1,16 @@
+// src/components/logic-builder/index.tsx
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import ReactFlow, {
   Panel,
   Connection,
+  Node,
+  Edge,
   addEdge,
   useNodesState,
   useEdgesState,
+  XYPosition,
 } from '@reactflow/core';
 import { Background } from '@reactflow/background';
 import { Controls } from '@reactflow/controls';
@@ -32,8 +36,33 @@ const nodeTypes = {
   email: EmailNode,
 };
 
+const getNewNodePosition = (nodes: Node<NodeData>[]): XYPosition => {
+  const position = { x: 100, y: 100 };
+  if (nodes.length > 0) {
+    const lastNode = nodes[nodes.length - 1];
+    position.x = lastNode.position.x + 50;
+    position.y = lastNode.position.y + 50;
+  }
+  return position;
+};
+
+const getDefaultConfig = (type: string) => {
+  switch (type) {
+    case 'upload':
+      return { maxSize: '10MB', allowedTypes: ['pdf', 'docx'] };
+    case 'ai':
+      return { model: 'text-analysis-v2' };
+    case 'pdf':
+      return { template: 'default-template' };
+    case 'email':
+      return { template: 'default-email' };
+    default:
+      return {};
+  }
+};
+
 export default function LogicBuilder() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const onConnect = useCallback(
@@ -55,31 +84,6 @@ export default function LogicBuilder() {
     };
     setNodes((nds) => [...nds, newNode]);
   }, [nodes, setNodes]);
-
-  const getDefaultConfig = (type: string) => {
-    switch (type) {
-      case 'upload':
-        return { maxSize: '10MB', allowedTypes: ['pdf', 'docx'] };
-      case 'ai':
-        return { model: 'text-analysis-v2' };
-      case 'pdf':
-        return { template: 'default-template' };
-      case 'email':
-        return { template: 'default-email' };
-      default:
-        return {};
-    }
-  };
-
-  const getNewNodePosition = (existingNodes: Node[]) => {
-    const position = { x: 100, y: 100 };
-    if (existingNodes.length > 0) {
-      const lastNode = existingNodes[existingNodes.length - 1];
-      position.x = lastNode.position.x + 50;
-      position.y = lastNode.position.y + 50;
-    }
-    return position;
-  };
 
   const saveFlow = async () => {
     try {
@@ -116,41 +120,41 @@ export default function LogicBuilder() {
           <Background />
           <Controls />
           
-          <Panel position="top-left" className="p-4 bg-dark-8 rounded-lg">
+          <Panel position="top-left" className="p-4" style={{ backgroundColor: 'var(--mantine-color-dark-8)' }}>
             <Title order={4} className="mb-4">Add Nodes</Title>
             <div className="flex flex-col space-y-2">
               <Button
                 onClick={() => addNode('upload')}
                 leftIcon={<Plus size={16} />}
-                className="w-full"
+                fullWidth
               >
                 File Upload
               </Button>
               <Button
                 onClick={() => addNode('ai')}
                 leftIcon={<Plus size={16} />}
-                className="w-full"
+                fullWidth
               >
                 AI Processing
               </Button>
               <Button
                 onClick={() => addNode('pdf')}
                 leftIcon={<Plus size={16} />}
-                className="w-full"
+                fullWidth
               >
                 PDF Generation
               </Button>
               <Button
                 onClick={() => addNode('email')}
                 leftIcon={<Plus size={16} />}
-                className="w-full"
+                fullWidth
               >
                 Email
               </Button>
             </div>
           </Panel>
 
-          <Panel position="top-right" className="p-4 bg-dark-8 rounded-lg">
+          <Panel position="top-right" className="p-4" style={{ backgroundColor: 'var(--mantine-color-dark-8)' }}>
             <div className="flex space-x-2">
               <Tooltip label="Save Flow">
                 <ActionIcon onClick={saveFlow} size="lg">

@@ -2,7 +2,7 @@
 
 import { Node, Edge } from '@reactflow/core';
 
-export type NodeData = {
+export interface NodeData {
   label: string;
   description?: string;
   config?: {
@@ -12,10 +12,9 @@ export type NodeData = {
     template?: string;
     [key: string]: any;
   };
-};
+}
 
 export type NodeType = 'upload' | 'ai' | 'pdf' | 'email';
 
 export type LogicNode = Node<NodeData>;
-
 export type LogicEdge = Edge;
