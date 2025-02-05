@@ -18,6 +18,11 @@
     "@mantine/core": "^7.16.0",
     "@mantine/form": "^7.16.0",
     "@mantine/hooks": "^7.16.0",
+    "@reactflow/core": "^11.10.4",
+    "@reactflow/node-resizer": "^2.3.1",
+    "@reactflow/background": "^11.3.6",
+    "@reactflow/controls": "^11.2.8",
+    "@reactflow/minimap": "^11.10.3",
     "@refinedev/cli": "^2.16.21",
     "@refinedev/core": "^4.47.1",
     "@refinedev/devtools": "^1.1.32",
@@ -29,10 +34,12 @@
     "@refinedev/simple-rest": "^5.0.1",
     "@tabler/icons-react": "^3.28.1",
     "@tanstack/react-table": "^8.2.6",
+    "lucide-react": "^0.358.0",
     "next": "^14.1.0",
     "next-auth": "^4.24.5",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@types/node": "^18.16.2",

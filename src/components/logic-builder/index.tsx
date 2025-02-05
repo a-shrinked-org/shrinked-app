@@ -1,106 +1,105 @@
+// components/logic-builder/index.tsx
+"use client";
+
 import React, { useState, useCallback } from 'react';
 import ReactFlow, {
-  Controls,
   Background,
-  applyEdgeChanges,
-  applyNodeChanges,
+  Controls,
+  Panel,
+  Edge,
+  Node,
+  Connection,
   addEdge,
-  Panel
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+  useNodesState,
+  useEdgesState,
+} from '@reactflow/core';
+import '@reactflow/core/dist/style.css';
 import { Paper, Title, Button, ActionIcon, Tooltip } from '@mantine/core';
 import { Plus, Save, PlayCircle } from 'lucide-react';
 
-// Custom Node Types
+import { UploadNode } from './nodes/UploadNode';
+import { AiNode } from './nodes/AiNode';
+import { PdfNode } from './nodes/PdfNode';
+import { EmailNode } from './nodes/EmailNode';
+import { type NodeData, type LogicNode, type LogicEdge } from '@/types/logic';
+
 const nodeTypes = {
-  trigger: TriggerNode,
-  process: ProcessNode,
-  output: OutputNode,
-  control: ControlNode,
+  upload: UploadNode,
+  ai: AiNode,
+  pdf: PdfNode,
+  email: EmailNode,
 };
 
-// Node Components
-function TriggerNode({ data }) {
-  return (
-    <div className="p-4 rounded-lg bg-blue-600 text-white">
-      <h3 className="text-lg font-semibold">{data.label}</h3>
-      <p className="text-sm">{data.description}</p>
-    </div>
-  );
-}
-
-function ProcessNode({ data }) {
-  return (
-    <div className="p-4 rounded-lg bg-green-600 text-white">
-      <h3 className="text-lg font-semibold">{data.label}</h3>
-      <p className="text-sm">{data.description}</p>
-    </div>
-  );
-}
-
-function OutputNode({ data }) {
-  return (
-    <div className="p-4 rounded-lg bg-purple-600 text-white">
-      <h3 className="text-lg font-semibold">{data.label}</h3>
-      <p className="text-sm">{data.description}</p>
-    </div>
-  );
-}
-
-function ControlNode({ data }) {
-  return (
-    <div className="p-4 rounded-lg bg-orange-600 text-white">
-      <h3 className="text-lg font-semibold">{data.label}</h3>
-      <p className="text-sm">{data.description}</p>
-    </div>
-  );
-}
-
-const LogicBuilder = () => {
-  const [nodes, setNodes] = useState([]);
-  const [edges, setEdges] = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null);
-
-  const onNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    []
-  );
-
-  const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    []
-  );
+export default function LogicBuilder() {
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    []
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges]
   );
 
-  const addNode = (type) => {
-    const newNode = {
+  const addNode = useCallback((type: string) => {
+    const position = getNewNodePosition(nodes);
+    const newNode: Node<NodeData> = {
       id: `${type}-${nodes.length + 1}`,
       type,
-      position: { x: 100, y: 100 },
+      position,
       data: { 
         label: `New ${type} Node`,
-        description: `Description for ${type} node` 
+        description: `Description for ${type} node`,
+        config: getDefaultConfig(type)
       },
     };
-    setNodes([...nodes, newNode]);
+    setNodes((nds) => [...nds, newNode]);
+  }, [nodes, setNodes]);
+
+  const getDefaultConfig = (type: string) => {
+    switch (type) {
+      case 'upload':
+        return { maxSize: '10MB', allowedTypes: ['pdf', 'docx'] };
+      case 'ai':
+        return { model: 'text-analysis-v2' };
+      case 'pdf':
+        return { template: 'default-template' };
+      case 'email':
+        return { template: 'default-email' };
+      default:
+        return {};
+    }
   };
 
-  const saveFlow = () => {
-    // TODO: Implement save logic
-    console.log('Flow:', { nodes, edges });
+  const getNewNodePosition = (existingNodes: Node[]) => {
+    const position = { x: 100, y: 100 };
+    if (existingNodes.length > 0) {
+      const lastNode = existingNodes[existingNodes.length - 1];
+      position.x = lastNode.position.x + 50;
+      position.y = lastNode.position.y + 50;
+    }
+    return position;
   };
 
-  const runFlow = () => {
-    // TODO: Implement flow execution
-    console.log('Running flow');
+  const saveFlow = async () => {
+    try {
+      const flow = { nodes, edges };
+      console.log('Saving flow:', flow);
+      // TODO: API integration
+    } catch (error) {
+      console.error('Error saving flow:', error);
+    }
+  };
+
+  const runFlow = async () => {
+    try {
+      console.log('Running flow');
+      // TODO: API integration
+    } catch (error) {
+      console.error('Error running flow:', error);
+    }
   };
 
   return (
-    <Paper className="h-screen w-full">
+    <Paper className="h-[800px] w-full">
       <div className="h-full w-full relative">
         <ReactFlow
           nodes={nodes}
@@ -110,46 +109,45 @@ const LogicBuilder = () => {
           onConnect={onConnect}
           nodeTypes={nodeTypes}
           fitView
+          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         >
           <Background />
           <Controls />
           
-          {/* Node Type Panel */}
           <Panel position="top-left" className="p-4 bg-dark-8 rounded-lg">
             <Title order={4} className="mb-4">Add Nodes</Title>
             <div className="flex flex-col space-y-2">
               <Button
-                onClick={() => addNode('trigger')}
+                onClick={() => addNode('upload')}
                 leftIcon={<Plus size={16} />}
                 className="w-full"
               >
-                Trigger
+                File Upload
               </Button>
               <Button
-                onClick={() => addNode('process')}
+                onClick={() => addNode('ai')}
                 leftIcon={<Plus size={16} />}
                 className="w-full"
               >
-                Process
+                AI Processing
               </Button>
               <Button
-                onClick={() => addNode('output')}
+                onClick={() => addNode('pdf')}
                 leftIcon={<Plus size={16} />}
                 className="w-full"
               >
-                Output
+                PDF Generation
               </Button>
               <Button
-                onClick={() => addNode('control')}
+                onClick={() => addNode('email')}
                 leftIcon={<Plus size={16} />}
                 className="w-full"
               >
-                Control
+                Email
               </Button>
             </div>
           </Panel>
 
-          {/* Actions Panel */}
           <Panel position="top-right" className="p-4 bg-dark-8 rounded-lg">
             <div className="flex space-x-2">
               <Tooltip label="Save Flow">
@@ -168,6 +166,4 @@ const LogicBuilder = () => {
       </div>
     </Paper>
   );
-};
-
-export default LogicBuilder;
+}
