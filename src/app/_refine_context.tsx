@@ -6,47 +6,17 @@ import { usePathname } from "next/navigation";
 import React from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
-import { Session } from "next-auth";
 import "@styles/global.css";
 
-// Modified interface to properly extend Session
-interface CustomSession extends Omit<Session, "user"> {
-  accessToken?: string;
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+  }
 }
 
-type RefineContextProps = {};
-
-export const RefineContext = (
-  props: React.PropsWithChildren<RefineContextProps>
-) => {
-  return (
-    <SessionProvider>
-      <App {...props} />
-    </SessionProvider>
-  );
-};
-
-type AppProps = {};
-
-const App = (props: React.PropsWithChildren<AppProps>) => {
-  const { data: session, status } = useSession() as {
-    data: CustomSession | null;
-    status: "loading" | "authenticated" | "unauthenticated"
-  };
+const App = (props: React.PropsWithChildren<{}>) => {
+  const { data: session, status } = useSession();
   const to = usePathname();
-
-  React.useEffect(() => {
-    console.log("Session state:", {
-      status,
-      accessToken: session?.accessToken,
-      user: session?.user
-    });
-  }, [session, status]);
 
   if (status === "loading") {
     return <span>loading...</span>;
@@ -92,18 +62,14 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
         authenticated: true,
       };
     },
-    getPermissions: async () => {
-      return null;
-    },
+    getPermissions: async () => null,
     getIdentity: async () => {
       if (session?.user) {
-        console.log("GetIdentity called with token:", session.accessToken);
-        
         return {
-          name: session.user.name ?? "",
-          avatar: session.user.image ?? "",
-          token: session.accessToken ?? "", 
-          email: session.user.email ?? "",
+          name: session.user.name,
+          avatar: session.user.image,
+          token: session.accessToken,
+          email: session.user.email,
         };
       }
       return null;
