@@ -1,6 +1,6 @@
 import Auth0Provider from "next-auth/providers/auth0";
-import type { NextAuthOptions, Session } from "next-auth";
-import type { JWT } from "next-auth/jwt";
+import { JWT } from "next-auth/jwt";
+import { Session } from "next-auth";
 
 interface CustomToken extends JWT {
   accessToken?: string;
@@ -10,7 +10,7 @@ interface CustomSession extends Session {
   accessToken?: string;
 }
 
-export const authOptions: NextAuthOptions = {
+const authOptions = {
   providers: [
     Auth0Provider({
       clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
@@ -24,18 +24,18 @@ export const authOptions: NextAuthOptions = {
       }
     }),
   ],
+  // Using the hardcoded secret that worked before
+  secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
   callbacks: {
-    async jwt({ token, account }): Promise<CustomToken> {
-      if (account && account.access_token) {
+    async jwt({ token, account }: { token: CustomToken; account: any }) {
+      if (account) {
         token.accessToken = account.access_token;
       }
-      return token as CustomToken;
+      return token;
     },
-    async session({ session, token }): Promise<CustomSession> {
-      return {
-        ...session,
-        accessToken: (token as CustomToken).accessToken
-      };
+    async session({ session, token }: { session: CustomSession; token: CustomToken }) {
+      session.accessToken = token.accessToken;
+      return session;
     }
   }
 };
