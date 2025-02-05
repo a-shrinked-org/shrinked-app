@@ -3,7 +3,7 @@
 import { GetManyResponse, useMany, useNavigation, useGetIdentity } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { 
   Table, 
   Button, 
@@ -26,8 +26,48 @@ export default function JobList() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { data: identity } = useGetIdentity<{
-    token: string;
+    token?: string;
+    email?: string | null;
   }>();
+
+  // Add console logs to debug
+  console.log("Identity data:", identity);
+
+  const checkStatus = useCallback(async () => {
+    setIsLoading(true);
+    setIsStatusModalOpen(true);
+    console.log("Checking status with token:", identity?.token);
+    
+    try {
+      const response = await fetch("https://sandbox.temporary.name/status", {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      console.log("Response status:", response.status);
+
+      if (response.status === 502) {
+        setStatusResult("Our servers are currently undergoing maintenance. Please try again later.");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Status result:", result);
+      setStatusResult(`Current conversion status: ${result.status}`);
+    } catch (error) {
+      console.error("Error checking status:", error);
+      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [identity?.token]);
 
   const columns = React.useMemo<ColumnDef<any>[]>(
     () => [
@@ -176,32 +216,33 @@ export default function JobList() {
   };
 
   return (
-    <Stack p="md">
-      <Modal
-        opened={isStatusModalOpen}
-        onClose={() => setIsStatusModalOpen(false)}
-        title="Conversion Status"
-        size="md"
-      >
-        <LoadingOverlay visible={isLoading} />
-        <Text>{statusResult || 'Checking status...'}</Text>
-      </Modal>
-
-      <Group justify="space-between" align="center">
-        <Title order={2}>Jobs List</Title>
-        <Group>
-          <Button 
-            variant="light" 
-            color="blue" 
-            onClick={checkStatus}
-            disabled={!identity?.token}
-            loading={isLoading}
-          >
-            Check Conversion Status
-          </Button>
-          <Button onClick={() => create("jobs")}>Create Job</Button>
-        </Group>
+  <Stack p="md">
+    <Modal
+      opened={isStatusModalOpen}
+      onClose={() => setIsStatusModalOpen(false)}
+      title="Conversion Status"
+      size="md"
+    >
+      <LoadingOverlay visible={isLoading} />
+      <Text>{statusResult || 'Checking status...'}</Text>
+    </Modal>
+  
+    <Group justify="space-between" align="center">
+      <Title order={2}>Jobs List</Title>
+      <Group>
+        <Button 
+          variant="light" 
+          color="blue" 
+          onClick={checkStatus}
+          loading={isLoading}
+          // Modified disabled condition
+          disabled={!identity?.token}
+        >
+          Check Conversion Status
+        </Button>
+        <Button onClick={() => create("jobs")}>Create Job</Button>
       </Group>
+    </Group>
 
       <Box style={{ overflowX: 'auto' }}>
         <Table highlightOnHover>
