@@ -2,7 +2,7 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from '@reactflow/core';
 import { Paper, Text, Badge } from '@mantine/core';
-import { type NodeData } from '@/types/logic';
+import type { NodeData } from '../../../types/logic';
 
 export type BaseNodeProps = NodeProps<NodeData> & {
   className?: string;

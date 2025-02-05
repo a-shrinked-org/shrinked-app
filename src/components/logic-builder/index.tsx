@@ -3,8 +3,6 @@
 import React, { useState, useCallback } from 'react';
 import ReactFlow, {
   Panel,
-  Edge,
-  Node,
   Connection,
   addEdge,
   useNodesState,
@@ -25,7 +23,7 @@ import { UploadNode } from './nodes/UploadNode';
 import { AiNode } from './nodes/AiNode';
 import { PdfNode } from './nodes/PdfNode';
 import { EmailNode } from './nodes/EmailNode';
-import { type NodeData, type LogicNode, type LogicEdge } from '@/types/logic';
+import type { NodeData } from '../../types/logic';
 
 const nodeTypes = {
   upload: UploadNode,
