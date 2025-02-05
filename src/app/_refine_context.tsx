@@ -14,6 +14,18 @@ declare module "next-auth" {
   }
 }
 
+type RefineContextProps = {};
+
+export const RefineContext = (
+  props: React.PropsWithChildren<RefineContextProps>
+) => {
+  return (
+    <SessionProvider>
+      <App {...props} />
+    </SessionProvider>
+  );
+};
+
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();

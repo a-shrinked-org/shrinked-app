@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import React, { Suspense } from "react";
-import { RefineContext } from "./_refine_context";
+import { RefineContext } from './_refine_context';
 import { MantineProvider, createTheme, ColorSchemeScript } from '@mantine/core';
 import '@mantine/core/styles.css';
 
