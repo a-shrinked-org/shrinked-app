@@ -6,7 +6,17 @@ import { usePathname } from "next/navigation";
 import React from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
+import { Session } from "next-auth";
 import "@styles/global.css";
+
+interface CustomSession extends Session {
+  accessToken?: string;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  }
+}
 
 type RefineContextProps = {};
 
@@ -23,8 +33,20 @@ export const RefineContext = (
 type AppProps = {};
 
 const App = (props: React.PropsWithChildren<AppProps>) => {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession() as {
+    data: CustomSession | null;
+    status: "loading" | "authenticated" | "unauthenticated"
+  };
   const to = usePathname();
+
+  // Debug logs for session updates
+  React.useEffect(() => {
+    console.log("Session state:", {
+      status,
+      accessToken: session?.accessToken,
+      user: session?.user
+    });
+  }, [session, status]);
 
   if (status === "loading") {
     return <span>loading...</span>;
@@ -75,11 +97,14 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
     },
     getIdentity: async () => {
       if (session?.user) {
+        // Debug log for token
+        console.log("GetIdentity called with token:", session.accessToken);
+        
         return {
-          name: session.user.name,
-          avatar: session.user.image,
-          token: session.accessToken || "", 
-          email: session.user.email,
+          name: session.user.name || "",
+          avatar: session.user.image || "",
+          token: session.accessToken || "",
+          email: session.user.email || "",
         };
       }
       return null;
@@ -147,3 +172,5 @@ const App = (props: React.PropsWithChildren<AppProps>) => {
     </>
   );
 };
+
+export default RefineContext;
