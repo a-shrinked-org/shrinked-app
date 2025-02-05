@@ -31,36 +31,56 @@ export default function JobList() {
   }>();
 
   // Add console logs to debug
-  console.log("Identity data:", identity);
+  React.useEffect(() => {
+    console.log("Identity data updated:", identity);
+  }, [identity?.token]);
 
   const checkStatus = useCallback(async () => {
     setIsLoading(true);
     setIsStatusModalOpen(true);
-    console.log("Checking status with token:", identity?.token);
     
     try {
-      const response = await fetch("https://sandbox.temporary.name/status", {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`,
-          'Content-Type': 'application/json'
-        },
-      });
-
-      console.log("Response status:", response.status);
-
-      if (response.status === 502) {
-        setStatusResult("Our servers are currently undergoing maintenance. Please try again later.");
-        return;
+      // Make both requests in parallel
+      const [sandboxResponse, prodResponse] = await Promise.all([
+        fetch("https://sandbox.temporary.name/status", {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity?.token}`,
+            'Content-Type': 'application/json'
+          },
+        }),
+        fetch("https://temporary.name/status", {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity?.token}`,
+            'Content-Type': 'application/json'
+          },
+        })
+      ]);
+  
+      let combinedStatus = "";
+  
+      // Handle sandbox response
+      if (sandboxResponse.status === 502) {
+        combinedStatus += "Sandbox: Server is under maintenance.\n";
+      } else if (!sandboxResponse.ok) {
+        combinedStatus += `Sandbox: Error ${sandboxResponse.status}\n`;
+      } else {
+        const sandboxResult = await sandboxResponse.json();
+        combinedStatus += `Sandbox: ${sandboxResult.status}\n`;
       }
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+  
+      // Handle production response
+      if (prodResponse.status === 502) {
+        combinedStatus += "Production: Server is under maintenance.";
+      } else if (!prodResponse.ok) {
+        combinedStatus += `Production: Error ${prodResponse.status}`;
+      } else {
+        const prodResult = await prodResponse.json();
+        combinedStatus += `Production: ${prodResult.status}`;
       }
-
-      const result = await response.json();
-      console.log("Status result:", result);
-      setStatusResult(`Current conversion status: ${result.status}`);
+  
+      setStatusResult(combinedStatus);
     } catch (error) {
       console.error("Error checking status:", error);
       setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -187,15 +207,15 @@ export default function JobList() {
 
   return (
   <Stack p="md">
-    <Modal
-      opened={isStatusModalOpen}
-      onClose={() => setIsStatusModalOpen(false)}
-      title="Conversion Status"
-      size="md"
-    >
-      <LoadingOverlay visible={isLoading} />
-      <Text>{statusResult || 'Checking status...'}</Text>
-    </Modal>
+  <Modal
+    opened={isStatusModalOpen}
+    onClose={() => setIsStatusModalOpen(false)}
+    title="Conversion Status"
+    size="md"
+  >
+    <LoadingOverlay visible={isLoading} />
+    <Text style={{ whiteSpace: 'pre-line' }}>{statusResult || 'Checking status...'}</Text>
+  </Modal>
   
     <Group justify="space-between" align="center">
       <Title order={2}>Jobs List</Title>
