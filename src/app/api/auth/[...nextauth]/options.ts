@@ -6,12 +6,16 @@ interface CustomToken extends JWT {
   accessToken?: string;
 }
 
-interface CustomSession extends Session {
+interface CustomSession extends Omit<Session, "user"> {
   accessToken?: string;
+  user: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
 }
 
 const authOptions = {
-  debug: true, // Add this for debugging
   providers: [
     Auth0Provider({
       clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
@@ -29,33 +33,28 @@ const authOptions = {
   ],
   secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
   callbacks: {
-    async jwt({ token, account, user }: { token: CustomToken; account: any; user: any }) {
-      // Initial sign in
-      if (account && user) {
-        console.log("JWT callback - initial sign in:", { account, user });
-        return {
-          ...token,
-          accessToken: account.access_token,
-        };
+    async jwt({ token, account }: { token: CustomToken; account: any }) {
+      if (account) {
+        token.accessToken = account.access_token;
       }
-
-      // Return previous token if the access token has not expired yet
       return token;
     },
     async session({ session, token }: { session: CustomSession; token: CustomToken }) {
-      console.log("Session callback - token:", token);
-      
       session.accessToken = token.accessToken;
-      console.log("Session callback - modified session:", session);
-      
       return session;
     },
   },
-  // Add these events for debugging
+  // Events with proper type declarations
   events: {
-    async signIn(message) { console.log("SignIn event:", message); },
-    async signOut(message) { console.log("SignOut event:", message); },
-    async session(message) { console.log("Session event:", message); }
+    async signIn(message: { user: any; account: any; profile: any; isNewUser?: boolean }) {
+      console.log("SignIn event:", message);
+    },
+    async signOut(message: { session: any; trigger: string }) {
+      console.log("SignOut event:", message);
+    },
+    async session(message: { session: any; token: any }) {
+      console.log("Session event:", message);
+    }
   }
 };
 
