@@ -1,10 +1,7 @@
-// components/logic-builder/index.tsx
-"use client";
+'use client';
 
 import React, { useState, useCallback } from 'react';
 import ReactFlow, {
-  Background,
-  Controls,
   Panel,
   Edge,
   Node,
@@ -13,10 +10,17 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
 } from '@reactflow/core';
-import '@reactflow/core/dist/style.css';
+import { Background } from '@reactflow/background';
+import { Controls } from '@reactflow/controls';
 import { Paper, Title, Button, ActionIcon, Tooltip } from '@mantine/core';
 import { Plus, Save, PlayCircle } from 'lucide-react';
 
+// Import styles
+import '@reactflow/core/dist/style.css';
+import '@reactflow/controls/dist/style.css';
+import '@reactflow/background/dist/style.css';
+
+// Node imports
 import { UploadNode } from './nodes/UploadNode';
 import { AiNode } from './nodes/AiNode';
 import { PdfNode } from './nodes/PdfNode';

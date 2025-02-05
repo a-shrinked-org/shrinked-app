@@ -2,27 +2,27 @@
 export type NodeData = {
   label: string;
   description?: string;
-  config?: Record<string, any>;
+  config?: {
+    maxSize?: string;
+    allowedTypes?: string[];
+    model?: string;
+    template?: string;
+    [key: string]: any;
+  };
 };
 
 export type NodeType = 'upload' | 'ai' | 'pdf' | 'email';
 
-export type LogicNode = {
+export interface LogicNode {
   id: string;
   type: NodeType;
   position: { x: number; y: number };
   data: NodeData;
-};
+}
 
-export type LogicEdge = {
+export interface LogicEdge {
   id: string;
   source: string;
   target: string;
   type?: string;
-};
-
-export type FlowTemplate = {
-  name: string;
-  nodes: LogicNode[];
-  edges: LogicEdge[];
-};
+}
