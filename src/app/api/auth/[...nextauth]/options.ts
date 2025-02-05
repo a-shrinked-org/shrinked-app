@@ -1,6 +1,14 @@
-// src/app/api/auth/[...nextauth]/options.ts
 import Auth0Provider from "next-auth/providers/auth0";
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Session, JWT } from "next-auth";
+
+// Define custom types for token and session
+interface CustomToken extends JWT {
+  accessToken?: string;
+}
+
+interface CustomSession extends Session {
+  accessToken?: string;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,15 +25,17 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account }): Promise<CustomToken> {
       if (account && account.access_token) {
         token.accessToken = account.access_token;
       }
-      return token;
+      return token as CustomToken;
     },
-    async session({ session, token }) {
-      session.accessToken = token.accessToken;
-      return session;
+    async session({ session, token }): Promise<CustomSession> {
+      return {
+        ...session,
+        accessToken: (token as CustomToken).accessToken
+      };
     }
   }
 };
