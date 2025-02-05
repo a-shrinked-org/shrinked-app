@@ -1,3 +1,4 @@
+// src/app/api/auth/[...nextauth]/options.ts
 import Auth0Provider from "next-auth/providers/auth0";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
@@ -10,7 +11,8 @@ interface CustomSession extends Session {
   accessToken?: string;
 }
 
-const authOptions = {
+// Change to export const
+export const authOptions = {
   providers: [
     Auth0Provider({
       clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
@@ -24,7 +26,6 @@ const authOptions = {
       }
     }),
   ],
-  // Using the hardcoded secret that worked before
   secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
   callbacks: {
     async jwt({ token, account }: { token: CustomToken; account: any }) {
@@ -39,5 +40,3 @@ const authOptions = {
     }
   }
 };
-
-export default authOptions;
