@@ -1,7 +1,7 @@
 import Auth0Provider from "next-auth/providers/auth0";
-import type { NextAuthOptions, Session, JWT } from "next-auth";
+import type { NextAuthOptions, Session } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 
-// Define custom types for token and session
 interface CustomToken extends JWT {
   accessToken?: string;
 }
