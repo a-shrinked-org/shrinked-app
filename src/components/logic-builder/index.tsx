@@ -1,104 +1,78 @@
 'use client';
 
 import React, { useCallback } from 'react';
-import ReactFlow, {
-  Connection,
-  Node,
-  Edge,
-  addEdge,
-  useNodesState,
-  useEdgesState,
-  XYPosition,
-  NodeTypes,
-  Panel
-} from '@reactflow/core';
+import type { Node, Edge, Connection } from 'reactflow';
+import ReactFlow from 'reactflow';
 import { Background } from '@reactflow/background';
 import { Controls } from '@reactflow/controls';
 import { Paper, Title, Button, ActionIcon, Tooltip } from '@mantine/core';
 import { Plus, Save, PlayCircle } from 'lucide-react';
 
-import '@reactflow/core/dist/style.css';
-import '@reactflow/controls/dist/style.css';
-import '@reactflow/background/dist/style.css';
+import 'reactflow/dist/style.css';
 
 import { UploadNode } from './nodes/UploadNode';
 import { AiNode } from './nodes/AiNode';
 import { PdfNode } from './nodes/PdfNode';
 import { EmailNode } from './nodes/EmailNode';
-import type { NodeData } from '../../types/logic';
 
-const nodeTypes: NodeTypes = {
+interface NodeData {
+  label: string;
+  description?: string;
+  config?: Record<string, any>;
+}
+
+const nodeTypes = {
   upload: UploadNode,
   ai: AiNode,
   pdf: PdfNode,
   email: EmailNode,
 };
 
-const getNewNodePosition = (nodes: Node<NodeData>[]): XYPosition => {
-  if (!nodes.length) return { x: 100, y: 100 };
-  
-  const lastNode = nodes[nodes.length - 1];
-  return {
-    x: (lastNode.position?.x || 0) + 50,
-    y: (lastNode.position?.y || 0) + 50,
-  };
-};
-
 export default function LogicBuilder() {
-  // Explicitly type the states
-  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes] = React.useState<Node<NodeData>[]>([]);
+  const [edges, setEdges] = React.useState<Edge[]>([]);
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
-  );
+  const onNodesChange = useCallback((changes: any) => {
+    setNodes((nds) => nds.map(node => {
+      const change = changes.find((c: any) => c.id === node.id);
+      if (change) {
+        return { ...node, ...change };
+      }
+      return node;
+    }));
+  }, []);
+
+  const onEdgesChange = useCallback((changes: any) => {
+    setEdges((eds) => eds.map(edge => {
+      const change = changes.find((c: any) => c.id === edge.id);
+      if (change) {
+        return { ...edge, ...change };
+      }
+      return edge;
+    }));
+  }, []);
+
+  const onConnect = useCallback((params: Connection) => {
+    setEdges((eds) => [...eds, { ...params, id: `e${eds.length}` }]);
+  }, []);
 
   const addNode = useCallback((type: string) => {
+    const position = { x: 100 + Math.random() * 100, y: 100 + Math.random() * 100 };
     const newNode: Node<NodeData> = {
       id: `${type}-${nodes.length + 1}`,
       type,
-      position: getNewNodePosition(nodes),
+      position,
       data: {
         label: `New ${type} Node`,
         description: `Description for ${type} node`,
-        config: getNodeConfig(type),
-      },
-    };
-    setNodes(nodes => [...nodes, newNode]);
-  }, [nodes, setNodes]);
-
-  const getNodeConfig = (type: string) => {
-    switch (type) {
-      case 'upload':
-        return {
+        config: {
           maxSize: '10MB',
           allowedTypes: ['pdf', 'docx'],
-        };
-      case 'ai':
-        return {
-          model: 'text-analysis-v2',
-        };
-      case 'pdf':
-        return {
-          template: 'default-template',
-        };
-      case 'email':
-        return {
-          template: 'default-email',
-        };
-      default:
-        return {};
-    }
-  };
-
-  const saveFlow = async () => {
-    console.log('Flow:', { nodes, edges });
-  };
-
-  const runFlow = async () => {
-    console.log('Running flow');
-  };
+        },
+      },
+    };
+    setNodes((nds) => [...nds, newNode]);
+  }, [nodes]);
 
   return (
     <Paper className="h-[800px] w-full">
@@ -111,12 +85,11 @@ export default function LogicBuilder() {
           onConnect={onConnect}
           nodeTypes={nodeTypes}
           fitView
-          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         >
           <Background />
           <Controls />
           
-          <Panel position="top-left" style={{ background: 'var(--mantine-color-dark-8)' }} className="p-4 rounded-lg">
+          <div className="absolute top-4 left-4 p-4 bg-dark-8 rounded-lg">
             <Title order={4} className="mb-4">Add Nodes</Title>
             <div className="flex flex-col space-y-2">
               {['upload', 'ai', 'pdf', 'email'].map((type) => (
@@ -130,22 +103,22 @@ export default function LogicBuilder() {
                 </Button>
               ))}
             </div>
-          </Panel>
+          </div>
 
-          <Panel position="top-right" style={{ background: 'var(--mantine-color-dark-8)' }} className="p-4 rounded-lg">
+          <div className="absolute top-4 right-4 p-4 bg-dark-8 rounded-lg">
             <div className="flex space-x-2">
               <Tooltip label="Save Flow">
-                <ActionIcon onClick={saveFlow} size="lg">
+                <ActionIcon onClick={() => console.log({ nodes, edges })} size="lg">
                   <Save size={20} />
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Run Flow">
-                <ActionIcon onClick={runFlow} size="lg">
+                <ActionIcon onClick={() => console.log('Running flow')} size="lg">
                   <PlayCircle size={20} />
                 </ActionIcon>
               </Tooltip>
             </div>
-          </Panel>
+          </div>
         </ReactFlow>
       </div>
     </Paper>
