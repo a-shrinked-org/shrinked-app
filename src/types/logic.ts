@@ -1,6 +1,5 @@
 // src/types/logic.ts
-
-import { Node, Edge } from '@reactflow/core';
+import type { Node, Edge } from '@reactflow/core';
 
 export interface NodeData {
   label: string;
@@ -10,11 +9,12 @@ export interface NodeData {
     allowedTypes?: string[];
     model?: string;
     template?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
 export type NodeType = 'upload' | 'ai' | 'pdf' | 'email';
 
+// These are helper types if needed
 export type LogicNode = Node<NodeData>;
 export type LogicEdge = Edge;

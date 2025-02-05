@@ -1,9 +1,7 @@
-// src/components/logic-builder/index.tsx
 'use client';
 
 import React, { useCallback } from 'react';
 import ReactFlow, {
-  Panel,
   Connection,
   Node,
   Edge,
@@ -11,25 +9,25 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   XYPosition,
+  NodeTypes,
+  Panel
 } from '@reactflow/core';
 import { Background } from '@reactflow/background';
 import { Controls } from '@reactflow/controls';
 import { Paper, Title, Button, ActionIcon, Tooltip } from '@mantine/core';
 import { Plus, Save, PlayCircle } from 'lucide-react';
 
-// Import styles
 import '@reactflow/core/dist/style.css';
 import '@reactflow/controls/dist/style.css';
 import '@reactflow/background/dist/style.css';
 
-// Node imports
 import { UploadNode } from './nodes/UploadNode';
 import { AiNode } from './nodes/AiNode';
 import { PdfNode } from './nodes/PdfNode';
 import { EmailNode } from './nodes/EmailNode';
 import type { NodeData } from '../../types/logic';
 
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
   upload: UploadNode,
   ai: AiNode,
   pdf: PdfNode,
@@ -37,32 +35,18 @@ const nodeTypes = {
 };
 
 const getNewNodePosition = (nodes: Node<NodeData>[]): XYPosition => {
-  const position = { x: 100, y: 100 };
-  if (nodes.length > 0) {
-    const lastNode = nodes[nodes.length - 1];
-    position.x = lastNode.position.x + 50;
-    position.y = lastNode.position.y + 50;
-  }
-  return position;
-};
-
-const getDefaultConfig = (type: string) => {
-  switch (type) {
-    case 'upload':
-      return { maxSize: '10MB', allowedTypes: ['pdf', 'docx'] };
-    case 'ai':
-      return { model: 'text-analysis-v2' };
-    case 'pdf':
-      return { template: 'default-template' };
-    case 'email':
-      return { template: 'default-email' };
-    default:
-      return {};
-  }
+  if (!nodes.length) return { x: 100, y: 100 };
+  
+  const lastNode = nodes[nodes.length - 1];
+  return {
+    x: (lastNode.position?.x || 0) + 50,
+    y: (lastNode.position?.y || 0) + 50,
+  };
 };
 
 export default function LogicBuilder() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>[]>([]);
+  // Explicitly type the states
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   const onConnect = useCallback(
@@ -71,37 +55,49 @@ export default function LogicBuilder() {
   );
 
   const addNode = useCallback((type: string) => {
-    const position = getNewNodePosition(nodes);
     const newNode: Node<NodeData> = {
       id: `${type}-${nodes.length + 1}`,
       type,
-      position,
-      data: { 
+      position: getNewNodePosition(nodes),
+      data: {
         label: `New ${type} Node`,
         description: `Description for ${type} node`,
-        config: getDefaultConfig(type)
+        config: getNodeConfig(type),
       },
     };
-    setNodes((nds) => [...nds, newNode]);
+    setNodes(nodes => [...nodes, newNode]);
   }, [nodes, setNodes]);
 
-  const saveFlow = async () => {
-    try {
-      const flow = { nodes, edges };
-      console.log('Saving flow:', flow);
-      // TODO: API integration
-    } catch (error) {
-      console.error('Error saving flow:', error);
+  const getNodeConfig = (type: string) => {
+    switch (type) {
+      case 'upload':
+        return {
+          maxSize: '10MB',
+          allowedTypes: ['pdf', 'docx'],
+        };
+      case 'ai':
+        return {
+          model: 'text-analysis-v2',
+        };
+      case 'pdf':
+        return {
+          template: 'default-template',
+        };
+      case 'email':
+        return {
+          template: 'default-email',
+        };
+      default:
+        return {};
     }
   };
 
+  const saveFlow = async () => {
+    console.log('Flow:', { nodes, edges });
+  };
+
   const runFlow = async () => {
-    try {
-      console.log('Running flow');
-      // TODO: API integration
-    } catch (error) {
-      console.error('Error running flow:', error);
-    }
+    console.log('Running flow');
   };
 
   return (
@@ -120,41 +116,23 @@ export default function LogicBuilder() {
           <Background />
           <Controls />
           
-          <Panel position="top-left" className="p-4" style={{ backgroundColor: 'var(--mantine-color-dark-8)' }}>
+          <Panel position="top-left" style={{ background: 'var(--mantine-color-dark-8)' }} className="p-4 rounded-lg">
             <Title order={4} className="mb-4">Add Nodes</Title>
             <div className="flex flex-col space-y-2">
-              <Button
-                onClick={() => addNode('upload')}
-                leftIcon={<Plus size={16} />}
-                fullWidth
-              >
-                File Upload
-              </Button>
-              <Button
-                onClick={() => addNode('ai')}
-                leftIcon={<Plus size={16} />}
-                fullWidth
-              >
-                AI Processing
-              </Button>
-              <Button
-                onClick={() => addNode('pdf')}
-                leftIcon={<Plus size={16} />}
-                fullWidth
-              >
-                PDF Generation
-              </Button>
-              <Button
-                onClick={() => addNode('email')}
-                leftIcon={<Plus size={16} />}
-                fullWidth
-              >
-                Email
-              </Button>
+              {['upload', 'ai', 'pdf', 'email'].map((type) => (
+                <Button
+                  key={type}
+                  onClick={() => addNode(type)}
+                  leftIcon={<Plus size={16} />}
+                  fullWidth
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)} Node
+                </Button>
+              ))}
             </div>
           </Panel>
 
-          <Panel position="top-right" className="p-4" style={{ backgroundColor: 'var(--mantine-color-dark-8)' }}>
+          <Panel position="top-right" style={{ background: 'var(--mantine-color-dark-8)' }} className="p-4 rounded-lg">
             <div className="flex space-x-2">
               <Tooltip label="Save Flow">
                 <ActionIcon onClick={saveFlow} size="lg">
