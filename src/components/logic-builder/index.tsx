@@ -29,18 +29,22 @@ const nodeTypes = {
   email: EmailNode,
 };
 
-interface NodeData {
-  label: string;
-  description?: string;
-  config?: {
-    maxSize?: string;
-    allowedTypes?: string[];
-    model?: string;
-    template?: string;
-  };
+// Fixed interface to satisfy Record<string, unknown>
+interface NodeConfig {
+  maxSize?: string;
+  allowedTypes?: string[];
+  model?: string;
+  template?: string;
+  [key: string]: unknown;
 }
 
-const initialNodes: Node<NodeData>[] = [
+interface NodeData extends Record<string, unknown> {
+  label: string;
+  description?: string;
+  config?: NodeConfig;
+}
+
+const initialNodes: Node[] = [
   {
     id: 'upload-1',
     type: 'upload',
@@ -67,30 +71,7 @@ export default function LogicBuilder() {
     [setEdges]
   );
 
-  const addNode = useCallback(
-    (type: string) => {
-      const position = {
-        x: Math.random() * 400,
-        y: Math.random() * 400
-      };
-
-      const newNode: Node<NodeData> = {
-        id: `${type}-${nodes.length + 1}`,
-        type,
-        position,
-        data: {
-          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
-          description: `New ${type} node`,
-          config: getNodeConfig(type)
-        }
-      };
-
-      setNodes((nds) => [...nds, newNode]);
-    },
-    [nodes.length, setNodes]
-  );
-
-  const getNodeConfig = (type: string) => {
+  const getNodeConfig = (type: string): NodeConfig => {
     switch (type) {
       case 'upload':
         return {
@@ -113,6 +94,29 @@ export default function LogicBuilder() {
         return {};
     }
   };
+
+  const addNode = useCallback(
+    (type: string) => {
+      const position = {
+        x: Math.random() * 400,
+        y: Math.random() * 400
+      };
+
+      const newNode: Node = {
+        id: `${type}-${nodes.length + 1}`,
+        type,
+        position,
+        data: {
+          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+          description: `New ${type} node`,
+          config: getNodeConfig(type)
+        }
+      };
+
+      setNodes((nds) => [...nds, newNode]);
+    },
+    [nodes.length, setNodes]
+  );
 
   return (
     <Paper className="h-[800px] w-full">
