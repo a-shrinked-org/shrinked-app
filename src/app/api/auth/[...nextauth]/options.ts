@@ -1,6 +1,8 @@
 import Auth0Provider from "next-auth/providers/auth0";
 import { JWT } from "next-auth/jwt";
+import type { NextAuthOptions } from "next-auth";
 import { Session } from "next-auth";
+import type { User, Account, Profile } from "next-auth";
 
 interface CustomToken extends JWT {
   accessToken?: string;
@@ -15,7 +17,7 @@ interface CustomSession extends Omit<Session, "user"> {
   };
 }
 
-const authOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     Auth0Provider({
       clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
@@ -33,7 +35,7 @@ const authOptions = {
   ],
   secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
   callbacks: {
-    async jwt({ token, account }: { token: CustomToken; account: any }) {
+    async jwt({ token, account }: { token: CustomToken; account: Account | null }) {
       if (account) {
         token.accessToken = account.access_token;
       }
@@ -44,16 +46,26 @@ const authOptions = {
       return session;
     },
   },
-  // Events with proper type declarations
   events: {
-    async signIn(message: { user: any; account: any; profile: any; isNewUser?: boolean }) {
-      console.log("SignIn event:", message);
+    async signIn({ user, account, profile, isNewUser }: {
+      user: User,
+      account: Account | null,
+      profile?: Profile,
+      isNewUser?: boolean
+    }) {
+      console.log("SignIn event:", { user, account, profile, isNewUser });
     },
-    async signOut(message: { session: any; trigger: string }) {
-      console.log("SignOut event:", message);
+    async signOut({ session, trigger }: {
+      session: Session,
+      trigger: "signout" | "session"
+    }) {
+      console.log("SignOut event:", { session, trigger });
     },
-    async session(message: { session: any; token: any }) {
-      console.log("Session event:", message);
+    async session({ session, token }: {
+      session: Session,
+      token: JWT
+    }) {
+      console.log("Session event:", { session, token });
     }
   }
 };
