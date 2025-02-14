@@ -50,84 +50,113 @@ export const customAuthProvider: AuthProvider = {
 	}
   },
 
-  register: async (params) => {
-	const { email, password, username } = params;
-	
-	try {
-	  // Step 1: Register the user
-	  const registerResponse = await fetch('https://api.shrinked.ai/auth/register', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ email, password, username }),
-	  });
-
-	  const registerData = await registerResponse.json();
-
-	  if (!registerResponse.ok) {
-		throw new Error(registerData.message || 'Registration failed');
-	  }
-
-	  // Step 2: Login to get tokens
-	  const loginResponse = await fetch('https://api.shrinked.ai/auth/login', {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ email, password }),
-	  });
-
-	  const loginData = await loginResponse.json();
-
-	  if (!loginResponse.ok) {
-		throw new Error('Login after registration failed');
-	  }
-
-	  // Store tokens
-	  localStorage.setItem('accessToken', loginData.accessToken);
-	  localStorage.setItem('refreshToken', loginData.refreshToken);
-
-	  // Step 3: Create profile
-	  const profileResponse = await fetch('https://api.shrinked.ai/profile', {
-		method: 'POST',
-		headers: {
-		  'Authorization': `Bearer ${loginData.accessToken}`,
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ username }),
-	  });
-
-	  if (!profileResponse.ok) {
-		// Clean up stored tokens if profile creation fails
+register: async (params) => {
+	  const { email, password, username } = params;
+	  try {
+		// Step 1: Register
+		const registerResponse = await fetch('https://api.shrinked.ai/auth/register', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'Access-Control-Allow-Origin': '*',
+		  },
+		  credentials: 'include', // Include credentials if your API uses cookies
+		  mode: 'cors', // Explicitly state CORS mode
+		  body: JSON.stringify({ email, password, username }),
+		});
+  
+		if (!registerResponse.ok) {
+		  const registerData = await registerResponse.json().catch(() => ({}));
+		  return {
+			success: false,
+			error: {
+			  message: registerData.message || 'Registration failed',
+			  name: 'Registration Error'
+			}
+		  };
+		}
+  
+		const registerData = await registerResponse.json();
+  
+		// Step 2: Auto login
+		const loginResponse = await fetch('https://api.shrinked.ai/auth/login', {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'Access-Control-Allow-Origin': '*',
+		  },
+		  credentials: 'include',
+		  mode: 'cors',
+		  body: JSON.stringify({ email, password }),
+		});
+  
+		if (!loginResponse.ok) {
+		  return {
+			success: false,
+			error: {
+			  message: 'Auto-login after registration failed',
+			  name: 'Registration Error'
+			}
+		  };
+		}
+  
+		const loginData = await loginResponse.json();
+  
+		// Store tokens
+		localStorage.setItem('accessToken', loginData.accessToken);
+		localStorage.setItem('refreshToken', loginData.refreshToken);
+  
+		// Step 3: Create profile
+		const profileResponse = await fetch('https://api.shrinked.ai/profile', {
+		  method: 'POST',
+		  headers: {
+			'Authorization': `Bearer ${loginData.accessToken}`,
+			'Content-Type': 'application/json',
+			'Accept': 'application/json',
+			'Access-Control-Allow-Origin': '*',
+		  },
+		  credentials: 'include',
+		  mode: 'cors',
+		  body: JSON.stringify({ username }),
+		});
+  
+		if (!profileResponse.ok) {
+		  localStorage.removeItem('accessToken');
+		  localStorage.removeItem('refreshToken');
+		  const profileData = await profileResponse.json().catch(() => ({}));
+		  return {
+			success: false,
+			error: {
+			  message: profileData.message || 'Profile creation failed',
+			  name: 'Registration Error'
+			}
+		  };
+		}
+  
+		const userData = await profileResponse.json();
+		localStorage.setItem('user', JSON.stringify(userData));
+  
+		return {
+		  success: true,
+		  redirectTo: "/",
+		};
+	  } catch (error) {
+		console.error('Registration error:', error);
 		localStorage.removeItem('accessToken');
 		localStorage.removeItem('refreshToken');
-		const profileData = await profileResponse.json();
-		throw new Error(profileData.message || 'Profile creation failed');
+		localStorage.removeItem('user');
+		
+		return {
+		  success: false,
+		  error: {
+			message: error instanceof Error ? error.message : 'Registration process failed',
+			name: 'Registration Error'
+		  }
+		};
 	  }
-
-	  const userData = await profileResponse.json();
-	  localStorage.setItem('user', JSON.stringify(userData));
-
-	  return {
-		success: true,
-		redirectTo: "/",
-	  };
-	} catch (error) {
-	  // Clean up any stored data
-	  localStorage.removeItem('accessToken');
-	  localStorage.removeItem('refreshToken');
-	  localStorage.removeItem('user');
-	  
-	  return {
-		success: false,
-		error: {
-		  message: error instanceof Error ? error.message : 'Registration process failed',
-		  name: 'Registration Error'
-		}
-	  };
-	}
-  },
+	},
 
   check: async () => {
 	const accessToken = localStorage.getItem('accessToken');
