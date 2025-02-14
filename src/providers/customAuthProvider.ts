@@ -38,6 +38,19 @@ export const customAuthProvider: AuthProvider = {
 	  localStorage.setItem('accessToken', data.accessToken);
 	  localStorage.setItem('refreshToken', data.refreshToken);
 
+	  // Get user profile after successful login
+	  const profileResponse = await fetch(`${API_URL}/auth/profile`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${data.accessToken}`,
+		},
+	  });
+
+	  if (profileResponse.ok) {
+		const userData = await profileResponse.json();
+		localStorage.setItem('user', JSON.stringify(userData));
+	  }
+
 	  return {
 		success: true,
 		redirectTo: "/",
@@ -104,11 +117,10 @@ export const customAuthProvider: AuthProvider = {
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
 	  // Step 3: Get profile
-	  const profileResponse = await fetch(`${API_URL}/profile`, {
+	  const profileResponse = await fetch(`${API_URL}/auth/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${loginData.accessToken}`,
-		  'Content-Type': 'application/json',
 		},
 	  });
 
@@ -161,7 +173,8 @@ export const customAuthProvider: AuthProvider = {
 
 	try {
 	  // First try with current access token
-	  const response = await fetch(`${API_URL}/profile`, {
+	  const response = await fetch(`${API_URL}/auth/profile`, {
+		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
@@ -180,7 +193,8 @@ export const customAuthProvider: AuthProvider = {
 	  const newTokens = await refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		// Verify the new token works
-		const retryResponse = await fetch(`${API_URL}/profile`, {
+		const retryResponse = await fetch(`${API_URL}/auth/profile`, {
+		  method: 'GET',
 		  headers: {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
