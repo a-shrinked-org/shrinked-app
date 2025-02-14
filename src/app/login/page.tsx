@@ -2,12 +2,18 @@
 
 import React, { useState } from 'react';
 import { useLogin, useRegister } from "@refinedev/core";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
+import { 
+  Paper, 
+  Title, 
+  TextInput, 
+  Button, 
+  Container, 
+  Group, 
+  Divider, 
+  Text,
+  Alert,
+  Tabs
+} from '@mantine/core';
 
 export default function Login() {
   const { mutate: login } = useLogin();
@@ -20,10 +26,11 @@ export default function Login() {
   });
 
   const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleCustomLogin = async (e) => {
@@ -50,128 +57,109 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">
-            Welcome
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="login">
-              <div className="space-y-4 mt-4">
-                <Button 
-                  onClick={handleAuth0Login}
-                  className="w-full flex items-center justify-center gap-2"
-                  variant="outline"
-                >
-                  <img
-                    className="h-5 w-5"
-                    alt="Auth0"
-                    src="https://refine.ams3.cdn.digitaloceanspaces.com/superplate-auth-icons%2Fauth0-2.svg"
-                  />
-                  Sign in with Auth0
-                </Button>
-                
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                  </div>
-                </div>
+    <Container size="xs" mt="xl">
+      <Paper radius="md" p="xl" withBorder>
+        <Title order={2} ta="center" mt="md" mb="md">
+          Welcome
+        </Title>
 
-                <form onSubmit={handleCustomLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="Email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="Password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Sign in
-                  </Button>
-                </form>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    name="email"
-                    type="email"
-                    placeholder="Email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-username">Username</Label>
-                  <Input
-                    id="register-username"
-                    name="username"
-                    type="text"
-                    placeholder="Username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
-                  <Input
-                    id="register-password"
-                    name="password"
-                    type="password"
-                    placeholder="Password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full">
-                  Register
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+        {error && (
+          <Alert color="red" mb="md">
+            {error}
+          </Alert>
+        )}
+
+        <Tabs defaultValue="login">
+          <Tabs.List grow mb="md">
+            <Tabs.Tab value="login">Login</Tabs.Tab>
+            <Tabs.Tab value="register">Register</Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="login">
+            <Button
+              fullWidth
+              variant="outline"
+              onClick={handleAuth0Login}
+              leftSection={
+                <img
+                  src="https://refine.ams3.cdn.digitaloceanspaces.com/superplate-auth-icons%2Fauth0-2.svg"
+                  alt="Auth0"
+                  style={{ width: 20, height: 20 }}
+                />
+              }
+            >
+              Sign in with Auth0
+            </Button>
+
+            <Divider
+              label="Or continue with email"
+              labelPosition="center"
+              my="lg"
+            />
+
+            <form onSubmit={handleCustomLogin}>
+              <TextInput
+                label="Email"
+                placeholder="you@example.com"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                mb="md"
+              />
+              <TextInput
+                label="Password"
+                type="password"
+                placeholder="Your password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                mb="md"
+              />
+              <Button type="submit" fullWidth>
+                Sign in
+              </Button>
+            </form>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="register">
+            <form onSubmit={handleRegister}>
+              <TextInput
+                label="Email"
+                placeholder="you@example.com"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                mb="md"
+              />
+              <TextInput
+                label="Username"
+                placeholder="Your username"
+                name="username"
+                value={formData.username}
+                onChange={handleInputChange}
+                required
+                mb="md"
+              />
+              <TextInput
+                label="Password"
+                type="password"
+                placeholder="Your password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                mb="md"
+              />
+              <Button type="submit" fullWidth>
+                Register
+              </Button>
+            </form>
+          </Tabs.Panel>
+        </Tabs>
+      </Paper>
+    </Container>
   );
 }
