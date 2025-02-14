@@ -20,7 +20,8 @@ export const customAuthProvider: AuthProvider = {
 	const { email, password } = params;
 	
 	try {
-	  const response = await fetch(`${API_URL}/auth/login`, {
+	  // Step 1: Login and get tokens
+	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -28,34 +29,54 @@ export const customAuthProvider: AuthProvider = {
 		body: JSON.stringify({ email, password }),
 	  });
 
-	  const data = await response.json();
+	  const loginData = await loginResponse.json();
 
-	  if (!response.ok) {
-		throw new Error(data.message || 'Login failed');
+	  if (!loginResponse.ok) {
+		return {
+		  success: false,
+		  error: {
+			message: loginData.message || 'Login failed',
+			name: 'Login Error'
+		  }
+		};
 	  }
 
 	  // Store tokens
-	  localStorage.setItem('accessToken', data.accessToken);
-	  localStorage.setItem('refreshToken', data.refreshToken);
+	  localStorage.setItem('accessToken', loginData.accessToken);
+	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
-	  // Get user profile after successful login
+	  // Step 2: Verify profile exists
 	  const profileResponse = await fetch(`${API_URL}/auth/profile`, {
 		method: 'GET',
 		headers: {
-		  'Authorization': `Bearer ${data.accessToken}`,
+		  'Authorization': `Bearer ${loginData.accessToken}`,
 		},
 	  });
 
-	  if (profileResponse.ok) {
-		const userData = await profileResponse.json();
-		localStorage.setItem('user', JSON.stringify(userData));
+	  if (!profileResponse.ok) {
+		localStorage.removeItem('accessToken');
+		localStorage.removeItem('refreshToken');
+		return {
+		  success: false,
+		  error: {
+			message: 'Could not verify user profile',
+			name: 'Login Error'
+		  }
+		};
 	  }
+
+	  // Store user data
+	  const userData = await profileResponse.json();
+	  localStorage.setItem('user', JSON.stringify(userData));
 
 	  return {
 		success: true,
 		redirectTo: "/",
 	  };
 	} catch (error) {
+	  localStorage.removeItem('accessToken');
+	  localStorage.removeItem('refreshToken');
+	  localStorage.removeItem('user');
 	  return {
 		success: false,
 		error: {
@@ -69,7 +90,7 @@ export const customAuthProvider: AuthProvider = {
   register: async (params) => {
 	const { email, password, username } = params;
 	try {
-	  // Step 1: Register
+	  // Step 1: Register user
 	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
 		method: 'POST',
 		headers: {
@@ -78,8 +99,9 @@ export const customAuthProvider: AuthProvider = {
 		body: JSON.stringify({ email, password, username }),
 	  });
 
+	  const registerData = await registerResponse.json();
+
 	  if (!registerResponse.ok) {
-		const registerData = await registerResponse.json().catch(() => ({}));
 		return {
 		  success: false,
 		  error: {
@@ -89,9 +111,7 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  const registerData = await registerResponse.json();
-
-	  // Step 2: Auto login
+	  // Step 2: Login to get tokens
 	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
 		method: 'POST',
 		headers: {
@@ -100,23 +120,23 @@ export const customAuthProvider: AuthProvider = {
 		body: JSON.stringify({ email, password }),
 	  });
 
+	  const loginData = await loginResponse.json();
+
 	  if (!loginResponse.ok) {
 		return {
 		  success: false,
 		  error: {
-			message: 'Auto-login after registration failed',
+			message: loginData.message || 'Auto-login after registration failed',
 			name: 'Registration Error'
 		  }
 		};
 	  }
 
-	  const loginData = await loginResponse.json();
-
 	  // Store tokens
 	  localStorage.setItem('accessToken', loginData.accessToken);
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
-	  // Step 3: Get profile
+	  // Step 3: Verify profile exists
 	  const profileResponse = await fetch(`${API_URL}/auth/profile`, {
 		method: 'GET',
 		headers: {
@@ -127,16 +147,16 @@ export const customAuthProvider: AuthProvider = {
 	  if (!profileResponse.ok) {
 		localStorage.removeItem('accessToken');
 		localStorage.removeItem('refreshToken');
-		const profileData = await profileResponse.json().catch(() => ({}));
 		return {
 		  success: false,
 		  error: {
-			message: profileData.message || 'Profile fetch failed',
+			message: 'Could not verify user profile',
 			name: 'Registration Error'
 		  }
 		};
 	  }
 
+	  // Store user data
 	  const userData = await profileResponse.json();
 	  localStorage.setItem('user', JSON.stringify(userData));
 
