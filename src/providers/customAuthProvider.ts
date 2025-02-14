@@ -4,7 +4,6 @@ import { AuthProvider } from "@refinedev/core";
 export const customAuthProvider: AuthProvider = {
   login: async ({ email, password }) => {
 	try {
-	  // First, get the tokens
 	  const response = await fetch('https://api.shrinked.ai/auth/login', {
 		method: 'POST',
 		headers: {
@@ -13,26 +12,41 @@ export const customAuthProvider: AuthProvider = {
 		body: JSON.stringify({ email, password }),
 	  });
 
+	  const data = await response.json();
+
 	  if (!response.ok) {
-		throw new Error('Login failed');
+		return {
+		  success: false,
+		  error: new Error(data.message || 'Login failed'),
+		};
 	  }
 
-	  const { accessToken, refreshToken } = await response.json();
+	  if (!data.accessToken || !data.refreshToken) {
+		return {
+		  success: false,
+		  error: new Error('Invalid response from server'),
+		};
+	  }
 
 	  // Store tokens
-	  localStorage.setItem('accessToken', accessToken);
-	  localStorage.setItem('refreshToken', refreshToken);
+	  localStorage.setItem('accessToken', data.accessToken);
+	  localStorage.setItem('refreshToken', data.refreshToken);
 
 	  // Authenticate with the API using the access token
 	  const authResponse = await fetch('https://api.shrinked.ai/api/auth', {
 		method: 'GET',
 		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
+		  'Authorization': `Bearer ${data.accessToken}`,
 		},
 	  });
 
 	  if (!authResponse.ok) {
-		throw new Error('Authentication failed');
+		localStorage.removeItem('accessToken');
+		localStorage.removeItem('refreshToken');
+		return {
+		  success: false,
+		  error: new Error('Authentication failed'),
+		};
 	  }
 
 	  const userData = await authResponse.json();
@@ -45,7 +59,7 @@ export const customAuthProvider: AuthProvider = {
 	} catch (error) {
 	  return {
 		success: false,
-		error: new Error('Invalid email or password'),
+		error: new Error(error instanceof Error ? error.message : 'Login failed'),
 	  };
 	}
   },
@@ -60,9 +74,13 @@ export const customAuthProvider: AuthProvider = {
 		body: JSON.stringify({ email, password, username }),
 	  });
 
+	  const data = await response.json();
+
 	  if (!response.ok) {
-		const errorData = await response.json();
-		throw new Error(errorData.message || 'Registration failed');
+		return {
+		  success: false,
+		  error: new Error(data.message || 'Registration failed'),
+		};
 	  }
 
 	  return {
@@ -70,6 +88,7 @@ export const customAuthProvider: AuthProvider = {
 		redirectTo: "/login",
 	  };
 	} catch (error) {
+	  console.error('Registration error:', error);
 	  return {
 		success: false,
 		error: new Error(error instanceof Error ? error.message : 'Registration failed'),
@@ -84,8 +103,6 @@ export const customAuthProvider: AuthProvider = {
 	if (!accessToken || !refreshToken) {
 	  return {
 		authenticated: false,
-		error: new Error('No credentials found'),
-		logout: true,
 		redirectTo: "/login",
 	  };
 	}
@@ -103,8 +120,8 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  // If access token is invalid, try to refresh
 	  if (response.status === 401) {
+		// Try to refresh the token
 		const newTokens = await refreshAccessToken(refreshToken);
 		if (newTokens) {
 		  return {
@@ -113,17 +130,18 @@ export const customAuthProvider: AuthProvider = {
 		}
 	  }
 
+	  // If we get here, authentication failed
+	  localStorage.removeItem('accessToken');
+	  localStorage.removeItem('refreshToken');
+	  localStorage.removeItem('user');
+	  
 	  return {
 		authenticated: false,
-		error: new Error('Session expired'),
-		logout: true,
 		redirectTo: "/login",
 	  };
 	} catch (error) {
 	  return {
 		authenticated: false,
-		error: new Error('Authentication check failed'),
-		logout: true,
 		redirectTo: "/login",
 	  };
 	}
@@ -140,7 +158,8 @@ export const customAuthProvider: AuthProvider = {
   },
 
   onError: async (error) => {
-	if (error.status === 401 || error.status === 403) {
+	const status = error?.response?.status || error?.status;
+	if (status === 401 || status === 403) {
 	  return {
 		logout: true,
 		redirectTo: "/login",
@@ -159,7 +178,6 @@ export const customAuthProvider: AuthProvider = {
   }
 };
 
-// Helper function to refresh the access token
 async function refreshAccessToken(refreshToken: string) {
   try {
 	const response = await fetch('https://api.shrinked.ai/auth/refresh', {
@@ -174,10 +192,15 @@ async function refreshAccessToken(refreshToken: string) {
 	  return null;
 	}
 
-	const { accessToken, newRefreshToken } = await response.json();
-	localStorage.setItem('accessToken', accessToken);
-	localStorage.setItem('refreshToken', newRefreshToken);
-	return { accessToken, refreshToken: newRefreshToken };
+	const data = await response.json();
+	
+	if (!data.accessToken || !data.refreshToken) {
+	  return null;
+	}
+
+	localStorage.setItem('accessToken', data.accessToken);
+	localStorage.setItem('refreshToken', data.refreshToken);
+	return { accessToken: data.accessToken, refreshToken: data.refreshToken };
   } catch (error) {
 	return null;
   }

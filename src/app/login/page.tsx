@@ -11,7 +11,6 @@ import {
   Divider, 
   Alert,
   Tabs,
-  Image
 } from '@mantine/core';
 
 interface FormData {
@@ -21,8 +20,8 @@ interface FormData {
 }
 
 export default function Login() {
-  const { mutate: login } = useLogin();
-  const { mutate: register } = useRegister();
+  const { mutate: login, isLoading: isLoginLoading } = useLogin();
+  const { mutate: register, isLoading: isRegisterLoading } = useRegister();
   const [error, setError] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -36,28 +35,60 @@ export default function Login() {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    setError("");
   };
 
   const handleCustomLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     
-    login({
-      email: formData.email,
-      password: formData.password
-    });
+    if (!formData.email || !formData.password) {
+      setError("Please enter both email and password");
+      return;
+    }
+
+    try {
+      login({
+        email: formData.email,
+        password: formData.password
+      }, {
+        onError: (error: any) => {
+          setError(error?.message || "Login failed");
+        }
+      });
+    } catch (err) {
+      setError("An unexpected error occurred");
+    }
   };
 
   const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     
-    register(formData);
+    if (!formData.email || !formData.password || !formData.username) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    try {
+      register(formData, {
+        onError: (error: any) => {
+          setError(error?.message || "Registration failed");
+        }
+      });
+    } catch (err) {
+      setError("An unexpected error occurred");
+    }
   };
 
   const handleAuth0Login = () => {
     login({
       providerName: "auth0"
+    }, {
+      onError: (error: any) => {
+        setError(error?.message || "Auth0 login failed");
+      }
     });
   };
 
@@ -69,7 +100,7 @@ export default function Login() {
         </Title>
 
         {error && (
-          <Alert color="red" mb="md">
+          <Alert color="red" mb="md" title="Error">
             {error}
           </Alert>
         )}
@@ -85,6 +116,7 @@ export default function Login() {
               fullWidth
               variant="outline"
               onClick={handleAuth0Login}
+              loading={isLoginLoading}
               leftSection={
                 <img
                   src="https://refine.ams3.cdn.digitaloceanspaces.com/superplate-auth-icons%2Fauth0-2.svg"
@@ -111,6 +143,7 @@ export default function Login() {
                 onChange={handleInputChange}
                 required
                 mb="md"
+                disabled={isLoginLoading}
               />
               <TextInput
                 label="Password"
@@ -121,8 +154,13 @@ export default function Login() {
                 onChange={handleInputChange}
                 required
                 mb="md"
+                disabled={isLoginLoading}
               />
-              <Button type="submit" fullWidth>
+              <Button 
+                type="submit" 
+                fullWidth
+                loading={isLoginLoading}
+              >
                 Sign in
               </Button>
             </form>
@@ -138,6 +176,7 @@ export default function Login() {
                 onChange={handleInputChange}
                 required
                 mb="md"
+                disabled={isRegisterLoading}
               />
               <TextInput
                 label="Username"
@@ -147,6 +186,7 @@ export default function Login() {
                 onChange={handleInputChange}
                 required
                 mb="md"
+                disabled={isRegisterLoading}
               />
               <TextInput
                 label="Password"
@@ -157,8 +197,13 @@ export default function Login() {
                 onChange={handleInputChange}
                 required
                 mb="md"
+                disabled={isRegisterLoading}
               />
-              <Button type="submit" fullWidth>
+              <Button 
+                type="submit" 
+                fullWidth
+                loading={isRegisterLoading}
+              >
                 Register
               </Button>
             </form>
