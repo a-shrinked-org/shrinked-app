@@ -103,14 +103,13 @@ export const customAuthProvider: AuthProvider = {
 	  localStorage.setItem('accessToken', loginData.accessToken);
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
-	  // Step 3: Create profile
+	  // Step 3: Get profile
 	  const profileResponse = await fetch(`${API_URL}/profile`, {
-		method: 'POST',
+		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${loginData.accessToken}`,
 		  'Content-Type': 'application/json',
 		},
-		body: JSON.stringify({ username }),
 	  });
 
 	  if (!profileResponse.ok) {
@@ -120,7 +119,7 @@ export const customAuthProvider: AuthProvider = {
 		return {
 		  success: false,
 		  error: {
-			message: profileData.message || 'Profile creation failed',
+			message: profileData.message || 'Profile fetch failed',
 			name: 'Registration Error'
 		  }
 		};
@@ -161,22 +160,35 @@ export const customAuthProvider: AuthProvider = {
 	}
 
 	try {
-	  const response = await fetch(`${API_URL}/api/auth`, {
+	  // First try with current access token
+	  const response = await fetch(`${API_URL}/profile`, {
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
 
 	  if (response.ok) {
+		// Update stored user data
+		const userData = await response.json();
+		localStorage.setItem('user', JSON.stringify(userData));
 		return {
 		  authenticated: true,
 		};
 	  }
 
-	  if (response.status === 401) {
-		// Try to refresh the token
-		const newTokens = await refreshAccessToken(refreshToken);
-		if (newTokens) {
+	  // If access token failed, try to refresh
+	  const newTokens = await refreshAccessToken(refreshToken);
+	  if (newTokens) {
+		// Verify the new token works
+		const retryResponse = await fetch(`${API_URL}/profile`, {
+		  headers: {
+			'Authorization': `Bearer ${newTokens.accessToken}`,
+		  },
+		});
+
+		if (retryResponse.ok) {
+		  const userData = await retryResponse.json();
+		  localStorage.setItem('user', JSON.stringify(userData));
 		  return {
 			authenticated: true,
 		  };
