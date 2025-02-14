@@ -13,7 +13,6 @@ import {
   Tabs,
   Image
 } from '@mantine/core';
-import { NextImage } from 'next/image';
 
 interface FormData {
   email: string;
@@ -87,11 +86,10 @@ export default function Login() {
               variant="outline"
               onClick={handleAuth0Login}
               leftSection={
-                <Image
+                <img
                   src="https://refine.ams3.cdn.digitaloceanspaces.com/superplate-auth-icons%2Fauth0-2.svg"
                   alt="Auth0"
-                  width={20}
-                  height={20}
+                  style={{ width: 20, height: 20 }}
                 />
               }
             >
