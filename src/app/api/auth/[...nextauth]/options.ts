@@ -1,5 +1,6 @@
 // src/app/api/auth/[...nextauth]/options.ts
 import Auth0Provider from "next-auth/providers/auth0";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
 
@@ -11,8 +12,7 @@ interface CustomSession extends Session {
   accessToken?: string;
 }
 
-// Keep both export types so it works with both import styles
-const authOptions = {
+export const authOptions = {
   providers: [
     Auth0Provider({
       clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
@@ -25,22 +25,64 @@ const authOptions = {
         }
       }
     }),
+    CredentialsProvider({
+      name: "Custom",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+        username: { label: "Username", type: "text" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        try {
+          const response = await fetch('https://api.shrinked.ai/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: credentials.email,
+              password: credentials.password,
+            }),
+          });
+
+          if (!response.ok) {
+            return null;
+          }
+
+          const user = await response.json();
+          return user;
+        } catch (error) {
+          return null;
+        }
+      }
+    })
   ],
   secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
   callbacks: {
-    async jwt({ token, account }: { token: CustomToken; account: any }) {
+    async jwt({ token, account, user }: { token: CustomToken; account: any; user: any }) {
       if (account) {
         token.accessToken = account.access_token;
+      }
+      if (user) {
+        token.user = user;
       }
       return token;
     },
     async session({ session, token }: { session: CustomSession; token: CustomToken }) {
       session.accessToken = token.accessToken;
+      if (token.user) {
+        session.user = token.user;
+      }
       return session;
     }
+  },
+  pages: {
+    signIn: '/login',
   }
 };
 
-// Export both ways to support different import styles
-export { authOptions };
 export default authOptions;
