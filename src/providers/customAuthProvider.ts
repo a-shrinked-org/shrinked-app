@@ -1,15 +1,12 @@
-// src/providers/customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 
-// Base URL for API requests
 const API_URL = '/api/shrinked';
 
 export const customAuthProvider: AuthProvider = {
   login: async (params) => {
-	// Handle Auth0 login
 	if (params.providerName === "auth0") {
 	  return {
-		success: false, // Let NextAuth handle Auth0
+		success: false,
 		error: {
 		  message: "Redirecting to Auth0...",
 		  name: "Auth0"
@@ -20,8 +17,7 @@ export const customAuthProvider: AuthProvider = {
 	const { email, password } = params;
 	
 	try {
-	  // Step 1: Login and get tokens
-	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
+	  const loginResponse = await fetch(`${API_URL}/login`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -41,12 +37,10 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  // Store tokens
 	  localStorage.setItem('accessToken', loginData.accessToken);
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
-	  // Step 2: Verify profile exists
-	  const profileResponse = await fetch(`${API_URL}/auth/profile`, {
+	  const profileResponse = await fetch(`${API_URL}/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${loginData.accessToken}`,
@@ -65,7 +59,6 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  // Store user data
 	  const userData = await profileResponse.json();
 	  localStorage.setItem('user', JSON.stringify(userData));
 
@@ -90,8 +83,7 @@ export const customAuthProvider: AuthProvider = {
   register: async (params) => {
 	const { email, password, username } = params;
 	try {
-	  // Step 1: Register user
-	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
+	  const registerResponse = await fetch(`${API_URL}/register`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -111,65 +103,10 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  // Step 2: Login to get tokens
-	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ email, password }),
-	  });
-
-	  const loginData = await loginResponse.json();
-
-	  if (!loginResponse.ok) {
-		return {
-		  success: false,
-		  error: {
-			message: loginData.message || 'Auto-login after registration failed',
-			name: 'Registration Error'
-		  }
-		};
-	  }
-
-	  // Store tokens
-	  localStorage.setItem('accessToken', loginData.accessToken);
-	  localStorage.setItem('refreshToken', loginData.refreshToken);
-
-	  // Step 3: Verify profile exists
-	  const profileResponse = await fetch(`${API_URL}/auth/profile`, {
-		method: 'GET',
-		headers: {
-		  'Authorization': `Bearer ${loginData.accessToken}`,
-		},
-	  });
-
-	  if (!profileResponse.ok) {
-		localStorage.removeItem('accessToken');
-		localStorage.removeItem('refreshToken');
-		return {
-		  success: false,
-		  error: {
-			message: 'Could not verify user profile',
-			name: 'Registration Error'
-		  }
-		};
-	  }
-
-	  // Store user data
-	  const userData = await profileResponse.json();
-	  localStorage.setItem('user', JSON.stringify(userData));
-
-	  return {
-		success: true,
-		redirectTo: "/",
-	  };
+	  // After registration, proceed with login
+	  return this.login({ email, password });
 	} catch (error) {
 	  console.error('Registration error:', error);
-	  localStorage.removeItem('accessToken');
-	  localStorage.removeItem('refreshToken');
-	  localStorage.removeItem('user');
-	  
 	  return {
 		success: false,
 		error: {
@@ -192,8 +129,7 @@ export const customAuthProvider: AuthProvider = {
 	}
 
 	try {
-	  // First try with current access token
-	  const response = await fetch(`${API_URL}/auth/profile`, {
+	  const response = await fetch(`${API_URL}/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
@@ -201,7 +137,6 @@ export const customAuthProvider: AuthProvider = {
 	  });
 
 	  if (response.ok) {
-		// Update stored user data
 		const userData = await response.json();
 		localStorage.setItem('user', JSON.stringify(userData));
 		return {
@@ -209,11 +144,9 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  // If access token failed, try to refresh
 	  const newTokens = await refreshAccessToken(refreshToken);
 	  if (newTokens) {
-		// Verify the new token works
-		const retryResponse = await fetch(`${API_URL}/auth/profile`, {
+		const retryResponse = await fetch(`${API_URL}/profile`, {
 		  method: 'GET',
 		  headers: {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
@@ -229,7 +162,6 @@ export const customAuthProvider: AuthProvider = {
 		}
 	  }
 
-	  // If we get here, authentication failed
 	  localStorage.removeItem('accessToken');
 	  localStorage.removeItem('refreshToken');
 	  localStorage.removeItem('user');
