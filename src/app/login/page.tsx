@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useLogin, useRegister } from "@refinedev/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
