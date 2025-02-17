@@ -1,5 +1,34 @@
 // src/app/_refine_context.tsx
-import { customAuthProvider } from "@providers/customAuthProvider"; // Add this import
+"use client";
+
+import { Refine } from "@refinedev/core";
+import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
+import { SessionProvider, signIn, useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import React from "react";
+import routerProvider from "@refinedev/nextjs-router";
+import { dataProvider } from "@providers/data-provider";
+import { customAuthProvider } from "@providers/customAuthProvider";
+import "@styles/global.css";
+
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+  }
+}
+
+type RefineContextProps = {};
+
+// Export RefineContext component since it's imported in layout.tsx
+export const RefineContext = (
+  props: React.PropsWithChildren<RefineContextProps>
+) => {
+  return (
+    <SessionProvider>
+      <App {...props} />
+    </SessionProvider>
+  );
+};
 
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
@@ -48,21 +77,25 @@ const App = (props: React.PropsWithChildren<{}>) => {
   };
 
   return (
-    <RefineKbarProvider>
-      <Refine
-        routerProvider={routerProvider}
-        dataProvider={dataProvider}
-        authProvider={authProvider}
-        resources={[]}
-        options={{
-          syncWithLocation: true,
-          warnWhenUnsavedChanges: true,
-          useNewQueryKeys: true,
-        }}
-      >
-        {props.children}
-        <RefineKbar />
-      </Refine>
-    </RefineKbarProvider>
+    <>
+      <RefineKbarProvider>
+        <Refine
+          routerProvider={routerProvider}
+          dataProvider={dataProvider}
+          authProvider={authProvider}
+          resources={[]}
+          options={{
+            syncWithLocation: true,
+            warnWhenUnsavedChanges: true,
+            useNewQueryKeys: true,
+          }}
+        >
+          {props.children}
+          <RefineKbar />
+        </Refine>
+      </RefineKbarProvider>
+    </>
   );
 };
+
+export default RefineContext;
