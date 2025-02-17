@@ -4,7 +4,15 @@ import { AuthProvider } from "@refinedev/core";
 const API_URL = 'https://api.shrinked.ai';
 
 class AuthProviderClass {
+  login: AuthProvider["login"];
+  register: AuthProvider["register"];
+  check: AuthProvider["check"];
+  logout: AuthProvider["logout"];
+  onError: AuthProvider["onError"];
+  getIdentity: AuthProvider["getIdentity"];
+
   constructor() {
+	// Bind methods to ensure correct 'this' context
 	this.login = this.login.bind(this);
 	this.register = this.register.bind(this);
 	this.check = this.check.bind(this);
@@ -47,11 +55,9 @@ class AuthProviderClass {
 		};
 	  }
 
-	  // Store tokens
 	  localStorage.setItem('accessToken', loginData.accessToken);
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
-	  // Fetch user profile
 	  const profileResponse = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
@@ -72,8 +78,6 @@ class AuthProviderClass {
 	  }
 
 	  const userData = await profileResponse.json();
-	  
-	  // Store full user data including tokens
 	  const userDataWithTokens = {
 		...userData,
 		accessToken: loginData.accessToken,
@@ -87,12 +91,50 @@ class AuthProviderClass {
 		user: userDataWithTokens
 	  };
 	} catch (error) {
-	  this.clearStorage();
+	  localStorage.removeItem('accessToken');
+	  localStorage.removeItem('refreshToken');
+	  localStorage.removeItem('user');
 	  return {
 		success: false,
 		error: {
 		  message: error instanceof Error ? error.message : 'Login failed',
 		  name: 'Login Error'
+		}
+	  };
+	}
+  }
+
+  async register(params: any) {
+	const { email, password, username } = params;
+	try {
+	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ email, password, username }),
+	  });
+
+	  const registerData = await registerResponse.json();
+
+	  if (!registerResponse.ok) {
+		return {
+		  success: false,
+		  error: {
+			message: registerData.message || 'Registration failed',
+			name: 'Registration Error'
+		  }
+		};
+	  }
+
+	  // After registration, proceed with login
+	  return await this.login({ email, password });
+	} catch (error) {
+	  return {
+		success: false,
+		error: {
+		  message: error instanceof Error ? error.message : 'Registration process failed',
+		  name: 'Registration Error'
 		}
 	  };
 	}
@@ -122,7 +164,6 @@ class AuthProviderClass {
   
 	  if (response.ok) {
 		const userData = await response.json();
-		// Store user data with tokens
 		const userDataWithTokens = {
 		  ...userData,
 		  accessToken,
@@ -135,7 +176,6 @@ class AuthProviderClass {
 		};
 	  }
   
-	  // Try token refresh
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -174,6 +214,27 @@ class AuthProviderClass {
 		redirectTo: "/login",
 	  };
 	}
+  }
+
+  async logout() {
+	this.clearStorage();
+	return {
+	  success: true,
+	  redirectTo: "/login",
+	};
+  }
+
+  async onError(error: any) {
+	const status = error?.response?.status || error?.status;
+	if (status === 401 || status === 403) {
+	  this.clearStorage();
+	  return {
+		logout: true,
+		redirectTo: "/login",
+		error,
+	  };
+	}
+	return {};
   }
 
   async getIdentity() {
