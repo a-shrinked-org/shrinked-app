@@ -78,25 +78,54 @@ const App = (props: React.PropsWithChildren<{}>) => {
   };
 
   return (
-    <>
-      <RefineKbarProvider>
-        <Refine
-          routerProvider={routerProvider}
-          dataProvider={dataProvider}
-          authProvider={authProvider}
-          resources={[]}
-          options={{
-            syncWithLocation: true,
-            warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true,
-          }}
-        >
-          {props.children}
-          <RefineKbar />
-        </Refine>
-      </RefineKbarProvider>
-    </>
-  );
-};
-
+      <>
+        <RefineKbarProvider>
+          <Refine
+            routerProvider={routerProvider}
+            dataProvider={dataProvider}
+            authProvider={authProvider}
+            resources={[
+              {
+                name: "jobs",
+                list: "/jobs",
+                create: "/jobs/create",
+                edit: "/jobs/edit/:id",
+                show: "/jobs/show/:id",
+                meta: {
+                  canDelete: true,
+                },
+              },
+              {
+                name: "categories",
+                list: "/categories",
+                create: "/categories/create",
+                edit: "/categories/edit/:id",
+                show: "/categories/show/:id",
+                meta: {
+                  canDelete: true,
+                },
+              },
+              {
+                name: "output",
+                list: "/output",
+                show: "/output/show/:id",
+                meta: {
+                  canDelete: true,
+                },
+              },
+            ]}
+            options={{
+              syncWithLocation: true,
+              warnWhenUnsavedChanges: true,
+              useNewQueryKeys: true,
+            }}
+          >
+            {props.children}
+            <RefineKbar />
+          </Refine>
+        </RefineKbarProvider>
+      </>
+    );
+  };
+  
 export default RefineContext;
