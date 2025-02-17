@@ -75,7 +75,7 @@ class AuthProviderClass {
 
 	  return {
 		success: true,
-		redirectTo: "/",
+		redirectTo: "/jobs",
 	  };
 	} catch (error) {
 	  localStorage.removeItem('accessToken');
@@ -130,30 +130,31 @@ class AuthProviderClass {
   async check() {
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
-
+  
 	if (!accessToken || !refreshToken) {
 	  return {
 		authenticated: false,
 		redirectTo: "/login",
 	  };
 	}
-
+  
 	try {
-	  const response = await fetch(`${API_URL}/users/profile`, { // Changed from /profile to /users/profile
+	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
-
+  
 	  if (response.ok) {
 		const userData = await response.json();
 		localStorage.setItem('user', JSON.stringify(userData));
 		return {
 		  authenticated: true,
+		  // Remove redirectTo if authentication is successful
 		};
 	  }
-
+  
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -162,16 +163,17 @@ class AuthProviderClass {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
 		});
-
+  
 		if (retryResponse.ok) {
 		  const userData = await retryResponse.json();
 		  localStorage.setItem('user', JSON.stringify(userData));
 		  return {
 			authenticated: true,
+			// Remove redirectTo if authentication is successful
 		  };
 		}
 	  }
-
+  
 	  this.clearStorage();
 	  return {
 		authenticated: false,
