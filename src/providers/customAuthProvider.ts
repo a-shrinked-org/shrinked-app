@@ -151,7 +151,7 @@ class AuthProviderClass {
 		localStorage.setItem('user', JSON.stringify(userData));
 		return {
 		  authenticated: true,
-		  // Remove redirectTo if authentication is successful
+		  redirectTo: "/jobs"
 		};
 	  }
   

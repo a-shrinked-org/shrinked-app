@@ -42,7 +42,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
     login: async (params: any) => {
       if (params.providerName === "auth0") {
         signIn("auth0", {
-          callbackUrl: to ? to.toString() : "/",
+          callbackUrl: to ? to.toString() : "/jobs",  // Changed to /jobs
           redirect: true,
         });
         return {
@@ -53,15 +53,25 @@ const App = (props: React.PropsWithChildren<{}>) => {
           }
         };
       }
-      // Safe call because we know customAuthProvider is defined
       return customAuthProvider.login(params);
     },
     check: async () => {
       if (session) {
-        return { authenticated: true };
+        return {
+          authenticated: true,
+          redirectTo: "/jobs"  // Added explicit redirect
+        };
       }
-      // Safe call because we know customAuthProvider is defined
-      return customAuthProvider.check();
+      
+      // Check custom auth
+      const result = await customAuthProvider.check();
+      if (result.authenticated) {
+        return {
+          ...result,
+          redirectTo: "/jobs"  // Added explicit redirect
+        };
+      }
+      return result;
     },
     getIdentity: async () => {
       if (session?.user) {
@@ -72,60 +82,62 @@ const App = (props: React.PropsWithChildren<{}>) => {
           email: session.user.email,
         };
       }
-      // Safe non-null assertion since we know customAuthProvider is defined
       return customAuthProvider.getIdentity!();
     }
   };
 
   return (
-      <>
-        <RefineKbarProvider>
-          <Refine
-            routerProvider={routerProvider}
-            dataProvider={dataProvider}
-            authProvider={authProvider}
-            resources={[
-              {
-                name: "jobs",
-                list: "/jobs",
-                create: "/jobs/create",
-                edit: "/jobs/edit/:id",
-                show: "/jobs/show/:id",
-                meta: {
-                  canDelete: true,
-                },
+    <>
+      <RefineKbarProvider>
+        <Refine
+          routerProvider={routerProvider}
+          dataProvider={dataProvider}
+          authProvider={authProvider}
+          resources={[
+            {
+              name: "jobs",
+              list: "/jobs",
+              create: "/jobs/create",
+              edit: "/jobs/edit/:id",
+              show: "/jobs/show/:id",
+              meta: {
+                canDelete: true,
               },
-              {
-                name: "categories",
-                list: "/categories",
-                create: "/categories/create",
-                edit: "/categories/edit/:id",
-                show: "/categories/show/:id",
-                meta: {
-                  canDelete: true,
-                },
+            },
+            {
+              name: "categories",
+              list: "/categories",
+              create: "/categories/create",
+              edit: "/categories/edit/:id",
+              show: "/categories/show/:id",
+              meta: {
+                canDelete: true,
               },
-              {
-                name: "output",
-                list: "/output",
-                show: "/output/show/:id",
-                meta: {
-                  canDelete: true,
-                },
+            },
+            {
+              name: "output",
+              list: "/output",
+              show: "/output/show/:id",
+              meta: {
+                canDelete: true,
               },
-            ]}
-            options={{
-              syncWithLocation: true,
-              warnWhenUnsavedChanges: true,
-              useNewQueryKeys: true,
-            }}
-          >
-            {props.children}
-            <RefineKbar />
-          </Refine>
-        </RefineKbarProvider>
-      </>
-    );
-  };
-  
+            },
+          ]}
+          options={{
+            syncWithLocation: true,
+            warnWhenUnsavedChanges: true,
+            useNewQueryKeys: true,
+            defaultBehavior: {
+              home: "/jobs",  // Added default home route
+            },
+          }}
+        >
+          {props.children}
+          <RefineKbar />
+        </Refine>
+      </RefineKbarProvider>
+    </>
+  );
+};
+
 export default RefineContext;
