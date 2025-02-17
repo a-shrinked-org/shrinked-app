@@ -171,26 +171,8 @@ class AuthProviderClass {
 		  const userData = await retryResponse.json();
 		  localStorage.setItem('user', JSON.stringify(userData));
 		  return {
-			authenticated: true,
-			// Remove redirectTo if authentication is successful
+			authenticated: true
 		  };
-		}
-	  
-	  const newTokens = await this.refreshAccessToken(refreshToken);
-	  if (newTokens) {
-		const retryResponse = await fetch(`${API_URL}/profile`, {
-		  method: 'GET',
-		  headers: {
-			'Authorization': `Bearer ${newTokens.accessToken}`,
-		  },
-		});
-	  
-		if (retryResponse.ok) {
-		  const userData = await retryResponse.json();
-		  localStorage.setItem('user', JSON.stringify(userData));
-		  return {
-			authenticated: true,
-		  }; // Remove redirectTo for successful auth
 		}
 	  }
   
@@ -208,7 +190,7 @@ class AuthProviderClass {
 	  };
 	}
   }
-
+  
   async logout() {
 	this.clearStorage();
 	return {
