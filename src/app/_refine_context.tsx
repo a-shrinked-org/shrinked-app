@@ -55,6 +55,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
       return customAuthProvider.login(params);
     },
     check: async () => {
+      console.log('Refine Check - Session:', !!session);
       if (session) {
         return {
           authenticated: true,
@@ -62,6 +63,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
       
       const result = await customAuthProvider.check();
+      console.log('Refine Check - Custom auth result:', result);
+      
         if (result.authenticated) {
           return {
             authenticated: true,

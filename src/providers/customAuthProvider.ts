@@ -130,6 +130,8 @@ class AuthProviderClass {
   async check() {
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
+	
+	console.log('Auth Check - Tokens exist:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken });
   
 	if (!accessToken || !refreshToken) {
 	  return {
@@ -149,6 +151,7 @@ class AuthProviderClass {
 	  if (response.ok) {
 		const userData = await response.json();
 		localStorage.setItem('user', JSON.stringify(userData));
+		console.log('Auth Check - Profile valid, user authenticated');
 		return {
 		  authenticated: true,
 		  redirectTo: "/jobs"
@@ -197,6 +200,7 @@ class AuthProviderClass {
 		redirectTo: "/login",
 	  };
 	} catch (error) {
+	  console.log('Auth Check - Error:', error);
 	  this.clearStorage();
 	  return {
 		authenticated: false,
