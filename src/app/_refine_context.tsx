@@ -58,19 +58,20 @@ const App = (props: React.PropsWithChildren<{}>) => {
       if (session) {
         return {
           authenticated: true,
-          redirectTo: "/jobs"
         };
       }
       
       const result = await customAuthProvider.check();
-      if (result.authenticated) {
+        if (result.authenticated) {
+          return {
+            authenticated: true,
+          };
+        }
         return {
-          ...result,
-          redirectTo: "/jobs"
+          authenticated: false,
+          redirectTo: "/login",
         };
-      }
-      return result;
-    },
+      },
     getIdentity: async () => {
       if (session?.user) {
         return {
