@@ -51,7 +51,7 @@ class AuthProviderClass {
 	  localStorage.setItem('accessToken', loginData.accessToken);
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
-	  const profileResponse = await fetch(`${API_URL}/profile`, {
+	  const profileResponse = await fetch(`${API_URL}/users/profile`, { // Changed from /profile to /users/profile
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${loginData.accessToken}`,
@@ -139,7 +139,7 @@ class AuthProviderClass {
 	}
 
 	try {
-	  const response = await fetch(`${API_URL}/profile`, {
+	  const response = await fetch(`${API_URL}/users/profile`, { // Changed from /profile to /users/profile
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
@@ -156,7 +156,7 @@ class AuthProviderClass {
 
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
-		const retryResponse = await fetch(`${API_URL}/profile`, {
+		const retryResponse = await fetch(`${API_URL}/users/profile`, {
 		  method: 'GET',
 		  headers: {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
