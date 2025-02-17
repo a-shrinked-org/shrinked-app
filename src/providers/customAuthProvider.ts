@@ -153,8 +153,8 @@ class AuthProviderClass {
 		localStorage.setItem('user', JSON.stringify(userData));
 		console.log('Auth Check - Profile valid, user authenticated');
 		return {
-		  authenticated: true,
-		  redirectTo: "/jobs"
+		  authenticated: true
+		  // Remove redirectTo here since we're already authenticated
 		};
 	  }
   
