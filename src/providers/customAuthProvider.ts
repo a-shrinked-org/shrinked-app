@@ -1,7 +1,7 @@
 // customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 
-const API_URL = 'https://api.shrinked.ai/auth';
+const API_URL = 'https://api.shrinked.ai/';
 
 class AuthProviderClass {
   constructor() {
@@ -28,7 +28,7 @@ class AuthProviderClass {
 	const { email, password } = params;
 	
 	try {
-	  const loginResponse = await fetch(`${API_URL}/login`, {
+	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -94,7 +94,7 @@ class AuthProviderClass {
   async register(params: any) {
 	const { email, password, username } = params;
 	try {
-	  const registerResponse = await fetch(`${API_URL}/register`, {
+	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -217,7 +217,7 @@ class AuthProviderClass {
 
   private async refreshAccessToken(refreshToken: string) {
 	try {
-	  const response = await fetch(`${API_URL}/refresh`, {
+	  const response = await fetch(`${API_URL}/auth/refresh`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
