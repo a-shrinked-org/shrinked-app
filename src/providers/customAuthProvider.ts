@@ -177,7 +177,7 @@ export const customAuthProvider: AuthProvider = {
 	  };
 	}
   },
-
+  
   logout: async () => {
 	localStorage.removeItem('accessToken');
 	localStorage.removeItem('refreshToken');
