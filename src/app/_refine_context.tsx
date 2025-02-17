@@ -1,4 +1,3 @@
-// src/app/_refine_context.tsx
 "use client";
 
 import { Refine } from "@refinedev/core";
@@ -59,16 +58,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
       if (session) {
         return {
           authenticated: true,
-          redirectTo: "/jobs"  // Added explicit redirect
+          redirectTo: "/jobs"
         };
       }
       
-      // Check custom auth
       const result = await customAuthProvider.check();
       if (result.authenticated) {
         return {
           ...result,
-          redirectTo: "/jobs"  // Added explicit redirect
+          redirectTo: "/jobs"
         };
       }
       return result;
@@ -127,9 +125,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
             useNewQueryKeys: true,
-            defaultBehavior: {
-              home: "/jobs",  // Added default home route
-            },
           }}
         >
           {props.children}
