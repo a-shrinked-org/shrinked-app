@@ -1,13 +1,12 @@
 // src/app/_refine_context.tsx
 "use client";
-import { Refine } from "@refinedev/core";
+import { Refine, type AuthProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
-import { customAuthProvider } from "@providers/customAuthProvider";
 import "@styles/global.css";
 
 declare module "next-auth" {
@@ -36,10 +35,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
     return <span>loading...</span>;
   }
 
-  // Extend customAuthProvider to handle Auth0
-  const authProvider = {
-    ...customAuthProvider,
-    login: async (params: any) => {
+  const authProvider: AuthProvider = {
+    login: async (params) => {
       if (params.providerName === "auth0") {
         signIn("auth0", {
           callbackUrl: to ? to.toString() : "/",
@@ -53,29 +50,210 @@ const App = (props: React.PropsWithChildren<{}>) => {
           }
         };
       }
-      return customAuthProvider.login(params);
+
+      const { email, password } = params;
+      try {
+        const response = await fetch('/api/shrinked/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return {
+            success: false,
+            error: {
+              message: data.message || 'Login failed',
+              name: 'Login Error'
+            }
+          };
+        }
+
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        return {
+          success: true,
+          redirectTo: "/",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: {
+            message: error instanceof Error ? error.message : 'Login failed',
+            name: 'Login Error'
+          }
+        };
+      }
     },
-    logout: async (params: any = {}) => { // Added params argument
+
+    register: async (params) => {
+      const { email, password, username } = params;
+      try {
+        const registerResponse = await fetch('/api/shrinked/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password, username }),
+        });
+
+        const registerData = await registerResponse.json();
+
+        if (!registerResponse.ok) {
+          return {
+            success: false,
+            error: {
+              message: registerData.message || 'Registration failed',
+              name: 'Registration Error'
+            }
+          };
+        }
+
+        const loginResponse = await fetch('/api/shrinked/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const loginData = await loginResponse.json();
+
+        if (!loginResponse.ok) {
+          return {
+            success: false,
+            error: {
+              message: 'Auto-login after registration failed',
+              name: 'Registration Error'
+            }
+          };
+        }
+
+        localStorage.setItem('accessToken', loginData.accessToken);
+        localStorage.setItem('refreshToken', loginData.refreshToken);
+
+        const profileResponse = await fetch('/api/shrinked/users/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${loginData.accessToken}`,
+          },
+        });
+
+        if (!profileResponse.ok) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          return {
+            success: false,
+            error: {
+              message: 'Could not verify user profile',
+              name: 'Registration Error'
+            }
+          };
+        }
+
+        const userData = await profileResponse.json();
+        localStorage.setItem('user', JSON.stringify(userData));
+
+        return {
+          success: true,
+          redirectTo: "/",
+        };
+      } catch (error) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        
+        return {
+          success: false,
+          error: {
+            message: error instanceof Error ? error.message : 'Registration process failed',
+            name: 'Registration Error'
+          }
+        };
+      }
+    },
+
+    logout: async () => {
       if (session) {
         signOut({
           redirect: true,
           callbackUrl: "/login",
         });
+      } else {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      }
+      return {
+        success: true,
+        redirectTo: "/login",
+      };
+    },
+
+    onError: async (error) => {
+      if (error.response?.status === 401) {
         return {
-          success: true,
-          redirectTo: "/login",
+          logout: true,
         };
       }
-      return customAuthProvider.logout(params); // Pass params
+      return {
+        error,
+      };
     },
+
     check: async () => {
       if (session) {
         return {
           authenticated: true,
         };
       }
-      return customAuthProvider.check();
+
+      const accessToken = localStorage.getItem('accessToken');
+      const refreshToken = localStorage.getItem('refreshToken');
+
+      if (!accessToken || !refreshToken) {
+        return {
+          authenticated: false,
+          redirectTo: "/login",
+        };
+      }
+
+      try {
+        const response = await fetch('/api/shrinked/users/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          localStorage.setItem('user', JSON.stringify(userData));
+          return {
+            authenticated: true,
+          };
+        }
+
+        return {
+          authenticated: false,
+          redirectTo: "/login",
+        };
+      } catch (error) {
+        return {
+          authenticated: false,
+          redirectTo: "/login",
+        };
+      }
     },
+
+    getPermissions: async () => null,
+
     getIdentity: async () => {
       if (session?.user) {
         return {
@@ -85,10 +263,19 @@ const App = (props: React.PropsWithChildren<{}>) => {
           email: session.user.email,
         };
       }
-      return customAuthProvider.getIdentity();
+
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return {
+          name: user.username,
+          email: user.email,
+          token: localStorage.getItem('accessToken'),
+        };
+      }
+
+      return null;
     },
-    onError: customAuthProvider.onError,
-    getPermissions: async () => null
   };
 
   return (
@@ -98,9 +285,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           routerProvider={routerProvider}
           dataProvider={dataProvider}
           authProvider={authProvider}
-          resources={[
-            // ... your resources
-          ]}
+          resources={[]}
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
