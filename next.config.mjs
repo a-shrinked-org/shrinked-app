@@ -27,15 +27,6 @@ const nextConfig = {
     ],
     unoptimized: process.env.NODE_ENV === 'development',
   },
-  // Add CORS and proxy configuration
-  async rewrites() {
-    return [
-      {
-        source: '/api/shrinked/:path*',
-        destination: 'https://api.shrinked.ai/auth/:path*',
-      },
-    ];
-  },
   // Add CORS headers
   async headers() {
     return [
