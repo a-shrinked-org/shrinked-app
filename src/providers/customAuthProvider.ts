@@ -1,7 +1,7 @@
 // customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 
-const API_URL = 'https://api.shrinked.ai/';
+const API_URL = 'https://api.shrinked.ai';
 
 class AuthProviderClass {
   constructor() {
