@@ -32,7 +32,7 @@ const nextConfig = {
     return [
       {
         source: '/api/shrinked/:path*',
-        destination: 'https://api.shrinked.ai/api/auth/:path*',
+        destination: 'https://api.shrinked.ai/auth/:path*',
       },
     ];
   },

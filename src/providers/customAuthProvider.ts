@@ -217,7 +217,7 @@ class AuthProviderClass {
 
   private async refreshAccessToken(refreshToken: string) {
 	try {
-	  const response = await fetch(`${API_URL}/auth/refresh`, {
+	  const response = await fetch(`${API_URL}/refresh`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
