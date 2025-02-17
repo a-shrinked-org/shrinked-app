@@ -1,9 +1,20 @@
+// customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 
 const API_URL = '/api/shrinked';
 
-export const customAuthProvider: AuthProvider = {
-  login: async (params) => {
+class AuthProviderClass {
+  constructor() {
+	// Bind methods to ensure correct 'this' context
+	this.login = this.login.bind(this);
+	this.register = this.register.bind(this);
+	this.check = this.check.bind(this);
+	this.logout = this.logout.bind(this);
+	this.onError = this.onError.bind(this);
+	this.getIdentity = this.getIdentity.bind(this);
+  }
+
+  async login(params: any) {
 	if (params.providerName === "auth0") {
 	  return {
 		success: false,
@@ -78,9 +89,9 @@ export const customAuthProvider: AuthProvider = {
 		}
 	  };
 	}
-  },
+  }
 
-  register: async (params) => {
+  async register(params: any) {
 	const { email, password, username } = params;
 	try {
 	  const registerResponse = await fetch(`${API_URL}/register`, {
@@ -104,9 +115,8 @@ export const customAuthProvider: AuthProvider = {
 	  }
 
 	  // After registration, proceed with login
-	  return this.login({ email, password });
+	  return await this.login({ email, password });
 	} catch (error) {
-	  console.error('Registration error:', error);
 	  return {
 		success: false,
 		error: {
@@ -115,9 +125,9 @@ export const customAuthProvider: AuthProvider = {
 		}
 	  };
 	}
-  },
+  }
 
-  check: async () => {
+  async check() {
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
 
@@ -144,7 +154,7 @@ export const customAuthProvider: AuthProvider = {
 		};
 	  }
 
-	  const newTokens = await refreshAccessToken(refreshToken);
+	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/profile`, {
 		  method: 'GET',
@@ -162,35 +172,32 @@ export const customAuthProvider: AuthProvider = {
 		}
 	  }
 
-	  localStorage.removeItem('accessToken');
-	  localStorage.removeItem('refreshToken');
-	  localStorage.removeItem('user');
-	  
+	  this.clearStorage();
 	  return {
 		authenticated: false,
 		redirectTo: "/login",
 	  };
 	} catch (error) {
+	  this.clearStorage();
 	  return {
 		authenticated: false,
 		redirectTo: "/login",
 	  };
 	}
-  },
-  
-  logout: async () => {
-	localStorage.removeItem('accessToken');
-	localStorage.removeItem('refreshToken');
-	localStorage.removeItem('user');
+  }
+
+  async logout() {
+	this.clearStorage();
 	return {
 	  success: true,
 	  redirectTo: "/login",
 	};
-  },
+  }
 
-  onError: async (error) => {
+  async onError(error: any) {
 	const status = error?.response?.status || error?.status;
 	if (status === 401 || status === 403) {
+	  this.clearStorage();
 	  return {
 		logout: true,
 		redirectTo: "/login",
@@ -198,41 +205,59 @@ export const customAuthProvider: AuthProvider = {
 	  };
 	}
 	return {};
-  },
+  }
 
-  getIdentity: async () => {
+  async getIdentity() {
 	const userStr = localStorage.getItem('user');
 	if (userStr) {
 	  return JSON.parse(userStr);
 	}
 	return null;
   }
-};
 
-async function refreshAccessToken(refreshToken: string) {
-  try {
-	const response = await fetch(`${API_URL}/auth/refresh`, {
-	  method: 'POST',
-	  headers: {
-		'Content-Type': 'application/json',
-	  },
-	  body: JSON.stringify({ refreshToken }),
-	});
+  private async refreshAccessToken(refreshToken: string) {
+	try {
+	  const response = await fetch(`${API_URL}/auth/refresh`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ refreshToken }),
+	  });
 
-	if (!response.ok) {
+	  if (!response.ok) {
+		return null;
+	  }
+
+	  const data = await response.json();
+	  
+	  if (!data.accessToken || !data.refreshToken) {
+		return null;
+	  }
+
+	  localStorage.setItem('accessToken', data.accessToken);
+	  localStorage.setItem('refreshToken', data.refreshToken);
+	  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+	} catch (error) {
 	  return null;
 	}
+  }
 
-	const data = await response.json();
-	
-	if (!data.accessToken || !data.refreshToken) {
-	  return null;
-	}
-
-	localStorage.setItem('accessToken', data.accessToken);
-	localStorage.setItem('refreshToken', data.refreshToken);
-	return { accessToken: data.accessToken, refreshToken: data.refreshToken };
-  } catch (error) {
-	return null;
+  private clearStorage() {
+	localStorage.removeItem('accessToken');
+	localStorage.removeItem('refreshToken');
+	localStorage.removeItem('user');
   }
 }
+
+// Create a single instance and export its methods as the auth provider
+const authProviderInstance = new AuthProviderClass();
+
+export const customAuthProvider: AuthProvider = {
+  login: authProviderInstance.login,
+  register: authProviderInstance.register,
+  logout: authProviderInstance.logout,
+  check: authProviderInstance.check,
+  onError: authProviderInstance.onError,
+  getIdentity: authProviderInstance.getIdentity,
+};
