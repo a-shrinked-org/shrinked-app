@@ -3,14 +3,7 @@ import { AuthProvider } from "@refinedev/core";
 
 const API_URL = 'https://api.shrinked.ai';
 
-class AuthProviderClass {
-  login: AuthProvider["login"];
-  register: AuthProvider["register"];
-  check: AuthProvider["check"];
-  logout: AuthProvider["logout"];
-  onError: AuthProvider["onError"];
-  getIdentity: AuthProvider["getIdentity"];
-
+class AuthProviderClass implements AuthProvider {
   constructor() {
 	// Bind methods to ensure correct 'this' context
 	this.login = this.login.bind(this);
