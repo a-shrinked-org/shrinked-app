@@ -53,10 +53,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
           }
         };
       }
-      // Use custom authentication for non-Auth0 login
       return customAuthProvider.login(params);
     },
-    logout: async () => {
+    logout: async (params: any = {}) => { // Added params argument
       if (session) {
         signOut({
           redirect: true,
@@ -67,7 +66,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           redirectTo: "/login",
         };
       }
-      return customAuthProvider.logout();
+      return customAuthProvider.logout(params); // Pass params
     },
     check: async () => {
       if (session) {
@@ -87,7 +86,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
       return customAuthProvider.getIdentity();
-    }
+    },
+    onError: customAuthProvider.onError,
+    getPermissions: async () => null
   };
 
   return (
