@@ -19,7 +19,6 @@ declare module "next-auth" {
 
 type RefineContextProps = {};
 
-// Export RefineContext component since it's imported in layout.tsx
 export const RefineContext = (
   props: React.PropsWithChildren<RefineContextProps>
 ) => {
@@ -38,7 +37,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
     return <span>loading...</span>;
   }
 
-  // Only override what's needed for Auth0
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
@@ -55,12 +53,14 @@ const App = (props: React.PropsWithChildren<{}>) => {
           }
         };
       }
+      // Safe call because we know customAuthProvider is defined
       return customAuthProvider.login(params);
     },
     check: async () => {
       if (session) {
         return { authenticated: true };
       }
+      // Safe call because we know customAuthProvider is defined
       return customAuthProvider.check();
     },
     getIdentity: async () => {
@@ -72,7 +72,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
           email: session.user.email,
         };
       }
-      return customAuthProvider.getIdentity();
+      // Safe non-null assertion since we know customAuthProvider is defined
+      return customAuthProvider.getIdentity!();
     }
   };
 
