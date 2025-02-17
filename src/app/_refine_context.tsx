@@ -97,7 +97,8 @@ const authProvider = {
         email: session.user.email,
       };
     }
-    return customAuthProvider.getIdentity();
+    // Use non-null assertion since we know getIdentity exists
+    return customAuthProvider.getIdentity!();
   }
 };
 
