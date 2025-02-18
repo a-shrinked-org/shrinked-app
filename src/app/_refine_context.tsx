@@ -18,8 +18,6 @@ declare module "next-auth" {
 
 interface RefineContextProps {}
 
-// Update the App component in _refine_context.tsx
-
 const App = (props: React.PropsWithChildren<{}>) => {
 const { data: session, status } = useSession();
 const to = usePathname();
@@ -30,10 +28,12 @@ const [authState, setAuthState] = useState({
   initialized: false
 });
 
+// Effect to handle initial authentication check
 useEffect(() => {
   const checkAuthentication = async () => {
-    // Skip if already initialized or session is loading
-    if (authState.initialized || status === "loading") {
+    // Skip if session is loading
+    if (status === "loading") {
+      console.log("Session is loading, skipping check");
       return;
     }
 
@@ -48,10 +48,6 @@ useEffect(() => {
           isAuthenticated: true,
           initialized: true
         });
-        
-        if (to === '/login' || to === '/') {
-          router.push('/jobs');
-        }
         return;
       }
       
@@ -66,15 +62,6 @@ useEffect(() => {
       };
       console.log("Setting new auth state:", newAuthState);
       setAuthState(newAuthState);
-
-      // Handle redirects
-      if (result.authenticated) {
-        if (to === '/login' || to === '/') {
-          router.push('/jobs');
-        }
-      } else if (to !== '/login') {
-        router.push('/login');
-      }
     } catch (error) {
       console.error("Auth check error:", error);
       setAuthState({
@@ -82,22 +69,41 @@ useEffect(() => {
         isAuthenticated: false,
         initialized: true
       });
-      
-      if (to !== '/login') {
-        router.push('/login');
-      }
     }
   };
 
   checkAuthentication();
-}, [status, authState.initialized, to, router, session]);
+}, [status, session]);
+
+// Separate effect to handle redirects based on auth state
+
+useEffect(() => {
+  const handleRedirect = async () => {
+    if (!authState.isChecking && authState.initialized) {
+      console.log("Handling redirect with auth state:", authState);
+      if (authState.isAuthenticated) {
+        if (to === '/login' || to === '/') {
+          console.log("Authenticated user at login/root, redirecting to /jobs");
+          router.push('/jobs');
+        }
+      } else {
+        if (to !== '/login') {
+          console.log("Unauthenticated user, redirecting to /login");
+          router.push('/login');
+        }
+      }
+    }
+  };
+
+  handleRedirect();
+}, [authState, to, router]);
 
 const authProvider = {
   ...customAuthProvider,
   login: async (params: any) => {
     if (params.providerName === "auth0") {
       signIn("auth0", {
-        callbackUrl: to ? to.toString() : "/jobs",
+        callbackUrl: "/jobs",
         redirect: true,
       });
       return {
@@ -124,21 +130,11 @@ const authProvider = {
     
     if (result.success && result.user) {
       console.log("Setting authenticated state after successful login");
-      setAuthState(prev => {
-        const newState = {
-          ...prev,
-          isAuthenticated: true,
-          initialized: true,
-          isChecking: false
-        };
-        console.log("New auth state after login:", newState);
-        return newState;
+      setAuthState({
+        isChecking: false,
+        isAuthenticated: true,
+        initialized: true
       });
-      
-      // Force immediate redirect
-      if (to === '/login' || to === '/') {
-        router.push('/jobs');
-      }
       return result;
     }
     return result;
@@ -147,6 +143,10 @@ const authProvider = {
     console.log("Check auth called. Current state:", { session, authState });
     
     if (session) {
+      return { authenticated: true };
+    }
+    
+    if (!authState.isChecking && authState.initialized && authState.isAuthenticated) {
       return { authenticated: true };
     }
     
@@ -162,10 +162,6 @@ const authProvider = {
       const result = await customAuthProvider.check();
       console.log("Custom auth check result:", result);
       return result;
-    }
-    
-    if (authState.initialized && authState.isAuthenticated) {
-      return { authenticated: true };
     }
     
     if (!customAuthProvider.check) {
