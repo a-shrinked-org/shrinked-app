@@ -424,7 +424,7 @@ class AuthProviderClass implements AuthProvider {
 
 const authProviderInstance = new AuthProviderClass();
 
-type CustomAuthProvider = AuthProvider & {
+type CustomAuthProvider = Required<AuthProvider> & {
   register: (params: any) => Promise<any>;
   forgotPassword?: (params: any) => Promise<any>;
   updatePassword?: (params: any) => Promise<any>;
@@ -441,4 +441,4 @@ export const customAuthProvider: CustomAuthProvider = {
   forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
   updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
   getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
-};
+} as const;

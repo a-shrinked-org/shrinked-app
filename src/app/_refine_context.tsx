@@ -106,6 +106,16 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
       
+      if (!customAuthProvider.login) {
+        return {
+          success: false,
+          error: {
+            message: "Login method not available",
+            name: "Auth Error"
+          }
+        };
+      }
+    
       const result = await customAuthProvider.login(params);
       console.log("Login result:", result);
       
@@ -125,6 +135,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
       if (authState.initialized) {
         return { authenticated: authState.isAuthenticated };
       }
+      if (!customAuthProvider.check) {
+        return { authenticated: false };
+      }
       const result = await customAuthProvider.check();
       return result;
     },
@@ -140,6 +153,10 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
       
       // Fall back to custom auth provider
+      if (!customAuthProvider.getIdentity) {
+        return null;
+      }
+      
       try {
         const identity = await customAuthProvider.getIdentity();
         console.log("GetIdentity result:", identity);
