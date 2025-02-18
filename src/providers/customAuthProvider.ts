@@ -1,28 +1,25 @@
-// customAuthProvider.ts
-import { AuthProvider, HttpError } from "@refinedev/core";
+import { AuthProvider } from "@refinedev/core";
 
 const API_URL = 'https://api.shrinked.ai';
 
-class AuthError extends Error {
-  constructor(message: string) {
-	super(message);
-	this.name = 'AuthError';
-  }
-}
-
 class AuthProviderClass implements AuthProvider {
   constructor() {
-	// Bind methods to ensure correct 'this' context
 	this.login = this.login.bind(this);
 	this.register = this.register.bind(this);
 	this.check = this.check.bind(this);
 	this.logout = this.logout.bind(this);
 	this.onError = this.onError.bind(this);
 	this.getIdentity = this.getIdentity.bind(this);
+	this.forgotPassword = this.forgotPassword.bind(this);
+	this.updatePassword = this.updatePassword.bind(this);
+	this.getPermissions = this.getPermissions.bind(this);
   }
 
   async login(params: any) {
-	if (params.providerName === "auth0") {
+	const { providerName, email, password } = params;
+
+	// Handle different OAuth providers
+	if (providerName === "auth0") {
 	  return {
 		success: false,
 		error: {
@@ -32,8 +29,23 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
 
-	const { email, password } = params;
-	
+	if (providerName === "google") {
+	  // Handle Google OAuth
+	  window.location.href = `${API_URL}/auth/google`;
+	  return {
+		success: true
+	  };
+	}
+
+	if (providerName === "github") {
+	  // Handle GitHub OAuth
+	  window.location.href = `${API_URL}/auth/github`;
+	  return {
+		success: true
+	  };
+	}
+
+	// Handle email/password login
 	try {
 	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
 		method: 'POST',
@@ -50,7 +62,7 @@ class AuthProviderClass implements AuthProvider {
 		  success: false,
 		  error: {
 			message: loginData.message || 'Login failed',
-			name: 'Login Error'
+			name: 'Invalid email or password'
 		  }
 		};
 	  }
@@ -66,8 +78,7 @@ class AuthProviderClass implements AuthProvider {
 	  });
 
 	  if (!profileResponse.ok) {
-		localStorage.removeItem('accessToken');
-		localStorage.removeItem('refreshToken');
+		this.clearStorage();
 		return {
 		  success: false,
 		  error: {
@@ -91,9 +102,7 @@ class AuthProviderClass implements AuthProvider {
 		user: userDataWithTokens
 	  };
 	} catch (error) {
-	  localStorage.removeItem('accessToken');
-	  localStorage.removeItem('refreshToken');
-	  localStorage.removeItem('user');
+	  this.clearStorage();
 	  return {
 		success: false,
 		error: {
@@ -104,58 +113,23 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async register(params: any) {
-	const { email, password, username } = params;
-	try {
-	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ email, password, username }),
-	  });
-
-	  const registerData = await registerResponse.json();
-
-	  if (!registerResponse.ok) {
-		return {
-		  success: false,
-		  error: {
-			message: registerData.message || 'Registration failed',
-			name: 'Registration Error'
-		  }
-		};
-	  }
-
-	  // After registration, proceed with login
-	  return await this.login({ email, password });
-	} catch (error) {
-	  return {
-		success: false,
-		error: {
-		  message: error instanceof Error ? error.message : 'Registration process failed',
-		  name: 'Registration Error'
-		}
-	  };
-	}
-  }
-
-async check() {
+  async check() {
+	const userStr = localStorage.getItem('user');
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
-	
-	console.log('Auth Check - Tokens exist:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken });
-  
-	if (!accessToken || !refreshToken) {
-	  console.log('No tokens found, redirecting to login');
-	  this.clearStorage();
+
+	if (!userStr || !accessToken || !refreshToken) {
 	  return {
 		authenticated: false,
-		error: new Error("No valid credentials"),
-		redirectTo: "/login",
+		error: {
+		  message: "Check failed",
+		  name: "Not authenticated"
+		},
+		logout: true,
+		redirectTo: "/login"
 	  };
 	}
-  
+
 	try {
 	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
@@ -163,22 +137,14 @@ async check() {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
-  
+
 	  if (response.ok) {
-		const userData = await response.json();
-		const userDataWithTokens = {
-		  ...userData,
-		  accessToken,
-		  refreshToken
-		};
-		localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-		console.log('Auth Check - Profile valid, user authenticated');
 		return {
-		  authenticated: true,
-		  redirectTo: "/jobs"  // Explicitly include redirectTo
+		  authenticated: true
 		};
 	  }
-  
+
+	  // Try token refresh
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -187,36 +153,137 @@ async check() {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
 		});
-  
+
 		if (retryResponse.ok) {
-		  const userData = await retryResponse.json();
-		  const userDataWithTokens = {
-			...userData,
-			accessToken: newTokens.accessToken,
-			refreshToken: newTokens.refreshToken
-		  };
-		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
 		  return {
-			authenticated: true,
-			redirectTo: "/jobs"  // Explicitly include redirectTo
+			authenticated: true
 		  };
 		}
 	  }
-  
-	  console.log('Auth Check - Profile validation failed, clearing storage');
+
 	  this.clearStorage();
 	  return {
 		authenticated: false,
-		error: new Error("Failed to authenticate"),
-		redirectTo: "/login",
+		error: {
+		  message: "Check failed",
+		  name: "Not authenticated"
+		},
+		logout: true,
+		redirectTo: "/login"
 	  };
 	} catch (error) {
-	  console.log('Auth Check - Error:', error);
 	  this.clearStorage();
 	  return {
 		authenticated: false,
-		error: new Error("Authentication check failed"),
-		redirectTo: "/login",
+		error: {
+		  message: "Check failed",
+		  name: "Not authenticated"
+		},
+		logout: true,
+		redirectTo: "/login"
+	  };
+	}
+  }
+
+  async getPermissions(params?: any) {
+	const userStr = localStorage.getItem('user');
+	if (!userStr) return null;
+
+	try {
+	  const userData = JSON.parse(userStr);
+	  const response = await fetch(`${API_URL}/users/permissions`, {
+		headers: {
+		  'Authorization': `Bearer ${userData.accessToken}`,
+		},
+	  });
+
+	  if (response.ok) {
+		const { roles } = await response.json();
+		return roles;
+	  }
+	  return null;
+	} catch (error) {
+	  return null;
+	}
+  }
+
+  async updatePassword(params: any) {
+	const userStr = localStorage.getItem('user');
+	if (!userStr) {
+	  return {
+		success: false,
+		error: {
+		  message: "Not authenticated",
+		  name: "Update password failed"
+		}
+	  };
+	}
+
+	try {
+	  const userData = JSON.parse(userStr);
+	  const response = await fetch(`${API_URL}/auth/update-password`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		  'Authorization': `Bearer ${userData.accessToken}`,
+		},
+		body: JSON.stringify(params),
+	  });
+
+	  if (!response.ok) {
+		return {
+		  success: false,
+		  error: {
+			message: "Invalid password",
+			name: "Update password failed"
+		  }
+		};
+	  }
+
+	  return {
+		success: true
+	  };
+	} catch (error) {
+	  return {
+		success: false,
+		error: {
+		  message: "Update failed",
+		  name: "Update password failed"
+		}
+	  };
+	}
+  }
+
+  async forgotPassword(params: any) {
+	try {
+	  const response = await fetch(`${API_URL}/auth/forgot-password`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(params),
+	  });
+
+	  if (!response.ok) {
+		return {
+		  success: false,
+		  error: {
+			message: "Invalid email",
+			name: "Forgot password failed"
+		  }
+		};
+	  }
+
+	  return {
+		success: true
+	  };
+	} catch (error) {
+	  return {
+		success: false,
+		error: {
+		  message: "Request failed",
+		  name: "Forgot password failed"
+		}
 	  };
 	}
   }
@@ -230,16 +297,17 @@ async check() {
   }
 
   async onError(error: any) {
+	console.error(error);
 	const status = error?.response?.status || error?.status;
 	if (status === 401 || status === 403) {
 	  this.clearStorage();
 	  return {
 		logout: true,
 		redirectTo: "/login",
-		error,
+		error
 	  };
 	}
-	return {};
+	return { error };
   }
 
   async getIdentity() {
@@ -300,4 +368,7 @@ export const customAuthProvider: AuthProvider = {
   check: authProviderInstance.check,
   onError: authProviderInstance.onError,
   getIdentity: authProviderInstance.getIdentity,
+  forgotPassword: authProviderInstance.forgotPassword,
+  updatePassword: authProviderInstance.updatePassword,
+  getPermissions: authProviderInstance.getPermissions,
 };

@@ -58,10 +58,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
       
       if (result.success && result.user) {
         localStorage.setItem('user', JSON.stringify(result.user));
-        return {
-          success: true,
-          redirectTo: "/jobs"
-        };
+        return result;  // Return the full result including user
+      }
+      return result;
+    },
+    register: async (params: any) => {
+      const result = await customAuthProvider.register(params);
+      if (result.success && result.user) {
+        localStorage.setItem('user', JSON.stringify(result.user));
+        return result;
       }
       return result;
     },
@@ -80,13 +85,16 @@ const App = (props: React.PropsWithChildren<{}>) => {
         const result = await customAuthProvider.check();
         console.log('Refine Check - Custom auth result:', result);
         
-        return result; // Pass through the result with redirectTo
+        return result;
       } catch (error) {
         console.log("Auth check error:", error);
         return {
           authenticated: false,
-          redirectTo: "/login",
-          error: new Error("Authentication check failed")
+          error: {
+            message: "Authentication check failed",
+            name: "Auth Error"
+          },
+          redirectTo: "/login"
         };
       }
     },
