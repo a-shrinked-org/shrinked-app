@@ -173,8 +173,7 @@ async check() {
 		localStorage.setItem('user', JSON.stringify(userDataWithTokens));
 		console.log('Auth Check - Profile valid, user authenticated');
 		return {
-		  authenticated: true,
-		  redirectTo: "/jobs"  // Add explicit redirect for authenticated users
+		  authenticated: true
 		};
 	  }
   
@@ -197,8 +196,7 @@ async check() {
 		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
 		  console.log('Auth Check - Token refresh successful, user authenticated');
 		  return {
-			authenticated: true,
-			redirectTo: "/jobs"  // Add explicit redirect for authenticated users
+			authenticated: true
 		  };
 		}
 	  }

@@ -79,7 +79,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
         console.log("Custom auth authenticated, returning true");
         return {
           authenticated: true,
-          redirectTo: "/jobs"  // Add explicit redirect for authenticated users
         };
       }
 
