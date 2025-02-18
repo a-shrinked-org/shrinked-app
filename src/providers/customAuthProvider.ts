@@ -17,8 +17,6 @@ interface UserData {
 const API_URL = 'https://api.shrinked.ai';
 
 class AuthProviderClass implements AuthProvider {
-  private authCheckPromise: Promise<{ authenticated: boolean }> | null = null;
-
   constructor() {
 	this.login = this.login.bind(this);
 	this.register = this.register.bind(this);
@@ -61,175 +59,73 @@ class AuthProviderClass implements AuthProvider {
 
 	// Handle email/password login
 	try {
-		  const loginResponse = await fetch(`${API_URL}/auth/login`, {
-			method: 'POST',
-			headers: {
-			  'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ email, password }),
-		  });
-	
-		  const loginData = await loginResponse.json();
-	
-		  if (!loginResponse.ok) {
-			return {
-			  success: false,
-			  error: {
-				message: loginData.message || 'Login failed',
-				name: 'Invalid email or password'
-			  }
-			};
+	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ email, password }),
+	  });
+
+	  const loginData = await loginResponse.json();
+
+	  if (!loginResponse.ok) {
+		return {
+		  success: false,
+		  error: {
+			message: loginData.message || 'Login failed',
+			name: 'Invalid email or password'
 		  }
-	
-		  // Store tokens in localStorage with expiration
-		  const expiresIn = 3600; // 1 hour - adjust based on your token expiration
-		  const expiresAt = new Date().getTime() + expiresIn * 1000;
-		  
-		  localStorage.setItem('accessToken', loginData.accessToken);
-		  localStorage.setItem('refreshToken', loginData.refreshToken);
-		  localStorage.setItem('tokenExpiration', expiresAt.toString());
-	
-		  // Fetch user profile
-		  const profileResponse = await fetch(`${API_URL}/users/profile`, {
-			method: 'GET',
-			headers: {
-			  'Authorization': `Bearer ${loginData.accessToken}`,
-			},
-		  });
-	
-		  if (!profileResponse.ok) {
-			this.clearStorage();
-			return {
-			  success: false,
-			  error: {
-				message: 'Could not verify user profile',
-				name: 'Login Error'
-			  }
-			};
+		};
+	  }
+
+	  localStorage.setItem('accessToken', loginData.accessToken);
+	  localStorage.setItem('refreshToken', loginData.refreshToken);
+
+	  // Fetch user profile after successful login
+	  const profileResponse = await fetch(`${API_URL}/users/profile`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${loginData.accessToken}`,
+		},
+	  });
+
+	  if (!profileResponse.ok) {
+		this.clearStorage();
+		return {
+		  success: false,
+		  error: {
+			message: 'Could not verify user profile',
+			name: 'Login Error'
 		  }
-	
-		  const userData: UserData = await profileResponse.json();
-		  const userDataWithTokens = {
-			...userData,
-			accessToken: loginData.accessToken,
-			refreshToken: loginData.refreshToken
-		  };
-		  
-		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-	
-		  return {
-			success: true,
-			redirectTo: "/jobs",
-			user: userDataWithTokens
-		  };
-		} catch (error) {
-		  this.clearStorage();
-		  return {
-			success: false,
-			error: {
-			  message: error instanceof Error ? error.message : 'Login failed',
-			  name: 'Login Error'
-			}
-		  };
+		};
+	  }
+
+	  const userData: UserData = await profileResponse.json();
+	  const userDataWithTokens = {
+		...userData,
+		accessToken: loginData.accessToken,
+		refreshToken: loginData.refreshToken
+	  };
+	  
+	  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
+
+	  return {
+		success: true,
+		redirectTo: "/jobs",
+		user: userDataWithTokens
+	  };
+	} catch (error) {
+	  this.clearStorage();
+	  return {
+		success: false,
+		error: {
+		  message: error instanceof Error ? error.message : 'Login failed',
+		  name: 'Login Error'
 		}
-	  }
-	
-	async validateToken(token: string): Promise<boolean> {
-	  try {
-		const response = await fetch(`${API_URL}/users/profile`, {
-		  method: 'GET',
-		  headers: {
-			'Authorization': `Bearer ${token}`,
-		  },
-		});
-		return response.ok;
-	  } catch (error) {
-		return false;
-	  }
+	  };
 	}
-	
-	private isRefreshing = false;
-	private refreshSubscribers: Array<(token: string) => void> = [];
-	
-	private addRefreshSubscriber(callback: (token: string) => void) {
-	  this.refreshSubscribers.push(callback);
-	}
-	
-	private onRefreshComplete(token: string) {
-	  this.refreshSubscribers.forEach((callback) => callback(token));
-	  this.refreshSubscribers = [];
-	}
-	
-	async refreshAndValidate(): Promise<boolean> {
-	  if (this.isRefreshing) {
-		// Return a new promise that will be resolved when refresh is complete
-		return new Promise((resolve) => {
-		  this.addRefreshSubscriber((token: string) => {
-			resolve(this.validateToken(token));
-		  });
-		});
-	  }
-	
-	  this.isRefreshing = true;
-	  try {
-		const refreshToken = localStorage.getItem('refreshToken');
-		if (!refreshToken) return false;
-	
-		const refreshedTokens = await this.refreshAccessToken(refreshToken);
-		if (!refreshedTokens) {
-		  this.clearStorage();
-		  return false;
-		}
-	
-		this.onRefreshComplete(refreshedTokens.accessToken);
-		return await this.validateToken(refreshedTokens.accessToken);
-	  } finally {
-		this.isRefreshing = false;
-	  }
-	}
-	
-	// Update the check method to include this section
-	async check(): Promise<{ authenticated: boolean; redirectTo?: string; }> {
-	  if (this.authCheckPromise) {
-		return this.authCheckPromise;
-	  }
-	
-	  this.authCheckPromise = (async () => {
-		try {
-		  const accessToken = localStorage.getItem('accessToken');
-		  const tokenExpiration = localStorage.getItem('tokenExpiration');
-		  
-		  if (!accessToken) {
-			return { authenticated: false, redirectTo: '/login' };
-		  }
-	
-		  // Check if token is expired
-		  const now = new Date().getTime();
-		  const expiration = tokenExpiration ? parseInt(tokenExpiration) : 0;
-		  const isExpired = now >= expiration;
-	
-		  // If token is not expired, validate it
-		  if (!isExpired && await this.validateToken(accessToken)) {
-			return { authenticated: true };
-		  }
-	
-		  // If token is expired or invalid, try to refresh
-		  if (await this.refreshAndValidate()) {
-			return { authenticated: true };
-		  }
-	
-		  this.clearStorage();
-		  return { authenticated: false, redirectTo: '/login' };
-		} catch (error) {
-		  this.clearStorage();
-		  return { authenticated: false, redirectTo: '/login' };
-		} finally {
-		  this.authCheckPromise = null;
-		}
-	  })();
-	
-	  return this.authCheckPromise;
-	}
+  }
 
   async register(params: any) {
 	const { email, password, username } = params;
@@ -270,11 +166,103 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
+
+  async check() {
+	const userStr = localStorage.getItem('user');
+	const accessToken = localStorage.getItem('accessToken');
+	const refreshToken = localStorage.getItem('refreshToken');
   
+	console.log("Checking auth tokens:", {
+	  hasUser: !!userStr,
+	  hasAccess: !!accessToken,
+	  hasRefresh: !!refreshToken
+	});
+  
+	if (!accessToken || !refreshToken) {
+	  console.log("No tokens found");
+	  this.clearStorage();
+	  return {
+		authenticated: false
+	  };
+	}
+  
+	try {
+	  // Try to validate the current token
+	  console.log("Validating access token");
+	  const response = await fetch(`${API_URL}/users/profile`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${accessToken}`,
+		},
+	  });
+  
+	  if (response.ok) {
+		const userData = await response.json();
+		// Update stored user data with current tokens
+		const updatedUserData = {
+		  ...userData,
+		  accessToken,
+		  refreshToken
+		};
+		localStorage.setItem('user', JSON.stringify(updatedUserData));
+		console.log("Token valid, user authenticated");
+		return {
+		  authenticated: true
+		};
+	  }
+  
+	  if (response.status === 403 || response.status === 401) {
+		console.log("Token invalid, attempting refresh");
+		const newTokens = await this.refreshAccessToken(refreshToken);
+		
+		if (!newTokens) {
+		  console.log("Token refresh failed");
+		  this.clearStorage();
+		  return {
+			authenticated: false
+		  };
+		}
+  
+		const retryResponse = await fetch(`${API_URL}/users/profile`, {
+		  method: 'GET',
+		  headers: {
+			'Authorization': `Bearer ${newTokens.accessToken}`,
+		  },
+		});
+  
+		if (retryResponse.ok) {
+		  const userData = await retryResponse.json();
+		  const updatedUserData = {
+			...userData,
+			accessToken: newTokens.accessToken,
+			refreshToken: newTokens.refreshToken
+		  };
+		  localStorage.setItem('user', JSON.stringify(updatedUserData));
+		  console.log("Authentication restored with new tokens");
+		  return {
+			authenticated: true
+		  };
+		}
+	  }
+  
+	  console.log("Authentication failed");
+	  this.clearStorage();
+	  return {
+		authenticated: false
+	  };
+	} catch (error) {
+	  console.error("Auth check error:", error);
+	  this.clearStorage();
+	  return {
+		authenticated: false
+	  };
+	}
+  }
+
   async getIdentity() {
 	const userStr = localStorage.getItem('user');
 	if (!userStr) return null;
-  
+
 	try {
 	  const userData: UserData = JSON.parse(userStr);
 	  return {
@@ -405,83 +393,71 @@ class AuthProviderClass implements AuthProvider {
 	};
   }
 
-  // End of the class should be properly closed
-	async onError(error: any) {
-	  console.error(error);
-	  const status = error?.response?.status || error?.status;
-	  if (status === 401 || status === 403) {
-		this.clearStorage();
-		return {
-		  logout: true,
-		  redirectTo: "/login",
-		  error
-		};
-	  }
-	  return { error };
+  async onError(error: any) {
+	console.error(error);
+	const status = error?.response?.status || error?.status;
+	if (status === 401 || status === 403) {
+	  this.clearStorage();
+	  return {
+		logout: true,
+		redirectTo: "/login",
+		error
+	  };
 	}
-  
-	private async refreshAccessToken(refreshToken: string) {
-	  try {
-		const response = await fetch(`${API_URL}/auth/refresh`, {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json',
-		  },
-		  body: JSON.stringify({ refreshToken }),
-		});
-  
-		if (!response.ok) {
-		  return null;
-		}
-  
-		const data = await response.json();
-		if (!data.accessToken || !data.refreshToken) {
-		  return null;
-		}
-  
-		// Update stored tokens
-		localStorage.setItem('accessToken', data.accessToken);
-		localStorage.setItem('refreshToken', data.refreshToken);
-		
-		// Update expiration
-		const newExpiration = new Date().getTime() + 3600 * 1000;
-		localStorage.setItem('tokenExpiration', newExpiration.toString());
-  
-		return { 
-		  accessToken: data.accessToken, 
-		  refreshToken: data.refreshToken 
-		};
-	  } catch (error) {
+	return { error };
+  }
+
+  private async refreshAccessToken(refreshToken: string) {
+	try {
+	  const response = await fetch(`${API_URL}/auth/refresh`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ refreshToken }),
+	  });
+
+	  if (!response.ok) {
 		return null;
 	  }
+
+	  const data = await response.json();
+	  if (!data.accessToken || !data.refreshToken) {
+		return null;
+	  }
+
+	  localStorage.setItem('accessToken', data.accessToken);
+	  localStorage.setItem('refreshToken', data.refreshToken);
+	  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+	} catch (error) {
+	  return null;
 	}
-  
-	private clearStorage() {
-	  localStorage.removeItem('accessToken');
-	  localStorage.removeItem('refreshToken');
-	  localStorage.removeItem('tokenExpiration');
-	  localStorage.removeItem('user');
-	}
-  } // End of AuthProviderClass
-  
-  // After class is closed, declare the instance
-  const authProviderInstance = new AuthProviderClass();
-  
-  type CustomAuthProvider = Required<AuthProvider> & {
-	register: (params: any) => Promise<any>;
-	forgotPassword?: (params: any) => Promise<any>;
-	updatePassword?: (params: any) => Promise<any>;
-	getPermissions?: (params?: any) => Promise<any>;
-  };
-  
-  export const customAuthProvider: CustomAuthProvider = {
-	login: authProviderInstance.login.bind(authProviderInstance),
-	register: authProviderInstance.register.bind(authProviderInstance),
-	logout: authProviderInstance.logout.bind(authProviderInstance),
-	check: authProviderInstance.check.bind(authProviderInstance),
-	onError: authProviderInstance.onError.bind(authProviderInstance),
-	getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
-	forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
-	updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
-	getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
-  } as const;
+  }
+
+  private clearStorage() {
+	localStorage.removeItem('accessToken');
+	localStorage.removeItem('refreshToken');
+	localStorage.removeItem('user');
+  }
+}
+
+const authProviderInstance = new AuthProviderClass();
+
+type CustomAuthProvider = Required<AuthProvider> & {
+  register: (params: any) => Promise<any>;
+  forgotPassword?: (params: any) => Promise<any>;
+  updatePassword?: (params: any) => Promise<any>;
+  getPermissions?: (params?: any) => Promise<any>;
+};
+
+export const customAuthProvider: CustomAuthProvider = {
+  login: authProviderInstance.login.bind(authProviderInstance),
+  register: authProviderInstance.register.bind(authProviderInstance),
+  logout: authProviderInstance.logout.bind(authProviderInstance),
+  check: authProviderInstance.check.bind(authProviderInstance),
+  onError: authProviderInstance.onError.bind(authProviderInstance),
+  getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
+  forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
+  updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
+  getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
+} as const;
