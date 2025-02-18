@@ -28,14 +28,6 @@ export const RefineContext = (
   );
 };
 
-const App = (props: React.PropsWithChildren<{}>) => {
-const { data: session, status } = useSession();
-const to = usePathname();
-
-if (status === "loading") {
-  return <span>loading...</span>;
-}
-
 const authProvider = {
   ...customAuthProvider,
   login: async (params: any) => {
@@ -54,7 +46,7 @@ const authProvider = {
     }
     
     const result = await customAuthProvider.login(params);
-    // If custom login is successful, store the user data in localStorage
+    console.log("Login result:", result);
     if (result.success && result.user) {
       localStorage.setItem('user', JSON.stringify(result.user));
     }
@@ -65,6 +57,7 @@ const authProvider = {
     
     // If we have a session, we're authenticated via Auth0
     if (session) {
+      console.log("Auth via session, returning authenticated true");
       return {
         authenticated: true,
       };
@@ -75,13 +68,14 @@ const authProvider = {
     console.log('Refine Check - Custom auth result:', result);
     
     if (result.authenticated) {
-      // If authenticated via custom auth, return without redirectTo
+      console.log("Custom auth authenticated, returning true");
       return {
         authenticated: true,
+        redirectTo: "/jobs"  // Add explicit redirect for authenticated users
       };
     }
 
-    // If not authenticated, redirect to login
+    console.log("Auth check failed, redirecting to login");
     return {
       authenticated: false,
       redirectTo: "/login",
@@ -97,8 +91,10 @@ const authProvider = {
         email: session.user.email,
       };
     }
-    // Use non-null assertion since we know getIdentity exists
-    return customAuthProvider.getIdentity!();
+    
+    const identity = await customAuthProvider.getIdentity!();
+    console.log("GetIdentity result:", identity);
+    return identity;
   }
 };
 

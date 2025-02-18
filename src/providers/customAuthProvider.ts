@@ -141,80 +141,85 @@ class AuthProviderClass implements AuthProvider {
   }
 
 async check() {
-	  const accessToken = localStorage.getItem('accessToken');
-	  const refreshToken = localStorage.getItem('refreshToken');
-	  
-	  console.log('Auth Check - Tokens exist:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken });
+	const accessToken = localStorage.getItem('accessToken');
+	const refreshToken = localStorage.getItem('refreshToken');
 	
-	  if (!accessToken || !refreshToken) {
+	console.log('Auth Check - Tokens exist:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken });
+  
+	if (!accessToken || !refreshToken) {
+	  console.log('No tokens found, redirecting to login');
+	  return {
+		authenticated: false,
+		error: new Error("No valid credentials"),
+		redirectTo: "/login",
+	  };
+	}
+  
+	try {
+	  const response = await fetch(`${API_URL}/users/profile`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${accessToken}`,
+		},
+	  });
+  
+	  if (response.ok) {
+		const userData = await response.json();
+		const userDataWithTokens = {
+		  ...userData,
+		  accessToken,
+		  refreshToken
+		};
+		localStorage.setItem('user', JSON.stringify(userDataWithTokens));
+		console.log('Auth Check - Profile valid, user authenticated');
 		return {
-		  authenticated: false,
-		  error: new Error("No valid credentials"),
-		  redirectTo: "/login",
+		  authenticated: true,
+		  redirectTo: "/jobs"  // Add explicit redirect for authenticated users
 		};
 	  }
-	
-	  try {
-		const response = await fetch(`${API_URL}/users/profile`, {
+  
+	  const newTokens = await this.refreshAccessToken(refreshToken);
+	  if (newTokens) {
+		const retryResponse = await fetch(`${API_URL}/users/profile`, {
 		  method: 'GET',
 		  headers: {
-			'Authorization': `Bearer ${accessToken}`,
+			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
 		});
-	
-		if (response.ok) {
-		  const userData = await response.json();
+  
+		if (retryResponse.ok) {
+		  const userData = await retryResponse.json();
 		  const userDataWithTokens = {
 			...userData,
-			accessToken,
-			refreshToken
+			accessToken: newTokens.accessToken,
+			refreshToken: newTokens.refreshToken
 		  };
 		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-		  console.log('Auth Check - Profile valid, user authenticated');
+		  console.log('Auth Check - Token refresh successful, user authenticated');
 		  return {
 			authenticated: true,
+			redirectTo: "/jobs"  // Add explicit redirect for authenticated users
 		  };
 		}
-	
-		const newTokens = await this.refreshAccessToken(refreshToken);
-		if (newTokens) {
-		  const retryResponse = await fetch(`${API_URL}/users/profile`, {
-			method: 'GET',
-			headers: {
-			  'Authorization': `Bearer ${newTokens.accessToken}`,
-			},
-		  });
-	
-		  if (retryResponse.ok) {
-			const userData = await retryResponse.json();
-			const userDataWithTokens = {
-			  ...userData,
-			  accessToken: newTokens.accessToken,
-			  refreshToken: newTokens.refreshToken
-			};
-			localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-			return {
-			  authenticated: true,
-			};
-		  }
-		}
-	
-		this.clearStorage();
-		return {
-		  authenticated: false,
-		  error: new Error("Failed to authenticate"),
-		  redirectTo: "/login",
-		};
-	  } catch (error) {
-		console.log('Auth Check - Error:', error);
-		this.clearStorage();
-		return {
-		  authenticated: false,
-		  error: new Error("Authentication check failed"),
-		  redirectTo: "/login",
-		};
 	  }
+  
+	  console.log('Auth Check - Profile validation failed, clearing storage');
+	  this.clearStorage();
+	  return {
+		authenticated: false,
+		error: new Error("Failed to authenticate"),
+		redirectTo: "/login",
+	  };
+	} catch (error) {
+	  console.log('Auth Check - Error:', error);
+	  this.clearStorage();
+	  return {
+		authenticated: false,
+		error: new Error("Authentication check failed"),
+		redirectTo: "/login",
+	  };
 	}
+  }
 
   async logout() {
 	this.clearStorage();
