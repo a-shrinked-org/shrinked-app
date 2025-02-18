@@ -4,7 +4,7 @@ import { Refine } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
@@ -22,6 +22,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
   const router = useRouter();
+  const navigationLock = useRef(false);
   
   const [authState, setAuthState] = useState({
     isChecking: true,
@@ -64,29 +65,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
     checkAuthentication();
   }, [status, session]);
 
-  // Navigation effect
-  useEffect(() => {
-    if (!authState.initialized || authState.isChecking) {
-      return;
-    }
-
-    const currentPath = to || '';
-    
-    if (authState.isAuthenticated) {
-      if (currentPath === "/login" || currentPath === "/") {
-        router.replace("/jobs");
-      }
-    } else {
-      if (currentPath !== "/login") {
-        // Clear tokens if authentication fails
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        router.replace("/login");
-      }
-    }
-  }, [authState.isAuthenticated, authState.initialized, authState.isChecking, to, router]);
-
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
@@ -113,7 +91,12 @@ const App = (props: React.PropsWithChildren<{}>) => {
             isAuthenticated: true,
             initialized: true,
           });
-          router.replace("/jobs");
+          
+          // Let Refine handle the redirection
+          return {
+            ...result,
+            redirectTo: "/jobs"
+          };
         }
         
         return result;
