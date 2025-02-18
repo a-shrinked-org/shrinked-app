@@ -15,8 +15,8 @@ import "@styles/global.css";
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
-    user?: {
-      id?: string;
+    user: {
+      id: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;
@@ -24,7 +24,7 @@ declare module "next-auth" {
   }
 
   interface User {
-    id?: string;
+    id: string;
     name?: string | null;
     email?: string | null;
     image?: string | null;
