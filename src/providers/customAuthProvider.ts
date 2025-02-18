@@ -462,40 +462,6 @@ class AuthProviderClass implements AuthProvider {
 	return { error };
   }
 
-  private async refreshAccessToken(refreshToken: string) {
-	try {
-	  const response = await fetch(`${API_URL}/auth/refresh`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ refreshToken }),
-	  });
-
-	  if (!response.ok) {
-		return null;
-	  }
-
-	  const data = await response.json();
-	  if (!data.accessToken || !data.refreshToken) {
-		return null;
-	  }
-
-	  localStorage.setItem('accessToken', data.accessToken);
-	  localStorage.setItem('refreshToken', data.refreshToken);
-	  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
-	} catch (error) {
-	  return null;
-	}
-  }
-
-  private clearStorage() {
-	localStorage.removeItem('accessToken');
-	localStorage.removeItem('refreshToken');
-	localStorage.removeItem('user');
-  }
-}
-
 const authProviderInstance = new AuthProviderClass();
 
 type CustomAuthProvider = Required<AuthProvider> & {
