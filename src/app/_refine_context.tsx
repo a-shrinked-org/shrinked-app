@@ -147,8 +147,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
             useNewQueryKeys: true,
-            defaultBehavior: {
-              authenticate: "required"
+            redirect: {
+              afterSuccess: "/jobs",
+              afterError: "/login"
             }
           }}
         >
