@@ -126,9 +126,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
           });
           
           return {
-            success: true,
-            redirectTo: "/jobs",
-            ...result
+            ...result,
+            redirectTo: "/jobs"
           };
         }
         
