@@ -19,59 +19,90 @@ declare module "next-auth" {
 interface RefineContextProps {}
 
 const App = (props: React.PropsWithChildren<{}>) => {
-const { data: session, status } = useSession();
-const to = usePathname();
-const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-const [isAuthenticated, setIsAuthenticated] = useState<boolean | undefined>(undefined);
-const [initialized, setInitialized] = useState(false);
+  const { data: session, status } = useSession();
+  const to = usePathname();
+  const [authState, setAuthState] = useState({
+    isChecking: true,
+    isAuthenticated: undefined as boolean | undefined,
+    initialized: false
+  });
 
-useEffect(() => {
-  const checkAuthentication = async () => {
-    try {
-      // Don't check if we're loading or already initialized
-      if (status === "loading" || initialized) return;
-      
-      console.log("Starting initial auth check...");
-      setIsCheckingAuth(true);
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      // Skip if already initialized or session is loading
+      if (authState.initialized || status === "loading") {
+        return;
+      }
 
-      const result = await customAuthProvider.check();
-      console.log("Initial auth check result:", result);
+      try {
+        console.log("Starting auth check...");
+        
+        // Check authentication
+        const result = await customAuthProvider.check();
+        console.log("Auth check result:", result);
 
-      // Set authentication state first
-      setIsAuthenticated(result.authenticated);
-      setInitialized(true);
-      
-      // Handle redirects after state is set
-      if (result.authenticated) {
-        if (to === '/login' || to === '/') {
-          console.log("Authenticated user at login/root, redirecting to jobs");
-          window.location.href = '/jobs';
+        // Update state
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: result.authenticated,
+          initialized: true
+        });
+
+        // Handle redirects only after state is set
+        if (result.authenticated) {
+          if (to === '/login' || to === '/') {
+            window.location.href = '/jobs';
+          }
+        } else if (to !== '/login') {
+          window.location.href = '/login';
         }
-      } else {
-        console.log("User not authenticated, redirecting to login");
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: false,
+          initialized: true
+        });
+        
         if (to !== '/login') {
           window.location.href = '/login';
         }
       }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      setIsAuthenticated(false);
-      setInitialized(true);
-      if (to !== '/login') {
-        window.location.href = '/login';
+    };
+
+    checkAuthentication();
+  }, [status, authState.initialized, to]);
+
+  const authProvider = {
+    ...customAuthProvider,
+    login: async (params: any) => {
+      if (params.providerName === "auth0") {
+        signIn("auth0", {
+          callbackUrl: to ? to.toString() : "/jobs",
+          redirect: true,
+        });
+        return {
+          success: false,
+          error: {
+            message: "Redirecting to Auth0...",
+            name: "Auth0"
+          }
+        };
       }
-    } finally {
-      setIsCheckingAuth(false);
-    }
-  };
-
-  checkAuthentication();
-}, [status, initialized, to]);
-
-const authProvider = {
-  ...customAuthProvider,
-  check: async () => {
-    try {
+      
+      const result = await customAuthProvider.login(params);
+      console.log("Login result:", result);
+      
+      if (result.success && result.user) {
+        setAuthState(prev => ({
+          ...prev,
+          isAuthenticated: true
+        }));
+        return result;
+      }
+      return result;
+    },
+    check: async () => {
       // If we have a session, we're authenticated
       if (session) {
         console.log("Auth via session");
@@ -80,37 +111,16 @@ const authProvider = {
         };
       }
 
-      // Get stored tokens
-      const accessToken = localStorage.getItem('accessToken');
-      const refreshToken = localStorage.getItem('refreshToken');
-
-      if (!accessToken || !refreshToken) {
-        console.log("No tokens found");
+      // If state is initialized, use cached value
+      if (authState.initialized) {
         return {
-          authenticated: false
+          authenticated: authState.isAuthenticated
         };
       }
 
-      // Verify tokens with API
-      const result = await customAuthProvider.check();
-      console.log("Auth check result:", result);
-      
-      // Update local state
-      setIsAuthenticated(result.authenticated);
-      
-      return result;
-    } catch (error) {
-      console.error("Auth check error:", error);
-      setIsAuthenticated(false);
-      return {
-        authenticated: false,
-        error: {
-          message: "Authentication check failed",
-          name: "Auth Error"
-        }
-      };
-    }
-  },
+      // Otherwise, check with provider
+      return await customAuthProvider.check();
+    },
     getIdentity: async () => {
       if (session?.user) {
         return {
@@ -126,13 +136,12 @@ const authProvider = {
       return identity;
     }
   };
-  
-  if (status === "loading" || isCheckingAuth || isAuthenticated === undefined) {
-    console.log("Showing loading state:", {
+
+  // Show loading state while checking auth
+  if (status === "loading" || authState.isChecking || authState.isAuthenticated === undefined) {
+    console.log("Loading state:", {
       sessionLoading: status === "loading",
-      isCheckingAuth,
-      authState: isAuthenticated,
-      initialized
+      ...authState
     });
     return <span>Loading...</span>;
   }
