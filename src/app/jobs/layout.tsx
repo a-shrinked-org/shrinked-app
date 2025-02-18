@@ -1,22 +1,17 @@
-import authOptions from "@app/api/auth/[...nextauth]/options";
+"use client";
+
+import { Authenticated } from "@refinedev/core";
 import { Layout as BaseLayout } from "@components/layout";
-import { getServerSession } from "next-auth/next";
-import { redirect } from "next/navigation";
 import React from "react";
 
-export default async function Layout({ children }: React.PropsWithChildren) {
-  const data = await getData();
-
-  if (!data.session?.user) {
-    return redirect("/login");
-  }
-
-  return <BaseLayout>{children}</BaseLayout>;
-}
-
-async function getData() {
-  const session = await getServerSession(authOptions);
-  return {
-    session,
-  };
+export default function Layout({ children }: React.PropsWithChildren) {
+  return (
+    <Authenticated 
+      key="jobs-layout"
+      v3LegacyAuthProviderCompatible
+      fallback={<div>Redirecting to login...</div>}
+    >
+      <BaseLayout>{children}</BaseLayout>
+    </Authenticated>
+  );
 }

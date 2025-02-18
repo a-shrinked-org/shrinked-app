@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import React, { Suspense } from "react";
+import React from "react";
 import { RefineContext } from './_refine_context';
 import { MantineProvider, createTheme, ColorSchemeScript } from '@mantine/core';
 import '@mantine/core/styles.css';
@@ -122,14 +122,20 @@ export default function RootLayout({
         <ColorSchemeScript forceColorScheme="dark" />
         <meta name="color-scheme" content="dark" />
       </head>
-      <body style={{ backgroundColor: 'var(--mantine-color-dark-9)', color: '#fff' }}>
+      <body style={{ 
+        backgroundColor: 'var(--mantine-color-dark-9)', 
+        color: '#fff',
+        margin: 0,
+        padding: 0,
+        minHeight: '100vh'
+      }}>
         <MantineProvider 
           theme={theme} 
           forceColorScheme="dark"
         >
-          <Suspense>
-            <RefineContext>{children}</RefineContext>
-          </Suspense>
+          <RefineContext>
+            {children}
+          </RefineContext>
         </MantineProvider>
       </body>
     </html>
