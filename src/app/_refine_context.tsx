@@ -1,33 +1,5 @@
 "use client";
 
-import { Refine } from "@refinedev/core";
-import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-import { SessionProvider, signIn, useSession } from "next-auth/react";
-import { usePathname } from "next/navigation";
-import React from "react";
-import routerProvider from "@refinedev/nextjs-router";
-import { dataProvider } from "@providers/data-provider";
-import { customAuthProvider } from "@providers/customAuthProvider";
-import "@styles/global.css";
-
-declare module "next-auth" {
-  interface Session {
-    accessToken?: string;
-  }
-}
-
-type RefineContextProps = {};
-
-export const RefineContext = (
-  props: React.PropsWithChildren<RefineContextProps>
-) => {
-  return (
-    <SessionProvider>
-      <App {...props} />
-    </SessionProvider>
-  );
-};
-
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
@@ -55,15 +27,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
       
       const result = await customAuthProvider.login(params);
       console.log("Login result:", result);
+      // Store user data before redirecting
       if (result.success && result.user) {
         localStorage.setItem('user', JSON.stringify(result.user));
+        // Force a check call to ensure all states are updated
+        await customAuthProvider.check();
       }
       return result;
     },
     check: async () => {
       console.log('Refine Check - Session:', !!session);
       
-      // If we have a session, we're authenticated via Auth0
       if (session) {
         console.log("Auth via session, returning authenticated true");
         return {
@@ -71,23 +45,31 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
       
-      // Otherwise, check custom auth
-      const result = await customAuthProvider.check();
-      console.log('Refine Check - Custom auth result:', result);
-      
-      if (result.authenticated) {
-        console.log("Custom auth authenticated, returning true");
+      try {
+        const result = await customAuthProvider.check();
+        console.log('Refine Check - Custom auth result:', result);
+        
+        if (result.authenticated) {
+          console.log("Custom auth authenticated, returning true");
+          return {
+            authenticated: true,
+          };
+        }
+
+        console.log("Auth check failed, redirecting to login");
         return {
-          authenticated: true,
+          authenticated: false,
+          redirectTo: "/login",
+          error: result.error
+        };
+      } catch (error) {
+        console.log("Auth check error:", error);
+        return {
+          authenticated: false,
+          redirectTo: "/login",
+          error: new Error("Authentication check failed")
         };
       }
-
-      console.log("Auth check failed, redirecting to login");
-      return {
-        authenticated: false,
-        redirectTo: "/login",
-        error: result.error
-      };
     },
     getIdentity: async () => {
       if (session?.user) {
@@ -104,7 +86,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
       return identity;
     }
   };
-
   return (
     <>
       <RefineKbarProvider>

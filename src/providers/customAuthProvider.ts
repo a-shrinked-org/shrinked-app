@@ -148,6 +148,7 @@ async check() {
   
 	if (!accessToken || !refreshToken) {
 	  console.log('No tokens found, redirecting to login');
+	  this.clearStorage();
 	  return {
 		authenticated: false,
 		error: new Error("No valid credentials"),
@@ -173,10 +174,11 @@ async check() {
 		localStorage.setItem('user', JSON.stringify(userDataWithTokens));
 		console.log('Auth Check - Profile valid, user authenticated');
 		return {
-		  authenticated: true
+		  authenticated: true,
 		};
 	  }
   
+	  // Try token refresh
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -194,9 +196,8 @@ async check() {
 			refreshToken: newTokens.refreshToken
 		  };
 		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-		  console.log('Auth Check - Token refresh successful, user authenticated');
 		  return {
-			authenticated: true
+			authenticated: true,
 		  };
 		}
 	  }

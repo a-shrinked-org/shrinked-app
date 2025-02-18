@@ -28,15 +28,6 @@ export default function Login() {
     password: "",
     username: ""
   });
-  
-  const { data: isAuthenticated } = useIsAuthenticated();
-  const router = useRouter();
-  
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/jobs");
-    }
-  }, [isAuthenticated, router]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
