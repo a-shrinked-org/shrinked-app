@@ -25,9 +25,11 @@ const router = useRouter();
 const [authState, setAuthState] = useState({
   isChecking: true,
   isAuthenticated: false,
-  initialized: false
+  initialized: false,
+  currentPath: ''
 });
 
+// Auth check effect
 useEffect(() => {
   if (status === "loading") {
     return;
@@ -37,67 +39,70 @@ useEffect(() => {
     try {
       console.log("Starting auth check...");
       
-      // First check for NextAuth session
       if (session) {
-        console.log("Session found:", session);
-        setAuthState({
+        console.log("Session found, setting authenticated");
+        setAuthState(prev => ({
+          ...prev,
           isChecking: false,
           isAuthenticated: true,
-          initialized: true
-        });
+          initialized: true,
+          currentPath: to || ''
+        }));
         return;
       }
       
-      // If no session, check custom auth
       const result = await customAuthProvider.check();
       console.log("Auth check result:", result);
 
-      if (result.authenticated) {
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: true,
-          initialized: true
-        });
-      } else {
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: false,
-          initialized: true
-        });
-      }
+      setAuthState(prev => ({
+        ...prev,
+        isChecking: false,
+        isAuthenticated: result.authenticated,
+        initialized: true,
+        currentPath: to || ''
+      }));
     } catch (error) {
       console.error("Auth check error:", error);
-      setAuthState({
+      setAuthState(prev => ({
+        ...prev,
         isChecking: false,
         isAuthenticated: false,
-        initialized: true
-      });
+        initialized: true,
+        currentPath: to || ''
+      }));
     }
   };
 
   checkAuthentication();
 }, [status, session]);
 
-// Handle redirects
+// Navigation effect
 useEffect(() => {
   if (authState.isChecking || !authState.initialized) {
     return;
   }
 
-  const currentPath = to || '/';
-  
-  if (authState.isAuthenticated) {
-    if (currentPath === '/login' || currentPath === '/') {
-      console.log('Redirecting authenticated user to /jobs');
-      router.push('/jobs');
-    }
-  } else {
-    if (currentPath !== '/login') {
-      console.log('Redirecting unauthenticated user to /login');
-      router.push('/login');
-    }
+  // Prevent navigation if we're already on the target path
+  if (authState.currentPath === to) {
+    return;
   }
-}, [authState.isAuthenticated, authState.initialized, authState.isChecking, to]);
+
+  const handleNavigation = async () => {
+    if (authState.isAuthenticated) {
+      if (to === '/login' || to === '/') {
+        console.log('Authenticated user redirecting to /jobs from:', to);
+        await router.replace('/jobs');
+      }
+    } else {
+      if (to !== '/login') {
+        console.log('Unauthenticated user redirecting to /login from:', to);
+        await router.replace('/login');
+      }
+    }
+  };
+
+  handleNavigation();
+}, [authState.isAuthenticated, authState.initialized, to, authState.currentPath]);
 
 const authProvider = {
   ...customAuthProvider,
@@ -130,12 +135,13 @@ const authProvider = {
     console.log("Login result:", result);
     
     if (result.success && result.user) {
-      setAuthState({
+      setAuthState(prev => ({
+        ...prev,
         isChecking: false,
         isAuthenticated: true,
-        initialized: true
-      });
-      return result;
+        initialized: true,
+        currentPath: '/login'
+      }));
     }
     return result;
   },
@@ -144,15 +150,12 @@ const authProvider = {
       return { authenticated: true };
     }
 
-    if (!authState.isChecking && authState.initialized && authState.isAuthenticated) {
-      return { authenticated: true };
-    }
-
     if (!customAuthProvider.check) {
       return { authenticated: false };
     }
     
-    return await customAuthProvider.check();
+    const result = await customAuthProvider.check();
+    return result;
   },
   getIdentity: async () => {
     if (session?.user) {
