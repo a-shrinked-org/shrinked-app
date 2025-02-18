@@ -25,13 +25,20 @@ import {
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 import { Breadcrumb } from "../breadcrumb";
 
+interface Identity {
+  id?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+}
+
 export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, setOpened] = useState(true);
   const pathname = usePathname();
   const { data: session } = useSession();
   const router = useRouter();
   const { mutate: logout } = useLogout();
-  const { data: identity } = useGetIdentity();
+  const { data: identity } = useGetIdentity<Identity>();
 
   // Use either session or custom auth identity
   const userInfo = {
