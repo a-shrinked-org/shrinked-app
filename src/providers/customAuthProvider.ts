@@ -1,5 +1,5 @@
 // customAuthProvider.ts
-import { AuthProvider } from "@refinedev/core";
+import { AuthProvider, HttpError } from "@refinedev/core";
 
 const API_URL = 'https://api.shrinked.ai';
 
@@ -134,80 +134,80 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async check() {
-	const accessToken = localStorage.getItem('accessToken');
-	const refreshToken = localStorage.getItem('refreshToken');
+	  const accessToken = localStorage.getItem('accessToken');
+	  const refreshToken = localStorage.getItem('refreshToken');
+	  
+	  console.log('Auth Check - Tokens exist:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken });
 	
-	console.log('Auth Check - Tokens exist:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken });
-  
-	if (!accessToken || !refreshToken) {
-	  return {
-		authenticated: false,
-		error: "No valid credentials",
-		redirectTo: "/login",
-	  };
-	}
-  
-	try {
-	  const response = await fetch(`${API_URL}/users/profile`, {
-		method: 'GET',
-		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
-		},
-	  });
-  
-	  if (response.ok) {
-		const userData = await response.json();
-		const userDataWithTokens = {
-		  ...userData,
-		  accessToken,
-		  refreshToken
-		};
-		localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-		console.log('Auth Check - Profile valid, user authenticated');
+	  if (!accessToken || !refreshToken) {
 		return {
-		  authenticated: true,
+		  authenticated: false,
+		  error: new AuthError("No valid credentials"),
+		  redirectTo: "/login",
 		};
 	  }
-  
-	  const newTokens = await this.refreshAccessToken(refreshToken);
-	  if (newTokens) {
-		const retryResponse = await fetch(`${API_URL}/users/profile`, {
+	
+	  try {
+		const response = await fetch(`${API_URL}/users/profile`, {
 		  method: 'GET',
 		  headers: {
-			'Authorization': `Bearer ${newTokens.accessToken}`,
+			'Authorization': `Bearer ${accessToken}`,
 		  },
 		});
-  
-		if (retryResponse.ok) {
-		  const userData = await retryResponse.json();
+	
+		if (response.ok) {
+		  const userData = await response.json();
 		  const userDataWithTokens = {
 			...userData,
-			accessToken: newTokens.accessToken,
-			refreshToken: newTokens.refreshToken
+			accessToken,
+			refreshToken
 		  };
 		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
+		  console.log('Auth Check - Profile valid, user authenticated');
 		  return {
 			authenticated: true,
 		  };
 		}
+	
+		const newTokens = await this.refreshAccessToken(refreshToken);
+		if (newTokens) {
+		  const retryResponse = await fetch(`${API_URL}/users/profile`, {
+			method: 'GET',
+			headers: {
+			  'Authorization': `Bearer ${newTokens.accessToken}`,
+			},
+		  });
+	
+		  if (retryResponse.ok) {
+			const userData = await retryResponse.json();
+			const userDataWithTokens = {
+			  ...userData,
+			  accessToken: newTokens.accessToken,
+			  refreshToken: newTokens.refreshToken
+			};
+			localStorage.setItem('user', JSON.stringify(userDataWithTokens));
+			return {
+			  authenticated: true,
+			};
+		  }
+		}
+	
+		this.clearStorage();
+		return {
+		  authenticated: false,
+		  error: new AuthError("Failed to authenticate"),
+		  redirectTo: "/login",
+		};
+	  } catch (error) {
+		console.log('Auth Check - Error:', error);
+		this.clearStorage();
+		return {
+		  authenticated: false,
+		  error: new AuthError("Authentication check failed"),
+		  redirectTo: "/login",
+		};
 	  }
-  
-	  this.clearStorage();
-	  return {
-		authenticated: false,
-		error: "Failed to authenticate",
-		redirectTo: "/login",
-	  };
-	} catch (error) {
-	  console.log('Auth Check - Error:', error);
-	  this.clearStorage();
-	  return {
-		authenticated: false,
-		error: "Authentication check failed",
-		redirectTo: "/login",
-	  };
 	}
-  }
 
   async logout() {
 	this.clearStorage();
