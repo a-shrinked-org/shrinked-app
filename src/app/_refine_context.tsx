@@ -40,57 +40,66 @@ const notificationProvider: NotificationProvider = {
 const App = (props: React.PropsWithChildren<{}>) => {
   return (
     <RefineKbarProvider>
-      <Refine
-        routerProvider={routerProvider}
-        dataProvider={dataProvider}
-        authProvider={customAuthProvider}
-        notificationProvider={notificationProvider}
-        resources={[
-          {
-            name: "jobs",
-            list: "/jobs",
-            create: "/jobs/create",
-            edit: "/jobs/edit/:id",
-            show: "/jobs/show/:id",
-            meta: {
-              canDelete: true,
+      <Suspense fallback={<div>Loading...</div>}>
+        <Refine
+          routerProvider={routerProvider}
+          dataProvider={dataProvider}
+          authProvider={customAuthProvider}
+          notificationProvider={notificationProvider}
+          resources={[
+            {
+              name: "jobs",
+              list: "/jobs",
+              create: "/jobs/create",
+              edit: "/jobs/edit/:id",
+              show: "/jobs/show/:id",
+              meta: {
+                canDelete: true,
+              },
             },
-          },
-          {
-            name: "categories",
-            list: "/categories",
-            create: "/categories/create",
-            edit: "/categories/edit/:id",
-            show: "/categories/show/:id",
-            meta: {
-              canDelete: true,
+            {
+              name: "categories",
+              list: "/categories",
+              create: "/categories/create",
+              edit: "/categories/edit/:id",
+              show: "/categories/show/:id",
+              meta: {
+                canDelete: true,
+              },
             },
-          },
-          {
-            name: "output",
-            list: "/output",
-            show: "/output/show/:id",
-            meta: {
-              canDelete: true,
+            {
+              name: "output",
+              list: "/output",
+              show: "/output/show/:id",
+              meta: {
+                canDelete: true,
+              },
             },
-          },
-        ]}
-        options={{
-          syncWithLocation: true,
-          warnWhenUnsavedChanges: true,
-          useNewQueryKeys: true
-        }}
-      >
-        {props.children}
-        <RefineKbar />
-        <ToastContainer />
-      </Refine>
+          ]}
+          options={{
+            syncWithLocation: true,
+            warnWhenUnsavedChanges: true,
+            useNewQueryKeys: true,
+            disableTelemetry: true,
+            reactQuery: {
+              clientConfig: {
+                suspense: true,
+              },
+            },
+          }}
+        >
+          <Suspense fallback={<div>Loading...</div>}>
+            {props.children}
+          </Suspense>
+          <RefineKbar />
+          <ToastContainer />
+        </Refine>
+      </Suspense>
     </RefineKbarProvider>
   );
 };
 
-export const RefineContext = (
-  props: React.PropsWithChildren<{}>) => {
+export const RefineContext = (props: React.PropsWithChildren<{}>) => {
   return (
     <SessionProvider>
       <App {...props} />

@@ -111,6 +111,21 @@ const theme = createTheme({
   },
 });
 
+function LoadingFallback() {
+  return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
+      backgroundColor: 'var(--mantine-color-dark-9)',
+      color: '#fff'
+    }}>
+      Loading...
+    </div>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -133,9 +148,7 @@ export default function RootLayout({
           theme={theme} 
           forceColorScheme="dark"
         >
-          <RefineContext>
-            {children}
-          </RefineContext>
+          <RefineContext>{children}</RefineContext>
         </MantineProvider>
       </body>
     </html>
