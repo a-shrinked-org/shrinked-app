@@ -167,97 +167,39 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async check() {
-	const userStr = localStorage.getItem('user');
-	const accessToken = localStorage.getItem('accessToken');
-	const refreshToken = localStorage.getItem('refreshToken');
+  async check(): Promise<{ authenticated: boolean; redirectTo?: string; }> {
+  const userStr = localStorage.getItem('user');
+  const accessToken = localStorage.getItem('accessToken');
+  const refreshToken = localStorage.getItem('refreshToken');
   
-	console.log("Checking auth tokens:", {
-	  hasUser: !!userStr,
-	  hasAccess: !!accessToken,
-	  hasRefresh: !!refreshToken
+  if (!accessToken || !refreshToken) {
+	this.clearStorage();
+	return {
+	  authenticated: false,
+	  redirectTo: '/login'
+	};
+  }
+  
+  try {
+	const response = await fetch(`${API_URL}/users/profile`, {
+	  method: 'GET',
+	  headers: {
+		'Authorization': `Bearer ${accessToken}`,
+	  },
 	});
   
-	if (!accessToken || !refreshToken) {
-	  console.log("No tokens found");
-	  this.clearStorage();
+	if (response.ok) {
+	  const userData = await response.json();
+	  const updatedUserData = {
+		...userData,
+		accessToken,
+		refreshToken
+	  };
+	  localStorage.setItem('user', JSON.stringify(updatedUserData));
 	  return {
-		authenticated: false
+		authenticated: true
 	  };
 	}
-  
-	try {
-	  // Try to validate the current token
-	  console.log("Validating access token");
-	  const response = await fetch(`${API_URL}/users/profile`, {
-		method: 'GET',
-		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
-		},
-	  });
-  
-	  if (response.ok) {
-		const userData = await response.json();
-		// Update stored user data with current tokens
-		const updatedUserData = {
-		  ...userData,
-		  accessToken,
-		  refreshToken
-		};
-		localStorage.setItem('user', JSON.stringify(updatedUserData));
-		console.log("Token valid, user authenticated");
-		return {
-		  authenticated: true
-		};
-	  }
-  
-	  if (response.status === 403 || response.status === 401) {
-		console.log("Token invalid, attempting refresh");
-		const newTokens = await this.refreshAccessToken(refreshToken);
-		
-		if (!newTokens) {
-		  console.log("Token refresh failed");
-		  this.clearStorage();
-		  return {
-			authenticated: false
-		  };
-		}
-  
-		const retryResponse = await fetch(`${API_URL}/users/profile`, {
-		  method: 'GET',
-		  headers: {
-			'Authorization': `Bearer ${newTokens.accessToken}`,
-		  },
-		});
-  
-		if (retryResponse.ok) {
-		  const userData = await retryResponse.json();
-		  const updatedUserData = {
-			...userData,
-			accessToken: newTokens.accessToken,
-			refreshToken: newTokens.refreshToken
-		  };
-		  localStorage.setItem('user', JSON.stringify(updatedUserData));
-		  console.log("Authentication restored with new tokens");
-		  return {
-			authenticated: true
-		  };
-		}
-	  }
-  
-	  console.log("Authentication failed");
-	  this.clearStorage();
-	  return {
-		authenticated: false
-	  };
-	} catch (error) {
-	  console.error("Auth check error:", error);
-	  this.clearStorage();
-	  return {
-		authenticated: false
-	  };
-	}
-  }
 
   async getIdentity() {
 	const userStr = localStorage.getItem('user');
