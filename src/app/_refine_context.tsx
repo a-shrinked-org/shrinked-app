@@ -10,6 +10,14 @@ import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
 import "@styles/global.css";
 
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+  }
+}
+
+interface RefineContextProps {}
+
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
