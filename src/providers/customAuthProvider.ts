@@ -171,40 +171,46 @@ class AuthProviderClass implements AuthProvider {
 	const userStr = localStorage.getItem('user');
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
-
+  
 	console.log("Checking auth tokens:", {
 	  hasUser: !!userStr,
 	  hasAccess: !!accessToken,
 	  hasRefresh: !!refreshToken
 	});
-
+  
 	if (!accessToken || !refreshToken) {
+	  console.log("No tokens found, not authenticated");
 	  return {
 		authenticated: false
 	  };
 	}
-
+  
 	try {
+	  // Try to validate the current token
 	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
-
+  
 	  if (response.ok) {
 		const userData = await response.json();
-		localStorage.setItem('user', JSON.stringify({
+		// Update stored user data with current tokens
+		const updatedUserData = {
 		  ...userData,
 		  accessToken,
 		  refreshToken
-		}));
+		};
+		localStorage.setItem('user', JSON.stringify(updatedUserData));
+		console.log("Profile valid, authenticated with user:", updatedUserData);
 		return {
 		  authenticated: true
 		};
 	  }
-
+  
 	  // Try token refresh if profile fetch fails
+	  console.log("Profile fetch failed, attempting token refresh");
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -213,20 +219,23 @@ class AuthProviderClass implements AuthProvider {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
 		});
-
+  
 		if (retryResponse.ok) {
-		  const userData = await retryResponse.json();
-		  localStorage.setItem('user', JSON.stringify({
+		  const userData = await response.json();
+		  const updatedUserData = {
 			...userData,
 			accessToken: newTokens.accessToken,
 			refreshToken: newTokens.refreshToken
-		  }));
+		  };
+		  localStorage.setItem('user', JSON.stringify(updatedUserData));
+		  console.log("Authentication restored with refreshed tokens");
 		  return {
 			authenticated: true
 		  };
 		}
 	  }
-
+  
+	  console.log("Authentication failed after token refresh attempt");
 	  this.clearStorage();
 	  return {
 		authenticated: false

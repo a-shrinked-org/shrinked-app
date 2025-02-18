@@ -21,152 +21,191 @@ interface RefineContextProps {}
 // Update the App component in _refine_context.tsx
 
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession();
-  const to = usePathname();
-  const router = useRouter();
-  const [authState, setAuthState] = useState({
-    isChecking: true,
-    isAuthenticated: false,
-    initialized: false
-  });
+const { data: session, status } = useSession();
+const to = usePathname();
+const router = useRouter();
+const [authState, setAuthState] = useState({
+  isChecking: true,
+  isAuthenticated: false,
+  initialized: false
+});
 
-  useEffect(() => {
-    const checkAuthentication = async () => {
-      // Skip if already initialized or session is loading
-      if (authState.initialized || status === "loading") {
+useEffect(() => {
+  const checkAuthentication = async () => {
+    // Skip if already initialized or session is loading
+    if (authState.initialized || status === "loading") {
+      return;
+    }
+
+    try {
+      console.log("Starting auth check...");
+      
+      // First check for NextAuth session
+      if (session) {
+        console.log("Session found:", session);
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: true,
+          initialized: true
+        });
+        
+        if (to === '/login' || to === '/') {
+          router.push('/jobs');
+        }
         return;
       }
-
-      try {
-        console.log("Starting auth check...");
-        
-        // First check for NextAuth session
-        if (session) {
-          setAuthState({
-            isChecking: false,
-            isAuthenticated: true,
-            initialized: true
-          });
-          
-          if (to === '/login' || to === '/') {
-            router.push('/jobs');
-          }
-          return;
-        }
-        
-        // If no session, check custom auth
-        const result = await customAuthProvider.check();
-        console.log("Auth check result:", result);
-
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: result.authenticated,
-          initialized: true
-        });
-
-        // Handle redirects
-        if (result.authenticated) {
-          if (to === '/login' || to === '/') {
-            router.push('/jobs');
-          }
-        } else if (to !== '/login') {
-          router.push('/login');
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: false,
-          initialized: true
-        });
-        
-        if (to !== '/login') {
-          router.push('/login');
-        }
-      }
-    };
-
-    checkAuthentication();
-  }, [status, authState.initialized, to, router, session]);
-
-  const authProvider = {
-    ...customAuthProvider,
-    login: async (params: any) => {
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
-          callbackUrl: to ? to.toString() : "/jobs",
-          redirect: true,
-        });
-        return {
-          success: false,
-          error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
-        };
-      }
       
-      if (!customAuthProvider.login) {
-        return {
-          success: false,
-          error: {
-            message: "Login method not available",
-            name: "Auth Error"
-          }
-        };
-      }
-    
-      const result = await customAuthProvider.login(params);
-      console.log("Login result:", result);
-      
-      if (result.success && result.user) {
-        setAuthState(prev => ({
-          ...prev,
-          isAuthenticated: true
-        }));
-        return result;
-      }
-      return result;
-    },
-    check: async () => {
-      if (session) {
-        return { authenticated: true };
-      }
-      if (authState.initialized) {
-        return { authenticated: authState.isAuthenticated };
-      }
-      if (!customAuthProvider.check) {
-        return { authenticated: false };
-      }
+      // If no session, check custom auth
       const result = await customAuthProvider.check();
-      return result;
-    },
-    getIdentity: async () => {
-      // First try to get identity from session
-      if (session?.user) {
-        return {
-          name: session.user.name,
-          avatar: session.user.image,
-          token: session.accessToken,
-          email: session.user.email,
-        };
+      console.log("Auth check result:", result);
+
+      const newAuthState = {
+        isChecking: false,
+        isAuthenticated: result.authenticated,
+        initialized: true
+      };
+      console.log("Setting new auth state:", newAuthState);
+      setAuthState(newAuthState);
+
+      // Handle redirects
+      if (result.authenticated) {
+        if (to === '/login' || to === '/') {
+          router.push('/jobs');
+        }
+      } else if (to !== '/login') {
+        router.push('/login');
       }
+    } catch (error) {
+      console.error("Auth check error:", error);
+      setAuthState({
+        isChecking: false,
+        isAuthenticated: false,
+        initialized: true
+      });
       
-      // Fall back to custom auth provider
-      if (!customAuthProvider.getIdentity) {
-        return null;
-      }
-      
-      try {
-        const identity = await customAuthProvider.getIdentity();
-        console.log("GetIdentity result:", identity);
-        return identity;
-      } catch (error) {
-        console.error("GetIdentity error:", error);
-        return null;
+      if (to !== '/login') {
+        router.push('/login');
       }
     }
   };
+
+  checkAuthentication();
+}, [status, authState.initialized, to, router, session]);
+
+const authProvider = {
+  ...customAuthProvider,
+  login: async (params: any) => {
+    if (params.providerName === "auth0") {
+      signIn("auth0", {
+        callbackUrl: to ? to.toString() : "/jobs",
+        redirect: true,
+      });
+      return {
+        success: false,
+        error: {
+          message: "Redirecting to Auth0...",
+          name: "Auth0"
+        }
+      };
+    }
+    
+    if (!customAuthProvider.login) {
+      return {
+        success: false,
+        error: {
+          message: "Login method not available",
+          name: "Auth Error"
+        }
+      };
+    }
+  
+    const result = await customAuthProvider.login(params);
+    console.log("Login result:", result);
+    
+    if (result.success && result.user) {
+      console.log("Setting authenticated state after successful login");
+      setAuthState(prev => {
+        const newState = {
+          ...prev,
+          isAuthenticated: true,
+          initialized: true,
+          isChecking: false
+        };
+        console.log("New auth state after login:", newState);
+        return newState;
+      });
+      
+      // Force immediate redirect
+      if (to === '/login' || to === '/') {
+        router.push('/jobs');
+      }
+      return result;
+    }
+    return result;
+  },
+  check: async () => {
+    console.log("Check auth called. Current state:", { session, authState });
+    
+    if (session) {
+      return { authenticated: true };
+    }
+    
+    // Check local storage first
+    const accessToken = localStorage.getItem('accessToken');
+    const userStr = localStorage.getItem('user');
+    
+    if (accessToken && userStr) {
+      console.log("Found stored credentials");
+      if (!customAuthProvider.check) {
+        return { authenticated: true };
+      }
+      const result = await customAuthProvider.check();
+      console.log("Custom auth check result:", result);
+      return result;
+    }
+    
+    if (authState.initialized && authState.isAuthenticated) {
+      return { authenticated: true };
+    }
+    
+    if (!customAuthProvider.check) {
+      return { authenticated: false };
+    }
+    
+    const result = await customAuthProvider.check();
+    return result;
+  },
+  getIdentity: async () => {
+    console.log("getIdentity called. Session:", session?.user);
+    
+    // First try to get identity from session
+    if (session?.user) {
+      const sessionIdentity = {
+        name: session.user.name,
+        avatar: session.user.image,
+        token: session.accessToken,
+        email: session.user.email,
+      };
+      console.log("Returning session identity:", sessionIdentity);
+      return sessionIdentity;
+    }
+    
+    // Fall back to custom auth provider
+    if (!customAuthProvider.getIdentity) {
+      console.log("No getIdentity method available");
+      return null;
+    }
+    
+    try {
+      const identity = await customAuthProvider.getIdentity();
+      console.log("Custom auth identity result:", identity);
+      return identity;
+    } catch (error) {
+      console.error("GetIdentity error:", error);
+      return null;
+    }
+  }
+};
 
   // Show loading state while checking auth
   if (status === "loading" || authState.isChecking) {
