@@ -146,11 +146,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true,
-            redirect: {
-              afterSuccess: "/jobs",
-              afterError: "/login"
-            }
+            useNewQueryKeys: true
           }}
         >
           {props.children}
