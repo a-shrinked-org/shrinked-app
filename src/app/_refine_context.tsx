@@ -4,7 +4,7 @@ import { Refine } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
@@ -22,6 +22,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
   const router = useRouter();
+  const isNavigating = useRef(false);
+  
   const [authState, setAuthState] = useState({
     isChecking: true,
     isAuthenticated: false,
@@ -31,13 +33,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
   // Auth check effect
   useEffect(() => {
     const checkAuthentication = async () => {
-      // Skip check if still loading session
-      if (status === "loading") {
-        return;
-      }
+      if (status === "loading") return;
 
       try {
-        // If we have a session, we're authenticated
         if (session) {
           setAuthState({
             isChecking: false,
@@ -47,9 +45,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           return;
         }
 
-        // Otherwise check with custom auth provider
         const result = await customAuthProvider.check();
-        
         setAuthState({
           isChecking: false,
           isAuthenticated: result.authenticated,
@@ -68,32 +64,41 @@ const App = (props: React.PropsWithChildren<{}>) => {
     checkAuthentication();
   }, [status, session]);
 
-  // Navigation effect
+  // Navigation effect with lock mechanism
   useEffect(() => {
-    // Skip if not initialized or still checking
-    if (!authState.initialized || authState.isChecking) {
-      return;
-    }
+    const handleNavigation = async () => {
+      if (!authState.initialized || authState.isChecking || isNavigating.current) {
+        return;
+      }
 
-    const currentPath = to || "";
-    
-    if (authState.isAuthenticated) {
-      // If authenticated and on login/root, redirect to jobs
-      if (currentPath === "/login" || currentPath === "/") {
-        router.replace("/jobs");
+      const currentPath = to || "";
+      
+      // Set destinations based on auth state
+      const authenticatedRedirect = currentPath === "/login" || currentPath === "/" ? "/jobs" : null;
+      const unauthenticatedRedirect = currentPath !== "/login" ? "/login" : null;
+      
+      // Determine if navigation is needed
+      const redirectPath = authState.isAuthenticated ? authenticatedRedirect : unauthenticatedRedirect;
+      
+      if (redirectPath) {
+        try {
+          isNavigating.current = true;
+          await router.replace(redirectPath);
+        } finally {
+          // Reset navigation lock after a short delay
+          setTimeout(() => {
+            isNavigating.current = false;
+          }, 100);
+        }
       }
-    } else {
-      // If not authenticated and not on login, redirect to login
-      if (currentPath !== "/login") {
-        router.replace("/login");
-      }
-    }
+    };
+
+    handleNavigation();
   }, [authState.isAuthenticated, authState.initialized, authState.isChecking, to, router]);
 
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
-      // Handle Auth0
       if (params.providerName === "auth0") {
         signIn("auth0", {
           callbackUrl: "/jobs",
@@ -109,19 +114,23 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
       
       try {
-        // Attempt login
         const result = await customAuthProvider.login(params);
         
         if (result.success) {
-          // Update auth state immediately
           setAuthState({
             isChecking: false,
             isAuthenticated: true,
             initialized: true,
           });
           
-          // Force navigation to jobs
-          router.replace("/jobs");
+          // Use the navigation lock for login redirect
+          if (!isNavigating.current) {
+            isNavigating.current = true;
+            await router.replace("/jobs");
+            setTimeout(() => {
+              isNavigating.current = false;
+            }, 100);
+          }
         }
         
         return result;
