@@ -230,49 +230,6 @@ class AuthProviderClass implements AuthProvider {
 	
 	  return this.authCheckPromise;
 	}
-	
-	  private async refreshAccessToken(refreshToken: string) {
-		try {
-		  const response = await fetch(`${API_URL}/auth/refresh`, {
-			method: 'POST',
-			headers: {
-			  'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({ refreshToken }),
-		  });
-	
-		  if (!response.ok) {
-			return null;
-		  }
-	
-		  const data = await response.json();
-		  if (!data.accessToken || !data.refreshToken) {
-			return null;
-		  }
-	
-		  // Update stored tokens
-		  localStorage.setItem('accessToken', data.accessToken);
-		  localStorage.setItem('refreshToken', data.refreshToken);
-		  
-		  // Update expiration
-		  const newExpiration = new Date().getTime() + 3600 * 1000;
-		  localStorage.setItem('tokenExpiration', newExpiration.toString());
-	
-		  return { 
-			accessToken: data.accessToken, 
-			refreshToken: data.refreshToken 
-		  };
-		} catch (error) {
-		  return null;
-		}
-	  }
-	
-	  private clearStorage() {
-		localStorage.removeItem('accessToken');
-		localStorage.removeItem('refreshToken');
-		localStorage.removeItem('tokenExpiration');
-		localStorage.removeItem('user');
-	  }
 
   async register(params: any) {
 	const { email, password, username } = params;
@@ -448,37 +405,83 @@ class AuthProviderClass implements AuthProvider {
 	};
   }
 
-  async onError(error: any) {
-	console.error(error);
-	const status = error?.response?.status || error?.status;
-	if (status === 401 || status === 403) {
-	  this.clearStorage();
-	  return {
-		logout: true,
-		redirectTo: "/login",
-		error
-	  };
+  // End of the class should be properly closed
+	async onError(error: any) {
+	  console.error(error);
+	  const status = error?.response?.status || error?.status;
+	  if (status === 401 || status === 403) {
+		this.clearStorage();
+		return {
+		  logout: true,
+		  redirectTo: "/login",
+		  error
+		};
+	  }
+	  return { error };
 	}
-	return { error };
-  }
-
-const authProviderInstance = new AuthProviderClass();
-
-type CustomAuthProvider = Required<AuthProvider> & {
-  register: (params: any) => Promise<any>;
-  forgotPassword?: (params: any) => Promise<any>;
-  updatePassword?: (params: any) => Promise<any>;
-  getPermissions?: (params?: any) => Promise<any>;
-};
-
-export const customAuthProvider: CustomAuthProvider = {
-  login: authProviderInstance.login.bind(authProviderInstance),
-  register: authProviderInstance.register.bind(authProviderInstance),
-  logout: authProviderInstance.logout.bind(authProviderInstance),
-  check: authProviderInstance.check.bind(authProviderInstance),
-  onError: authProviderInstance.onError.bind(authProviderInstance),
-  getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
-  forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
-  updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
-  getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
-} as const;
+  
+	private async refreshAccessToken(refreshToken: string) {
+	  try {
+		const response = await fetch(`${API_URL}/auth/refresh`, {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+		  },
+		  body: JSON.stringify({ refreshToken }),
+		});
+  
+		if (!response.ok) {
+		  return null;
+		}
+  
+		const data = await response.json();
+		if (!data.accessToken || !data.refreshToken) {
+		  return null;
+		}
+  
+		// Update stored tokens
+		localStorage.setItem('accessToken', data.accessToken);
+		localStorage.setItem('refreshToken', data.refreshToken);
+		
+		// Update expiration
+		const newExpiration = new Date().getTime() + 3600 * 1000;
+		localStorage.setItem('tokenExpiration', newExpiration.toString());
+  
+		return { 
+		  accessToken: data.accessToken, 
+		  refreshToken: data.refreshToken 
+		};
+	  } catch (error) {
+		return null;
+	  }
+	}
+  
+	private clearStorage() {
+	  localStorage.removeItem('accessToken');
+	  localStorage.removeItem('refreshToken');
+	  localStorage.removeItem('tokenExpiration');
+	  localStorage.removeItem('user');
+	}
+  } // End of AuthProviderClass
+  
+  // After class is closed, declare the instance
+  const authProviderInstance = new AuthProviderClass();
+  
+  type CustomAuthProvider = Required<AuthProvider> & {
+	register: (params: any) => Promise<any>;
+	forgotPassword?: (params: any) => Promise<any>;
+	updatePassword?: (params: any) => Promise<any>;
+	getPermissions?: (params?: any) => Promise<any>;
+  };
+  
+  export const customAuthProvider: CustomAuthProvider = {
+	login: authProviderInstance.login.bind(authProviderInstance),
+	register: authProviderInstance.register.bind(authProviderInstance),
+	logout: authProviderInstance.logout.bind(authProviderInstance),
+	check: authProviderInstance.check.bind(authProviderInstance),
+	onError: authProviderInstance.onError.bind(authProviderInstance),
+	getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
+	forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
+	updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
+	getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
+  } as const;
