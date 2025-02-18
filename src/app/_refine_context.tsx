@@ -29,90 +29,107 @@ export const RefineContext = (
 };
 
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession();
-  const to = usePathname();
+const { data: session, status } = useSession();
+const to = usePathname();
 
-  if (status === "loading") {
-    return <span>loading...</span>;
-  }
+if (status === "loading") {
+  return <span>loading...</span>;
+}
 
-  const authProvider = {
-    ...customAuthProvider,
-    login: async (params: any) => {
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
-          callbackUrl: to ? to.toString() : "/jobs",
-          redirect: true,
-        });
-        return {
-          success: false,
-          error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
-        };
-      }
-      
-      const result = await customAuthProvider.login(params);
-      console.log("Login result:", result);
-      
-      if (result.success && result.user) {
-        localStorage.setItem('user', JSON.stringify(result.user));
-        return result;  // Return the full result including user
-      }
-      return result;
-    },
-    register: async (params: any) => {
+const authProvider = {
+  ...customAuthProvider,
+  login: async (params: any) => {
+    if (params.providerName === "auth0") {
+      signIn("auth0", {
+        callbackUrl: to ? to.toString() : "/jobs",
+        redirect: true,
+      });
+      return {
+        success: false,
+        error: {
+          message: "Redirecting to Auth0...",
+          name: "Auth0"
+        }
+      };
+    }
+    
+    const result = await customAuthProvider.login(params);
+    console.log("Login result:", result);
+    
+    if (result.success && result.user) {
+      localStorage.setItem('user', JSON.stringify(result.user));
+      return result;  // Return the full result including user
+    }
+    return result;
+  },
+  register: async (params: any) => {
+    if (!customAuthProvider.register) {
+      return {
+        success: false,
+        error: {
+          message: "Registration not supported",
+          name: "Registration Error"
+        }
+      };
+    }
+    try {
       const result = await customAuthProvider.register(params);
       if (result.success && result.user) {
         localStorage.setItem('user', JSON.stringify(result.user));
-        return result;
       }
       return result;
-    },
-    check: async () => {
-      console.log('Refine Check - Session:', !!session);
-      
-      if (session) {
-        console.log("Auth via session, returning authenticated true");
-        return {
-          authenticated: true,
-          redirectTo: "/jobs"
-        };
-      }
-      
-      try {
-        const result = await customAuthProvider.check();
-        console.log('Refine Check - Custom auth result:', result);
-        
-        return result;
-      } catch (error) {
-        console.log("Auth check error:", error);
-        return {
-          authenticated: false,
-          error: {
-            message: "Authentication check failed",
-            name: "Auth Error"
-          },
-          redirectTo: "/login"
-        };
-      }
-    },
-    getIdentity: async () => {
-      if (session?.user) {
-        return {
-          name: session.user.name,
-          avatar: session.user.image,
-          token: session.accessToken,
-          email: session.user.email,
-        };
-      }
-      
-      const identity = await customAuthProvider.getIdentity!();
-      console.log("GetIdentity result:", identity);
-      return identity;
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          message: "Registration failed",
+          name: "Registration Error"
+        }
+      };
     }
+  },
+  check: async () => {
+    console.log('Refine Check - Session:', !!session);
+    
+    if (session) {
+      console.log("Auth via session, returning authenticated true");
+      return {
+        authenticated: true,
+        redirectTo: "/jobs"
+      };
+    }
+    
+    try {
+      const result = await customAuthProvider.check();
+      console.log('Refine Check - Custom auth result:', result);
+      return result;
+    } catch (error) {
+      console.log("Auth check error:", error);
+      return {
+        authenticated: false,
+        error: {
+          message: "Authentication check failed",
+          name: "Auth Error"
+        },
+        redirectTo: "/login"
+      };
+    }
+  },
+  getIdentity: async () => {
+    if (session?.user) {
+      return {
+        name: session.user.name,
+        avatar: session.user.image,
+        token: session.accessToken,
+        email: session.user.email,
+      };
+    }
+    
+    const identity = await customAuthProvider.getIdentity!();
+    console.log("GetIdentity result:", identity);
+    return identity;
   }
+};
 
   return (
     <>

@@ -398,7 +398,11 @@ class AuthProviderClass implements AuthProvider {
 // Create a single instance and export its methods as the auth provider
 const authProviderInstance = new AuthProviderClass();
 
-export const customAuthProvider: AuthProvider = {
+type CustomAuthProvider = AuthProvider & {
+  register: (params: any) => Promise<any>;
+};
+
+export const customAuthProvider: CustomAuthProvider = {
   login: authProviderInstance.login,
   register: authProviderInstance.register,
   logout: authProviderInstance.logout,
