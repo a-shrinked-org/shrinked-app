@@ -1,5 +1,33 @@
 "use client";
 
+import { Refine } from "@refinedev/core";
+import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
+import { SessionProvider, signIn, useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import React from "react";
+import routerProvider from "@refinedev/nextjs-router";
+import { dataProvider } from "@providers/data-provider";
+import { customAuthProvider } from "@providers/customAuthProvider";
+import "@styles/global.css";
+
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+  }
+}
+
+type RefineContextProps = {};
+
+export const RefineContext = (
+  props: React.PropsWithChildren<RefineContextProps>
+) => {
+  return (
+    <SessionProvider>
+      <App {...props} />
+    </SessionProvider>
+  );
+};
+
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
@@ -86,6 +114,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
       return identity;
     }
   };
+
   return (
     <>
       <RefineKbarProvider>
@@ -137,4 +166,5 @@ const App = (props: React.PropsWithChildren<{}>) => {
   );
 };
 
+// Export the App component as default
 export default RefineContext;
