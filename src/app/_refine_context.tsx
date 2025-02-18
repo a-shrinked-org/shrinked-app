@@ -1,13 +1,15 @@
 "use client";
 
-import { Refine } from "@refinedev/core";
+import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, useSession } from "next-auth/react";
-import { usePathname, useRouter } from "next/navigation";
-import React, { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
 
 declare module "next-auth" {
@@ -18,11 +20,32 @@ declare module "next-auth" {
 
 interface RefineContextProps {}
 
+// Custom notification provider using react-toastify
+const notificationProvider: NotificationProvider = {
+  open: ({ message, description, type, key }) => {
+    const content = description ? `${message}: ${description}` : message;
+    
+    if (toast.isActive(key)) {
+      toast.update(key, {
+        render: content,
+        type: type === "error" ? "error" : type === "success" ? "success" : "info",
+        autoClose: 3000,
+      });
+    } else {
+      toast(content, {
+        toastId: key,
+        type: type === "error" ? "error" : type === "success" ? "success" : "info",
+        autoClose: 3000,
+      });
+    }
+  },
+  close: (key) => toast.dismiss(key),
+};
+
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
-  const router = useRouter();
-  const navigationLock = useRef(false);
+  const { push } = useNavigation();
   
   const [authState, setAuthState] = useState({
     isChecking: true,
@@ -92,16 +115,37 @@ const App = (props: React.PropsWithChildren<{}>) => {
             initialized: true,
           });
           
-          // Let Refine handle the redirection
+          notificationProvider.open({
+            message: "Welcome back!",
+            type: "success",
+            key: "login-success"
+          });
+          
           return {
             ...result,
             redirectTo: "/jobs"
           };
         }
         
+        // Show error notification
+        notificationProvider.open({
+          message: "Login Failed",
+          description: result.error?.message || "Invalid credentials",
+          type: "error",
+          key: "login-error"
+        });
+        
         return result;
       } catch (error) {
         console.error("Login error:", error);
+        
+        notificationProvider.open({
+          message: "Login Error",
+          description: "An unexpected error occurred",
+          type: "error",
+          key: "login-error"
+        });
+        
         return {
           success: false,
           error: {
@@ -111,9 +155,55 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
     },
+    register: async (params: any) => {
+      try {
+        const result = await customAuthProvider.register(params);
+        
+        if (result.success) {
+          notificationProvider.open({
+            message: "Registration Successful",
+            description: "Welcome to the platform!",
+            type: "success",
+            key: "register-success"
+          });
+        } else {
+          notificationProvider.open({
+            message: "Registration Failed",
+            description: result.error?.message || "Please try again",
+            type: "error",
+            key: "register-error"
+          });
+        }
+        
+        return result;
+      } catch (error) {
+        notificationProvider.open({
+          message: "Registration Error",
+          description: "An unexpected error occurred",
+          type: "error",
+          key: "register-error"
+        });
+        
+        return {
+          success: false,
+          error: {
+            message: "Registration failed",
+            name: "Registration Error"
+          }
+        };
+      }
+    },
     check: async () => {
-      // Using the original check method from customAuthProvider
-      return customAuthProvider.check();
+      const result = await customAuthProvider.check();
+      
+      if (!result.authenticated) {
+        return {
+          ...result,
+          redirectTo: "/login"
+        };
+      }
+      
+      return result;
     },
     getIdentity: async () => {
       if (session?.user) {
@@ -139,6 +229,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           routerProvider={routerProvider}
           dataProvider={dataProvider}
           authProvider={authProvider}
+          notificationProvider={notificationProvider}
           resources={[
             {
               name: "jobs",
@@ -177,6 +268,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
         >
           {props.children}
           <RefineKbar />
+          <ToastContainer />
         </Refine>
       </RefineKbarProvider>
     </>
