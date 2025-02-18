@@ -26,38 +26,34 @@ const App = (props: React.PropsWithChildren<{}>) => {
     isChecking: true,
     isAuthenticated: false,
     initialized: false,
-    currentPath: ''
   });
 
   // Auth check effect
   useEffect(() => {
-    if (status === "loading") {
-      return;
-    }
-
     const checkAuthentication = async () => {
+      // Skip check if still loading session
+      if (status === "loading") {
+        return;
+      }
+
       try {
-        console.log("Starting auth check...");
-        
+        // If we have a session, we're authenticated
         if (session) {
-          console.log("Session found, setting authenticated");
           setAuthState({
             isChecking: false,
             isAuthenticated: true,
             initialized: true,
-            currentPath: to || ''
           });
           return;
         }
-        
-        const result = await customAuthProvider.check();
-        console.log("Auth check result:", result);
 
+        // Otherwise check with custom auth provider
+        const result = await customAuthProvider.check();
+        
         setAuthState({
           isChecking: false,
           isAuthenticated: result.authenticated,
           initialized: true,
-          currentPath: to || ''
         });
       } catch (error) {
         console.error("Auth check error:", error);
@@ -65,46 +61,39 @@ const App = (props: React.PropsWithChildren<{}>) => {
           isChecking: false,
           isAuthenticated: false,
           initialized: true,
-          currentPath: to || ''
         });
       }
     };
 
     checkAuthentication();
-  }, [status, session, to]);
+  }, [status, session]);
 
   // Navigation effect
   useEffect(() => {
-    const handleNavigation = async () => {
-      if (!authState.initialized || authState.isChecking) {
-        return;
+    // Skip if not initialized or still checking
+    if (!authState.initialized || authState.isChecking) {
+      return;
+    }
+
+    const currentPath = to || "";
+    
+    if (authState.isAuthenticated) {
+      // If authenticated and on login/root, redirect to jobs
+      if (currentPath === "/login" || currentPath === "/") {
+        router.replace("/jobs");
       }
-
-      console.log('Navigation check:', {
-        isAuthenticated: authState.isAuthenticated,
-        currentPath: authState.currentPath,
-        targetPath: to
-      });
-
-      if (authState.isAuthenticated) {
-        if (to === '/login' || to === '/') {
-          console.log('Authenticated user redirecting to /jobs');
-          router.replace('/jobs');
-        }
-      } else {
-        if (to !== '/login') {
-          console.log('Unauthenticated user redirecting to /login');
-          router.replace('/login');
-        }
+    } else {
+      // If not authenticated and not on login, redirect to login
+      if (currentPath !== "/login") {
+        router.replace("/login");
       }
-    };
-
-    handleNavigation();
-  }, [authState.isAuthenticated, authState.initialized, to]);
+    }
+  }, [authState.isAuthenticated, authState.initialized, authState.isChecking, to, router]);
 
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
+      // Handle Auth0
       if (params.providerName === "auth0") {
         signIn("auth0", {
           callbackUrl: "/jobs",
@@ -120,22 +109,21 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
       
       try {
+        // Attempt login
         const result = await customAuthProvider.login(params);
-        console.log("Login result:", result);
         
-        if (result.success && result.user) {
-          console.log("Login successful, updating auth state");
+        if (result.success) {
+          // Update auth state immediately
           setAuthState({
             isChecking: false,
             isAuthenticated: true,
             initialized: true,
-            currentPath: '/login'
           });
           
-          // Force navigation after successful login
-          console.log("Redirecting to /jobs after login");
-          router.replace('/jobs');
+          // Force navigation to jobs
+          router.replace("/jobs");
         }
+        
         return result;
       } catch (error) {
         console.error("Login error:", error);
@@ -152,14 +140,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
       if (session) {
         return { authenticated: true };
       }
-      
-      try {
-        const result = await customAuthProvider.check();
-        return result;
-      } catch (error) {
-        console.error("Check error:", error);
-        return { authenticated: false };
-      }
+      return customAuthProvider.check();
     },
     getIdentity: async () => {
       if (session?.user) {
@@ -170,14 +151,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           email: session.user.email,
         };
       }
-      
-      try {
-        const identity = await customAuthProvider.getIdentity();
-        return identity;
-      } catch (error) {
-        console.error("GetIdentity error:", error);
-        return null;
-      }
+      return customAuthProvider.getIdentity();
     }
   };
 
