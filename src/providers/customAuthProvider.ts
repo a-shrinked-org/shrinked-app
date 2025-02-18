@@ -154,33 +154,41 @@ class AuthProviderClass implements AuthProvider {
 	const userStr = localStorage.getItem('user');
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
-
-	if (!userStr || !accessToken || !refreshToken) {
+  
+	console.log("Checking auth tokens:", { 
+	  hasUser: !!userStr, 
+	  hasAccess: !!accessToken, 
+	  hasRefresh: !!refreshToken 
+	});
+  
+	if (!accessToken || !refreshToken) {
 	  return {
-		authenticated: false,
-		error: {
-		  message: "Check failed",
-		  name: "Not authenticated"
-		},
-		logout: true,
-		redirectTo: "/login"
+		authenticated: false
 	  };
 	}
-
+  
 	try {
+	  // Try to validate the current token
 	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
-
+  
 	  if (response.ok) {
+		const userData = await response.json();
+		// Update stored user data
+		localStorage.setItem('user', JSON.stringify({
+		  ...userData,
+		  accessToken,
+		  refreshToken
+		}));
 		return {
 		  authenticated: true
 		};
 	  }
-
+  
 	  // Try token refresh
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
@@ -190,34 +198,30 @@ class AuthProviderClass implements AuthProvider {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
 		});
-
+  
 		if (retryResponse.ok) {
+		  const userData = await retryResponse.json();
+		  localStorage.setItem('user', JSON.stringify({
+			...userData,
+			accessToken: newTokens.accessToken,
+			refreshToken: newTokens.refreshToken
+		  }));
 		  return {
 			authenticated: true
 		  };
 		}
 	  }
-
+  
+	  // If we get here, authentication failed
 	  this.clearStorage();
 	  return {
-		authenticated: false,
-		error: {
-		  message: "Check failed",
-		  name: "Not authenticated"
-		},
-		logout: true,
-		redirectTo: "/login"
+		authenticated: false
 	  };
 	} catch (error) {
+	  console.error("Auth check error:", error);
 	  this.clearStorage();
 	  return {
-		authenticated: false,
-		error: {
-		  message: "Check failed",
-		  name: "Not authenticated"
-		},
-		logout: true,
-		redirectTo: "/login"
+		authenticated: false
 	  };
 	}
   }
