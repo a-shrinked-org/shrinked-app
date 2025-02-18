@@ -171,11 +171,7 @@ const authProvider = {
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true,
-            auth: {
-              defaultError: "/login",
-              defaultSuccess: "/jobs"
-            }
+            useNewQueryKeys: true
           }}
         >
           {props.children}
