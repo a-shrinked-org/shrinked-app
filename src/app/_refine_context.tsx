@@ -18,103 +18,118 @@ declare module "next-auth" {
 
 interface RefineContextProps {}
 
+// Update the App component in _refine_context.tsx
+
 const App = (props: React.PropsWithChildren<{}>) => {
-const { data: session, status } = useSession();
-const to = usePathname();
-const router = useRouter();
-const [authState, setAuthState] = useState({
-  isChecking: true,
-  isAuthenticated: false,
-  initialized: false
-});
+  const { data: session, status } = useSession();
+  const to = usePathname();
+  const router = useRouter();
+  const [authState, setAuthState] = useState({
+    isChecking: true,
+    isAuthenticated: false,
+    initialized: false
+  });
 
-useEffect(() => {
-  const checkAuthentication = async () => {
-    // Skip if already initialized or session is loading
-    if (authState.initialized || status === "loading") {
-      return;
-    }
-
-    try {
-      console.log("Starting auth check...");
-      
-      // Check authentication
-      const result = await customAuthProvider.check();
-      console.log("Auth check result:", result);
-
-      // Update state
-      setAuthState({
-        isChecking: false,
-        isAuthenticated: result.authenticated,
-        initialized: true
-      });
-
-      // Handle redirects only after state is set
-      if (result.authenticated) {
-        if (to === '/login' || to === '/') {
-          router.push('/jobs');
-        }
-      } else if (to !== '/login') {
-        router.push('/login');
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      // Skip if already initialized or session is loading
+      if (authState.initialized || status === "loading") {
+        return;
       }
-    } catch (error) {
-      console.error("Auth check error:", error);
-      setAuthState({
-        isChecking: false,
-        isAuthenticated: false,
-        initialized: true
-      });
-      
-      if (to !== '/login') {
-        router.push('/login');
-      }
-    }
-  };
 
-  checkAuthentication();
-}, [status, authState.initialized, to, router]);
-
-const authProvider = {
-  ...customAuthProvider,
-  login: async (params: any) => {
-    if (params.providerName === "auth0") {
-      signIn("auth0", {
-        callbackUrl: to ? to.toString() : "/jobs",
-        redirect: true,
-      });
-      return {
-        success: false,
-        error: {
-          message: "Redirecting to Auth0...",
-          name: "Auth0"
+      try {
+        console.log("Starting auth check...");
+        
+        // First check for NextAuth session
+        if (session) {
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: true,
+            initialized: true
+          });
+          
+          if (to === '/login' || to === '/') {
+            router.push('/jobs');
+          }
+          return;
         }
-      };
-    }
-    
-    const result = await customAuthProvider.login(params);
-    console.log("Login result:", result);
-    
-    if (result.success && result.user) {
-      setAuthState(prev => ({
-        ...prev,
-        isAuthenticated: true
-      }));
-      router.push('/jobs');
+        
+        // If no session, check custom auth
+        const result = await customAuthProvider.check();
+        console.log("Auth check result:", result);
+
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: result.authenticated,
+          initialized: true
+        });
+
+        // Handle redirects
+        if (result.authenticated) {
+          if (to === '/login' || to === '/') {
+            router.push('/jobs');
+          }
+        } else if (to !== '/login') {
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: false,
+          initialized: true
+        });
+        
+        if (to !== '/login') {
+          router.push('/login');
+        }
+      }
+    };
+
+    checkAuthentication();
+  }, [status, authState.initialized, to, router, session]);
+
+  const authProvider = {
+    ...customAuthProvider,
+    login: async (params: any) => {
+      if (params.providerName === "auth0") {
+        signIn("auth0", {
+          callbackUrl: to ? to.toString() : "/jobs",
+          redirect: true,
+        });
+        return {
+          success: false,
+          error: {
+            message: "Redirecting to Auth0...",
+            name: "Auth0"
+          }
+        };
+      }
+      
+      const result = await customAuthProvider.login(params);
+      console.log("Login result:", result);
+      
+      if (result.success && result.user) {
+        setAuthState(prev => ({
+          ...prev,
+          isAuthenticated: true
+        }));
+        return result;
+      }
       return result;
-    }
-    return result;
-  },
-  check: async () => {
-    if (session) {
-      return { authenticated: true };
-    }
-    if (authState.initialized) {
-      return { authenticated: !!authState.isAuthenticated };
-    }
-    const result = await customAuthProvider.check();
-    return { authenticated: !!result.authenticated };
-  },
+    },
+    check: async () => {
+      if (session) {
+        return { authenticated: true };
+      }
+      if (authState.initialized) {
+        return { authenticated: authState.isAuthenticated };
+      }
+      const result = await customAuthProvider.check();
+      return result;
+    },
     getIdentity: async () => {
+      // First try to get identity from session
       if (session?.user) {
         return {
           name: session.user.name,
@@ -124,9 +139,15 @@ const authProvider = {
         };
       }
       
-      const identity = await customAuthProvider.getIdentity!();
-      console.log("GetIdentity result:", identity);
-      return identity;
+      // Fall back to custom auth provider
+      try {
+        const identity = await customAuthProvider.getIdentity();
+        console.log("GetIdentity result:", identity);
+        return identity;
+      } catch (error) {
+        console.error("GetIdentity error:", error);
+        return null;
+      }
     }
   };
 
