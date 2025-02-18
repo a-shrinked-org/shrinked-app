@@ -1,5 +1,19 @@
 import { AuthProvider } from "@refinedev/core";
 
+interface UserData {
+  id?: string;
+  email: string;
+  username: string;
+  roles?: string[];
+  subscriptionPlan?: string;
+  userHash?: string;
+  tokens?: number;
+  apiKeys?: string[];
+  avatar?: string | null;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
 const API_URL = 'https://api.shrinked.ai';
 
 class AuthProviderClass implements AuthProvider {
@@ -30,7 +44,6 @@ class AuthProviderClass implements AuthProvider {
 	}
 
 	if (providerName === "google") {
-	  // Handle Google OAuth
 	  window.location.href = `${API_URL}/auth/google`;
 	  return {
 		success: true
@@ -38,7 +51,6 @@ class AuthProviderClass implements AuthProvider {
 	}
 
 	if (providerName === "github") {
-	  // Handle GitHub OAuth
 	  window.location.href = `${API_URL}/auth/github`;
 	  return {
 		success: true
@@ -70,6 +82,7 @@ class AuthProviderClass implements AuthProvider {
 	  localStorage.setItem('accessToken', loginData.accessToken);
 	  localStorage.setItem('refreshToken', loginData.refreshToken);
 
+	  // Fetch user profile after successful login
 	  const profileResponse = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
@@ -88,12 +101,13 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 
-	  const userData = await profileResponse.json();
+	  const userData: UserData = await profileResponse.json();
 	  const userDataWithTokens = {
 		...userData,
 		accessToken: loginData.accessToken,
 		refreshToken: loginData.refreshToken
 	  };
+	  
 	  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
 
 	  return {
@@ -112,7 +126,7 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
-  
+
   async register(params: any) {
 	const { email, password, username } = params;
 	try {
@@ -121,29 +135,32 @@ class AuthProviderClass implements AuthProvider {
 		headers: {
 		  'Content-Type': 'application/json',
 		},
-		body: JSON.stringify({ email, password, username }),
+		body: JSON.stringify({
+		  email,
+		  password,
+		  username,
+		  subscriptionPlan: 'FREE'
+		}),
 	  });
-  
+
 	  const registerData = await registerResponse.json();
-  
+
 	  if (!registerResponse.ok) {
 		return {
 		  success: false,
 		  error: {
 			message: registerData.message || 'Registration failed',
-			name: 'Invalid email or password'
+			name: registerData.error || 'Registration Error'
 		  }
 		};
 	  }
-  
-	  // After successful registration, proceed with login
-	  const loginResult = await this.login({ email, password });
-	  return loginResult; // This will include success, redirectTo, and user if successful
+
+	  return this.login({ email, password });
 	} catch (error) {
 	  return {
 		success: false,
 		error: {
-		  message: error instanceof Error ? error.message : 'Registration process failed',
+		  message: error instanceof Error ? error.message : 'Registration failed',
 		  name: 'Registration Error'
 		}
 	  };
@@ -154,31 +171,29 @@ class AuthProviderClass implements AuthProvider {
 	const userStr = localStorage.getItem('user');
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
-  
-	console.log("Checking auth tokens:", { 
-	  hasUser: !!userStr, 
-	  hasAccess: !!accessToken, 
-	  hasRefresh: !!refreshToken 
+
+	console.log("Checking auth tokens:", {
+	  hasUser: !!userStr,
+	  hasAccess: !!accessToken,
+	  hasRefresh: !!refreshToken
 	});
-  
+
 	if (!accessToken || !refreshToken) {
 	  return {
 		authenticated: false
 	  };
 	}
-  
+
 	try {
-	  // Try to validate the current token
 	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
-  
+
 	  if (response.ok) {
 		const userData = await response.json();
-		// Update stored user data
 		localStorage.setItem('user', JSON.stringify({
 		  ...userData,
 		  accessToken,
@@ -188,8 +203,8 @@ class AuthProviderClass implements AuthProvider {
 		  authenticated: true
 		};
 	  }
-  
-	  // Try token refresh
+
+	  // Try token refresh if profile fetch fails
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -198,7 +213,7 @@ class AuthProviderClass implements AuthProvider {
 			'Authorization': `Bearer ${newTokens.accessToken}`,
 		  },
 		});
-  
+
 		if (retryResponse.ok) {
 		  const userData = await retryResponse.json();
 		  localStorage.setItem('user', JSON.stringify({
@@ -211,8 +226,7 @@ class AuthProviderClass implements AuthProvider {
 		  };
 		}
 	  }
-  
-	  // If we get here, authentication failed
+
 	  this.clearStorage();
 	  return {
 		authenticated: false
@@ -226,12 +240,33 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async getPermissions(params?: any) {
+  async getIdentity() {
 	const userStr = localStorage.getItem('user');
 	if (!userStr) return null;
 
 	try {
-	  const userData = JSON.parse(userStr);
+	  const userData: UserData = JSON.parse(userStr);
+	  return {
+		id: userData.id,
+		name: userData.username || userData.email,
+		email: userData.email,
+		avatar: userData.avatar || null,
+		roles: userData.roles || [],
+		token: userData.accessToken,
+		subscriptionPlan: userData.subscriptionPlan
+	  };
+	} catch (error) {
+	  console.error("GetIdentity error:", error);
+	  return null;
+	}
+  }
+
+  async getPermissions() {
+	const userStr = localStorage.getItem('user');
+	if (!userStr) return null;
+
+	try {
+	  const userData: UserData = JSON.parse(userStr);
 	  const response = await fetch(`${API_URL}/users/permissions`, {
 		headers: {
 		  'Authorization': `Bearer ${userData.accessToken}`,
@@ -261,7 +296,7 @@ class AuthProviderClass implements AuthProvider {
 	}
 
 	try {
-	  const userData = JSON.parse(userStr);
+	  const userData: UserData = JSON.parse(userStr);
 	  const response = await fetch(`${API_URL}/auth/update-password`, {
 		method: 'POST',
 		headers: {
@@ -272,10 +307,11 @@ class AuthProviderClass implements AuthProvider {
 	  });
 
 	  if (!response.ok) {
+		const errorData = await response.json();
 		return {
 		  success: false,
 		  error: {
-			message: "Invalid password",
+			message: errorData.message || "Invalid password",
 			name: "Update password failed"
 		  }
 		};
@@ -306,10 +342,11 @@ class AuthProviderClass implements AuthProvider {
 	  });
 
 	  if (!response.ok) {
+		const errorData = await response.json();
 		return {
 		  success: false,
 		  error: {
-			message: "Invalid email",
+			message: errorData.message || "Invalid email",
 			name: "Forgot password failed"
 		  }
 		};
@@ -351,19 +388,6 @@ class AuthProviderClass implements AuthProvider {
 	return { error };
   }
 
-  async getIdentity() {
-	const userStr = localStorage.getItem('user');
-	if (userStr) {
-	  const userData = JSON.parse(userStr);
-	  return {
-		...userData,
-		name: userData.username || userData.email,
-		avatar: userData.avatar || null,
-	  };
-	}
-	return null;
-  }
-
   private async refreshAccessToken(refreshToken: string) {
 	try {
 	  const response = await fetch(`${API_URL}/auth/refresh`, {
@@ -379,7 +403,6 @@ class AuthProviderClass implements AuthProvider {
 	  }
 
 	  const data = await response.json();
-	  
 	  if (!data.accessToken || !data.refreshToken) {
 		return null;
 	  }
@@ -399,21 +422,23 @@ class AuthProviderClass implements AuthProvider {
   }
 }
 
-// Create a single instance and export its methods as the auth provider
 const authProviderInstance = new AuthProviderClass();
 
 type CustomAuthProvider = AuthProvider & {
   register: (params: any) => Promise<any>;
+  forgotPassword?: (params: any) => Promise<any>;
+  updatePassword?: (params: any) => Promise<any>;
+  getPermissions?: (params?: any) => Promise<any>;
 };
 
 export const customAuthProvider: CustomAuthProvider = {
-  login: authProviderInstance.login,
-  register: authProviderInstance.register,
-  logout: authProviderInstance.logout,
-  check: authProviderInstance.check,
-  onError: authProviderInstance.onError,
-  getIdentity: authProviderInstance.getIdentity,
-  forgotPassword: authProviderInstance.forgotPassword,
-  updatePassword: authProviderInstance.updatePassword,
-  getPermissions: authProviderInstance.getPermissions,
+  login: authProviderInstance.login.bind(authProviderInstance),
+  register: authProviderInstance.register.bind(authProviderInstance),
+  logout: authProviderInstance.logout.bind(authProviderInstance),
+  check: authProviderInstance.check.bind(authProviderInstance),
+  onError: authProviderInstance.onError.bind(authProviderInstance),
+  getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
+  forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
+  updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
+  getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
 };
