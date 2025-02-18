@@ -27,16 +27,12 @@ interface Identity {
 }
 
 export default function JobList() {
-  const { data: identity } = useGetIdentity<Identity>();
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusResult, setStatusResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const { data: identity } = useGetIdentity<{
-    token?: string;
-    email?: string | null;
-  }>();
-
+  
+  const { data: identity } = useGetIdentity<Identity>();
+  
   // Add console logs to debug
   React.useEffect(() => {
     console.log("Identity data updated:", identity);
