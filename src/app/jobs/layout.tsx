@@ -18,7 +18,7 @@ export default function JobsLayout({ children }: React.PropsWithChildren) {
       key="jobs-layout"
       v3LegacyAuthProviderCompatible
       loading={<LoadingFallback />}
-      fallback={<LoadingFallback />}
+      fallback={router.push('/login')}
       redirectOnFail="/login"
     >
       <BaseLayout>{children}</BaseLayout>
