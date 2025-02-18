@@ -23,7 +23,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
   const to = usePathname();
   const [authState, setAuthState] = useState({
     isChecking: true,
-    isAuthenticated: undefined as boolean | undefined,
+    isAuthenticated: false,
     initialized: false
   });
 
@@ -110,16 +110,20 @@ const App = (props: React.PropsWithChildren<{}>) => {
           authenticated: true
         };
       }
-
+  
       // If state is initialized, use cached value
       if (authState.initialized) {
+        // Ensure we return a boolean, not undefined
         return {
-          authenticated: authState.isAuthenticated
+          authenticated: !!authState.isAuthenticated
         };
       }
-
+  
       // Otherwise, check with provider
-      return await customAuthProvider.check();
+      const result = await customAuthProvider.check();
+      return {
+        authenticated: !!result.authenticated
+      };
     },
     getIdentity: async () => {
       if (session?.user) {
@@ -138,7 +142,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
   };
 
   // Show loading state while checking auth
-  if (status === "loading" || authState.isChecking || authState.isAuthenticated === undefined) {
+  if (status === "loading" || authState.isChecking) {
     console.log("Loading state:", {
       sessionLoading: status === "loading",
       ...authState
