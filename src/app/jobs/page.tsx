@@ -20,7 +20,14 @@ import {
 } from '@mantine/core';
 import { IconEye, IconEdit, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+}
+
 export default function JobList() {
+  const { data: identity } = useGetIdentity<Identity>();
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusResult, setStatusResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
