@@ -167,44 +167,89 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async check(): Promise<{ authenticated: boolean; redirectTo?: string; }> {
-  const userStr = localStorage.getItem('user');
-  const accessToken = localStorage.getItem('accessToken');
-  const refreshToken = localStorage.getItem('refreshToken');
-  
-  if (!accessToken || !refreshToken) {
-	this.clearStorage();
-	return {
-	  authenticated: false,
-	  redirectTo: '/login'
-	};
-  }
-  
-  try {
-	const response = await fetch(`${API_URL}/users/profile`, {
-	  method: 'GET',
-	  headers: {
-		'Authorization': `Bearer ${accessToken}`,
-	  },
-	});
-  
-	if (response.ok) {
-	  const userData = await response.json();
-	  const updatedUserData = {
-		...userData,
-		accessToken,
-		refreshToken
-	  };
-	  localStorage.setItem('user', JSON.stringify(updatedUserData));
+async check(): Promise<{ authenticated: boolean; redirectTo?: string; }> {
+	const userStr = localStorage.getItem('user');
+	const accessToken = localStorage.getItem('accessToken');
+	const refreshToken = localStorage.getItem('refreshToken');
+	
+	if (!accessToken || !refreshToken) {
+	  this.clearStorage();
 	  return {
-		authenticated: true
+		authenticated: false,
+		redirectTo: '/login'
 	  };
 	}
-
+	
+	try {
+	  const response = await fetch(`${API_URL}/users/profile`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${accessToken}`,
+		},
+	  });
+	
+	  if (response.ok) {
+		const userData = await response.json();
+		const updatedUserData = {
+		  ...userData,
+		  accessToken,
+		  refreshToken
+		};
+		localStorage.setItem('user', JSON.stringify(updatedUserData));
+		return {
+		  authenticated: true
+		};
+	  }
+  
+	  // If the response is not OK, try to refresh the token
+	  const refreshedTokens = await this.refreshAccessToken(refreshToken);
+	  if (!refreshedTokens) {
+		this.clearStorage();
+		return {
+		  authenticated: false,
+		  redirectTo: '/login'
+		};
+	  }
+  
+	  // Retry the profile check with the new token
+	  const retryResponse = await fetch(`${API_URL}/users/profile`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${refreshedTokens.accessToken}`,
+		},
+	  });
+  
+	  if (retryResponse.ok) {
+		const userData = await retryResponse.json();
+		const updatedUserData = {
+		  ...userData,
+		  accessToken: refreshedTokens.accessToken,
+		  refreshToken: refreshedTokens.refreshToken
+		};
+		localStorage.setItem('user', JSON.stringify(updatedUserData));
+		return {
+		  authenticated: true
+		};
+	  }
+  
+	  this.clearStorage();
+	  return {
+		authenticated: false,
+		redirectTo: '/login'
+	  };
+	} catch (error) {
+	  this.clearStorage();
+	  return {
+		authenticated: false,
+		redirectTo: '/login'
+	  };
+	}
+  }
+  
   async getIdentity() {
 	const userStr = localStorage.getItem('user');
 	if (!userStr) return null;
-
+  
 	try {
 	  const userData: UserData = JSON.parse(userStr);
 	  return {
