@@ -20,7 +20,6 @@ declare module "next-auth" {
 
 interface RefineContextProps {}
 
-// Custom notification provider using react-toastify
 const notificationProvider: NotificationProvider = {
   open: ({ message, description, type, key }) => {
     const content = description ? `${message}: ${description}` : message;
@@ -127,8 +126,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
           });
           
           return {
-            ...result,
-            redirectTo: "/jobs"
+            success: true,
+            redirectTo: "/jobs",
+            ...result
           };
         }
         
@@ -159,55 +159,44 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
     },
-    register: async (params: any) => {
+    check: async () => {
       try {
-        const result = await customAuthProvider.register(params);
-        
-        if (result.success) {
-          notificationProvider.open({
-            message: "Registration Successful",
-            description: "Welcome to the platform!",
-            type: "success",
-            key: "register-success"
-          });
-        } else {
-          notificationProvider.open({
-            message: "Registration Failed",
-            description: result.error?.message || "Please try again",
-            type: "error",
-            key: "register-error"
-          });
+        // If we're already on the login page, no need to check auth
+        if (to === "/login") {
+          return { authenticated: false };
         }
         
-        return result;
-      } catch (error) {
-        notificationProvider.open({
-          message: "Registration Error",
-          description: "An unexpected error occurred",
-          type: "error",
-          key: "register-error"
-        });
+        const result = await customAuthProvider.check();
+        
+        // Only redirect to login if not authenticated AND not already on login page
+        if (!result.authenticated && to !== "/login") {
+          return {
+            authenticated: false,
+            error: new Error("Not authenticated"),
+            logout: true,
+            redirectTo: "/login"
+          };
+        }
+        
+        // If authenticated and on login page, redirect to jobs
+        if (result.authenticated && to === "/login") {
+          return {
+            authenticated: true,
+            redirectTo: "/jobs"
+          };
+        }
         
         return {
-          success: false,
-          error: {
-            message: "Registration failed",
-            name: "Registration Error"
-          }
+          authenticated: result.authenticated
         };
-      }
-    },
-    check: async () => {
-      const result = await customAuthProvider.check();
-      
-      if (!result.authenticated) {
+      } catch (error) {
         return {
-          ...result,
+          authenticated: false,
+          error: new Error("Authentication check failed"),
+          logout: true,
           redirectTo: "/login"
         };
       }
-      
-      return result;
     },
     getIdentity: async () => {
       if (session?.user) {
@@ -219,7 +208,19 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
       return customAuthProvider.getIdentity();
-    }
+    },
+    logout: async () => {
+      const result = await customAuthProvider.logout();
+      setAuthState({
+        isChecking: false,
+        isAuthenticated: false,
+        initialized: true,
+      });
+      return {
+        success: true,
+        redirectTo: "/login"
+      };
+    },
   };
 
   if (status === "loading" || authState.isChecking) {
