@@ -4,7 +4,7 @@ import { Refine } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
@@ -29,52 +29,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
-  // Token validation function
-  const validateToken = useCallback(async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    const refreshToken = localStorage.getItem('refreshToken');
-    
-    if (!accessToken || !refreshToken) {
-      return false;
-    }
-
-    try {
-      // Try to get profile with current token
-      const response = await fetch('https://api.shrinked.ai/users/profile', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
-      if (response.ok) {
-        return true;
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        // Try to refresh token
-        const refreshResponse = await fetch('https://api.shrinked.ai/auth/refresh', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ refreshToken }),
-        });
-
-        if (refreshResponse.ok) {
-          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await refreshResponse.json();
-          localStorage.setItem('accessToken', newAccessToken);
-          localStorage.setItem('refreshToken', newRefreshToken);
-          return true;
-        }
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Token validation error:', error);
-      return false;
-    }
-  }, []);
-
   // Auth check effect
   useEffect(() => {
     const checkAuthentication = async () => {
@@ -90,11 +44,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
           return;
         }
 
-        const isValid = await validateToken();
+        const result = await customAuthProvider.check();
         
         setAuthState({
           isChecking: false,
-          isAuthenticated: isValid,
+          isAuthenticated: result.authenticated,
           initialized: true,
         });
       } catch (error) {
@@ -108,7 +62,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
     };
 
     checkAuthentication();
-  }, [status, session, validateToken]);
+  }, [status, session]);
 
   // Navigation effect
   useEffect(() => {
@@ -174,7 +128,10 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
     },
-    check: validateToken,
+    check: async () => {
+      // Using the original check method from customAuthProvider
+      return customAuthProvider.check();
+    },
     getIdentity: async () => {
       if (session?.user) {
         return {
