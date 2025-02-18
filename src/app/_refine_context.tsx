@@ -8,7 +8,7 @@ import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
-import { toast, ToastContainer } from "react-toastify";
+import { toast, ToastContainer, Id } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
 
@@ -24,22 +24,27 @@ interface RefineContextProps {}
 const notificationProvider: NotificationProvider = {
   open: ({ message, description, type, key }) => {
     const content = description ? `${message}: ${description}` : message;
+    const toastId = key ? String(key) : undefined;
     
-    if (toast.isActive(key)) {
-      toast.update(key, {
+    if (toastId && toast.isActive(toastId)) {
+      toast.update(toastId, {
         render: content,
         type: type === "error" ? "error" : type === "success" ? "success" : "info",
         autoClose: 3000,
       });
     } else {
       toast(content, {
-        toastId: key,
+        toastId: toastId,
         type: type === "error" ? "error" : type === "success" ? "success" : "info",
         autoClose: 3000,
       });
     }
   },
-  close: (key) => toast.dismiss(key),
+  close: (key) => {
+    if (key) {
+      toast.dismiss(String(key));
+    }
+  },
 };
 
 const App = (props: React.PropsWithChildren<{}>) => {
@@ -127,7 +132,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
           };
         }
         
-        // Show error notification
         notificationProvider.open({
           message: "Login Failed",
           description: result.error?.message || "Invalid credentials",
