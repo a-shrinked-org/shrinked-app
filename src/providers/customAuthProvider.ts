@@ -112,6 +112,43 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
+  
+  async register(params: any) {
+	const { email, password, username } = params;
+	try {
+	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ email, password, username }),
+	  });
+  
+	  const registerData = await registerResponse.json();
+  
+	  if (!registerResponse.ok) {
+		return {
+		  success: false,
+		  error: {
+			message: registerData.message || 'Registration failed',
+			name: 'Invalid email or password'
+		  }
+		};
+	  }
+  
+	  // After successful registration, proceed with login
+	  const loginResult = await this.login({ email, password });
+	  return loginResult; // This will include success, redirectTo, and user if successful
+	} catch (error) {
+	  return {
+		success: false,
+		error: {
+		  message: error instanceof Error ? error.message : 'Registration process failed',
+		  name: 'Registration Error'
+		}
+	  };
+	}
+  }
 
   async check() {
 	const userStr = localStorage.getItem('user');
