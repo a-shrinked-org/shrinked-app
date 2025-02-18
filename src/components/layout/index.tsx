@@ -10,7 +10,6 @@ import {
   NavLink as MantineNavLink,
   Avatar,
   Text,
-  useMantineTheme,
   Box,
   Container
 } from '@mantine/core';
@@ -23,15 +22,31 @@ import {
   IconLogout,
   IconFiles 
 } from '@tabler/icons-react';
-import { CanAccess } from "@refinedev/core";
+import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 import { Breadcrumb } from "../breadcrumb";
 
 export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const [opened, setOpened] = useState(true);
   const pathname = usePathname();
   const { data: session } = useSession();
-  const theme = useMantineTheme();
   const router = useRouter();
+  const { mutate: logout } = useLogout();
+  const { data: identity } = useGetIdentity();
+
+  // Use either session or custom auth identity
+  const userInfo = {
+    name: session?.user?.name || identity?.name,
+    email: session?.user?.email || identity?.email,
+    avatar: session?.user?.image || identity?.avatar,
+  };
+
+  const handleLogout = () => {
+    if (session) {
+      signOut();
+    } else {
+      logout();
+    }
+  };
 
   const menuItems = [
     { 
@@ -103,16 +118,16 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
             <Box p="xs">
               <Group>
                 <Avatar 
-                  src={session?.user?.image} 
+                  src={userInfo.avatar} 
                   radius="xl" 
                   size="md"
                 />
                 <Stack gap={0}>
                   <Text size="sm" fw={500}>
-                    {session?.user?.name}
+                    {userInfo.name}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {session?.user?.email}
+                    {userInfo.email}
                   </Text>
                 </Stack>
               </Group>
@@ -121,7 +136,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
             <MantineNavLink
               label="Logout"
               leftSection={<IconLogout size="1.2rem" stroke={1.5} />}
-              onClick={() => signOut()}
+              onClick={handleLogout}
               color="red"
             />
           </Stack>
