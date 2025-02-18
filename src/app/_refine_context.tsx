@@ -19,120 +19,103 @@ declare module "next-auth" {
 interface RefineContextProps {}
 
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession();
-  const to = usePathname();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+const { data: session, status } = useSession();
+const to = usePathname();
+const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+const [isAuthenticated, setIsAuthenticated] = useState(false);
+const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => {
-    const checkAuthentication = async () => {
-      try {
-        if (status === "loading") return;
+useEffect(() => {
+  const checkAuthentication = async () => {
+    try {
+      if (status === "loading" || initialized) return;
 
-        const result = await customAuthProvider.check();
-        setIsAuthenticated(result.authenticated);
-      } catch (error) {
-        setIsAuthenticated(false);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    };
-
-    checkAuthentication();
-  }, [status]);
-
-  if (isCheckingAuth || status === "loading") {
-    return <span>Loading...</span>;
-  }
-
-  const authProvider = {
-    ...customAuthProvider,
-    login: async (params: any) => {
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
-          callbackUrl: to ? to.toString() : "/jobs",
-          redirect: true,
-        });
-        return {
-          success: false,
-          error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
-        };
-      }
+      const result = await customAuthProvider.check();
+      setIsAuthenticated(result.authenticated);
       
-      const result = await customAuthProvider.login(params);
-      console.log("Login result:", result);
-      
-      if (result.success && result.user) {
-        localStorage.setItem('user', JSON.stringify(result.user));
-        setIsAuthenticated(true);
-        return result;
+      // Handle redirections after initial auth check
+      if (result.authenticated && to === '/login') {
+        window.location.href = '/jobs';
+      } else if (!result.authenticated && to !== '/login') {
+        window.location.href = '/login';
       }
+
+      setInitialized(true);
+    } catch (error) {
+      setIsAuthenticated(false);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  checkAuthentication();
+}, [status, initialized, to]);
+
+if (isCheckingAuth || status === "loading" || !initialized) {
+  return <span>Loading...</span>;
+}
+
+const authProvider = {
+  ...customAuthProvider,
+  login: async (params: any) => {
+    if (params.providerName === "auth0") {
+      signIn("auth0", {
+        callbackUrl: to ? to.toString() : "/jobs",
+        redirect: true,
+      });
+      return {
+        success: false,
+        error: {
+          message: "Redirecting to Auth0...",
+          name: "Auth0"
+        }
+      };
+    }
+    
+    const result = await customAuthProvider.login(params);
+    console.log("Login result:", result);
+    
+    if (result.success && result.user) {
+      localStorage.setItem('user', JSON.stringify(result.user));
+      setIsAuthenticated(true);
+      // Use window.location for consistent navigation
+      window.location.href = '/jobs';
       return result;
-    },
-    register: async (params: any) => {
-      if (!customAuthProvider.register) {
+    }
+    return result;
+  },
+  check: async () => {
+    console.log('Refine Check - Session:', !!session);
+    
+    try {
+      if (session) {
+        console.log("Auth via session, returning authenticated true");
+        setIsAuthenticated(true);
         return {
-          success: false,
-          error: {
-            message: "Registration not supported",
-            name: "Registration Error"
-          }
+          authenticated: true
         };
       }
-      try {
-        const result = await customAuthProvider.register(params);
-        if (result.success && result.user) {
-          localStorage.setItem('user', JSON.stringify(result.user));
-          setIsAuthenticated(true);
-        }
-        return result;
-      } catch (error) {
-        return {
-          success: false,
-          error: {
-            message: "Registration failed",
-            name: "Registration Error"
-          }
-        };
-      }
-    },
-    check: async () => {
-      console.log('Refine Check - Session:', !!session);
-      setIsCheckingAuth(true);
       
-      try {
-        if (session) {
-          console.log("Auth via session, returning authenticated true");
-          setIsAuthenticated(true);
-          setIsCheckingAuth(false);
-          return {
-            authenticated: true,
-            redirectTo: "/jobs"
-          };
+      const result = await customAuthProvider.check();
+      console.log('Refine Check - Custom auth result:', result);
+      setIsAuthenticated(result.authenticated);
+      return {
+        ...result,
+        redirectTo: result.authenticated ? '/jobs' : '/login'
+      };
+    } catch (error) {
+      console.log("Auth check error:", error);
+      setIsAuthenticated(false);
+      return {
+        authenticated: false,
+        redirectTo: "/login",
+        error: {
+          message: "Authentication check failed",
+          name: "Auth Error"
         }
-        
-        const result = await customAuthProvider.check();
-        console.log('Refine Check - Custom auth result:', result);
-        setIsAuthenticated(result.authenticated);
-        setIsCheckingAuth(false);
-        return result;
-      } catch (error) {
-        console.log("Auth check error:", error);
-        setIsAuthenticated(false);
-        setIsCheckingAuth(false);
-        return {
-          authenticated: false,
-          redirectTo: "/login",
-          error: {
-            message: "Authentication check failed",
-            name: "Auth Error"
-          }
-        };
-      }
-    },
+      };
+    }
+  },
     getIdentity: async () => {
       if (session?.user) {
         return {
