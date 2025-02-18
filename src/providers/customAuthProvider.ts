@@ -3,6 +3,13 @@ import { AuthProvider, HttpError } from "@refinedev/core";
 
 const API_URL = 'https://api.shrinked.ai';
 
+class AuthError extends Error {
+  constructor(message: string) {
+	super(message);
+	this.name = 'AuthError';
+  }
+}
+
 class AuthProviderClass implements AuthProvider {
   constructor() {
 	// Bind methods to ensure correct 'this' context
@@ -133,7 +140,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async check() {
+async check() {
 	  const accessToken = localStorage.getItem('accessToken');
 	  const refreshToken = localStorage.getItem('refreshToken');
 	  
@@ -142,7 +149,7 @@ class AuthProviderClass implements AuthProvider {
 	  if (!accessToken || !refreshToken) {
 		return {
 		  authenticated: false,
-		  error: new AuthError("No valid credentials"),
+		  error: new Error("No valid credentials"),
 		  redirectTo: "/login",
 		};
 	  }
@@ -195,7 +202,7 @@ class AuthProviderClass implements AuthProvider {
 		this.clearStorage();
 		return {
 		  authenticated: false,
-		  error: new AuthError("Failed to authenticate"),
+		  error: new Error("Failed to authenticate"),
 		  redirectTo: "/login",
 		};
 	  } catch (error) {
@@ -203,7 +210,7 @@ class AuthProviderClass implements AuthProvider {
 		this.clearStorage();
 		return {
 		  authenticated: false,
-		  error: new AuthError("Authentication check failed"),
+		  error: new Error("Authentication check failed"),
 		  redirectTo: "/login",
 		};
 	  }
