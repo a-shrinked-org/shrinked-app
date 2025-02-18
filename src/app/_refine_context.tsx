@@ -19,171 +19,171 @@ declare module "next-auth" {
 interface RefineContextProps {}
 
 const App = (props: React.PropsWithChildren<{}>) => {
-const { data: session, status } = useSession();
-const to = usePathname();
-const router = useRouter();
-const [authState, setAuthState] = useState({
-  isChecking: true,
-  isAuthenticated: false,
-  initialized: false,
-  currentPath: ''
-});
+  const { data: session, status } = useSession();
+  const to = usePathname();
+  const router = useRouter();
+  const [authState, setAuthState] = useState({
+    isChecking: true,
+    isAuthenticated: false,
+    initialized: false,
+    currentPath: ''
+  });
 
-// Auth check effect
-useEffect(() => {
-  if (status === "loading") {
-    return;
-  }
+  // Auth check effect
+  useEffect(() => {
+    if (status === "loading") {
+      return;
+    }
 
-  const checkAuthentication = async () => {
-    try {
-      console.log("Starting auth check...");
-      
-      if (session) {
-        console.log("Session found, setting authenticated");
-        setAuthState(prev => ({
-          ...prev,
+    const checkAuthentication = async () => {
+      try {
+        console.log("Starting auth check...");
+        
+        if (session) {
+          console.log("Session found, setting authenticated");
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: true,
+            initialized: true,
+            currentPath: to || ''
+          });
+          return;
+        }
+        
+        const result = await customAuthProvider.check();
+        console.log("Auth check result:", result);
+
+        setAuthState({
           isChecking: false,
-          isAuthenticated: true,
+          isAuthenticated: result.authenticated,
           initialized: true,
           currentPath: to || ''
-        }));
+        });
+      } catch (error) {
+        console.error("Auth check error:", error);
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: false,
+          initialized: true,
+          currentPath: to || ''
+        });
+      }
+    };
+
+    checkAuthentication();
+  }, [status, session, to]);
+
+  // Navigation effect
+  useEffect(() => {
+    const handleNavigation = async () => {
+      if (!authState.initialized || authState.isChecking) {
         return;
       }
-      
-      const result = await customAuthProvider.check();
-      console.log("Auth check result:", result);
 
-      setAuthState(prev => ({
-        ...prev,
-        isChecking: false,
-        isAuthenticated: result.authenticated,
-        initialized: true,
-        currentPath: to || ''
-      }));
-    } catch (error) {
-      console.error("Auth check error:", error);
-      setAuthState(prev => ({
-        ...prev,
-        isChecking: false,
-        isAuthenticated: false,
-        initialized: true,
-        currentPath: to || ''
-      }));
-    }
-  };
-
-  checkAuthentication();
-}, [status, session]);
-
-// Navigation effect
-useEffect(() => {
-  if (authState.isChecking || !authState.initialized) {
-    return;
-  }
-
-  // Prevent navigation if we're already on the target path
-  if (authState.currentPath === to) {
-    return;
-  }
-
-  const handleNavigation = async () => {
-    if (authState.isAuthenticated) {
-      if (to === '/login' || to === '/') {
-        console.log('Authenticated user redirecting to /jobs from:', to);
-        await router.replace('/jobs');
-      }
-    } else {
-      if (to !== '/login') {
-        console.log('Unauthenticated user redirecting to /login from:', to);
-        await router.replace('/login');
-      }
-    }
-  };
-
-  handleNavigation();
-}, [authState.isAuthenticated, authState.initialized, to, authState.currentPath]);
-
-const authProvider = {
-  ...customAuthProvider,
-  login: async (params: any) => {
-    if (params.providerName === "auth0") {
-      signIn("auth0", {
-        callbackUrl: "/jobs",
-        redirect: true,
+      console.log('Navigation check:', {
+        isAuthenticated: authState.isAuthenticated,
+        currentPath: authState.currentPath,
+        targetPath: to
       });
-      return {
-        success: false,
-        error: {
-          message: "Redirecting to Auth0...",
-          name: "Auth0"
-        }
-      };
-    }
-    
-    if (!customAuthProvider.login) {
-      return {
-        success: false,
-        error: {
-          message: "Login method not available",
-          name: "Auth Error"
-        }
-      };
-    }
-  
-    const result = await customAuthProvider.login(params);
-    console.log("Login result:", result);
-    
-    if (result.success && result.user) {
-      setAuthState(prev => ({
-        ...prev,
-        isChecking: false,
-        isAuthenticated: true,
-        initialized: true,
-        currentPath: '/login'
-      }));
-    }
-    return result;
-  },
-  check: async () => {
-    if (session) {
-      return { authenticated: true };
-    }
 
-    if (!customAuthProvider.check) {
-      return { authenticated: false };
+      if (authState.isAuthenticated) {
+        if (to === '/login' || to === '/') {
+          console.log('Authenticated user redirecting to /jobs');
+          router.replace('/jobs');
+        }
+      } else {
+        if (to !== '/login') {
+          console.log('Unauthenticated user redirecting to /login');
+          router.replace('/login');
+        }
+      }
+    };
+
+    handleNavigation();
+  }, [authState.isAuthenticated, authState.initialized, to]);
+
+  const authProvider = {
+    ...customAuthProvider,
+    login: async (params: any) => {
+      if (params.providerName === "auth0") {
+        signIn("auth0", {
+          callbackUrl: "/jobs",
+          redirect: true,
+        });
+        return {
+          success: false,
+          error: {
+            message: "Redirecting to Auth0...",
+            name: "Auth0"
+          }
+        };
+      }
+      
+      try {
+        const result = await customAuthProvider.login(params);
+        console.log("Login result:", result);
+        
+        if (result.success && result.user) {
+          console.log("Login successful, updating auth state");
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: true,
+            initialized: true,
+            currentPath: '/login'
+          });
+          
+          // Force navigation after successful login
+          console.log("Redirecting to /jobs after login");
+          router.replace('/jobs');
+        }
+        return result;
+      } catch (error) {
+        console.error("Login error:", error);
+        return {
+          success: false,
+          error: {
+            message: "Login failed",
+            name: "Auth Error"
+          }
+        };
+      }
+    },
+    check: async () => {
+      if (session) {
+        return { authenticated: true };
+      }
+      
+      try {
+        const result = await customAuthProvider.check();
+        return result;
+      } catch (error) {
+        console.error("Check error:", error);
+        return { authenticated: false };
+      }
+    },
+    getIdentity: async () => {
+      if (session?.user) {
+        return {
+          name: session.user.name,
+          avatar: session.user.image,
+          token: session.accessToken,
+          email: session.user.email,
+        };
+      }
+      
+      try {
+        const identity = await customAuthProvider.getIdentity();
+        return identity;
+      } catch (error) {
+        console.error("GetIdentity error:", error);
+        return null;
+      }
     }
-    
-    const result = await customAuthProvider.check();
-    return result;
-  },
-  getIdentity: async () => {
-    if (session?.user) {
-      return {
-        name: session.user.name,
-        avatar: session.user.image,
-        token: session.accessToken,
-        email: session.user.email,
-      };
-    }
-    
-    if (!customAuthProvider.getIdentity) {
-      return null;
-    }
-    
-    try {
-      const identity = await customAuthProvider.getIdentity();
-      return identity;
-    } catch (error) {
-      console.error("GetIdentity error:", error);
-      return null;
-    }
+  };
+
+  if (status === "loading" || authState.isChecking) {
+    return <span>Loading...</span>;
   }
-};
-
-if (status === "loading" || authState.isChecking) {
-  return <span>Loading...</span>;
-}
 
   return (
     <>
