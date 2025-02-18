@@ -27,7 +27,11 @@ export default function IndexPage() {
   }
 
   return (
-    <Authenticated fallback={<div>Redirecting to login...</div>}>
+    <Authenticated 
+      key="home-page"
+      v3LegacyAuthProviderCompatible
+      fallback={<div>Redirecting to login...</div>}
+    >
       <div className="flex items-center justify-center min-h-screen">
         <div>Redirecting to dashboard...</div>
       </div>

@@ -78,7 +78,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
         options={{
           syncWithLocation: true,
           warnWhenUnsavedChanges: true,
-          useNewQueryKeys: true
+          useNewQueryKeys: true,
+          authProvider: {
+            isAuthenticated: true,
+            isLoading: true
+          }
         }}
       >
         {props.children}

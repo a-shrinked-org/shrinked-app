@@ -134,8 +134,6 @@ class AuthProviderClass implements AuthProvider {
 		}
 	  }
 	
-	// Add these methods to your AuthProviderClass
-	
 	async validateToken(token: string): Promise<boolean> {
 	  try {
 		const response = await fetch(`${API_URL}/users/profile`, {
@@ -150,14 +148,44 @@ class AuthProviderClass implements AuthProvider {
 	  }
 	}
 	
+	private isRefreshing = false;
+	private refreshSubscribers: Array<(token: string) => void> = [];
+	
+	private addRefreshSubscriber(callback: (token: string) => void) {
+	  this.refreshSubscribers.push(callback);
+	}
+	
+	private onRefreshComplete(token: string) {
+	  this.refreshSubscribers.forEach((callback) => callback(token));
+	  this.refreshSubscribers = [];
+	}
+	
 	async refreshAndValidate(): Promise<boolean> {
-	  const refreshToken = localStorage.getItem('refreshToken');
-	  if (!refreshToken) return false;
+	  if (this.isRefreshing) {
+		// Return a new promise that will be resolved when refresh is complete
+		return new Promise((resolve) => {
+		  this.addRefreshSubscriber((token: string) => {
+			resolve(this.validateToken(token));
+		  });
+		});
+	  }
 	
-	  const refreshedTokens = await this.refreshAccessToken(refreshToken);
-	  if (!refreshedTokens) return false;
+	  this.isRefreshing = true;
+	  try {
+		const refreshToken = localStorage.getItem('refreshToken');
+		if (!refreshToken) return false;
 	
-	  return await this.validateToken(refreshedTokens.accessToken);
+		const refreshedTokens = await this.refreshAccessToken(refreshToken);
+		if (!refreshedTokens) {
+		  this.clearStorage();
+		  return false;
+		}
+	
+		this.onRefreshComplete(refreshedTokens.accessToken);
+		return await this.validateToken(refreshedTokens.accessToken);
+	  } finally {
+		this.isRefreshing = false;
+	  }
 	}
 	
 	// Update the check method to include this section
