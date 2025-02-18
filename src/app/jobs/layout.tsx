@@ -2,7 +2,8 @@
 
 import { Layout as BaseLayout } from "@components/layout";
 import { Authenticated } from "@refinedev/core";
-import React from "react";
+import { useRouter } from "next/navigation";
+import React, { useEffect } from "react";
 
 function LoadingFallback() {
   return (
@@ -12,13 +13,23 @@ function LoadingFallback() {
   );
 }
 
+function RedirectToLogin() {
+  const router = useRouter();
+  
+  useEffect(() => {
+    router.push('/login');
+  }, [router]);
+
+  return <LoadingFallback />;
+}
+
 export default function JobsLayout({ children }: React.PropsWithChildren) {
   return (
     <Authenticated
       key="jobs-layout"
       v3LegacyAuthProviderCompatible
       loading={<LoadingFallback />}
-      fallback={router.push('/login')}
+      fallback={<RedirectToLogin />}
       redirectOnFail="/login"
     >
       <BaseLayout>{children}</BaseLayout>
