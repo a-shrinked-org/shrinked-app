@@ -175,10 +175,10 @@ async check() {
 		console.log('Auth Check - Profile valid, user authenticated');
 		return {
 		  authenticated: true,
+		  redirectTo: "/jobs"  // Explicitly include redirectTo
 		};
 	  }
   
-	  // Try token refresh
 	  const newTokens = await this.refreshAccessToken(refreshToken);
 	  if (newTokens) {
 		const retryResponse = await fetch(`${API_URL}/users/profile`, {
@@ -198,6 +198,7 @@ async check() {
 		  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
 		  return {
 			authenticated: true,
+			redirectTo: "/jobs"  // Explicitly include redirectTo
 		  };
 		}
 	  }

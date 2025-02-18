@@ -55,11 +55,13 @@ const App = (props: React.PropsWithChildren<{}>) => {
       
       const result = await customAuthProvider.login(params);
       console.log("Login result:", result);
-      // Store user data before redirecting
+      
       if (result.success && result.user) {
         localStorage.setItem('user', JSON.stringify(result.user));
-        // Force a check call to ensure all states are updated
-        await customAuthProvider.check();
+        return {
+          success: true,
+          redirectTo: "/jobs"
+        };
       }
       return result;
     },
@@ -70,6 +72,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
         console.log("Auth via session, returning authenticated true");
         return {
           authenticated: true,
+          redirectTo: "/jobs"
         };
       }
       
@@ -77,19 +80,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
         const result = await customAuthProvider.check();
         console.log('Refine Check - Custom auth result:', result);
         
-        if (result.authenticated) {
-          console.log("Custom auth authenticated, returning true");
-          return {
-            authenticated: true,
-          };
-        }
-
-        console.log("Auth check failed, redirecting to login");
-        return {
-          authenticated: false,
-          redirectTo: "/login",
-          error: result.error
-        };
+        return result; // Pass through the result with redirectTo
       } catch (error) {
         console.log("Auth check error:", error);
         return {
@@ -113,7 +104,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
       console.log("GetIdentity result:", identity);
       return identity;
     }
-  };
+  }
 
   return (
     <>
@@ -155,7 +146,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true
+            useNewQueryKeys: true,
+            auth: {
+              defaultError: "/login",
+              defaultSuccess: "/jobs"
+            }
           }}
         >
           {props.children}
