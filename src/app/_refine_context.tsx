@@ -3,13 +3,26 @@
 import { Refine, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider } from "next-auth/react";
-import React from "react";
+import React, { Suspense } from "react"; // Added Suspense import
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
+
+function Loading() {
+  return (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh' 
+    }}>
+      Loading...
+    </div>
+  );
+}
 
 const notificationProvider: NotificationProvider = {
   open: ({ message, description, type, key }) => {
@@ -40,7 +53,7 @@ const notificationProvider: NotificationProvider = {
 const App = (props: React.PropsWithChildren<{}>) => {
   return (
     <RefineKbarProvider>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<Loading />}>
         <Refine
           routerProvider={routerProvider}
           dataProvider={dataProvider}
@@ -88,7 +101,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
             },
           }}
         >
-          <Suspense fallback={<div>Loading...</div>}>
+          <Suspense fallback={<Loading />}>
             {props.children}
           </Suspense>
           <RefineKbar />
