@@ -208,8 +208,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
       return customAuthProvider.getIdentity();
     },
-    logout: async () => {
-      const result = await customAuthProvider.logout();
+    logout: async (params: any = {}) => {
+      const result = await customAuthProvider.logout(params);
       setAuthState({
         isChecking: false,
         isAuthenticated: false,
