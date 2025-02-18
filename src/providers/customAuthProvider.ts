@@ -260,23 +260,29 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async getIdentity() {
-	const userStr = localStorage.getItem('user');
-	if (!userStr) return null;
-
-	try {
-	  const userData: UserData = JSON.parse(userStr);
-	  return {
-		id: userData.id,
-		name: userData.username || userData.email,
-		email: userData.email,
-		avatar: userData.avatar || null,
-		roles: userData.roles || [],
-		token: userData.accessToken,
-		subscriptionPlan: userData.subscriptionPlan
-	  };
-	} catch (error) {
-	  console.error("GetIdentity error:", error);
-	  return null;
+  const userStr = localStorage.getItem('user');
+  if (!userStr) {
+	console.log("No user data in localStorage");
+	return null;
+  }
+  
+  try {
+	const userData: UserData = JSON.parse(userStr);
+	console.log("Parsed user data:", userData);
+	
+	return {
+	  id: userData.id,
+	  name: userData.username || userData.email,
+	  email: userData.email,
+	  avatar: userData.avatar,
+	  roles: userData.roles || [],
+	  token: userData.accessToken,
+	  subscriptionPlan: userData.subscriptionPlan,
+	  userHash: userData.userHash
+	};
+  } catch (error) {
+	console.error("GetIdentity error:", error);
+	return null;
 	}
   }
 

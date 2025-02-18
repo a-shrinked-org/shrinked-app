@@ -198,15 +198,26 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
     },
     getIdentity: async () => {
-      if (session?.user) {
-        return {
-          name: session.user.name,
-          avatar: session.user.image,
-          token: session.accessToken,
-          email: session.user.email,
-        };
-      }
-      return customAuthProvider.getIdentity();
+    // First try to get session data (Auth0)
+    if (session?.user) {
+      return {
+        id: session.user.id || session.user.email,
+        name: session.user.name,
+        email: session.user.email,
+        avatar: session.user.image,
+        token: session.accessToken,
+      };
+    }
+    
+    // If no session, try custom auth
+    const identity = await customAuthProvider.getIdentity();
+    if (identity) {
+      console.log("Custom auth identity:", identity);
+      return identity;
+    }
+    
+    // If both fail, return null
+    return null;
     },
     logout: async (params: any = {}) => {
       const result = await customAuthProvider.logout(params);
