@@ -28,75 +28,83 @@ export const RefineContext = (
   );
 };
 
-const authProvider = {
-  ...customAuthProvider,
-  login: async (params: any) => {
-    if (params.providerName === "auth0") {
-      signIn("auth0", {
-        callbackUrl: to ? to.toString() : "/jobs",
-        redirect: true,
-      });
-      return {
-        success: false,
-        error: {
-          message: "Redirecting to Auth0...",
-          name: "Auth0"
-        }
-      };
-    }
-    
-    const result = await customAuthProvider.login(params);
-    console.log("Login result:", result);
-    if (result.success && result.user) {
-      localStorage.setItem('user', JSON.stringify(result.user));
-    }
-    return result;
-  },
-  check: async () => {
-    console.log('Refine Check - Session:', !!session);
-    
-    // If we have a session, we're authenticated via Auth0
-    if (session) {
-      console.log("Auth via session, returning authenticated true");
-      return {
-        authenticated: true,
-      };
-    }
-    
-    // Otherwise, check custom auth
-    const result = await customAuthProvider.check();
-    console.log('Refine Check - Custom auth result:', result);
-    
-    if (result.authenticated) {
-      console.log("Custom auth authenticated, returning true");
-      return {
-        authenticated: true,
-        redirectTo: "/jobs"  // Add explicit redirect for authenticated users
-      };
-    }
+const App = (props: React.PropsWithChildren<{}>) => {
+  const { data: session, status } = useSession();
+  const to = usePathname();
 
-    console.log("Auth check failed, redirecting to login");
-    return {
-      authenticated: false,
-      redirectTo: "/login",
-      error: result.error
-    };
-  },
-  getIdentity: async () => {
-    if (session?.user) {
-      return {
-        name: session.user.name,
-        avatar: session.user.image,
-        token: session.accessToken,
-        email: session.user.email,
-      };
-    }
-    
-    const identity = await customAuthProvider.getIdentity!();
-    console.log("GetIdentity result:", identity);
-    return identity;
+  if (status === "loading") {
+    return <span>loading...</span>;
   }
-};
+
+  const authProvider = {
+    ...customAuthProvider,
+    login: async (params: any) => {
+      if (params.providerName === "auth0") {
+        signIn("auth0", {
+          callbackUrl: to ? to.toString() : "/jobs",
+          redirect: true,
+        });
+        return {
+          success: false,
+          error: {
+            message: "Redirecting to Auth0...",
+            name: "Auth0"
+          }
+        };
+      }
+      
+      const result = await customAuthProvider.login(params);
+      console.log("Login result:", result);
+      if (result.success && result.user) {
+        localStorage.setItem('user', JSON.stringify(result.user));
+      }
+      return result;
+    },
+    check: async () => {
+      console.log('Refine Check - Session:', !!session);
+      
+      // If we have a session, we're authenticated via Auth0
+      if (session) {
+        console.log("Auth via session, returning authenticated true");
+        return {
+          authenticated: true,
+        };
+      }
+      
+      // Otherwise, check custom auth
+      const result = await customAuthProvider.check();
+      console.log('Refine Check - Custom auth result:', result);
+      
+      if (result.authenticated) {
+        console.log("Custom auth authenticated, returning true");
+        return {
+          authenticated: true,
+          redirectTo: "/jobs"  // Add explicit redirect for authenticated users
+        };
+      }
+
+      console.log("Auth check failed, redirecting to login");
+      return {
+        authenticated: false,
+        redirectTo: "/login",
+        error: result.error
+      };
+    },
+    getIdentity: async () => {
+      if (session?.user) {
+        return {
+          name: session.user.name,
+          avatar: session.user.image,
+          token: session.accessToken,
+          email: session.user.email,
+        };
+      }
+      
+      const identity = await customAuthProvider.getIdentity!();
+      console.log("GetIdentity result:", identity);
+      return identity;
+    }
+  };
 
   return (
     <>
@@ -139,6 +147,9 @@ const authProvider = {
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
             useNewQueryKeys: true,
+            defaultBehavior: {
+              authenticate: "required"
+            }
           }}
         >
           {props.children}
