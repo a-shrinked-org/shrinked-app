@@ -23,7 +23,7 @@ import {
   IconLogout,
   IconFiles 
 } from '@tabler/icons-react';
-import { CanAccess } from "@refinedev/core";
+import { CanAccess, useLogout } from "@refinedev/core";
 import { Breadcrumb } from "../breadcrumb";
 
 export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -32,6 +32,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const { data: session } = useSession();
   const theme = useMantineTheme();
   const router = useRouter();
+  const { mutate: logout } = useLogout();
 
   const menuItems = [
     { 
@@ -121,7 +122,9 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
             <MantineNavLink
               label="Logout"
               leftSection={<IconLogout size="1.2rem" stroke={1.5} />}
-              onClick={() => signOut()}
+              onClick={() => {
+                logout()
+              }}
               color="red"
             />
           </Stack>

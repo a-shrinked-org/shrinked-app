@@ -30,32 +30,7 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async login(params: any) {
-	const { providerName, email, password } = params;
-
-	// Handle different OAuth providers
-	if (providerName === "auth0") {
-	  return {
-		success: false,
-		error: {
-		  message: "Redirecting to Auth0...",
-		  name: "Auth0"
-		}
-	  };
-	}
-
-	if (providerName === "google") {
-	  window.location.href = `${API_URL}/auth/google`;
-	  return {
-		success: true
-	  };
-	}
-
-	if (providerName === "github") {
-	  window.location.href = `${API_URL}/auth/github`;
-	  return {
-		success: true
-	  };
-	}
+	const { email, password } = params;
 
 	// Handle email/password login
 	try {

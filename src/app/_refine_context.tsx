@@ -57,67 +57,14 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
-  // Auth check effect
-  useEffect(() => {
-    const checkAuthentication = async () => {
-      if (status === "loading") return;
-
-      try {
-        if (session) {
-          setAuthState({
-            isChecking: false,
-            isAuthenticated: true,
-            initialized: true,
-          });
-          return;
-        }
-
-        const result = await customAuthProvider.check();
-        
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: result.authenticated,
-          initialized: true,
-        });
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: false,
-          initialized: true,
-        });
-      }
-    };
-
-    checkAuthentication();
-  }, [status, session]);
-
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
-          callbackUrl: "/jobs",
-          redirect: true,
-        });
-        return {
-          success: false,
-          error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
-        };
-      }
-      
+
       try {
         const result = await customAuthProvider.login(params);
         
         if (result.success) {
-          setAuthState({
-            isChecking: false,
-            isAuthenticated: true,
-            initialized: true,
-          });
           
           notificationProvider.open({
             message: "Welcome back!",
@@ -125,11 +72,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
             key: "login-success"
           });
           
-          return {
-            success: true,
-            redirectTo: "/jobs",
-            ...result
-          };
+          return result
         }
         
         notificationProvider.open({
@@ -158,46 +101,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           }
         };
       }
-    },
-    check: async () => {
-      try {
-        // If we're already on the login page, no need to check auth
-        if (to === "/login") {
-          return { authenticated: false };
-        }
-        
-        const result = await customAuthProvider.check();
-        
-        // Only redirect to login if not authenticated AND not already on login page
-        if (!result.authenticated && to !== "/login") {
-          return {
-            authenticated: false,
-            error: new Error("Not authenticated"),
-            logout: true,
-            redirectTo: "/login"
-          };
-        }
-        
-        // If authenticated and on login page, redirect to jobs
-        if (result.authenticated && to === "/login") {
-          return {
-            authenticated: true,
-            redirectTo: "/jobs"
-          };
-        }
-        
-        return {
-          authenticated: result.authenticated
-        };
-      } catch (error) {
-        return {
-          authenticated: false,
-          error: new Error("Authentication check failed"),
-          logout: true,
-          redirectTo: "/login"
-        };
-      }
-    },
+    },   
     getIdentity: async () => {
       if (session?.user) {
         return {
@@ -222,10 +126,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
       };
     },
   };
-
-  if (status === "loading" || authState.isChecking) {
-    return <span>Loading...</span>;
-  }
 
   return (
     <>
