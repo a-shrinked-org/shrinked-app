@@ -1,7 +1,7 @@
 "use client";
 
 import { useNavigation, useGetIdentity } from "@refinedev/core";
-import { useForm } from "@refinedev/react-hook-form";
+import { useForm } from "react-hook-form";
 import { 
   TextInput, 
   Select, 
@@ -43,13 +43,7 @@ export default function JobCreate() {
   const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch
-  } = useForm<JobCreateForm>({
+  const form = useForm<JobCreateForm>({
     defaultValues: {
       isPublic: true,
       createPage: true,
@@ -58,7 +52,14 @@ export default function JobCreate() {
     }
   });
 
-  const onSubmit = async (data: JobCreateForm) => {
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors },
+    setValue 
+  } = form;
+
+  const onSubmit = handleSubmit(async (data: JobCreateForm) => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs`, {
         method: 'POST',
@@ -87,7 +88,7 @@ export default function JobCreate() {
         color: 'red'
       });
     }
-  };
+  });
 
   return (
     <Box p="md">
@@ -100,13 +101,13 @@ export default function JobCreate() {
             </Button>
           </Group>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={onSubmit}>
             <Stack gap="md">
               <TextInput
                 label="Job Name"
                 placeholder="Enter job name"
                 required
-                error={errors?.jobName?.message?.toString()}
+                error={errors?.jobName?.message}
                 {...register('jobName', { required: 'Job name is required' })}
               />
 
@@ -114,8 +115,8 @@ export default function JobCreate() {
                 label="Scenario"
                 data={scenarioOptions}
                 required
-                error={errors?.scenario?.message?.toString()}
                 defaultValue="SINGLE_FILE_PLATOGRAM_DOC"
+                error={errors?.scenario?.message}
                 onChange={(value) => setValue('scenario', value || '')}
               />
 
@@ -123,8 +124,8 @@ export default function JobCreate() {
                 label="Language"
                 data={languageOptions}
                 required
-                error={errors?.lang?.message?.toString()}
                 defaultValue="en"
+                error={errors?.lang?.message}
                 onChange={(value) => setValue('lang', value || '')}
               />
 
@@ -132,7 +133,7 @@ export default function JobCreate() {
                 label="Link"
                 placeholder="Enter file link"
                 required
-                error={errors?.link?.message?.toString()}
+                error={errors?.link?.message}
                 {...register('link', { required: 'Link is required' })}
               />
 
