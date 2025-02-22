@@ -46,12 +46,23 @@ export default function JobCreate() {
   const { data: identity } = useGetIdentity<Identity>();
 
   const {
+    refineCore: { onFinish },
     register,
     handleSubmit,
     formState: { errors },
     setValue,
     watch
   } = useForm<JobCreateForm>({
+    refineCoreProps: {
+      resource: "jobs",
+      action: "create",
+      redirect: false,
+      meta: {
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`
+        }
+      }
+    },
     defaultValues: {
       isPublic: true,
       createPage: true,
@@ -60,22 +71,9 @@ export default function JobCreate() {
     }
   });
 
-  const onSubmit = async (data: JobCreateForm) => {
+  const onSubmitHandler = async (data: JobCreateForm) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const result = await response.json();
+      await onFinish(data);
       
       showNotification({
         title: 'Success',
@@ -104,7 +102,7 @@ export default function JobCreate() {
             </Button>
           </Group>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmitHandler)}>
             <Stack gap="md">
               <TextInput
                 label="Job Name"
@@ -119,7 +117,7 @@ export default function JobCreate() {
                 data={scenarioOptions}
                 required
                 error={errors.scenario?.message}
-                {...register('scenario', { required: 'Scenario is required' })}
+                value={watch('scenario')}
                 onChange={(value) => setValue('scenario', value || '')}
               />
 
@@ -128,7 +126,7 @@ export default function JobCreate() {
                 data={languageOptions}
                 required
                 error={errors.lang?.message}
-                {...register('lang', { required: 'Language is required' })}
+                value={watch('lang')}
                 onChange={(value) => setValue('lang', value || '')}
               />
 
