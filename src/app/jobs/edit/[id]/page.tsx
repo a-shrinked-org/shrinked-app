@@ -102,8 +102,8 @@ export default function JobEdit() {
   return (
     <Box p="md">
       <Paper p="md" radius="md">
-        <Stack spacing="lg">
-          <Group position="apart">
+        <Stack gap="lg">
+          <Group justify="space-between">
             <Title order={2}>Edit Job</Title>
             <Button
               variant="light"
@@ -115,7 +115,7 @@ export default function JobEdit() {
           </Group>
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            <Stack spacing="md">
+            <Stack gap="md">
               <TextInput
                 label="Job Name"
                 placeholder="Enter job name"
@@ -164,7 +164,7 @@ export default function JobEdit() {
                 />
               </Group>
 
-              <Group position="right" mt="md">
+              <Group justify="flex-end" mt="md">
                 <Button type="submit" color="blue">
                   Save Changes
                 </Button>

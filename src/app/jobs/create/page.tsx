@@ -96,8 +96,8 @@ export default function JobCreate() {
   return (
     <Box p="md">
       <Paper p="md" radius="md">
-        <Stack spacing="lg">
-          <Group position="apart">
+        <Stack gap="lg">
+          <Group justify="space-between">
             <Title order={2}>Create New Job</Title>
             <Button variant="light" onClick={() => list('jobs')}>
               Back to List
@@ -105,7 +105,7 @@ export default function JobCreate() {
           </Group>
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            <Stack spacing="md">
+            <Stack gap="md">
               <TextInput
                 label="Job Name"
                 placeholder="Enter job name"
@@ -154,7 +154,7 @@ export default function JobCreate() {
                 />
               </Group>
 
-              <Group position="right" mt="md">
+              <Group justify="flex-end" mt="md">
                 <Button type="submit" color="blue">
                   Create Job
                 </Button>
