@@ -13,7 +13,7 @@ import {
   Title,
   Paper
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { useNotifications } from '@mantine/notifications';
 import { IconArrowLeft } from '@tabler/icons-react';
 
 interface Identity {
@@ -46,6 +46,7 @@ export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
+  const notifications = useNotifications();
 
   const {
     register,
