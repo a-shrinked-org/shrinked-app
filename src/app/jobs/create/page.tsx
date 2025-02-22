@@ -1,7 +1,7 @@
 "use client";
 
 import { useNavigation, useGetIdentity } from "@refinedev/core";
-import { useForm } from "@refinedev/react-hook-form";
+import { useForm, UseFormProps } from "@refinedev/react-hook-form";
 import { 
   TextInput, 
   Select, 
@@ -14,6 +14,7 @@ import {
   Paper
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
+import { FieldValues } from "react-hook-form";
 
 interface Identity {
   token?: string;
@@ -21,7 +22,7 @@ interface Identity {
   name?: string;
 }
 
-interface JobCreateForm {
+type JobCreateForm = {
   jobName: string;
   scenario: string;
   lang: string;
@@ -45,14 +46,7 @@ export default function JobCreate() {
   const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
 
-  const {
-    refineCore: { onFinish },
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch
-  } = useForm<JobCreateForm>({
+  const formProps: UseFormProps = {
     refineCoreProps: {
       resource: "jobs",
       action: "create",
@@ -69,9 +63,18 @@ export default function JobCreate() {
       lang: 'en',
       scenario: 'SINGLE_FILE_PLATOGRAM_DOC'
     }
-  });
+  };
 
-  const onSubmitHandler = async (data: JobCreateForm) => {
+  const {
+    refineCore: { onFinish },
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch
+  } = useForm(formProps);
+
+  const onSubmitHandler = async (data: FieldValues) => {
     try {
       await onFinish(data);
       

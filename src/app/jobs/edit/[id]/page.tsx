@@ -1,7 +1,7 @@
 "use client";
 
-import { useNavigation, useGetIdentity, useResource } from "@refinedev/core";
-import { useForm } from "@refinedev/react-hook-form";
+import { useNavigation, useGetIdentity } from "@refinedev/core";
+import { useForm, UseFormProps } from "@refinedev/react-hook-form";
 import { 
   TextInput, 
   Select, 
@@ -14,7 +14,7 @@ import {
   Paper
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { IconArrowLeft } from '@tabler/icons-react';
+import { FieldValues } from "react-hook-form";
 
 interface Identity {
   token?: string;
@@ -22,7 +22,7 @@ interface Identity {
   name?: string;
 }
 
-interface JobEditForm {
+type JobCreateForm = {
   jobName: string;
   scenario: string;
   lang: string;
@@ -42,10 +42,28 @@ const languageOptions = [
   // Add other languages as needed
 ];
 
-export default function JobEdit() {
+export default function JobCreate() {
   const { list } = useNavigation();
-  const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
+
+  const formProps: UseFormProps = {
+    refineCoreProps: {
+      resource: "jobs",
+      action: "create",
+      redirect: false,
+      meta: {
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`
+        }
+      }
+    },
+    defaultValues: {
+      isPublic: true,
+      createPage: true,
+      lang: 'en',
+      scenario: 'SINGLE_FILE_PLATOGRAM_DOC'
+    }
+  };
 
   const {
     refineCore: { onFinish },
@@ -53,28 +71,16 @@ export default function JobEdit() {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
-  } = useForm<JobEditForm>({
-    refineCoreProps: {
-      resource: "jobs",
-      id,
-      action: "edit",
-      redirect: false,
-      meta: {
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`
-        }
-      }
-    }
-  });
+    watch
+  } = useForm(formProps);
 
-  const onSubmitHandler = async (data: JobEditForm) => {
+  const onSubmitHandler = async (data: FieldValues) => {
     try {
       await onFinish(data);
       
       showNotification({
         title: 'Success',
-        message: 'Job updated successfully',
+        message: 'Job created successfully',
         color: 'green'
       });
 
@@ -82,7 +88,7 @@ export default function JobEdit() {
     } catch (error) {
       showNotification({
         title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to update job',
+        message: error instanceof Error ? error.message : 'Failed to create job',
         color: 'red'
       });
     }
@@ -93,12 +99,8 @@ export default function JobEdit() {
       <Paper p="md" radius="md">
         <Stack gap="lg">
           <Group justify="space-between">
-            <Title order={2}>Edit Job</Title>
-            <Button
-              variant="light"
-              leftIcon={<IconArrowLeft size={16} />}
-              onClick={() => list('jobs')}
-            >
+            <Title order={2}>Create New Job</Title>
+            <Button variant="light" onClick={() => list('jobs')}>
               Back to List
             </Button>
           </Group>
@@ -155,7 +157,7 @@ export default function JobEdit() {
 
               <Group justify="flex-end" mt="md">
                 <Button type="submit" color="blue">
-                  Save Changes
+                  Create Job
                 </Button>
               </Group>
             </Stack>
