@@ -2,7 +2,6 @@ import {
   DataProvider,
   CrudFilters,
   CrudSorting,
-  CrudOperators,
   HttpError
 } from "@refinedev/core";
 import axios, { AxiosInstance } from "axios";
@@ -54,33 +53,31 @@ const generateSort = (sorters?: CrudSorting) => {
 export const shrinkedDataProvider = (
   apiUrl: string,
   httpClient: AxiosInstance = axiosInstance
-): DataProvider => ({
+): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	const url = `${apiUrl}/${resource}`;
+	const url = `${apiUrl}/${resource}${resource === "jobs/key" ? "" : ""}`;
 
-	const { current = 1, pageSize = 10, mode = "server" } = pagination ?? {};
+	// Handle pagination
+	const { current = 1, pageSize = 10 } = pagination ?? {};
 
-	const queryFilters = generateFilters(filters);
-	const querySort = generateSort(sorters);
-
-	const { data, headers } = await httpClient.get(url, {
+	const { data } = await httpClient.get(url, {
 	  params: {
-		_start: (current - 1) * pageSize,
-		_limit: pageSize,
-		...queryFilters,
-		...querySort,
+		page: current,
+		limit: pageSize,
+		...generateFilters(filters),
+		...generateSort(sorters),
 	  },
 	  headers: meta?.headers,
 	});
 
 	return {
-	  data,
-	  total: headers["x-total-count"] || data.length,
+	  data: data.data || data,
+	  total: data.total || (data.data || data).length,
 	};
   },
 
   getOne: async ({ resource, id, meta }) => {
-	const url = `${apiUrl}/${resource}/${id}`;
+	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
 
 	const { data } = await httpClient.get(url, {
 	  headers: meta?.headers,
@@ -92,7 +89,7 @@ export const shrinkedDataProvider = (
   },
 
   create: async ({ resource, variables, meta }) => {
-	const url = resource === "jobs" ? `${apiUrl}/${resource}` : `${apiUrl}/${resource}/key`;
+	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
 
 	const { data } = await httpClient.post(url, variables, {
 	  headers: meta?.headers,
@@ -104,7 +101,7 @@ export const shrinkedDataProvider = (
   },
 
   update: async ({ resource, id, variables, meta }) => {
-	const url = `${apiUrl}/${resource}/${id}`;
+	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
 
 	const { data } = await httpClient.patch(url, variables, {
 	  headers: meta?.headers,
@@ -116,7 +113,7 @@ export const shrinkedDataProvider = (
   },
 
   deleteOne: async ({ resource, id, variables, meta }) => {
-	const url = `${apiUrl}/${resource}/${id}`;
+	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
 
 	const { data } = await httpClient.delete(url, {
 	  data: variables,
@@ -129,55 +126,12 @@ export const shrinkedDataProvider = (
   },
 
   getMany: async ({ resource, ids, meta }) => {
-	const { data } = await httpClient.get(
-	  `${apiUrl}/${resource}`,
-	  {
-		params: { id: ids },
-		headers: meta?.headers,
-	  }
-	);
+	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
 
-	return {
-	  data,
-	};
-  },
-
-  createMany: async ({ resource, variables, meta }) => {
-	const { data } = await httpClient.post(
-	  `${apiUrl}/${resource}/bulk`,
-	  { bulk: variables },
-	  {
-		headers: meta?.headers,
-	  }
-	);
-
-	return {
-	  data,
-	};
-  },
-
-  updateMany: async ({ resource, ids, variables, meta }) => {
-	const { data } = await httpClient.patch(
-	  `${apiUrl}/${resource}/bulk`,
-	  { ids, ...variables },
-	  {
-		headers: meta?.headers,
-	  }
-	);
-
-	return {
-	  data,
-	};
-  },
-
-  deleteMany: async ({ resource, ids, variables, meta }) => {
-	const { data } = await httpClient.delete(
-	  `${apiUrl}/${resource}/bulk`,
-	  {
-		data: { ids, ...variables },
-		headers: meta?.headers,
-	  }
-	);
+	const { data } = await httpClient.get(url, {
+	  params: { ids: ids.join(",") },
+	  headers: meta?.headers,
+	});
 
 	return {
 	  data,
@@ -186,29 +140,14 @@ export const shrinkedDataProvider = (
 
   getApiUrl: () => apiUrl,
 
-  custom: async ({ url, method, filters, sorters, payload, query, headers }) => {
-	let requestUrl = `${url}`;
-
-	if (filters) {
-	  const queryFilters = generateFilters(filters);
-	  requestUrl = `${requestUrl}?${queryString.stringify(queryFilters)}`;
-	}
-
-	if (sorters) {
-	  const querySort = generateSort(sorters);
-	  requestUrl = `${requestUrl}${filters ? "&" : "?"}${queryString.stringify(
-		querySort
-	  )}`;
-	}
-
+  custom: async ({ url, method, payload, query, headers }) => {
 	let axiosResponse;
+	
 	switch (method) {
 	  case "put":
 	  case "post":
 	  case "patch":
-		axiosResponse = await httpClient[method](url, payload, {
-		  headers,
-		});
+		axiosResponse = await httpClient[method](url, payload, { headers });
 		break;
 	  case "delete":
 		axiosResponse = await httpClient.delete(url, {
@@ -217,14 +156,14 @@ export const shrinkedDataProvider = (
 		});
 		break;
 	  default:
-		axiosResponse = await httpClient.get(requestUrl, {
+		axiosResponse = await httpClient.get(url, {
+		  params: query,
 		  headers,
 		});
 		break;
 	}
 
 	const { data } = axiosResponse;
-
-	return Promise.resolve({ data });
+	return { data };
   },
 });

@@ -1,6 +1,6 @@
 import { DataProvider } from "@refinedev/core";
 import { shrinkedDataProvider } from "./shrinked-data-provider";
-import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client } from "@aws-sdk/client-s3";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
 
@@ -21,14 +21,16 @@ const s3Client = new S3Client({
 });
 
 // Main provider for Shrinked API endpoints
-const mainProvider = shrinkedDataProvider(API_URL);
+const mainProvider: DataProvider = {
+  ...shrinkedDataProvider(API_URL),
+} as DataProvider;
 
-// R2 provider remains the same as before
-const r2Provider: DataProvider = {
-  // ... your existing r2Provider implementation
+// R2 provider configuration
+const r2Provider: Partial<DataProvider> = {
+  // Copy your existing r2Provider implementation here
 };
 
 export const dataProvider = {
   default: mainProvider,
-  r2: r2Provider,
+  r2: r2Provider as DataProvider,
 };
