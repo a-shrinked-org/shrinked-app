@@ -99,7 +99,7 @@ export default function JobEdit() {
             <Title order={2}>Edit Job</Title>
             <Button
               variant="light"
-              leftIcon={<IconArrowLeft size={16} />}
+              leftSection={<IconArrowLeft size={16} />}
               onClick={() => list('jobs')}
             >
               Back to List
