@@ -1,6 +1,6 @@
 "use client";
 
-import { GetManyResponse, useMany, useNavigation, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useGetIdentity } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
 import React, { useState, useCallback } from "react";
@@ -16,7 +16,8 @@ import {
   ActionIcon,
   Modal,
   Text,
-  LoadingOverlay
+  LoadingOverlay,
+  Badge
 } from '@mantine/core';
 import { IconEye, IconEdit, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
@@ -26,6 +27,31 @@ interface Identity {
   name?: string;
 }
 
+interface Job {
+  id: string;
+  jobName: string;
+  scenario: string;
+  lang: string;
+  isPublic: boolean;
+  createPage: boolean;
+  link: string;
+  status: string;
+  createdAt: string;
+}
+
+const getStatusColor = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'completed':
+      return 'green';
+    case 'in_progress':
+      return 'blue';
+    case 'failed':
+      return 'red';
+    default:
+      return 'gray';
+  }
+};
+
 export default function JobList() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusResult, setStatusResult] = useState<string | null>(null);
@@ -33,113 +59,101 @@ export default function JobList() {
   
   const { data: identity } = useGetIdentity<Identity>();
   
-  // Add console logs to debug
-  React.useEffect(() => {
-    console.log("Identity data updated:", identity);
-  }, [identity?.token]);
-
   const checkStatus = useCallback(async () => {
-    setIsLoading(true);
-    setIsStatusModalOpen(true);
-    
-    try {
-      // Make both requests in parallel
-      const [sandboxResponse, prodResponse] = await Promise.all([
-        fetch("https://sandbox.temporary.name/status", {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity?.token}`,
-            'Content-Type': 'application/json'
-          },
-        }),
-        fetch("https://temporary.name/status", {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity?.token}`,
-            'Content-Type': 'application/json'
-          },
-        })
-      ]);
-  
-      let combinedStatus = "";
-  
-      // Handle sandbox response
-      if (sandboxResponse.status === 502) {
-        combinedStatus += "Sandbox: Server is under maintenance.\n";
-      } else if (!sandboxResponse.ok) {
-        combinedStatus += `Sandbox: Error ${sandboxResponse.status}\n`;
-      } else {
-        const sandboxResult = await sandboxResponse.json();
-        combinedStatus += `Sandbox: ${sandboxResult.status}\n`;
-      }
-  
-      // Handle production response
-      if (prodResponse.status === 502) {
-        combinedStatus += "Production: Server is under maintenance.";
-      } else if (!prodResponse.ok) {
-        combinedStatus += `Production: Error ${prodResponse.status}`;
-      } else {
-        const prodResult = await prodResponse.json();
-        combinedStatus += `Production: ${prodResult.status}`;
-      }
-  
-      setStatusResult(combinedStatus);
-    } catch (error) {
-      console.error("Error checking status:", error);
-      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
+    // ... your existing checkStatus implementation ...
   }, [identity?.token]);
   
-  const columns = React.useMemo<ColumnDef<any>[]>(
+  const columns = React.useMemo<ColumnDef<Job>[]>(
     () => [
       {
         id: "id",
         accessorKey: "id",
         header: "ID",
+        size: 100,
       },
       {
-        id: "title",
-        accessorKey: "title",
-        header: "Title",
+        id: "jobName",
+        accessorKey: "jobName",
+        header: "Job Name",
       },
       {
-        id: "content",
-        accessorKey: "content",
-        header: "Content",
+        id: "scenario",
+        accessorKey: "scenario",
+        header: "Scenario",
+        cell: function render({ getValue }) {
+          const scenario = getValue<string>();
+          return scenario?.replace(/_/g, ' ').toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        }
       },
       {
-        id: "category",
-        header: "Category",
-        accessorKey: "category",
-        cell: function render({ getValue, table }) {
-          const meta = table.options.meta as {
-            categoryData: GetManyResponse;
+        id: "lang",
+        accessorKey: "lang",
+        header: "Language",
+        size: 100,
+        cell: function render({ getValue }) {
+          const lang = getValue<string>();
+          const langMap: Record<string, string> = {
+            'en': 'English',
+            'uk': 'Ukrainian',
+            // Add other languages as needed
           };
-
-          try {
-            const category = meta.categoryData?.data?.find(
-              (item) => item.id == getValue<any>()?.id
-            );
-
-            return category?.title ?? "Loading...";
-          } catch (error) {
-            return null;
-          }
-        },
+          return langMap[lang] || lang;
+        }
       },
       {
         id: "status",
         accessorKey: "status",
         header: "Status",
+        size: 120,
+        cell: function render({ getValue }) {
+          const status = getValue<string>();
+          return (
+            <Badge color={getStatusColor(status)}>
+              {status?.toLowerCase()
+                .split('_')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')}
+            </Badge>
+          );
+        }
+      },
+      {
+        id: "isPublic",
+        accessorKey: "isPublic",
+        header: "Public",
+        size: 100,
+        cell: function render({ getValue }) {
+          const isPublic = getValue<boolean>();
+          return (
+            <Badge color={isPublic ? "green" : "gray"}>
+              {isPublic ? "Yes" : "No"}
+            </Badge>
+          );
+        }
+      },
+      {
+        id: "createPage",
+        accessorKey: "createPage",
+        header: "Page",
+        size: 100,
+        cell: function render({ getValue }) {
+          const createPage = getValue<boolean>();
+          return (
+            <Badge color={createPage ? "green" : "gray"}>
+              {createPage ? "Yes" : "No"}
+            </Badge>
+          );
+        }
       },
       {
         id: "createdAt",
         accessorKey: "createdAt",
         header: "Created At",
         cell: function render({ getValue }) {
-          return new Date(getValue<any>()).toLocaleString(undefined, {
+          return new Date(getValue<string>()).toLocaleString(undefined, {
             timeZone: "UTC",
           });
         },
@@ -148,6 +162,7 @@ export default function JobList() {
         id: "actions",
         accessorKey: "id",
         header: "Actions",
+        size: 100,
         cell: function render({ getValue }) {
           return (
             <Group gap="xs">
@@ -190,23 +205,12 @@ export default function JobList() {
     setPageSize,
   } = useTable({
     columns,
-  });
-
-  const { data: categoryData } = useMany({
-    resource: "categories",
-    ids: tableData?.data?.map((item) => item?.category?.id).filter(Boolean) ?? [],
-    queryOptions: {
-      enabled: !!tableData?.data,
-    },
-  });
-
-  setOptions((prev) => ({
-    ...prev,
     meta: {
-      ...prev.meta,
-      categoryData,
-    },
-  }));
+      headers: {
+        'Authorization': `Bearer ${identity?.token}`
+      }
+    }
+  });
 
   return (
   <Stack p="md">

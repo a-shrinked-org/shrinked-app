@@ -1,117 +1,178 @@
 "use client";
 
-import { useNavigation, useSelect } from "@refinedev/core";
+import { useNavigation, useGetIdentity, useResource } from "@refinedev/core";
 import { useForm } from "@refinedev/react-hook-form";
-import React from "react";
+import { 
+  TextInput, 
+  Select, 
+  Switch, 
+  Button, 
+  Stack, 
+  Group, 
+  Box, 
+  Title,
+  Paper
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { IconArrowLeft } from '@tabler/icons-react';
 
-export default function JobPostCreate() {
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+}
+
+interface JobEditForm {
+  jobName: string;
+  scenario: string;
+  lang: string;
+  isPublic: boolean;
+  createPage: boolean;
+  link: string;
+}
+
+const scenarioOptions = [
+  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
+  // Add other scenarios as needed
+];
+
+const languageOptions = [
+  { value: 'en', label: 'English' },
+  { value: 'uk', label: 'Ukrainian' },
+  // Add other languages as needed
+];
+
+export default function JobEdit() {
   const { list } = useNavigation();
+  const { id } = useResource();
+  const { data: identity } = useGetIdentity<Identity>();
 
   const {
-    refineCore: { onFinish, queryResult },
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
-  } = useForm({});
-
-  const jobPostsData = queryResult?.data?.data;
-
-  const { options: categoryOptions } = useSelect({
-    resource: "categories",
-    defaultValue: jobPostsData?.category?.id,
+    setValue,
+    watch,
+  } = useForm<JobEditForm>({
+    refineCoreProps: {
+      resource: "jobs",
+      id,
+      action: "edit",
+      meta: {
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`
+        }
+      }
+    }
   });
 
-  React.useEffect(() => {
-    setValue("category.id", jobPostsData?.category?.id);
-  }, [categoryOptions]);
+  const onSubmit = async (data: JobEditForm) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      notifications.show({
+        title: 'Success',
+        message: 'Job updated successfully',
+        color: 'green'
+      });
+
+      list('jobs');
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to update job',
+        color: 'red'
+      });
+    }
+  };
 
   return (
-    <div style={{ padding: "16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h1>Edit</h1>
-        <div>
-          <button
-            onClick={() => {
-              list("job_posts");
-            }}
-          >
-            List
-          </button>
-        </div>
-      </div>
-      <form onSubmit={handleSubmit(onFinish)}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          <label>
-            <span style={{ marginRight: "8px" }}>Title</span>
-            <input
-              type="text"
-              {...register("title", {
-                required: "This field is required",
-              })}
-            />
-            <span style={{ color: "red" }}>
-              {(errors as any)?.title?.message as string}
-            </span>
-          </label>
-          <label>
-            <span style={{ marginRight: "8px" }}>Content</span>
-            <textarea
-              rows={5}
-              cols={33}
-              style={{ verticalAlign: "top" }}
-              {...register("content", {
-                required: "This field is required",
-              })}
-            />
-            <span style={{ color: "red" }}>
-              {(errors as any)?.content?.message as string}
-            </span>
-          </label>
-          <label>
-            <span style={{ marginRight: "8px" }}>Category</span>
-            <select
-              {...register("category.id", {
-                required: "This field is required",
-              })}
+    <Box p="md">
+      <Paper p="md" radius="md">
+        <Stack spacing="lg">
+          <Group position="apart">
+            <Title order={2}>Edit Job</Title>
+            <Button
+              variant="light"
+              leftIcon={<IconArrowLeft size={16} />}
+              onClick={() => list('jobs')}
             >
-              {categoryOptions?.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <span style={{ color: "red" }}>
-              {(errors as any)?.category?.id?.message as string}
-            </span>
-          </label>
-          <label>
-            <span style={{ marginRight: "8px" }}>Status</span>
-            <select
-              defaultValue={"draft"}
-              {...register("status", {
-                required: "This field is required",
-              })}
-            >
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <span style={{ color: "red" }}>
-              {(errors as any)?.status?.message as string}
-            </span>
-          </label>
-          <div>
-            <input type="submit" value="Save" />
-          </div>
-        </div>
-      </form>
-    </div>
+              Back to List
+            </Button>
+          </Group>
+
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Stack spacing="md">
+              <TextInput
+                label="Job Name"
+                placeholder="Enter job name"
+                required
+                error={errors.jobName?.message}
+                {...register('jobName', { required: 'Job name is required' })}
+              />
+
+              <Select
+                label="Scenario"
+                data={scenarioOptions}
+                required
+                error={errors.scenario?.message}
+                {...register('scenario', { required: 'Scenario is required' })}
+                onChange={(value) => setValue('scenario', value || '')}
+              />
+
+              <Select
+                label="Language"
+                data={languageOptions}
+                required
+                error={errors.lang?.message}
+                {...register('lang', { required: 'Language is required' })}
+                onChange={(value) => setValue('lang', value || '')}
+              />
+
+              <TextInput
+                label="Link"
+                placeholder="Enter file link"
+                required
+                error={errors.link?.message}
+                {...register('link', { required: 'Link is required' })}
+              />
+
+              <Group>
+                <Switch
+                  label="Public"
+                  checked={watch('isPublic')}
+                  onChange={(event) => setValue('isPublic', event.currentTarget.checked)}
+                />
+
+                <Switch
+                  label="Create Page"
+                  checked={watch('createPage')}
+                  onChange={(event) => setValue('createPage', event.currentTarget.checked)}
+                />
+              </Group>
+
+              <Group position="right" mt="md">
+                <Button type="submit" color="blue">
+                  Save Changes
+                </Button>
+              </Group>
+            </Stack>
+          </form>
+        </Stack>
+      </Paper>
+    </Box>
   );
 }
