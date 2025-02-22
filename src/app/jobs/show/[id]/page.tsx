@@ -63,20 +63,20 @@ export default function JobShow() {
   return (
     <Box p="md">
       <Paper p="md" radius="md">
-        <Stack spacing="lg">
-          <Group position="apart">
+        <Stack gap="lg">
+          <Group justify="space-between">
             <Title order={2}>Job Details</Title>
             <Group>
               <Button
                 variant="light"
-                leftIcon={<IconArrowLeft size={16} />}
+                leftSection={<IconArrowLeft size={16} />}
                 onClick={() => list('jobs')}
               >
                 Back to List
               </Button>
               <Button
                 onClick={() => edit('jobs', id ?? '')}
-                leftIcon={<IconEdit size={16} />}
+                leftSection={<IconEdit size={16} />}
               >
                 Edit
               </Button>
@@ -86,11 +86,11 @@ export default function JobShow() {
           <Grid>
             <Grid.Col span={12}>
               <Card withBorder p="md">
-                <Stack spacing="md">
-                  <Group position="apart">
+                <Stack gap="md">
+                  <Group justify="space-between">
                     <div>
-                      <Text size="sm" color="dimmed">Job Name</Text>
-                      <Text weight={500}>{record?.jobName}</Text>
+                      <Text size="sm" c="dimmed">Job Name</Text>
+                      <Text fw={500}>{record?.jobName}</Text>
                     </div>
                     <Badge 
                       color={getStatusColor(record?.status)}
@@ -102,37 +102,37 @@ export default function JobShow() {
                   </Group>
 
                   <div>
-                    <Text size="sm" color="dimmed">Scenario</Text>
+                    <Text size="sm" c="dimmed">Scenario</Text>
                     <Text>{record?.scenario}</Text>
                   </div>
 
                   <div>
-                    <Text size="sm" color="dimmed">Language</Text>
+                    <Text size="sm" c="dimmed">Language</Text>
                     <Text>{record?.lang}</Text>
                   </div>
 
                   <div>
-                    <Text size="sm" color="dimmed">Link</Text>
+                    <Text size="sm" c="dimmed">Link</Text>
                     <Text>{record?.link}</Text>
                   </div>
 
                   <Group>
                     <div>
-                      <Text size="sm" color="dimmed">Public</Text>
-                      <Badge color={record?.isPublic ? "green" : "gray"}>
+                      <Text size="sm" c="dimmed">Public</Text>
+                      <Badge color={record?.isPublic ? "green" : "gray"} variant="light">
                         {record?.isPublic ? "Yes" : "No"}
                       </Badge>
                     </div>
                     <div>
-                      <Text size="sm" color="dimmed">Create Page</Text>
-                      <Badge color={record?.createPage ? "green" : "gray"}>
+                      <Text size="sm" c="dimmed">Create Page</Text>
+                      <Badge color={record?.createPage ? "green" : "gray"} variant="light">
                         {record?.createPage ? "Yes" : "No"}
                       </Badge>
                     </div>
                   </Group>
 
                   <div>
-                    <Text size="sm" color="dimmed">Created At</Text>
+                    <Text size="sm" c="dimmed">Created At</Text>
                     <Text>
                       {record?.createdAt 
                         ? new Date(record.createdAt).toLocaleString(undefined, {
