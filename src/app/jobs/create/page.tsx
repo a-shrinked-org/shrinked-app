@@ -1,19 +1,19 @@
 "use client";
 
-import { useNavigation, useResource, useShow, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useGetIdentity } from "@refinedev/core";
+import { useForm } from "@refinedev/react-hook-form";
 import { 
-  Paper, 
-  Title, 
-  Group, 
+  TextInput, 
+  Select, 
+  Switch, 
   Button, 
   Stack, 
-  Text, 
-  Badge,
-  Box,
-  Grid,
-  Card
+  Group, 
+  Box, 
+  Title,
+  Paper
 } from '@mantine/core';
-import { IconEdit, IconArrowLeft } from '@tabler/icons-react';
+import { showNotification } from '@mantine/notifications';
 
 interface Identity {
   token?: string;
@@ -21,42 +21,71 @@ interface Identity {
   name?: string;
 }
 
-export default function JobShow() {
-  const { edit, list } = useNavigation();
-  const { id } = useResource();
+interface JobCreateForm {
+  jobName: string;
+  scenario: string;
+  lang: string;
+  isPublic: boolean;
+  createPage: boolean;
+  link: string;
+}
+
+const scenarioOptions = [
+  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
+];
+
+const languageOptions = [
+  { value: 'en', label: 'English' },
+  { value: 'uk', label: 'Ukrainian' },
+];
+
+export default function JobCreate() {
+  const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
-  
-  const { queryResult } = useShow({
-    resource: "jobs",
-    id,
-    meta: {
-      headers: {
-        'Authorization': `Bearer ${identity?.token}`
-      }
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch
+  } = useForm<JobCreateForm>({
+    defaultValues: {
+      isPublic: true,
+      createPage: true,
+      lang: 'en',
+      scenario: 'SINGLE_FILE_PLATOGRAM_DOC'
     }
   });
-  
-  const { data, isLoading } = queryResult;
-  const record = data?.data;
 
-  if (isLoading) {
-    return (
-      <Box p="md">
-        <Text>Loading...</Text>
-      </Box>
-    );
-  }
+  const onSubmit = async (data: JobCreateForm) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'green';
-      case 'in_progress':
-        return 'blue';
-      case 'failed':
-        return 'red';
-      default:
-        return 'gray';
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      showNotification({
+        title: 'Success',
+        message: 'Job created successfully',
+        color: 'green'
+      });
+
+      list('jobs');
+    } catch (error) {
+      showNotification({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to create job',
+        color: 'red'
+      });
     }
   };
 
@@ -65,86 +94,69 @@ export default function JobShow() {
       <Paper p="md" radius="md">
         <Stack gap="lg">
           <Group justify="space-between">
-            <Title order={2}>Job Details</Title>
-            <Group>
-              <Button
-                variant="light"
-                leftSection={<IconArrowLeft size={16} />}
-                onClick={() => list('jobs')}
-              >
-                Back to List
-              </Button>
-              <Button
-                onClick={() => edit('jobs', id ?? '')}
-                leftSection={<IconEdit size={16} />}
-              >
-                Edit
-              </Button>
-            </Group>
+            <Title order={2}>Create New Job</Title>
+            <Button variant="light" onClick={() => list('jobs')}>
+              Back to List
+            </Button>
           </Group>
 
-          <Grid>
-            <Grid.Col span={12}>
-              <Card withBorder p="md">
-                <Stack gap="md">
-                  <Group justify="space-between">
-                    <div>
-                      <Text size="sm" c="dimmed">Job Name</Text>
-                      <Text fw={500}>{record?.jobName}</Text>
-                    </div>
-                    <Badge 
-                      color={getStatusColor(record?.status)}
-                      variant="light"
-                      size="lg"
-                    >
-                      {record?.status}
-                    </Badge>
-                  </Group>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Stack gap="md">
+              <TextInput
+                label="Job Name"
+                placeholder="Enter job name"
+                required
+                error={errors?.jobName?.message?.toString()}
+                {...register('jobName', { required: 'Job name is required' })}
+              />
 
-                  <div>
-                    <Text size="sm" c="dimmed">Scenario</Text>
-                    <Text>{record?.scenario}</Text>
-                  </div>
+              <Select
+                label="Scenario"
+                data={scenarioOptions}
+                required
+                error={errors?.scenario?.message?.toString()}
+                defaultValue="SINGLE_FILE_PLATOGRAM_DOC"
+                onChange={(value) => setValue('scenario', value || '')}
+              />
 
-                  <div>
-                    <Text size="sm" c="dimmed">Language</Text>
-                    <Text>{record?.lang}</Text>
-                  </div>
+              <Select
+                label="Language"
+                data={languageOptions}
+                required
+                error={errors?.lang?.message?.toString()}
+                defaultValue="en"
+                onChange={(value) => setValue('lang', value || '')}
+              />
 
-                  <div>
-                    <Text size="sm" c="dimmed">Link</Text>
-                    <Text>{record?.link}</Text>
-                  </div>
+              <TextInput
+                label="Link"
+                placeholder="Enter file link"
+                required
+                error={errors?.link?.message?.toString()}
+                {...register('link', { required: 'Link is required' })}
+              />
 
-                  <Group>
-                    <div>
-                      <Text size="sm" c="dimmed">Public</Text>
-                      <Badge color={record?.isPublic ? "green" : "gray"}>
-                        {record?.isPublic ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <Text size="sm" c="dimmed">Create Page</Text>
-                      <Badge color={record?.createPage ? "green" : "gray"}>
-                        {record?.createPage ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                  </Group>
+              <Group>
+                <Switch
+                  label="Public"
+                  defaultChecked
+                  onChange={(event) => setValue('isPublic', event.currentTarget.checked)}
+                />
 
-                  <div>
-                    <Text size="sm" c="dimmed">Created At</Text>
-                    <Text>
-                      {record?.createdAt 
-                        ? new Date(record.createdAt).toLocaleString(undefined, {
-                            timeZone: "UTC",
-                          })
-                        : "N/A"}
-                    </Text>
-                  </div>
-                </Stack>
-              </Card>
-            </Grid.Col>
-          </Grid>
+                <Switch
+                  label="Create Page"
+                  defaultChecked
+                  onChange={(event) => setValue('createPage', event.currentTarget.checked)}
+                />
+              </Group>
+
+              <Group justify="flex-end" mt="md">
+                <Button type="submit" color="blue">
+                  Create Job
+                </Button>
+              </Group>
+            </Stack>
+          </form>
         </Stack>
       </Paper>
     </Box>
