@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigation, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useGetIdentity, useResource } from "@refinedev/core";
 import { useForm, UseFormProps } from "@refinedev/react-hook-form";
 import { 
   TextInput, 
@@ -14,6 +14,7 @@ import {
   Paper
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { FieldValues } from "react-hook-form";
 
 interface Identity {
@@ -22,7 +23,7 @@ interface Identity {
   name?: string;
 }
 
-type JobCreateForm = {
+type JobEditForm = {
   jobName: string;
   scenario: string;
   lang: string;
@@ -42,26 +43,22 @@ const languageOptions = [
   // Add other languages as needed
 ];
 
-export default function JobCreate() {
+export default function JobEdit() {
   const { list } = useNavigation();
+  const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
 
   const formProps: UseFormProps = {
     refineCoreProps: {
       resource: "jobs",
-      action: "create",
+      id,
+      action: "edit",
       redirect: false,
       meta: {
         headers: {
           'Authorization': `Bearer ${identity?.token}`
         }
       }
-    },
-    defaultValues: {
-      isPublic: true,
-      createPage: true,
-      lang: 'en',
-      scenario: 'SINGLE_FILE_PLATOGRAM_DOC'
     }
   };
 
@@ -71,7 +68,7 @@ export default function JobCreate() {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch
+    watch,
   } = useForm(formProps);
 
   const onSubmitHandler = async (data: FieldValues) => {
@@ -80,7 +77,7 @@ export default function JobCreate() {
       
       showNotification({
         title: 'Success',
-        message: 'Job created successfully',
+        message: 'Job updated successfully',
         color: 'green'
       });
 
@@ -88,7 +85,7 @@ export default function JobCreate() {
     } catch (error) {
       showNotification({
         title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to create job',
+        message: error instanceof Error ? error.message : 'Failed to update job',
         color: 'red'
       });
     }
@@ -99,8 +96,12 @@ export default function JobCreate() {
       <Paper p="md" radius="md">
         <Stack gap="lg">
           <Group justify="space-between">
-            <Title order={2}>Create New Job</Title>
-            <Button variant="light" onClick={() => list('jobs')}>
+            <Title order={2}>Edit Job</Title>
+            <Button
+              variant="light"
+              leftIcon={<IconArrowLeft size={16} />}
+              onClick={() => list('jobs')}
+            >
               Back to List
             </Button>
           </Group>
@@ -111,7 +112,7 @@ export default function JobCreate() {
                 label="Job Name"
                 placeholder="Enter job name"
                 required
-                error={errors.jobName?.message}
+                error={errors?.jobName?.message?.toString()}
                 {...register('jobName', { required: 'Job name is required' })}
               />
 
@@ -119,7 +120,7 @@ export default function JobCreate() {
                 label="Scenario"
                 data={scenarioOptions}
                 required
-                error={errors.scenario?.message}
+                error={errors?.scenario?.message?.toString()}
                 value={watch('scenario')}
                 onChange={(value) => setValue('scenario', value || '')}
               />
@@ -128,7 +129,7 @@ export default function JobCreate() {
                 label="Language"
                 data={languageOptions}
                 required
-                error={errors.lang?.message}
+                error={errors?.lang?.message?.toString()}
                 value={watch('lang')}
                 onChange={(value) => setValue('lang', value || '')}
               />
@@ -137,7 +138,7 @@ export default function JobCreate() {
                 label="Link"
                 placeholder="Enter file link"
                 required
-                error={errors.link?.message}
+                error={errors?.link?.message?.toString()}
                 {...register('link', { required: 'Link is required' })}
               />
 
@@ -157,7 +158,7 @@ export default function JobCreate() {
 
               <Group justify="flex-end" mt="md">
                 <Button type="submit" color="blue">
-                  Create Job
+                  Save Changes
                 </Button>
               </Group>
             </Stack>

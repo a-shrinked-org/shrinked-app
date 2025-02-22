@@ -111,7 +111,7 @@ export default function JobCreate() {
                 label="Job Name"
                 placeholder="Enter job name"
                 required
-                error={errors.jobName?.message}
+                error={errors?.jobName?.message?.toString()}
                 {...register('jobName', { required: 'Job name is required' })}
               />
 
@@ -119,7 +119,7 @@ export default function JobCreate() {
                 label="Scenario"
                 data={scenarioOptions}
                 required
-                error={errors.scenario?.message}
+                error={errors?.scenario?.message?.toString()}
                 value={watch('scenario')}
                 onChange={(value) => setValue('scenario', value || '')}
               />
@@ -128,7 +128,7 @@ export default function JobCreate() {
                 label="Language"
                 data={languageOptions}
                 required
-                error={errors.lang?.message}
+                error={errors?.lang?.message?.toString()}
                 value={watch('lang')}
                 onChange={(value) => setValue('lang', value || '')}
               />
@@ -137,7 +137,7 @@ export default function JobCreate() {
                 label="Link"
                 placeholder="Enter file link"
                 required
-                error={errors.link?.message}
+                error={errors?.link?.message?.toString()}
                 {...register('link', { required: 'Link is required' })}
               />
 
