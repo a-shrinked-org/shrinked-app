@@ -13,7 +13,7 @@ import {
   Title,
   Paper
 } from '@mantine/core';
-import { useNotifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 
 interface Identity {
   token?: string;
@@ -44,7 +44,6 @@ const languageOptions = [
 export default function JobCreate() {
   const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
-  const notifications = useNotifications();
 
   const {
     register,
@@ -78,7 +77,7 @@ export default function JobCreate() {
 
       const result = await response.json();
       
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Job created successfully',
         color: 'green'
@@ -86,7 +85,7 @@ export default function JobCreate() {
 
       list('jobs');
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to create job',
         color: 'red'

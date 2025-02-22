@@ -13,7 +13,7 @@ import {
   Title,
   Paper
 } from '@mantine/core';
-import { useNotifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { IconArrowLeft } from '@tabler/icons-react';
 
 interface Identity {
@@ -46,7 +46,6 @@ export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
-  const notifications = useNotifications();
 
   const {
     register,
@@ -84,7 +83,7 @@ export default function JobEdit() {
 
       const result = await response.json();
       
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Job updated successfully',
         color: 'green'
@@ -92,7 +91,7 @@ export default function JobEdit() {
 
       list('jobs');
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to update job',
         color: 'red'
