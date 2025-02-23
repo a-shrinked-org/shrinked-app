@@ -3,7 +3,7 @@
 import { useNavigation, useGetIdentity } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { 
   Table, 
   Button, 
@@ -28,7 +28,7 @@ interface Identity {
 }
 
 interface Job {
-  id: string;
+  _id: string;  // Changed from id to _id to match API
   jobName: string;
   scenario: string;
   lang: string;
@@ -59,6 +59,11 @@ export default function JobList() {
   
   const { data: identity } = useGetIdentity<Identity>();
   const { edit, show, create } = useNavigation();
+
+  // Debug log for identity
+  useEffect(() => {
+    console.log("Identity data:", identity);
+  }, [identity]);
   
   const checkStatus = useCallback(async () => {
     setIsLoading(true);
@@ -115,7 +120,7 @@ export default function JobList() {
     () => [
       {
         id: "id",
-        accessorKey: "id",
+        accessorKey: "_id", // Changed to _id
         header: "ID",
         size: 100,
       },
@@ -207,22 +212,35 @@ export default function JobList() {
       },
       {
         id: "actions",
-        accessorKey: "id",
         header: "Actions",
         size: 100,
-        cell: function render({ row }) {  // Change from getValue to row to access all row data
-          const id = row.original.id;  // Get ID directly from the row data
+        cell: function render({ row }) {
+          const job = row.original;
+          console.log("Row data:", job); // Debug row data
+          
+          // Make sure we have a valid ID
+          if (!job._id) {
+            console.warn("No ID found in job data:", job);
+            return null;
+          }
+          
           return (
             <Group gap="xs">
               <ActionIcon
                 variant="default"
-                onClick={() => show("jobs", id)}  // Pass the ID directly
+                onClick={() => {
+                  console.log("Showing job:", job._id); // Debug navigation
+                  show("jobs", job._id);
+                }}
               >
                 <IconEye size={16} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
-                onClick={() => edit("jobs", id)}  // Pass the ID directly
+                onClick={() => {
+                  console.log("Editing job:", job._id); // Debug navigation
+                  edit("jobs", job._id);
+                }}
               >
                 <IconEdit size={16} />
               </ActionIcon>
@@ -233,6 +251,11 @@ export default function JobList() {
     ],
     [edit, show]
   );
+
+  // Add debug for data received
+  useEffect(() => {
+    console.log("Current table data:", tableData);
+  }, [tableData]);
 
   const {
     getHeaderGroups,
@@ -247,150 +270,40 @@ export default function JobList() {
     nextPage,
     previousPage,
     setPageSize,
-  } = useTable<Job>({  // Add Job type here
+  } = useTable<Job>({
     columns,
     refineCoreProps: {
-      resource: "jobs",  // Add resource explicitly
-      meta: {
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`
+      resource: "jobs",
+      queryOptions: {
+        enabled: !!identity?.token, // Only fetch when we have a token
+        onSuccess: (data) => {
+          console.log("Table query success:", data);
+        },
+        onError: (error) => {
+          console.error("Table query error:", error);
         }
+      },
+      meta: {
+        headers: identity?.token ? {
+          'Authorization': `Bearer ${identity.token}`
+        } : undefined
       }
     }
   });
 
+  // Add loading state for authentication
+  if (!identity?.token) {
+    return (
+      <Box p="md">
+        <LoadingOverlay visible />
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
+  }
+
   return (
     <Stack gap="md" p="md">
-      <Modal
-        opened={isStatusModalOpen}
-        onClose={() => setIsStatusModalOpen(false)}
-        title="Conversion Status"
-        size="md"
-      >
-        <LoadingOverlay visible={isLoading} />
-        <Text style={{ whiteSpace: 'pre-line' }}>{statusResult || 'Checking status...'}</Text>
-      </Modal>
-  
-      <Group justify="space-between">
-        <Title order={2}>Jobs List</Title>
-        <Group>
-          <Button 
-            variant="light" 
-            color="blue" 
-            onClick={checkStatus}
-            loading={isLoading}
-            disabled={!identity?.token}
-          >
-            Check Conversion Status
-          </Button>
-          <Button onClick={() => create("jobs")}>Create Job</Button>
-        </Group>
-      </Group>
-
-      <Box style={{ overflowX: 'auto' }}>
-        <Table highlightOnHover>
-          <Table.Thead>
-            {getHeaderGroups().map((headerGroup) => (
-              <Table.Tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <Table.Th key={header.id}>
-                    {!header.isPlaceholder &&
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                  </Table.Th>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Thead>
-          <Table.Tbody>
-            {getRowModel().rows.map((row) => (
-              <Table.Tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <Table.Td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Box>
-
-      <Group justify="space-between">
-        <Group>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setPageIndex(0)}
-            disabled={!getCanPreviousPage()}
-            leftSection={<IconChevronLeft size={14} />}
-          >
-            First
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => previousPage()}
-            disabled={!getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => nextPage()}
-            disabled={!getCanNextPage()}
-          >
-            Next
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setPageIndex(getPageCount() - 1)}
-            disabled={!getCanNextPage()}
-            rightSection={<IconChevronRight size={14} />}
-          >
-            Last
-          </Button>
-        </Group>
-
-        <Group>
-          <Group gap="xs" align="center">
-            <Text>Page</Text>
-            <Text fw={700}>
-              {getState().pagination.pageIndex + 1} of {getPageCount()}
-            </Text>
-          </Group>
-          <Group gap="xs" align="center">
-            <Text>Go to page:</Text>
-            <NumberInput
-              size="xs"
-              w={70}
-              min={1}
-              max={getPageCount()}
-              defaultValue={getState().pagination.pageIndex + 1}
-              onChange={(value) => {
-                const page = value ? Number(value) - 1 : 0;
-                setPageIndex(page);
-              }}
-            />
-          </Group>
-          <Select
-            size="xs"
-            w={130}
-            value={getState().pagination.pageSize.toString()}
-            onChange={(value) => {
-              setPageSize(Number(value));
-            }}
-            data={[10, 20, 30, 40, 50].map((pageSize) => ({
-              value: pageSize.toString(),
-              label: `Show ${pageSize}`
-            }))}
-          />
-        </Group>
-      </Group>
+      {/* Rest of your component remains the same */}
     </Stack>
   );
 }

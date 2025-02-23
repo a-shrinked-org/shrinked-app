@@ -24,7 +24,7 @@ interface Identity {
 }
 
 interface Job {
-  id: string;
+  _id: string;  // Changed from id to _id
   jobName: string;
   scenario: string;
   lang: string;
@@ -35,30 +35,18 @@ interface Job {
   createdAt: string;
 }
 
-const formatText = (text: string): string => {
-  return text
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .split(' ')
-    .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-const getStatusColor = (status: string): string => {
-  switch (status?.toLowerCase()) {
-    case 'completed':
-      return 'green';
-    case 'in_progress':
-      return 'blue';
-    case 'failed':
-      return 'red';
-    default:
-      return 'gray';
-  }
-};
+if (!identity?.token) {
+  return (
+    <Box p="md">
+      <Text>Loading authentication...</Text>
+    </Box>
+  );
+}
 
 export default function JobShow() {
   const params = useParams();
+  console.log("Show page params:", params); // Debug log
+  
   const { edit, list } = useNavigation();
   const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
@@ -66,6 +54,15 @@ export default function JobShow() {
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
+    queryOptions: {
+      enabled: !!jobId && !!identity?.token,
+      onSuccess: (data) => {
+        console.log("Show query success:", data);
+      },
+      onError: (error) => {
+        console.error("Show query error:", error);
+      }
+    },
     meta: {
       headers: {
         'Authorization': `Bearer ${identity?.token}`

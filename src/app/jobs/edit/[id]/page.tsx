@@ -24,6 +24,7 @@ interface Identity {
 }
 
 type JobEditForm = {
+  _id?: string;  // Added _id field
   jobName: string;
   scenario: string;
   lang: string;
@@ -32,21 +33,20 @@ type JobEditForm = {
   link: string;
 }
 
-const scenarioOptions = [
-  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
-  // Add other scenarios as needed
-];
-
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'uk', label: 'Ukrainian' },
-  // Add other languages as needed
-];
+if (!identity?.token) {
+  return (
+    <Box p="md">
+      <Text>Loading authentication...</Text>
+    </Box>
+  );
+}
 
 export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
+
+  console.log("Edit page id:", id); // Debug log
 
   const formProps: UseFormProps = {
     refineCoreProps: {
@@ -54,6 +54,15 @@ export default function JobEdit() {
       id,
       action: "edit",
       redirect: false,
+      queryOptions: {
+        enabled: !!id && !!identity?.token,
+        onSuccess: (data) => {
+          console.log("Edit query success:", data);
+        },
+        onError: (error) => {
+          console.error("Edit query error:", error);
+        }
+      },
       meta: {
         headers: {
           'Authorization': `Bearer ${identity?.token}`
@@ -69,7 +78,7 @@ export default function JobEdit() {
     formState: { errors },
     setValue,
     watch,
-  } = useForm(formProps);
+  } = useForm<JobEditForm>(formProps);  // Added type to useForm
 
   const onSubmitHandler = async (data: FieldValues) => {
     try {

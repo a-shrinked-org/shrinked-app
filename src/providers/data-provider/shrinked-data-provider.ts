@@ -55,39 +55,40 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	const url = `${apiUrl}/${resource}`;
-
-	const { current = 1, pageSize = 10 } = pagination ?? {};
-
-	try {
-	  const { data } = await httpClient.get(url, {
-		params: {
-		  page: current,
-		  limit: pageSize,
-		  ...generateFilters(filters),
-		  ...generateSort(sorters),
-		},
-		headers: meta?.headers,
-	  });
-
-	  // Ensure we properly handle the response structure
-	  if (data && Array.isArray(data.data)) {
+	  const url = `${apiUrl}/${resource}`;
+	  console.log("Headers:", meta?.headers); // Debug token
+	  
+	  try {
+		const { data } = await httpClient.get(url, {
+		  params: {
+			page: current,
+			limit: pageSize,
+			...generateFilters(filters),
+			...generateSort(sorters),
+		  },
+		  headers: meta?.headers,
+		});
+		
+		console.log("API Response:", data); // See exact response structure
+		
+		// Extract data based on your API structure
+		const jobs = data.jobs || data.data || data;
+		const total = data.total || (Array.isArray(jobs) ? jobs.length : 0);
+  
+		console.log("Processed data:", { jobs, total }); // Verify processed data
+		
 		return {
-		  data: data.data,
-		  total: data.total || data.data.length,
+		  data: jobs,
+		  total: total
 		};
+	  } catch (error) {
+		console.error("Error details:", {
+		  config: error.config,
+		  response: error.response?.data
+		});
+		throw error;
 	  }
-
-	  // Fallback if the structure is different
-	  return {
-		data: Array.isArray(data) ? data : [],
-		total: Array.isArray(data) ? data.length : 0,
-	  };
-	} catch (error) {
-	  console.error("Error fetching data:", error);
-	  throw error;
 	}
-  },
 
   getOne: async ({ resource, id, meta }) => {
 	if (!id) {
