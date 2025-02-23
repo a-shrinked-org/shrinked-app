@@ -210,18 +210,19 @@ export default function JobList() {
         accessorKey: "id",
         header: "Actions",
         size: 100,
-        cell: function render({ getValue }) {
+        cell: function render({ row }) {  // Change from getValue to row to access all row data
+          const id = row.original.id;  // Get ID directly from the row data
           return (
             <Group gap="xs">
               <ActionIcon
                 variant="default"
-                onClick={() => show("jobs", getValue() as string)}
+                onClick={() => show("jobs", id)}  // Pass the ID directly
               >
                 <IconEye size={16} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
-                onClick={() => edit("jobs", getValue() as string)}
+                onClick={() => edit("jobs", id)}  // Pass the ID directly
               >
                 <IconEdit size={16} />
               </ActionIcon>
@@ -246,9 +247,10 @@ export default function JobList() {
     nextPage,
     previousPage,
     setPageSize,
-  } = useTable({
+  } = useTable<Job>({  // Add Job type here
     columns,
     refineCoreProps: {
+      resource: "jobs",  // Add resource explicitly
       meta: {
         headers: {
           'Authorization': `Bearer ${identity?.token}`
