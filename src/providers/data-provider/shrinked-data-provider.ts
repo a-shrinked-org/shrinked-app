@@ -59,83 +59,116 @@ export const shrinkedDataProvider = (
 
 	const { current = 1, pageSize = 10 } = pagination ?? {};
 
-	const { data } = await httpClient.get(url, {
-	  params: {
-		page: current,
-		limit: pageSize,
-		...generateFilters(filters),
-		...generateSort(sorters),
-	  },
-	  headers: meta?.headers,
-	});
+	try {
+	  const { data } = await httpClient.get(url, {
+		params: {
+		  page: current,
+		  limit: pageSize,
+		  ...generateFilters(filters),
+		  ...generateSort(sorters),
+		},
+		headers: meta?.headers,
+	  });
 
-	return {
-	  data: data.jobs || data,
-	  total: data.total || (data.jobs || data).length,
-	};
+	  // Ensure we properly handle the response structure
+	  if (data && Array.isArray(data.data)) {
+		return {
+		  data: data.data,
+		  total: data.total || data.data.length,
+		};
+	  }
+
+	  // Fallback if the structure is different
+	  return {
+		data: Array.isArray(data) ? data : [],
+		total: Array.isArray(data) ? data.length : 0,
+	  };
+	} catch (error) {
+	  console.error("Error fetching data:", error);
+	  throw error;
+	}
   },
 
   getOne: async ({ resource, id, meta }) => {
-	// Ensure we have a valid ID
 	if (!id) {
-	  throw new Error('Invalid job ID');
+	  throw new Error('Job ID is required');
 	}
 
-	// Use the correct endpoint based on authentication type
-	const url = `${apiUrl}/${resource === "jobs/key" ? "jobs/key" : "jobs"}/${id}`;
+	const url = `${apiUrl}/${resource}/${id}`;
 
-	const { data } = await httpClient.get(url, {
-	  headers: meta?.headers,
-	});
+	try {
+	  const { data } = await httpClient.get(url, {
+		headers: meta?.headers,
+	  });
 
-	return {
-	  data: data.job || data,
-	};
+	  // Handle the case where the job data is nested under a 'data' property
+	  return {
+		data: data.data || data,
+	  };
+	} catch (error) {
+	  console.error("Error fetching job:", error);
+	  throw error;
+	}
   },
 
   create: async ({ resource, variables, meta }) => {
 	const url = `${apiUrl}/${resource}`;
 
-	const { data } = await httpClient.post(url, variables, {
-	  headers: meta?.headers,
-	});
+	try {
+	  const { data } = await httpClient.post(url, variables, {
+		headers: meta?.headers,
+	  });
 
-	return {
-	  data,
-	};
+	  return {
+		data: data.data || data,
+	  };
+	} catch (error) {
+	  console.error("Error creating job:", error);
+	  throw error;
+	}
   },
 
   update: async ({ resource, id, variables, meta }) => {
 	if (!id) {
-	  throw new Error('Invalid job ID');
+	  throw new Error('Job ID is required');
 	}
 
 	const url = `${apiUrl}/${resource}/${id}`;
 
-	const { data } = await httpClient.patch(url, variables, {
-	  headers: meta?.headers,
-	});
+	try {
+	  const { data } = await httpClient.patch(url, variables, {
+		headers: meta?.headers,
+	  });
 
-	return {
-	  data,
-	};
+	  return {
+		data: data.data || data,
+	  };
+	} catch (error) {
+	  console.error("Error updating job:", error);
+	  throw error;
+	}
   },
 
   deleteOne: async ({ resource, id, variables, meta }) => {
 	if (!id) {
-	  throw new Error('Invalid job ID');
+	  throw new Error('Job ID is required');
 	}
 
 	const url = `${apiUrl}/${resource}/${id}`;
 
-	const { data } = await httpClient.delete(url, {
-	  data: variables,
-	  headers: meta?.headers,
-	});
+	try {
+	  const { data } = await httpClient.delete(url, {
+		data: variables,
+		headers: meta?.headers,
+	  });
 
-	return {
-	  data,
-	};
+	  return {
+		data: data.data || data,
+	  };
+	} catch (error) {
+	  console.error("Error deleting job:", error);
+	  throw error;
+	}
   },
 
   getMany: async ({ resource, ids, meta }) => {
@@ -143,45 +176,53 @@ export const shrinkedDataProvider = (
 	  return { data: [] };
 	}
 
-	const { data } = await httpClient.get(
-	  `${apiUrl}/${resource}`,
-	  {
+	const url = `${apiUrl}/${resource}`;
+
+	try {
+	  const { data } = await httpClient.get(url, {
 		params: { ids: ids.join(",") },
 		headers: meta?.headers,
-	  }
-	);
+	  });
 
-	return {
-	  data: data.jobs || data,
-	};
+	  return {
+		data: data.data || (Array.isArray(data) ? data : []),
+	  };
+	} catch (error) {
+	  console.error("Error fetching multiple jobs:", error);
+	  throw error;
+	}
   },
 
   getApiUrl: () => apiUrl,
 
   custom: async ({ url, method, payload, query, headers }) => {
-	let axiosResponse;
-	
-	switch (method) {
-	  case "put":
-	  case "post":
-	  case "patch":
-		axiosResponse = await httpClient[method](url, payload, { headers });
-		break;
-	  case "delete":
-		axiosResponse = await httpClient.delete(url, {
-		  data: payload,
-		  headers: headers,
-		});
-		break;
-	  default:
-		axiosResponse = await httpClient.get(url, {
-		  params: query,
-		  headers,
-		});
-		break;
-	}
+	try {
+	  let axiosResponse;
+	  switch (method) {
+		case "put":
+		case "post":
+		case "patch":
+		  axiosResponse = await httpClient[method](url, payload, { headers });
+		  break;
+		case "delete":
+		  axiosResponse = await httpClient.delete(url, {
+			data: payload,
+			headers: headers,
+		  });
+		  break;
+		default:
+		  axiosResponse = await httpClient.get(url, {
+			params: query,
+			headers,
+		  });
+		  break;
+	  }
 
-	const { data } = axiosResponse;
-	return { data };
+	  const { data } = axiosResponse;
+	  return { data };
+	} catch (error) {
+	  console.error("Error in custom request:", error);
+	  throw error;
+	}
   },
 });
