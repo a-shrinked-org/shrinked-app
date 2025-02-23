@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigation, useResource, useShow, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import { 
   Paper, 
   Title, 
@@ -23,13 +23,47 @@ interface Identity {
   name?: string;
 }
 
+interface Job {
+  id: string;
+  jobName: string;
+  scenario: string;
+  lang: string;
+  isPublic: boolean;
+  createPage: boolean;
+  link: string;
+  status: string;
+  createdAt: string;
+}
+
+const formatText = (text: string): string => {
+  return text
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const getStatusColor = (status: string): string => {
+  switch (status?.toLowerCase()) {
+    case 'completed':
+      return 'green';
+    case 'in_progress':
+      return 'blue';
+    case 'failed':
+      return 'red';
+    default:
+      return 'gray';
+  }
+};
+
 export default function JobShow() {
   const params = useParams();
   const { edit, list } = useNavigation();
   const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
   
-  const { queryResult } = useShow({
+  const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
     meta: {
@@ -68,19 +102,6 @@ export default function JobShow() {
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'green';
-      case 'in_progress':
-        return 'blue';
-      case 'failed':
-        return 'red';
-      default:
-        return 'gray';
-    }
-  };
-
   return (
     <Box p="md">
       <Paper p="md" radius="md">
@@ -114,24 +135,18 @@ export default function JobShow() {
                       <Text fw={500}>{record?.jobName}</Text>
                     </div>
                     <Badge 
-                      color={getStatusColor(record?.status)}
+                      color={getStatusColor(record?.status || '')}
                       variant="light"
                       size="lg"
                     >
-                      {record?.status?.toLowerCase()
-                        .split('_')
-                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                        .join(' ')}
+                      {record?.status ? formatText(record.status) : 'Unknown'}
                     </Badge>
                   </Group>
 
                   <div>
                     <Text size="sm" c="dimmed">Scenario</Text>
                     <Text>
-                      {record?.scenario?.replace(/_/g, ' ').toLowerCase()
-                        .split(' ')
-                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                        .join(' ')}
+                      {record?.scenario ? formatText(record.scenario) : 'N/A'}
                     </Text>
                   </div>
 
@@ -140,13 +155,13 @@ export default function JobShow() {
                     <Text>
                       {record?.lang === 'en' ? 'English' : 
                        record?.lang === 'uk' ? 'Ukrainian' : 
-                       record?.lang}
+                       record?.lang || 'N/A'}
                     </Text>
                   </div>
 
                   <div>
                     <Text size="sm" c="dimmed">Link</Text>
-                    <Text>{record?.link}</Text>
+                    <Text>{record?.link || 'N/A'}</Text>
                   </div>
 
                   <Group>
