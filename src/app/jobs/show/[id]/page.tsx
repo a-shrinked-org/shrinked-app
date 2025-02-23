@@ -11,9 +11,11 @@ import {
   Badge,
   Box,
   Grid,
-  Card
+  Card,
+  Alert
 } from '@mantine/core';
-import { IconEdit, IconArrowLeft } from '@tabler/icons-react';
+import { IconEdit, IconArrowLeft, IconAlertCircle } from '@tabler/icons-react';
+import { useParams } from "next/navigation";
 
 interface Identity {
   token?: string;
@@ -22,13 +24,14 @@ interface Identity {
 }
 
 export default function JobShow() {
+  const params = useParams();
   const { edit, list } = useNavigation();
-  const { id } = useResource();
+  const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
   
   const { queryResult } = useShow({
     resource: "jobs",
-    id,
+    id: jobId,
     meta: {
       headers: {
         'Authorization': `Bearer ${identity?.token}`
@@ -36,13 +39,31 @@ export default function JobShow() {
     }
   });
   
-  const { data, isLoading } = queryResult;
+  const { data, isLoading, isError } = queryResult;
   const record = data?.data;
 
   if (isLoading) {
     return (
       <Box p="md">
         <Text>Loading...</Text>
+      </Box>
+    );
+  }
+
+  if (isError || !jobId) {
+    return (
+      <Box p="md">
+        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+          Unable to load job details. Please try again.
+        </Alert>
+        <Button
+          mt="md"
+          variant="light"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={() => list('jobs')}
+        >
+          Back to List
+        </Button>
       </Box>
     );
   }
@@ -75,7 +96,7 @@ export default function JobShow() {
                 Back to List
               </Button>
               <Button
-                onClick={() => edit('jobs', id ?? '')}
+                onClick={() => edit('jobs', jobId)}
                 leftSection={<IconEdit size={16} />}
               >
                 Edit
@@ -97,18 +118,30 @@ export default function JobShow() {
                       variant="light"
                       size="lg"
                     >
-                      {record?.status}
+                      {record?.status?.toLowerCase()
+                        .split('_')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ')}
                     </Badge>
                   </Group>
 
                   <div>
                     <Text size="sm" c="dimmed">Scenario</Text>
-                    <Text>{record?.scenario}</Text>
+                    <Text>
+                      {record?.scenario?.replace(/_/g, ' ').toLowerCase()
+                        .split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ')}
+                    </Text>
                   </div>
 
                   <div>
                     <Text size="sm" c="dimmed">Language</Text>
-                    <Text>{record?.lang}</Text>
+                    <Text>
+                      {record?.lang === 'en' ? 'English' : 
+                       record?.lang === 'uk' ? 'Ukrainian' : 
+                       record?.lang}
+                    </Text>
                   </div>
 
                   <div>
