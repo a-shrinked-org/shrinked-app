@@ -20,6 +20,7 @@ import {
 } from '@mantine/core';
 import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey } from '@tabler/icons-react';
 import { RegenerateApiKeyButton } from '@/components/RegenerateApiKeyButton';
+import { ApiKeyService, ApiKey } from '@/services/api-key-service';
 
 interface Identity {
   token?: string;
@@ -27,22 +28,6 @@ interface Identity {
   name?: string;
   userId?: string;
 }
-
-interface ApiKey {
-  id: string;
-  name: string;
-  key: string;
-  createdAt: string;
-  userId: string;
-}
-
-// Helper function to get token from localStorage
-const getTokenFromLocalStorage = (key: string): string | null => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(key);
-  }
-  return null;
-};
 
 export default function ApiKeysList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -88,7 +73,7 @@ export default function ApiKeysList() {
     }
   }, [identity, userId]);
 
-  // Fetch API Keys manually 
+  // Fetch API Keys
   useEffect(() => {
     const fetchApiKeys = async () => {
       if (!identity?.token) {
@@ -101,30 +86,14 @@ export default function ApiKeysList() {
       
       try {
         console.log("Fetching API keys...");
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-keys`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity.token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("API keys fetched successfully:", data.data?.length || 0, "keys");
-          setApiKeys(data.data || data || []);
-        } else {
-          const errorText = await response.text();
-          console.log(`API keys fetch failed (${response.status}):`, errorText);
-          setApiKeys([]);
-          if (response.status !== 404) { // Don't show error for 404, just empty state
-            setError(`Failed to fetch API keys: ${response.status}`);
-          }
-        }
+        // Use the ApiKeyService to fetch API keys
+        const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
+        console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
+        setApiKeys(fetchedApiKeys);
       } catch (error) {
         console.error('Error fetching API keys:', error);
         setApiKeys([]);
-        setError("Network error fetching API keys");
+        setError("Error fetching API keys. Please try again later.");
       } finally {
         setIsLoadingKeys(false);
       }
@@ -142,29 +111,12 @@ export default function ApiKeysList() {
     setError(null);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-keys`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${identity.token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setApiKeys(data.data || data || []);
-      } else {
-        const errorText = await response.text();
-        console.log(`API keys refresh failed (${response.status}):`, errorText);
-        setApiKeys([]);
-        if (response.status !== 404) {
-          setError(`Failed to refresh API keys: ${response.status}`);
-        }
-      }
+      const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
+      setApiKeys(fetchedApiKeys);
     } catch (error) {
       console.error('Error refreshing API keys:', error);
       setApiKeys([]);
-      setError("Network error refreshing API keys");
+      setError("Error refreshing API keys. Please try again later.");
     } finally {
       setIsLoadingKeys(false);
     }
@@ -192,25 +144,11 @@ export default function ApiKeysList() {
     try {
       console.log(`Creating API key with userId: ${effectiveUserId}`);
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${effectiveUserId}/api-key`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${identity.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: keyName })
-      });
+      // Use the ApiKeyService to create a new API key
+      const newKey = await ApiKeyService.createApiKey(identity.token, effectiveUserId, keyName);
+      console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Error creating API key (${response.status}):`, errorText);
-        setError(`Failed to create API key: ${response.status} ${errorText}`);
-        return;
-      }
-      
-      const result = await response.json();
-      console.log("API key created successfully:", result.key ? "[key hidden for security]" : "No key returned");
-      setNewApiKey(result.key);
+      setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
       
@@ -219,7 +157,7 @@ export default function ApiKeysList() {
       
     } catch (error) {
       console.error("Error creating API key:", error);
-      setError(`Network error creating API key: ${error instanceof Error ? error.message : String(error)}`);
+      setError(`Error creating API key: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -229,27 +167,15 @@ export default function ApiKeysList() {
     if (!identity?.token) return;
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-key/${keyId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${identity.token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Error deleting API key (${response.status}):`, errorText);
-        setError(`Failed to delete API key: ${response.status}`);
-        return;
-      }
+      // Use the ApiKeyService to delete an API key
+      await ApiKeyService.deleteApiKey(identity.token, keyId);
       
       // Refresh the API keys list
       refreshApiKeys();
       
     } catch (error) {
       console.error("Error deleting API key:", error);
-      setError(`Network error deleting API key: ${error instanceof Error ? error.message : String(error)}`);
+      setError(`Error deleting API key: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
   
@@ -279,7 +205,7 @@ export default function ApiKeysList() {
   }
 
   // Check if we can create keys (need username and token)
-  const canCreateKey = !!(keyName && userId && identity?.token);
+  const canCreateKey = !!(keyName && identity?.token);
 
   return (
     <Stack gap="md" p="md">
@@ -336,7 +262,9 @@ export default function ApiKeysList() {
                   </Table.Td>
                   <Table.Td>
                     <Group>
-                      <Code>{`${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}`}</Code>
+                      <Code>{key.key.length > 16 ? 
+                        `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
+                        key.key}</Code>
                       <CopyButton value={key.key} timeout={2000}>
                         {({ copied, copy }) => (
                           <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
@@ -356,8 +284,8 @@ export default function ApiKeysList() {
                   <Table.Td>
                     <Group gap="xs">
                       <RegenerateApiKeyButton 
-                        keyId={key.id}
-                        token={identity?.token || ""}
+                        keyId={key.id} 
+                        token={identity.token || ""} 
                         onSuccess={refreshApiKeys}
                       />
                       <ActionIcon 
@@ -396,11 +324,6 @@ export default function ApiKeysList() {
             onChange={(e) => setKeyName(e.target.value)}
             required
           />
-          {!userId && (
-            <Alert color="red" title="Cannot Create API Key">
-              User ID is missing. Please refresh the page or log out and log in again.
-            </Alert>
-          )}
           <Group justify="flex-end" mt="md">
             <Button variant="light" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
             <Button onClick={handleCreateApiKey} disabled={!canCreateKey}>Create</Button>

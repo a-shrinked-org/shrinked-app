@@ -11,7 +11,8 @@ export interface ApiKey {
 export const ApiKeyService = {
   async getApiKeys(token: string): Promise<ApiKey[]> {
 	try {
-	  // No change needed here - endpoint is correct
+	  // The Postman collection doesn't explicitly define an endpoint for getting all API keys
+	  // Based on RESTful conventions, it should be:
 	  const response = await fetch(`${API_URL}/users/api-keys`, {
 		method: 'GET',
 		headers: {

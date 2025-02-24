@@ -196,29 +196,21 @@ const App = (props: React.PropsWithChildren<{}>) => {
     getIdentity: async () => {
       // Prioritize session data
       if (session?.user) {
-        const result = {
+        return {
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
           token: session.accessToken,
-          userId: null as string | null
         };
-        
-        // Try to get user ID from custom auth
-        try {
-          const customId = await customAuthProvider.getIdentity();
-          // Use type assertion to bypass TypeScript checking
-          const userId = (customId as any)?.id || (customId as any)?.userId || null;
-          result.userId = userId;
-        } catch (error) {
-          console.error("Error getting custom identity:", error);
-        }
-        
-        return result;
       }
       
       // Only try custom auth if no session exists
-      return customAuthProvider.getIdentity();
+      try {
+        const identity = await customAuthProvider.getIdentity();
+        return identity;
+      } catch (error) {
+        return null;
+      }
     },
   
     logout: async (params: any = {}) => {
@@ -257,15 +249,27 @@ const App = (props: React.PropsWithChildren<{}>) => {
               meta: {
                 canDelete: true,
                 icon: "chart-line",
-                label: "Jobs"
+                label: "Jobs",
+                // These props help with the sidebar navigation display
+                parent: {
+                  icon: "chart-line",
+                  label: "Jobs"
+                },
+                hide: false // Make sure it's not hidden
               },
             },
             {
               name: "api-keys",
               list: "/api-keys",
               meta: {
+                icon: "key",
                 label: "API Keys",
-                icon: "key"
+                // These props help with the sidebar navigation display
+                parent: {
+                  icon: "key", 
+                  label: "API Keys"
+                },
+                hide: false // Make sure it's not hidden
               },
             },
             {
@@ -277,7 +281,13 @@ const App = (props: React.PropsWithChildren<{}>) => {
               meta: {
                 canDelete: true,
                 icon: "tag",
-                label: "Categories"
+                label: "Categories",
+                // These props help with the sidebar navigation display
+                parent: {
+                  icon: "tag",
+                  label: "Categories"
+                },
+                hide: false // Make sure it's not hidden
               },
             },
             {
@@ -287,14 +297,28 @@ const App = (props: React.PropsWithChildren<{}>) => {
               meta: {
                 canDelete: true,
                 icon: "box",
-                label: "Output"
+                label: "Output",
+                // These props help with the sidebar navigation display
+                parent: {
+                  icon: "box",
+                  label: "Output"
+                },
+                hide: false // Make sure it's not hidden
               },
             },
           ]}
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true
+            useNewQueryKeys: true,
+            // Enable the sidebar
+            layout: { 
+              sider: {
+                // Make sure the sidebar is visible
+                collapsed: false,
+                collapsible: true
+              }
+            }
           }}
         >
           {props.children}
