@@ -51,19 +51,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
-  useEffect(() => {
-    // Log session data for debugging
-    if (session) {
-      console.log("Session data:", { 
-        user: session.user ? {
-          name: session.user.name,
-          email: session.user.email
-        } : "No user",
-        token: session.accessToken ? "Present" : "Missing"
-      });
-    }
-  }, [session]);
-
   // Auth check effect
   useEffect(() => {
     const checkAuthentication = async () => {
@@ -209,53 +196,29 @@ const App = (props: React.PropsWithChildren<{}>) => {
     getIdentity: async () => {
       // Prioritize session data
       if (session?.user) {
-        let userId = null;
-        
-        // Try to get user ID from custom auth provider
+        // Try to get custom auth identity
+        let customId = null;
         try {
-          const identity = await customAuthProvider.getIdentity();
-          if (identity && identity.userId) {
-            userId = identity.userId;
-          }
-        } catch (err) {
-          console.error("Error getting userId from customAuthProvider:", err);
+          customId = await customAuthProvider.getIdentity();
+        } catch (error) {
+          console.error("Error getting custom identity:", error);
         }
         
-        // Get token from session
-        const token = session.accessToken || (session as any).token;
-        
         // Create user info with all available data
-        const userInfo = {
+        return {
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
-          token: token,
-          userId: userId
+          token: session.accessToken,
+          userId: customId?.id || customId?.userId
         };
-        
-        // Log the identity for debugging
-        console.log("Identity data:", { 
-          name: userInfo.name, 
-          email: userInfo.email, 
-          userId: userInfo.userId || "Missing",
-          token: userInfo.token ? "Present" : "Missing" 
-        });
-        
-        return userInfo;
       }
       
       // Only try custom auth if no session exists
       try {
         const identity = await customAuthProvider.getIdentity();
-        console.log("Custom auth identity:", { 
-          name: identity?.name, 
-          email: identity?.email, 
-          userId: identity?.userId || "Missing",
-          token: identity?.token ? "Present" : "Missing" 
-        });
         return identity;
       } catch (error) {
-        console.error("Error getting identity from customAuthProvider:", error);
         return null;
       }
     },
