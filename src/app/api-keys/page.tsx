@@ -20,7 +20,6 @@ import {
 } from '@mantine/core';
 import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey } from '@tabler/icons-react';
 import { RegenerateApiKeyButton } from '@/components/RegenerateApiKeyButton';
-import { getTokenFromLocal } from "@utils/token-service";
 
 interface Identity {
   token?: string;
@@ -37,6 +36,14 @@ interface ApiKey {
   userId: string;
 }
 
+// Helper function to get token from localStorage
+const getTokenFromLocalStorage = (key: string): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(key);
+  }
+  return null;
+};
+
 export default function ApiKeysList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -50,7 +57,24 @@ export default function ApiKeysList() {
   const { data: identity, isLoading: isIdentityLoading } = useGetIdentity<Identity>();
   
   // Try to get userId from localStorage if not available in identity
-  const userId = identity?.userId || getTokenFromLocal("userId");
+  const userId = React.useMemo(() => {
+    if (identity?.userId) return identity.userId;
+    
+    // Try to get from localStorage
+    if (typeof window !== 'undefined') {
+      // Try to get from user object in localStorage
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData.id) return userData.id;
+        } catch (e) {
+          console.error("Error parsing user data from localStorage", e);
+        }
+      }
+    }
+    return null;
+  }, [identity?.userId]);
 
   // Log identity data for debugging
   useEffect(() => {
@@ -60,7 +84,7 @@ export default function ApiKeysList() {
         userId: identity.userId || "Missing in identity", 
         token: identity.token ? "Present" : "Missing" 
       });
-      console.log("userId from localStorage:", userId || "Missing in localStorage");
+      console.log("userId from calculation:", userId || "Missing");
     }
   }, [identity, userId]);
 
@@ -149,7 +173,7 @@ export default function ApiKeysList() {
   const handleCreateApiKey = async () => {
     if (!keyName) return;
     
-    // Get userId from identity or localStorage
+    // Get userId from identity
     const effectiveUserId = userId || identity?.userId;
     
     if (!effectiveUserId || !identity?.token) {
