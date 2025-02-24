@@ -300,36 +300,37 @@ export default function JobList() {
         </Group>
       </Group>
 
-      <Box style={{ overflowX: 'auto' }}>
-        <Table highlightOnHover>
-          <Table.Thead>
-            {getHeaderGroups().map((headerGroup) => (
-              <Table.Tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <Table.Th key={header.id}>
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </Table.Th>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Thead>
-          <Table.Tbody>
-            {getRowModel().rows.map((row) => (
-              <Table.Tr 
-                key={row.id}
-                onClick={() => show("jobs", row.original._id)}
-                style={{ cursor: 'pointer' }}
-                className="hover:bg-gray-100 transition-colors"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <Table.Td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-      </Box>
+     <Box style={{ overflowX: 'auto' }}>
+       <Table highlightOnHover>
+         <Table.Thead>
+           {getHeaderGroups().map((headerGroup) => (
+             <Table.Tr key={headerGroup.id}>
+               {headerGroup.headers.map((header) => (
+                 <Table.Th key={header.id}>
+                   {flexRender(header.column.columnDef.header, header.getContext())}
+                 </Table.Th>
+               ))}
+             </Table.Tr>
+           ))}
+         </Table.Thead>
+         <Table.Tbody>
+           {getRowModel().rows.map((row) => (
+             <Table.Tr 
+               key={row.id}
+               onClick={() => show("jobs", row.original._id)}
+               style={{ cursor: 'pointer' }}
+               className="hover:bg-gray-100 transition-colors"
+             >
+               {row.getVisibleCells().map((cell) => (
+                 <Table.Td key={cell.id}>
+                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                 </Table.Td>
+               ))}
+             </Table.Tr>
+           ))}
+         </Table.Tbody>
+       </Table>
+     </Box>
 
       <Group justify="center" gap="xs">
         <Button
