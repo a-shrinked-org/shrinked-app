@@ -27,6 +27,7 @@ class AuthProviderClass implements AuthProvider {
 	this.forgotPassword = this.forgotPassword.bind(this);
 	this.updatePassword = this.updatePassword.bind(this);
 	this.getPermissions = this.getPermissions.bind(this);
+	this.refreshAccessToken = this.refreshAccessToken.bind(this);
   }
 
   async login(params: any) {
@@ -179,7 +180,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   
 	try {
-	  // Only make one profile check
+	  // Try to validate the current token
 	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
@@ -188,15 +189,24 @@ class AuthProviderClass implements AuthProvider {
 	  });
   
 	  if (response.ok) {
+		// Update user data in localStorage to ensure it's fresh
+		const userData = await response.json();
+		const updatedUserData = {
+		  ...userData,
+		  accessToken,
+		  refreshToken
+		};
+		localStorage.setItem('user', JSON.stringify(updatedUserData));
 		return { authenticated: true };
 	  }
   
-	  // If token is invalid, try refresh once
+	  // If token is invalid, try refresh
 	  if (response.status === 401 || response.status === 403) {
 		const newTokens = await this.refreshAccessToken(refreshToken);
 		return { authenticated: !!newTokens };
 	  }
   
+	  this.clearStorage();
 	  return { authenticated: false };
 	} catch (error) {
 	  console.error("Auth check error:", error);
@@ -234,11 +244,38 @@ class AuthProviderClass implements AuthProvider {
 
 	try {
 	  const userData: UserData = JSON.parse(userStr);
+	  const accessToken = userData.accessToken || localStorage.getItem('accessToken');
+	  
+	  if (!accessToken) return null;
+	  
+	  // Try to get permissions with current token
 	  const response = await fetch(`${API_URL}/users/permissions`, {
 		headers: {
-		  'Authorization': `Bearer ${userData.accessToken}`,
+		  'Authorization': `Bearer ${accessToken}`,
 		},
 	  });
+
+	  // If token invalid, try to refresh
+	  if (response.status === 401 || response.status === 403) {
+		const refreshToken = userData.refreshToken || localStorage.getItem('refreshToken');
+		if (!refreshToken) return null;
+		
+		const newTokens = await this.refreshAccessToken(refreshToken);
+		if (!newTokens) return null;
+		
+		// Retry with new token
+		const newResponse = await fetch(`${API_URL}/users/permissions`, {
+		  headers: {
+			'Authorization': `Bearer ${newTokens.accessToken}`,
+		  },
+		});
+		
+		if (newResponse.ok) {
+		  const { roles } = await newResponse.json();
+		  return roles;
+		}
+		return null;
+	  }
 
 	  if (response.ok) {
 		const { roles } = await response.json();
@@ -264,14 +301,74 @@ class AuthProviderClass implements AuthProvider {
 
 	try {
 	  const userData: UserData = JSON.parse(userStr);
+	  const accessToken = userData.accessToken || localStorage.getItem('accessToken');
+	  
+	  if (!accessToken) {
+		return {
+		  success: false,
+		  error: {
+			message: "Not authenticated",
+			name: "Update password failed"
+		  }
+		};
+	  }
+	  
 	  const response = await fetch(`${API_URL}/auth/update-password`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
-		  'Authorization': `Bearer ${userData.accessToken}`,
+		  'Authorization': `Bearer ${accessToken}`,
 		},
 		body: JSON.stringify(params),
 	  });
+
+	  // If token invalid, try to refresh
+	  if (response.status === 401 || response.status === 403) {
+		const refreshToken = userData.refreshToken || localStorage.getItem('refreshToken');
+		if (!refreshToken) {
+		  return {
+			success: false,
+			error: {
+			  message: "Session expired",
+			  name: "Update password failed"
+			}
+		  };
+		}
+		
+		const newTokens = await this.refreshAccessToken(refreshToken);
+		if (!newTokens) {
+		  return {
+			success: false,
+			error: {
+			  message: "Session expired",
+			  name: "Update password failed"
+			}
+		  };
+		}
+		
+		// Retry with new token
+		const newResponse = await fetch(`${API_URL}/auth/update-password`, {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+			'Authorization': `Bearer ${newTokens.accessToken}`,
+		  },
+		  body: JSON.stringify(params),
+		});
+		
+		if (!newResponse.ok) {
+		  const errorData = await newResponse.json();
+		  return {
+			success: false,
+			error: {
+			  message: errorData.message || "Invalid password",
+			  name: "Update password failed"
+			}
+		  };
+		}
+		
+		return { success: true };
+	  }
 
 	  if (!response.ok) {
 		const errorData = await response.json();
@@ -284,9 +381,7 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 
-	  return {
-		success: true
-	  };
+	  return { success: true };
 	} catch (error) {
 	  return {
 		success: false,
@@ -334,6 +429,24 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async logout() {
+	// Attempt to invalidate refresh token on server if available
+	try {
+	  const refreshToken = localStorage.getItem('refreshToken');
+	  if (refreshToken) {
+		await fetch(`${API_URL}/auth/logout`, {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+		  },
+		  body: JSON.stringify({ refreshToken }),
+		}).catch(() => {
+		  // Ignore server errors during logout
+		});
+	  }
+	} catch (error) {
+	  // Continue with logout even if server request fails
+	}
+	
 	this.clearStorage();
 	return {
 	  success: true,
@@ -342,9 +455,26 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async onError(error: any) {
-	console.error(error);
-	const status = error?.response?.status || error?.status;
+	console.error("Auth error:", error);
+	const status = error?.response?.status || error?.statusCode || error?.status;
+	
+	// Handle authentication errors
 	if (status === 401 || status === 403) {
+	  // Try to refresh token if possible
+	  const refreshToken = localStorage.getItem('refreshToken');
+	  if (refreshToken) {
+		try {
+		  const newTokens = await this.refreshAccessToken(refreshToken);
+		  if (newTokens) {
+			// Successfully refreshed, don't log out
+			return { error };
+		  }
+		} catch (refreshError) {
+		  console.error("Failed to refresh token:", refreshError);
+		}
+	  }
+	  
+	  // If refresh failed or no refresh token, log out
 	  this.clearStorage();
 	  return {
 		logout: true,
@@ -352,11 +482,14 @@ class AuthProviderClass implements AuthProvider {
 		error
 	  };
 	}
+	
+	// For other errors, just pass through
 	return { error };
   }
 
-  private async refreshAccessToken(refreshToken: string) {
+  async refreshAccessToken(refreshToken: string) {
 	try {
+	  console.log("Attempting to refresh token");
 	  const response = await fetch(`${API_URL}/auth/refresh`, {
 		method: 'POST',
 		headers: {
@@ -366,18 +499,44 @@ class AuthProviderClass implements AuthProvider {
 	  });
 
 	  if (!response.ok) {
+		console.error("Token refresh failed:", response.status);
 		return null;
 	  }
 
 	  const data = await response.json();
 	  if (!data.accessToken || !data.refreshToken) {
+		console.error("Invalid refresh token response");
 		return null;
 	  }
 
+	  console.log("Token refresh successful");
+	  
+	  // Update tokens in localStorage
 	  localStorage.setItem('accessToken', data.accessToken);
 	  localStorage.setItem('refreshToken', data.refreshToken);
-	  return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+
+	  // Update user object with new tokens
+	  const userStr = localStorage.getItem('user');
+	  if (userStr) {
+		try {
+		  const userData = JSON.parse(userStr);
+		  const updatedUserData = {
+			...userData,
+			accessToken: data.accessToken,
+			refreshToken: data.refreshToken
+		  };
+		  localStorage.setItem('user', JSON.stringify(updatedUserData));
+		} catch (e) {
+		  console.error("Failed to update user data with new tokens", e);
+		}
+	  }
+
+	  return { 
+		accessToken: data.accessToken, 
+		refreshToken: data.refreshToken 
+	  };
 	} catch (error) {
+	  console.error("Error refreshing token:", error);
 	  return null;
 	}
   }
