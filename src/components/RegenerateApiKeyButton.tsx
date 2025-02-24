@@ -107,7 +107,7 @@ export const RegenerateApiKeyButton: React.FC<RegenerateApiKeyButtonProps> = ({
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won't be able to view it again.
+          Keep a record of the key below. You won&apos;t be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
@@ -137,7 +137,7 @@ export const RegenerateApiKeyButton: React.FC<RegenerateApiKeyButtonProps> = ({
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I've saved my new API key
+            I&apos;ve saved my new API key
           </Button>
         </Group>
       </Modal>

@@ -3,7 +3,7 @@
 import { useNavigation, useGetIdentity } from "@refinedev/core";
 import { useTable } from "@refinedev/react-table";
 import { ColumnDef, flexRender } from "@tanstack/react-table";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Table, 
   Button, 
@@ -21,7 +21,8 @@ import {
   Alert,
   Code
 } from '@mantine/core';
-import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey } from '@tabler/icons-react';
+import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey, IconRefresh } from '@tabler/icons-react';
+import { RegenerateApiKeyButton } from '@/components/RegenerateApiKeyButton';
 
 interface Identity {
   token?: string;
@@ -47,88 +48,93 @@ export default function ApiKeysList() {
   
   const { data: identity } = useGetIdentity<Identity>();
   
-  const columns = React.useMemo<ColumnDef<ApiKey>[]>(
-    () => [
-      {
-        id: "name",
-        accessorKey: "name",
-        header: "NAME",
-        size: 200,
-        cell: function render({ getValue }) {
-          return (
-            <Group>
-              <IconKey size={16} />
-              <Text>{getValue<string>()}</Text>
-            </Group>
-          );
-        }
-      },
-      {
-        id: "key",
-        accessorKey: "key",
-        header: "API KEY",
-        size: 400,
-        cell: function render({ getValue }) {
-          const key = getValue<string>();
-          // Only show first and last 4 characters
-          const maskedKey = `${key.substring(0, 8)}...${key.substring(key.length - 8)}`;
-          
-          return (
-            <Group>
-              <Code>{maskedKey}</Code>
-              <CopyButton value={key} timeout={2000}>
-                {({ copied, copy }) => (
-                  <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
-                    {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                  </ActionIcon>
-                )}
-              </CopyButton>
-            </Group>
-          );
-        }
-      },
-      {
-        id: "createdAt",
-        accessorKey: "createdAt",
-        header: "CREATED AT",
-        size: 120,
-        cell: function render({ getValue }) {
-          const date = new Date(getValue<string>());
-          return new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit'
-          }).format(date);
-        }
-      },
-      {
-        id: "actions",
-        header: "ACTIONS",
-        size: 100,
-        cell: function render({ row }) {
-          return (
-            <ActionIcon 
-              color="red" 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteApiKey(row.original.id);
-              }}
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          );
-        }
-      }
-    ],
-    []
-  );
-
   const {
     getHeaderGroups,
     getRowModel,
-    refineCore: { tableQueryResult: { data: tableData, isLoading: isTableLoading } },
+    refineCore: { tableQueryResult },
   } = useTable<ApiKey>({
-    columns,
+    columns: React.useMemo<ColumnDef<ApiKey>[]>(
+      () => [
+        {
+          id: "name",
+          accessorKey: "name",
+          header: "NAME",
+          size: 200,
+          cell: function render({ getValue }) {
+            return (
+              <Group>
+                <IconKey size={16} />
+                <Text>{getValue<string>()}</Text>
+              </Group>
+            );
+          }
+        },
+        {
+          id: "key",
+          accessorKey: "key",
+          header: "API KEY",
+          size: 400,
+          cell: function render({ getValue }) {
+            const key = getValue<string>();
+            // Only show first and last 8 characters
+            const maskedKey = `${key.substring(0, 8)}...${key.substring(key.length - 8)}`;
+            
+            return (
+              <Group>
+                <Code>{maskedKey}</Code>
+                <CopyButton value={key} timeout={2000}>
+                  {({ copied, copy }) => (
+                    <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
+                      {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                    </ActionIcon>
+                  )}
+                </CopyButton>
+              </Group>
+            );
+          }
+        },
+        {
+          id: "createdAt",
+          accessorKey: "createdAt",
+          header: "CREATED AT",
+          size: 120,
+          cell: function render({ getValue }) {
+            const date = new Date(getValue<string>());
+            return new Intl.DateTimeFormat('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: '2-digit'
+            }).format(date);
+          }
+        },
+        {
+          id: "actions",
+          header: "ACTIONS",
+          size: 120,
+          cell: function render({ row }) {
+            return (
+              <Group gap="xs">
+                <RegenerateApiKeyButton 
+                  keyId={row.original.id}
+                  token={identity?.token || ""}
+                  onSuccess={() => tableQueryResult.refetch()}
+                />
+                <ActionIcon 
+                  color="red" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteApiKey(row.original.id);
+                  }}
+                >
+                  <IconTrash size={16} />
+                </ActionIcon>
+              </Group>
+            );
+          }
+        }
+      ],
+      [identity?.token, tableQueryResult]
+    ),
     refineCoreProps: {
       resource: "users/api-keys",
       queryOptions: {
@@ -173,7 +179,7 @@ export default function ApiKeysList() {
       setIsModalOpen(true);
       
       // Refresh table data
-      refineCore.tableQueryResult.refetch();
+      tableQueryResult.refetch();
       
     } catch (error) {
       console.error("Error creating API key:", error);
@@ -197,7 +203,7 @@ export default function ApiKeysList() {
       }
       
       // Refresh table data
-      refineCore.tableQueryResult.refetch();
+      tableQueryResult.refetch();
       
     } catch (error) {
       console.error("Error deleting API key:", error);
@@ -232,7 +238,7 @@ export default function ApiKeysList() {
       </Group>
 
       <Box style={{ overflowX: 'auto' }}>
-        <LoadingOverlay visible={isTableLoading} />
+        <LoadingOverlay visible={tableQueryResult.isLoading} />
         <Table highlightOnHover>
           <Table.Thead>
             {getHeaderGroups().map((headerGroup) => (
@@ -258,7 +264,7 @@ export default function ApiKeysList() {
           <Table.Tbody>
             {getRowModel().rows.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={columns.length} align="center">
+                <Table.Td colSpan={4} align="center">
                   <Text p="md">No API keys found. Create one to get started.</Text>
                 </Table.Td>
               </Table.Tr>
@@ -310,11 +316,11 @@ export default function ApiKeysList() {
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won't be able to view it again.
+          Keep a record of the key below. You won&apos;t be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
-          <Group position="apart">
+          <Group justify="apart">
             <Code style={{ fontSize: '14px', wordBreak: 'break-all' }}>
               {newApiKey}
             </Code>
@@ -340,7 +346,7 @@ export default function ApiKeysList() {
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I've saved my API key
+            I&apos;ve saved my API key
           </Button>
         </Group>
       </Modal>
