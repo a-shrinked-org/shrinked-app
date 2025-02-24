@@ -55,9 +55,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
     // Log session data for debugging
     if (session) {
       console.log("Session data:", { 
-        user: session.user,
-        token: session.accessToken ? "Present" : "Missing",
-        userId: session.userId || "Missing" 
+        user: session.user ? {
+          name: session.user.name,
+          email: session.user.email
+        } : "No user",
+        token: session.accessToken ? "Present" : "Missing"
       });
     }
   }, [session]);
@@ -210,11 +212,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
         // Extract userId from session if available
         let userId = null;
         
-        // First try to get it directly from session
-        if (session.userId) {
-          userId = session.userId;
+        // Use Next Auth user.id directly if it exists
+        if (session.user.id) {
+          userId = session.user.id;
         } 
-        // Then try to get from customAuthProvider
+        // Or try to extract from a custom claim if it exists
+        else if ((session.user as any).userId) {
+          userId = (session.user as any).userId;
+        }
+        // Otherwise use the customAuthProvider
         else {
           try {
             const identity = await customAuthProvider.getIdentity();
@@ -231,6 +237,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
         
         // Create user info with all available data
         const userInfo = {
+          id: userId,
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
