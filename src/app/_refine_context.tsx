@@ -297,15 +297,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true,
-            // Enable the sidebar
-            layout: { 
-              sider: {
-                // Make sure the sidebar is visible
-                collapsed: false,
-                collapsible: true
-              }
-            }
+            useNewQueryKeys: true
           }}
         >
           {props.children}
