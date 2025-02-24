@@ -276,10 +276,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
                 icon: "tag",
                 label: "Categories",
                 // These props help with the sidebar navigation display
-                parent: {
-                  icon: "tag",
-                  label: "Categories"
-                },
+                parent: "Categories",
                 hide: false // Make sure it's not hidden
               },
             },
@@ -292,10 +289,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
                 icon: "box",
                 label: "Output",
                 // These props help with the sidebar navigation display
-                parent: {
-                  icon: "box",
-                  label: "Output"
-                },
+                parent: "Output",
                 hide: false // Make sure it's not hidden
               },
             },
