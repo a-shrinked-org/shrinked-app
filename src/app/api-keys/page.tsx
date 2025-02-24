@@ -1,9 +1,7 @@
 "use client";
 
-import { useNavigation, useGetIdentity } from "@refinedev/core";
-import { useTable } from "@refinedev/react-table";
-import { ColumnDef, flexRender } from "@tanstack/react-table";
-import React, { useState, useEffect, useCallback } from "react";
+import { useGetIdentity } from "@refinedev/core";
+import React, { useState, useEffect } from "react";
 import { 
   Table, 
   Button, 
@@ -16,12 +14,11 @@ import {
   TextInput,
   LoadingOverlay,
   ActionIcon,
-  Badge,
   CopyButton,
   Alert,
   Code
 } from '@mantine/core';
-import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey, IconRefresh } from '@tabler/icons-react';
+import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey } from '@tabler/icons-react';
 import { RegenerateApiKeyButton } from '@/components/RegenerateApiKeyButton';
 
 interface Identity {
@@ -50,7 +47,7 @@ export default function ApiKeysList() {
   
   const { data: identity } = useGetIdentity<Identity>();
 
-  // Fetch API Keys manually instead of using useTable
+  // Fetch API Keys manually 
   useEffect(() => {
     const fetchApiKeys = async () => {
       if (!identity?.token) return;
@@ -80,92 +77,10 @@ export default function ApiKeysList() {
       }
     };
     
-    fetchApiKeys();
+    if (identity?.token) {
+      fetchApiKeys();
+    }
   }, [identity?.token]);
-
-  // Define columns for the table
-  const columns = React.useMemo<ColumnDef<ApiKey>[]>(
-    () => [
-      {
-        id: "name",
-        accessorKey: "name",
-        header: "NAME",
-        size: 200,
-        cell: function render({ getValue }) {
-          return (
-            <Group>
-              <IconKey size={16} />
-              <Text>{getValue<string>()}</Text>
-            </Group>
-          );
-        }
-      },
-      {
-        id: "key",
-        accessorKey: "key",
-        header: "API KEY",
-        size: 400,
-        cell: function render({ getValue }) {
-          const key = getValue<string>();
-          // Only show first and last 8 characters
-          const maskedKey = `${key.substring(0, 8)}...${key.substring(key.length - 8)}`;
-          
-          return (
-            <Group>
-              <Code>{maskedKey}</Code>
-              <CopyButton value={key} timeout={2000}>
-                {({ copied, copy }) => (
-                  <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
-                    {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                  </ActionIcon>
-                )}
-              </CopyButton>
-            </Group>
-          );
-        }
-      },
-      {
-        id: "createdAt",
-        accessorKey: "createdAt",
-        header: "CREATED AT",
-        size: 120,
-        cell: function render({ getValue }) {
-          const date = new Date(getValue<string>());
-          return new Intl.DateTimeFormat('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit'
-          }).format(date);
-        }
-      },
-      {
-        id: "actions",
-        header: "ACTIONS",
-        size: 120,
-        cell: function render({ row }) {
-          return (
-            <Group gap="xs">
-              <RegenerateApiKeyButton 
-                keyId={row.original.id}
-                token={identity?.token || ""}
-                onSuccess={refreshApiKeys}
-              />
-              <ActionIcon 
-                color="red" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteApiKey(row.original.id);
-                }}
-              >
-                <IconTrash size={16} />
-              </ActionIcon>
-            </Group>
-          );
-        }
-      }
-    ],
-    [identity?.token]
-  );
 
   const refreshApiKeys = async () => {
     if (!identity?.token) return;
@@ -196,26 +111,37 @@ export default function ApiKeysList() {
   };
 
   const handleCreateApiKey = async () => {
-    if (!keyName || !identity?.userId) return;
+    if (!keyName || !identity?.userId || !identity?.token) {
+      console.error("Missing required data for creating API key:", {
+        keyName: !!keyName,
+        userId: !!identity?.userId,
+        token: !!identity?.token
+      });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log(`Creating API key with userId: ${identity.userId}`);
       // Use the correct endpoint from Postman
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${identity.userId}/api-key`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${identity?.token}`,
+          'Authorization': `Bearer ${identity.token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name: keyName })
       });
       
       if (!response.ok) {
-        throw new Error(`Error creating API key: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Error creating API key (${response.status}):`, errorText);
+        throw new Error(`Error creating API key: ${response.status} ${errorText}`);
       }
       
       const result = await response.json();
+      console.log("API key created successfully:", result.key ? "[key hidden for security]" : "No key returned");
       setNewApiKey(result.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
@@ -231,12 +157,14 @@ export default function ApiKeysList() {
   };
   
   const handleDeleteApiKey = async (keyId: string) => {
+    if (!identity?.token) return;
+    
     try {
       // Use the correct endpoint from Postman
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-key/${keyId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${identity?.token}`,
+          'Authorization': `Bearer ${identity.token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -267,6 +195,8 @@ export default function ApiKeysList() {
       </Box>
     );
   }
+
+  const canCreateKey = !!(keyName && identity?.userId && identity?.token);
 
   return (
     <Stack gap="md" p="md">
@@ -377,9 +307,14 @@ export default function ApiKeysList() {
             onChange={(e) => setKeyName(e.target.value)}
             required
           />
+          {!identity?.userId && (
+            <Alert color="red">
+              Unable to create API keys: User ID is missing.
+            </Alert>
+          )}
           <Group justify="flex-end" mt="md">
             <Button variant="light" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateApiKey} disabled={!keyName || !identity?.userId}>Create</Button>
+            <Button onClick={handleCreateApiKey} disabled={!canCreateKey}>Create</Button>
           </Group>
         </Stack>
       </Modal>
