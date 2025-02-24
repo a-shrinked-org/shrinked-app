@@ -60,6 +60,27 @@ export default function JobShow() {
       } : undefined
     }
   });
+  
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return 'green';
+      case 'in_progress':
+        return 'blue';
+      case 'failed':
+        return 'red';
+      default:
+        return 'gray';
+    }
+  };
+  
+  const formatText = (text: string) => {
+    return text
+      .toLowerCase()
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;

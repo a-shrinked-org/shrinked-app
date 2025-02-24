@@ -28,7 +28,7 @@ interface Identity {
 }
 
 interface Job {
-  _id: string;  // Changed from id to _id to match API
+  _id: string;
   jobName: string;
   scenario: string;
   lang: string;
@@ -60,67 +60,11 @@ export default function JobList() {
   const { data: identity } = useGetIdentity<Identity>();
   const { edit, show, create } = useNavigation();
 
-  // Debug log for identity
-  useEffect(() => {
-    console.log("Identity data:", identity);
-  }, [identity]);
-  
-  const checkStatus = useCallback(async () => {
-    setIsLoading(true);
-    setIsStatusModalOpen(true);
-    
-    try {
-      const [sandboxResponse, prodResponse] = await Promise.all([
-        fetch("https://sandbox.temporary.name/status", {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity?.token}`,
-            'Content-Type': 'application/json'
-          },
-        }),
-        fetch("https://temporary.name/status", {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity?.token}`,
-            'Content-Type': 'application/json'
-          },
-        })
-      ]);
-  
-      let combinedStatus = "";
-  
-      if (sandboxResponse.status === 502) {
-        combinedStatus += "Sandbox: Server is under maintenance.\n";
-      } else if (!sandboxResponse.ok) {
-        combinedStatus += `Sandbox: Error ${sandboxResponse.status}\n`;
-      } else {
-        const sandboxResult = await sandboxResponse.json();
-        combinedStatus += `Sandbox: ${sandboxResult.status}\n`;
-      }
-  
-      if (prodResponse.status === 502) {
-        combinedStatus += "Production: Server is under maintenance.";
-      } else if (!prodResponse.ok) {
-        combinedStatus += `Production: Error ${prodResponse.status}`;
-      } else {
-        const prodResult = await prodResponse.json();
-        combinedStatus += `Production: ${prodResult.status}`;
-      }
-  
-      setStatusResult(combinedStatus);
-    } catch (error) {
-      console.error("Error checking status:", error);
-      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [identity?.token]);
-  
   const columns = React.useMemo<ColumnDef<Job>[]>(
     () => [
       {
         id: "id",
-        accessorKey: "_id", // Changed to _id
+        accessorKey: "_id",
         header: "ID",
         size: 100,
       },
@@ -216,9 +160,7 @@ export default function JobList() {
         size: 100,
         cell: function render({ row }) {
           const job = row.original;
-          console.log("Row data:", job); // Debug row data
           
-          // Make sure we have a valid ID
           if (!job._id) {
             console.warn("No ID found in job data:", job);
             return null;
@@ -228,19 +170,13 @@ export default function JobList() {
             <Group gap="xs">
               <ActionIcon
                 variant="default"
-                onClick={() => {
-                  console.log("Showing job:", job._id); // Debug navigation
-                  show("jobs", job._id);
-                }}
+                onClick={() => show("jobs", job._id)}
               >
                 <IconEye size={16} />
               </ActionIcon>
               <ActionIcon
                 variant="default"
-                onClick={() => {
-                  console.log("Editing job:", job._id); // Debug navigation
-                  edit("jobs", job._id);
-                }}
+                onClick={() => edit("jobs", job._id)}
               >
                 <IconEdit size={16} />
               </ActionIcon>
@@ -251,11 +187,6 @@ export default function JobList() {
     ],
     [edit, show]
   );
-
-  // Add debug for data received
-  useEffect(() => {
-    console.log("Current table data:", tableData);
-  }, [tableData]);
 
   const {
     getHeaderGroups,
@@ -275,7 +206,7 @@ export default function JobList() {
     refineCoreProps: {
       resource: "jobs",
       queryOptions: {
-        enabled: !!identity?.token, // Only fetch when we have a token
+        enabled: !!identity?.token,
         onSuccess: (data) => {
           console.log("Table query success:", data);
         },
@@ -291,7 +222,61 @@ export default function JobList() {
     }
   });
 
-  // Add loading state for authentication
+  useEffect(() => {
+    console.log("Current table data:", tableData);
+  }, [tableData]);
+
+  const checkStatus = useCallback(async () => {
+    setIsLoading(true);
+    setIsStatusModalOpen(true);
+    
+    try {
+      const [sandboxResponse, prodResponse] = await Promise.all([
+        fetch("https://sandbox.temporary.name/status", {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity?.token}`,
+            'Content-Type': 'application/json'
+          },
+        }),
+        fetch("https://temporary.name/status", {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity?.token}`,
+            'Content-Type': 'application/json'
+          },
+        })
+      ]);
+  
+      let combinedStatus = "";
+  
+      if (sandboxResponse.status === 502) {
+        combinedStatus += "Sandbox: Server is under maintenance.\n";
+      } else if (!sandboxResponse.ok) {
+        combinedStatus += `Sandbox: Error ${sandboxResponse.status}\n`;
+      } else {
+        const sandboxResult = await sandboxResponse.json();
+        combinedStatus += `Sandbox: ${sandboxResult.status}\n`;
+      }
+  
+      if (prodResponse.status === 502) {
+        combinedStatus += "Production: Server is under maintenance.";
+      } else if (!prodResponse.ok) {
+        combinedStatus += `Production: Error ${prodResponse.status}`;
+      } else {
+        const prodResult = await prodResponse.json();
+        combinedStatus += `Production: ${prodResult.status}`;
+      }
+  
+      setStatusResult(combinedStatus);
+    } catch (error) {
+      console.error("Error checking status:", error);
+      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [identity?.token]);
+
   if (!identity?.token) {
     return (
       <Box p="md">
@@ -303,7 +288,87 @@ export default function JobList() {
 
   return (
     <Stack gap="md" p="md">
-      {/* Rest of your component remains the same */}
+      <Group justify="space-between">
+        <Title order={2}>Jobs List</Title>
+        <Group>
+          <Button variant="light" onClick={checkStatus}>
+            Check Server Status
+          </Button>
+          <Button onClick={() => create("jobs")}>
+            Create Job
+          </Button>
+        </Group>
+      </Group>
+
+      <Box style={{ overflowX: 'auto' }}>
+        <Table>
+          <Table.Thead>
+            {getHeaderGroups().map((headerGroup) => (
+              <Table.Tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <Table.Th key={header.id}>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Thead>
+          <Table.Tbody>
+            {getRowModel().rows.map((row) => (
+              <Table.Tr key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <Table.Td key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Box>
+
+      <Group justify="center" gap="xs">
+        <Button
+          variant="light"
+          disabled={!getCanPreviousPage()}
+          onClick={() => previousPage()}
+        >
+          <IconChevronLeft size={18} />
+        </Button>
+        <Text>
+          Page{' '}
+          <strong>
+            {getState().pagination.pageIndex + 1} of {getPageCount()}
+          </strong>
+        </Text>
+        <Button
+          variant="light"
+          disabled={!getCanNextPage()}
+          onClick={() => nextPage()}
+        >
+          <IconChevronRight size={18} />
+        </Button>
+        <Select
+          value={getState().pagination.pageSize.toString()}
+          onChange={(value) => setPageSize(Number(value))}
+          data={['10', '20', '30', '40', '50'].map((size) => ({
+            value: size,
+            label: `${size} records per page`,
+          }))}
+        />
+      </Group>
+
+      <Modal
+        opened={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        title="Server Status"
+      >
+        {isLoading ? (
+          <LoadingOverlay visible />
+        ) : (
+          <Text style={{ whiteSpace: 'pre-line' }}>{statusResult}</Text>
+        )}
+      </Modal>
     </Stack>
   );
 }
