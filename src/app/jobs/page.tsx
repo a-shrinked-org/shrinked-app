@@ -52,6 +52,28 @@ const getStatusColor = (status: string) => {
   }
 };
 
+const formatScenarioName = (scenario: string) => {
+if (scenario?.includes('PLATOGRAM')) {
+  return (
+    <Group gap={8} align="center">
+      <Box style={{ 
+        width: 8, 
+        height: 8, 
+        borderRadius: '50%', 
+        backgroundColor: '#7048E8',
+        flexShrink: 0
+      }} />
+      <Text size="sm">Default</Text>
+    </Group>
+    );
+  }
+  return scenario?.replace(/_/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export default function JobList() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusResult, setStatusResult] = useState<string | null>(null);
@@ -63,51 +85,37 @@ export default function JobList() {
   const columns = React.useMemo<ColumnDef<Job>[]>(
     () => [
       {
-        id: "id",
-        accessorKey: "_id",
-        header: "ID",
-        size: 100,
-      },
-      {
-        id: "jobName",
-        accessorKey: "jobName",
-        header: "Job Name",
-      },
-      {
-        id: "scenario",
-        accessorKey: "scenario",
-        header: "Scenario",
-        cell: function render({ getValue }) {
-          const scenario = getValue<string>();
-          return scenario?.replace(/_/g, ' ').toLowerCase()
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-        }
-      },
-      {
-        id: "lang",
-        accessorKey: "lang",
-        header: "Language",
-        size: 100,
-        cell: function render({ getValue }) {
-          const lang = getValue<string>();
-          const langMap: Record<string, string> = {
-            'en': 'English',
-            'uk': 'Ukrainian',
-          };
-          return langMap[lang] || lang;
+        id: "jobInfo",
+        header: "NAME",
+        size: 300,
+        cell: function render({ row }) {
+          return (
+            <Stack gap={4} style={{ padding: '4px 0' }}>
+              <Text size="sm" style={{ fontWeight: 500 }}>{row.original.jobName}</Text>
+              <Text size="xs" c="dimmed" style={{ letterSpacing: '0.2px' }}>
+                ID: {row.original._id.substring(0, 8)}...
+              </Text>
+            </Stack>
+          );
         }
       },
       {
         id: "status",
         accessorKey: "status",
-        header: "Status",
-        size: 120,
+        header: "STATUS",
+        size: 200,
         cell: function render({ getValue }) {
           const status = getValue<string>();
           return (
-            <Badge color={getStatusColor(status)} variant="light">
+            <Badge 
+              color={getStatusColor(status)} 
+              variant="light" 
+              size="lg"
+              style={{
+                padding: '6px 12px',
+                textTransform: 'capitalize'
+              }}
+            >
               {status?.toLowerCase()
                 .split('_')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -117,9 +125,33 @@ export default function JobList() {
         }
       },
       {
+        id: "scenario",
+        accessorKey: "scenario",
+        header: "LOGIC",
+        size: 150,
+        cell: function render({ getValue }) {
+          const scenario = getValue<string>();
+          return formatScenarioName(scenario);
+        }
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "CREATED AT",
+        size: 120,
+        cell: function render({ getValue }) {
+          const date = new Date(getValue<string>());
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit'
+          }).format(date);
+        }
+      },
+      {
         id: "isPublic",
         accessorKey: "isPublic",
-        header: "Public",
+        header: "PUBLIC",
         size: 100,
         cell: function render({ getValue }) {
           const isPublic = getValue<boolean>();
@@ -133,7 +165,7 @@ export default function JobList() {
       {
         id: "createPage",
         accessorKey: "createPage",
-        header: "Page",
+        header: "PAGE",
         size: 100,
         cell: function render({ getValue }) {
           const createPage = getValue<boolean>();
@@ -143,49 +175,9 @@ export default function JobList() {
             </Badge>
           );
         }
-      },
-      {
-        id: "createdAt",
-        accessorKey: "createdAt",
-        header: "Created At",
-        cell: function render({ getValue }) {
-          return new Date(getValue<string>()).toLocaleString(undefined, {
-            timeZone: "UTC",
-          });
-        },
-      },
-      {
-        id: "actions",
-        header: "Actions",
-        size: 100,
-        cell: function render({ row }) {
-          const job = row.original;
-          
-          if (!job._id) {
-            console.warn("No ID found in job data:", job);
-            return null;
-          }
-          
-          return (
-            <Group gap="xs">
-              <ActionIcon
-                variant="default"
-                onClick={() => show("jobs", job._id)}
-              >
-                <IconEye size={16} />
-              </ActionIcon>
-              <ActionIcon
-                variant="default"
-                onClick={() => edit("jobs", job._id)}
-              >
-                <IconEdit size={16} />
-              </ActionIcon>
-            </Group>
-          );
-        },
-      },
+      }
     ],
-    [edit, show]
+    []
   );
 
   const {
@@ -306,7 +298,17 @@ export default function JobList() {
            {getHeaderGroups().map((headerGroup) => (
              <Table.Tr key={headerGroup.id}>
                {headerGroup.headers.map((header) => (
-                 <Table.Th key={header.id}>
+                 <Table.Th 
+                   key={header.id}
+                   style={{ 
+                     background: 'none',
+                     fontWeight: 500,
+                     color: '#666',
+                     padding: '12px 16px',
+                     textTransform: 'uppercase',
+                     fontSize: '12px'
+                   }}
+                 >
                    {flexRender(header.column.columnDef.header, header.getContext())}
                  </Table.Th>
                ))}
