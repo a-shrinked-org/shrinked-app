@@ -45,10 +45,45 @@ export default function ApiKeysList() {
   const [keyName, setKeyName] = useState("");
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [isLoadingKeys, setIsLoadingKeys] = useState(true);
   
   const { data: identity } = useGetIdentity<Identity>();
 
-  // Define columns outside of useTable to avoid circular references
+  // Fetch API Keys manually instead of using useTable
+  useEffect(() => {
+    const fetchApiKeys = async () => {
+      if (!identity?.token) return;
+      
+      setIsLoadingKeys(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-keys`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setApiKeys(data.data || data || []);
+        } else {
+          console.log('No API keys found or unauthorized');
+          setApiKeys([]);
+        }
+      } catch (error) {
+        console.error('Error fetching API keys:', error);
+        setApiKeys([]);
+      } finally {
+        setIsLoadingKeys(false);
+      }
+    };
+    
+    fetchApiKeys();
+  }, [identity?.token]);
+
+  // Define columns for the table
   const columns = React.useMemo<ColumnDef<ApiKey>[]>(
     () => [
       {
@@ -110,6 +145,11 @@ export default function ApiKeysList() {
         cell: function render({ row }) {
           return (
             <Group gap="xs">
+              <RegenerateApiKeyButton 
+                keyId={row.original.id}
+                token={identity?.token || ""}
+                onSuccess={refreshApiKeys}
+              />
               <ActionIcon 
                 color="red" 
                 onClick={(e) => {
@@ -124,62 +164,45 @@ export default function ApiKeysList() {
         }
       }
     ],
-    []
+    [identity?.token]
   );
-  
-  const {
-    getHeaderGroups,
-    getRowModel,
-    refineCore: { tableQueryResult },
-  } = useTable<ApiKey>({
-    columns,
-    refineCoreProps: {
-      resource: "api-keys",
-      queryOptions: {
-        enabled: !!identity?.token,
-        retry: false, // Don't retry on failure to prevent multiple 404s
-        onError: (error) => {
-          // Handle error silently, since it's expected if user has no API keys yet
-          console.log("API Keys query error, likely no keys yet:", error);
-        }
-      },
-      meta: {
-        headers: identity?.token ? {
-          'Authorization': `Bearer ${identity.token}`
-        } : undefined
-      }
-    }
-  });
 
-  // Get the actual row renderer function to use with the Regenerate button
-  const getRowActions = useCallback((row: any) => {
-    return (
-      <Group gap="xs">
-        <RegenerateApiKeyButton 
-          keyId={row.original.id}
-          token={identity?.token || ""}
-          onSuccess={() => tableQueryResult.refetch()}
-        />
-        <ActionIcon 
-          color="red" 
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDeleteApiKey(row.original.id);
-          }}
-        >
-          <IconTrash size={16} />
-        </ActionIcon>
-      </Group>
-    );
-  }, [identity?.token, tableQueryResult]);
+  const refreshApiKeys = async () => {
+    if (!identity?.token) return;
+    
+    setIsLoadingKeys(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-keys`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${identity.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeys(data.data || data || []);
+      } else {
+        console.log('No API keys found or unauthorized');
+        setApiKeys([]);
+      }
+    } catch (error) {
+      console.error('Error fetching API keys:', error);
+      setApiKeys([]);
+    } finally {
+      setIsLoadingKeys(false);
+    }
+  };
 
   const handleCreateApiKey = async () => {
-    if (!keyName) return;
+    if (!keyName || !identity?.userId) return;
     
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${identity?.userId}/api-key`, {
+      // Use the correct endpoint from Postman
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${identity.userId}/api-key`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${identity?.token}`,
@@ -197,8 +220,8 @@ export default function ApiKeysList() {
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
       
-      // Refresh table data
-      tableQueryResult.refetch();
+      // Refresh the API keys list
+      refreshApiKeys();
       
     } catch (error) {
       console.error("Error creating API key:", error);
@@ -209,6 +232,7 @@ export default function ApiKeysList() {
   
   const handleDeleteApiKey = async (keyId: string) => {
     try {
+      // Use the correct endpoint from Postman
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-key/${keyId}`, {
         method: 'DELETE',
         headers: {
@@ -221,8 +245,8 @@ export default function ApiKeysList() {
         throw new Error(`Error deleting API key: ${response.status}`);
       }
       
-      // Refresh table data
-      tableQueryResult.refetch();
+      // Refresh the API keys list
+      refreshApiKeys();
       
     } catch (error) {
       console.error("Error deleting API key:", error);
@@ -257,53 +281,77 @@ export default function ApiKeysList() {
       </Group>
 
       <Box style={{ overflowX: 'auto' }}>
-        <LoadingOverlay visible={tableQueryResult.isLoading} />
+        <LoadingOverlay visible={isLoadingKeys} />
         <Table highlightOnHover>
           <Table.Thead>
-            {getHeaderGroups().map((headerGroup) => (
-              <Table.Tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <Table.Th 
-                    key={header.id}
-                    style={{ 
-                      background: 'none',
-                      fontWeight: 500,
-                      color: '#666',
-                      padding: '12px 16px',
-                      textTransform: 'uppercase',
-                      fontSize: '12px'
-                    }}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </Table.Th>
-                ))}
-              </Table.Tr>
-            ))}
+            <Table.Tr>
+              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+                NAME
+              </Table.Th>
+              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+                API KEY
+              </Table.Th>
+              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+                CREATED AT
+              </Table.Th>
+              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+                ACTIONS
+              </Table.Th>
+            </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {tableQueryResult.isError || !tableQueryResult.data || getRowModel().rows.length === 0 ? (
+            {!isLoadingKeys && apiKeys.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={4} align="center">
                   <Text p="md">No API keys found. Create one to get started.</Text>
                 </Table.Td>
               </Table.Tr>
             ) : (
-              getRowModel().rows.map((row) => (
-                <Table.Tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => {
-                    if (cell.column.id === 'actions') {
-                      return (
-                        <Table.Td key={cell.id}>
-                          {getRowActions(row)}
-                        </Table.Td>
-                      );
-                    }
-                    return (
-                      <Table.Td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </Table.Td>
-                    );
-                  })}
+              apiKeys.map((key) => (
+                <Table.Tr key={key.id}>
+                  <Table.Td>
+                    <Group>
+                      <IconKey size={16} />
+                      <Text>{key.name}</Text>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group>
+                      <Code>{`${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}`}</Code>
+                      <CopyButton value={key.key} timeout={2000}>
+                        {({ copied, copy }) => (
+                          <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
+                            {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                          </ActionIcon>
+                        )}
+                      </CopyButton>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    {new Intl.DateTimeFormat('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: '2-digit'
+                    }).format(new Date(key.createdAt))}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <RegenerateApiKeyButton 
+                        keyId={key.id}
+                        token={identity?.token || ""}
+                        onSuccess={refreshApiKeys}
+                      />
+                      <ActionIcon 
+                        color="red" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteApiKey(key.id);
+                        }}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </Table.Td>
                 </Table.Tr>
               ))
             )}
@@ -331,7 +379,7 @@ export default function ApiKeysList() {
           />
           <Group justify="flex-end" mt="md">
             <Button variant="light" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateApiKey} disabled={!keyName}>Create</Button>
+            <Button onClick={handleCreateApiKey} disabled={!keyName || !identity?.userId}>Create</Button>
           </Group>
         </Stack>
       </Modal>

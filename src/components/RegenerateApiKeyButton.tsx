@@ -34,6 +34,7 @@ export const RegenerateApiKeyButton: React.FC<RegenerateApiKeyButtonProps> = ({
     setIsLoading(true);
     
     try {
+      // Using the correct endpoint from Postman collection
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-key/${keyId}/regenerate`, {
         method: 'POST',
         headers: {

@@ -11,6 +11,7 @@ export interface ApiKey {
 export const ApiKeyService = {
   async getApiKeys(token: string): Promise<ApiKey[]> {
 	try {
+	  // Using the correct endpoint from Postman collection
 	  const response = await fetch(`${API_URL}/users/api-keys`, {
 		method: 'GET',
 		headers: {
@@ -20,19 +21,25 @@ export const ApiKeyService = {
 	  });
 
 	  if (!response.ok) {
+		if (response.status === 404) {
+		  // No keys yet, return empty array
+		  return [];
+		}
 		throw new Error(`Error fetching API keys: ${response.status}`);
 	  }
 
 	  const data = await response.json();
-	  return data.data || data;
+	  return data.data || data || [];
 	} catch (error) {
 	  console.error('Error fetching API keys:', error);
-	  throw error;
+	  // Return empty array on error to avoid breaking the UI
+	  return [];
 	}
   },
 
   async createApiKey(token: string, userId: string, name: string): Promise<ApiKey> {
 	try {
+	  // Using the correct endpoint from Postman collection
 	  const response = await fetch(`${API_URL}/users/${userId}/api-key`, {
 		method: 'POST',
 		headers: {
@@ -56,6 +63,7 @@ export const ApiKeyService = {
 
   async deleteApiKey(token: string, keyId: string): Promise<void> {
 	try {
+	  // Using the correct endpoint from Postman collection
 	  const response = await fetch(`${API_URL}/users/api-key/${keyId}`, {
 		method: 'DELETE',
 		headers: {
@@ -75,6 +83,7 @@ export const ApiKeyService = {
 
   async regenerateApiKey(token: string, keyId: string): Promise<ApiKey> {
 	try {
+	  // Using the correct endpoint from Postman collection
 	  const response = await fetch(`${API_URL}/users/api-key/${keyId}/regenerate`, {
 		method: 'POST',
 		headers: {
