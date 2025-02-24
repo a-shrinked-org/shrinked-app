@@ -47,94 +47,95 @@ export default function ApiKeysList() {
   const [isLoading, setIsLoading] = useState(false);
   
   const { data: identity } = useGetIdentity<Identity>();
+
+  // Define columns outside of useTable to avoid circular references
+  const columns = React.useMemo<ColumnDef<ApiKey>[]>(
+    () => [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: "NAME",
+        size: 200,
+        cell: function render({ getValue }) {
+          return (
+            <Group>
+              <IconKey size={16} />
+              <Text>{getValue<string>()}</Text>
+            </Group>
+          );
+        }
+      },
+      {
+        id: "key",
+        accessorKey: "key",
+        header: "API KEY",
+        size: 400,
+        cell: function render({ getValue }) {
+          const key = getValue<string>();
+          // Only show first and last 8 characters
+          const maskedKey = `${key.substring(0, 8)}...${key.substring(key.length - 8)}`;
+          
+          return (
+            <Group>
+              <Code>{maskedKey}</Code>
+              <CopyButton value={key} timeout={2000}>
+                {({ copied, copy }) => (
+                  <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
+                    {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                  </ActionIcon>
+                )}
+              </CopyButton>
+            </Group>
+          );
+        }
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "CREATED AT",
+        size: 120,
+        cell: function render({ getValue }) {
+          const date = new Date(getValue<string>());
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit'
+          }).format(date);
+        }
+      },
+      {
+        id: "actions",
+        header: "ACTIONS",
+        size: 120,
+        cell: function render({ row }) {
+          return (
+            <Group gap="xs">
+              {/* We'll add the Regenerate button after tableQueryResult is available */}
+              <ActionIcon 
+                color="red" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (handleDeleteApiKey) {
+                    handleDeleteApiKey(row.original.id);
+                  }
+                }}
+              >
+                <IconTrash size={16} />
+              </ActionIcon>
+            </Group>
+          );
+        }
+      }
+    ],
+    [identity?.token]
+  );
   
   const {
     getHeaderGroups,
     getRowModel,
     refineCore: { tableQueryResult },
   } = useTable<ApiKey>({
-    columns: React.useMemo<ColumnDef<ApiKey>[]>(
-      () => [
-        {
-          id: "name",
-          accessorKey: "name",
-          header: "NAME",
-          size: 200,
-          cell: function render({ getValue }) {
-            return (
-              <Group>
-                <IconKey size={16} />
-                <Text>{getValue<string>()}</Text>
-              </Group>
-            );
-          }
-        },
-        {
-          id: "key",
-          accessorKey: "key",
-          header: "API KEY",
-          size: 400,
-          cell: function render({ getValue }) {
-            const key = getValue<string>();
-            // Only show first and last 8 characters
-            const maskedKey = `${key.substring(0, 8)}...${key.substring(key.length - 8)}`;
-            
-            return (
-              <Group>
-                <Code>{maskedKey}</Code>
-                <CopyButton value={key} timeout={2000}>
-                  {({ copied, copy }) => (
-                    <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
-                      {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                    </ActionIcon>
-                  )}
-                </CopyButton>
-              </Group>
-            );
-          }
-        },
-        {
-          id: "createdAt",
-          accessorKey: "createdAt",
-          header: "CREATED AT",
-          size: 120,
-          cell: function render({ getValue }) {
-            const date = new Date(getValue<string>());
-            return new Intl.DateTimeFormat('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: '2-digit'
-            }).format(date);
-          }
-        },
-        {
-          id: "actions",
-          header: "ACTIONS",
-          size: 120,
-          cell: function render({ row }) {
-            return (
-              <Group gap="xs">
-                <RegenerateApiKeyButton 
-                  keyId={row.original.id}
-                  token={identity?.token || ""}
-                  onSuccess={() => tableQueryResult.refetch()}
-                />
-                <ActionIcon 
-                  color="red" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteApiKey(row.original.id);
-                  }}
-                >
-                  <IconTrash size={16} />
-                </ActionIcon>
-              </Group>
-            );
-          }
-        }
-      ],
-      [identity?.token, tableQueryResult]
-    ),
+    columns,
     refineCoreProps: {
       resource: "users/api-keys",
       queryOptions: {
@@ -153,6 +154,28 @@ export default function ApiKeysList() {
       }
     }
   });
+
+  // Get the actual row renderer function to use with the Regenerate button
+  const getRowActions = useCallback((row: any) => {
+    return (
+      <Group gap="xs">
+        <RegenerateApiKeyButton 
+          keyId={row.original.id}
+          token={identity?.token || ""}
+          onSuccess={() => tableQueryResult.refetch()}
+        />
+        <ActionIcon 
+          color="red" 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteApiKey(row.original.id);
+          }}
+        >
+          <IconTrash size={16} />
+        </ActionIcon>
+      </Group>
+    );
+  }, [identity?.token, tableQueryResult]);
 
   const handleCreateApiKey = async () => {
     if (!keyName) return;
@@ -271,11 +294,20 @@ export default function ApiKeysList() {
             ) : (
               getRowModel().rows.map((row) => (
                 <Table.Tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <Table.Td key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </Table.Td>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    if (cell.column.id === 'actions') {
+                      return (
+                        <Table.Td key={cell.id}>
+                          {getRowActions(row)}
+                        </Table.Td>
+                      );
+                    }
+                    return (
+                      <Table.Td key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </Table.Td>
+                    );
+                  })}
                 </Table.Tr>
               ))
             )}
