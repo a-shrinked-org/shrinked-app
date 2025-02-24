@@ -35,14 +35,6 @@ interface Job {
   createdAt: string;
 }
 
-if (!identity?.token) {
-  return (
-    <Box p="md">
-      <Text>Loading authentication...</Text>
-    </Box>
-  );
-}
-
 export default function JobShow() {
   const params = useParams();
   console.log("Show page params:", params); // Debug log
@@ -50,6 +42,14 @@ export default function JobShow() {
   const { edit, list } = useNavigation();
   const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
+    
+  if (!identity?.token) {
+    return (
+      <Box p="md">
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
+  }
   
   const { queryResult } = useShow<Job>({
     resource: "jobs",

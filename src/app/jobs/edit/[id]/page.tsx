@@ -33,18 +33,18 @@ type JobEditForm = {
   link: string;
 }
 
-if (!identity?.token) {
-  return (
-    <Box p="md">
-      <Text>Loading authentication...</Text>
-    </Box>
-  );
-}
-
 export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
+    
+  if (!identity?.token) {
+    return (
+      <Box p="md">
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
+  }
 
   console.log("Edit page id:", id); // Debug log
 
