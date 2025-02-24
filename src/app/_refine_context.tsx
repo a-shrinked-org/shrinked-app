@@ -260,12 +260,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
               meta: {
                 icon: "key",
                 label: "API Keys",
-                // These props help with the sidebar navigation display
-                parent: {
-                  icon: "key", 
-                  label: "API Keys"
-                },
-                hide: false // Make sure it's not hidden
+                // Use a string for the parent
+                parent: "API Keys",
+                hide: false
               },
             },
             {
