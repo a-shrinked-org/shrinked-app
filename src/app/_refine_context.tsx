@@ -196,31 +196,29 @@ const App = (props: React.PropsWithChildren<{}>) => {
     getIdentity: async () => {
       // Prioritize session data
       if (session?.user) {
-        // Try to get custom auth identity
-        let customId = null;
-        try {
-          customId = await customAuthProvider.getIdentity();
-        } catch (error) {
-          console.error("Error getting custom identity:", error);
-        }
-        
-        // Create user info with all available data
-        return {
+        const result = {
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
           token: session.accessToken,
-          userId: customId?.id || customId?.userId
+          userId: null as string | null
         };
+        
+        // Try to get user ID from custom auth
+        try {
+          const customId = await customAuthProvider.getIdentity();
+          // Use type assertion to bypass TypeScript checking
+          const userId = (customId as any)?.id || (customId as any)?.userId || null;
+          result.userId = userId;
+        } catch (error) {
+          console.error("Error getting custom identity:", error);
+        }
+        
+        return result;
       }
       
       // Only try custom auth if no session exists
-      try {
-        const identity = await customAuthProvider.getIdentity();
-        return identity;
-      } catch (error) {
-        return null;
-      }
+      return customAuthProvider.getIdentity();
     },
   
     logout: async (params: any = {}) => {
