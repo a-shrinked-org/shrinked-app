@@ -11,7 +11,7 @@ export interface ApiKey {
 export const ApiKeyService = {
   async getApiKeys(token: string): Promise<ApiKey[]> {
 	try {
-	  // Using the correct endpoint from Postman collection
+	  // No change needed here - endpoint is correct
 	  const response = await fetch(`${API_URL}/users/api-keys`, {
 		method: 'GET',
 		headers: {
@@ -22,7 +22,7 @@ export const ApiKeyService = {
 
 	  if (!response.ok) {
 		if (response.status === 404) {
-		  // No keys yet, return empty array
+		  // Handle 404 gracefully - user might not have any keys yet
 		  return [];
 		}
 		throw new Error(`Error fetching API keys: ${response.status}`);

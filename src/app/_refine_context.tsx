@@ -51,6 +51,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
+  useEffect(() => {
+    // Log session data for debugging
+    if (session) {
+      console.log("Session data:", { 
+        user: session.user,
+        token: session.accessToken ? "Present" : "Missing",
+        userId: session.userId || "Missing" 
+      });
+    }
+  }, [session]);
+
   // Auth check effect
   useEffect(() => {
     const checkAuthentication = async () => {
@@ -196,22 +207,44 @@ const App = (props: React.PropsWithChildren<{}>) => {
     getIdentity: async () => {
       // Prioritize session data
       if (session?.user) {
-        // Get user info from session
+        // Extract userId from session if available
+        let userId = null;
+        
+        // First try to get it directly from session
+        if (session.userId) {
+          userId = session.userId;
+        } 
+        // Then try to get from customAuthProvider
+        else {
+          try {
+            const identity = await customAuthProvider.getIdentity();
+            if (identity && identity.userId) {
+              userId = identity.userId;
+            }
+          } catch (err) {
+            console.error("Error getting userId from customAuthProvider:", err);
+          }
+        }
+        
+        // Get token from session
+        const token = session.accessToken || (session as any).token;
+        
+        // Create user info with all available data
         const userInfo = {
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
-          token: session.accessToken,
+          token: token,
+          userId: userId,
         };
-
-        // Try to get userId from custom attributes if they exist
-        // Only add userId if it's actually available in the session
-        if (session.user && (session.user as any).id) {
-          return {
-            ...userInfo,
-            userId: (session.user as any).id
-          };
-        }
+        
+        // Log the identity for debugging
+        console.log("Identity data:", { 
+          name: userInfo.name, 
+          email: userInfo.email, 
+          userId: userInfo.userId || "Missing",
+          token: userInfo.token ? "Present" : "Missing" 
+        });
         
         return userInfo;
       }
@@ -219,8 +252,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
       // Only try custom auth if no session exists
       try {
         const identity = await customAuthProvider.getIdentity();
+        console.log("Custom auth identity:", { 
+          name: identity?.name, 
+          email: identity?.email, 
+          userId: identity?.userId || "Missing",
+          token: identity?.token ? "Present" : "Missing" 
+        });
         return identity;
       } catch (error) {
+        console.error("Error getting identity from customAuthProvider:", error);
         return null;
       }
     },
@@ -260,7 +300,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/jobs/show/:id",
               meta: {
                 canDelete: true,
-                icon: "chart-line"
+                icon: "chart-line",
+                label: "Jobs"
               },
             },
             {
@@ -279,7 +320,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/categories/show/:id",
               meta: {
                 canDelete: true,
-                icon: "tag"
+                icon: "tag",
+                label: "Categories"
               },
             },
             {
@@ -288,7 +330,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/output/show/:id",
               meta: {
                 canDelete: true,
-                icon: "box"
+                icon: "box",
+                label: "Output"
               },
             },
           ]}

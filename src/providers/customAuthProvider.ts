@@ -231,7 +231,8 @@ class AuthProviderClass implements AuthProvider {
 		roles: userData.roles || [],
 		token: userData.accessToken,
 		subscriptionPlan: userData.subscriptionPlan,
-		userHash: userData.userHash
+		userHash: userData.userHash,
+		userId: userData.id
 	  };
 	} catch (error) {
 	  return null;
