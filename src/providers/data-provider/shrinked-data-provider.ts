@@ -4,24 +4,6 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance } from "axios";
-
-const axiosInstance = axios.create();
-
-axiosInstance.interceptors.response.use(
-  (response) => {
-	return response;
-  },
-  (error) => {
-	const customError: HttpError = {
-	  ...error,
-	  message: error.response?.data?.message || "Error occurred",
-	  statusCode: error.response?.status,
-	};
-
-	return Promise.reject(customError);
-  }
-);
 
 const generateFilters = (filters?: CrudFilters) => {
   const queryFilters: { [key: string]: any } = {};
@@ -29,7 +11,6 @@ const generateFilters = (filters?: CrudFilters) => {
   filters?.forEach((filter) => {
 	if ("field" in filter) {
 	  const { field, operator, value } = filter;
-
 	  if (operator === "eq") {
 		queryFilters[field] = value;
 	  }
@@ -43,189 +24,234 @@ const generateSort = (sorters?: CrudSorting) => {
   if (sorters && sorters.length > 0) {
 	const sort = sorters[0].field;
 	const order = sorters[0].order;
-
 	return { sort, order };
   }
-
   return {};
 };
 
-export const shrinkedDataProvider = (
-  apiUrl: string,
-  httpClient: AxiosInstance = axiosInstance
-): Partial<DataProvider> => ({
+export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	const url = `${apiUrl}/${resource}`;
-	console.log("Headers:", meta?.headers);
-	
 	try {
-	  // Fix: Get current and pageSize from pagination
+	  const url = `${apiUrl}/${resource}`;
 	  const current = pagination?.current || 1;
 	  const pageSize = pagination?.pageSize || 10;
 
-	  const { data } = await httpClient.get(url, {
+	  const response = await fetch(url, {
+		method: 'GET',
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(meta?.headers || {})
+		},
 		params: {
 		  page: current,
 		  limit: pageSize,
 		  ...generateFilters(filters),
 		  ...generateSort(sorters),
-		},
-		headers: meta?.headers,
+		}
 	  });
-	  
-	  console.log("API Response:", data);
-	  
+
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error fetching data',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  const jobs = data.jobs || data.data || data;
 	  const total = data.total || (Array.isArray(jobs) ? jobs.length : 0);
-	  
-	  console.log("Processed data:", { jobs, total });
-	  
+
 	  return {
 		data: jobs,
-		total: total
+		total
 	  };
 	} catch (error) {
-	  console.error("Error details:", {
-		config: error.config,
-		response: error.response?.data
-	  });
-	  throw error;
+	  throw new HttpError(error as any);
 	}
-  }, // Added missing comma here
+  },
 
   getOne: async ({ resource, id, meta }) => {
-	if (!id) {
-	  throw new Error('Job ID is required');
-	}
-
-	const url = `${apiUrl}/${resource}/${id}`;
-
 	try {
-	  const { data } = await httpClient.get(url, {
-		headers: meta?.headers,
+	  if (!id) {
+		throw new Error('ID is required');
+	  }
+
+	  const url = `${apiUrl}/${resource}/${id}`;
+	  const response = await fetch(url, {
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(meta?.headers || {})
+		}
 	  });
 
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error fetching resource',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  return {
-		data: data.data || data,
+		data: data.data || data
 	  };
 	} catch (error) {
-	  console.error("Error fetching job:", error);
-	  throw error;
+	  throw new HttpError(error as any);
 	}
   },
 
   create: async ({ resource, variables, meta }) => {
-	const url = `${apiUrl}/${resource}`;
-
 	try {
-	  const { data } = await httpClient.post(url, variables, {
-		headers: meta?.headers,
+	  const url = `${apiUrl}/${resource}`;
+	  const response = await fetch(url, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(meta?.headers || {})
+		},
+		body: JSON.stringify(variables)
 	  });
 
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error creating resource',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  return {
-		data: data.data || data,
+		data: data.data || data
 	  };
 	} catch (error) {
-	  console.error("Error creating job:", error);
-	  throw error;
+	  throw new HttpError(error as any);
 	}
   },
 
   update: async ({ resource, id, variables, meta }) => {
-	if (!id) {
-	  throw new Error('Job ID is required');
-	}
-
-	const url = `${apiUrl}/${resource}/${id}`;
-
 	try {
-	  const { data } = await httpClient.patch(url, variables, {
-		headers: meta?.headers,
+	  if (!id) {
+		throw new Error('ID is required');
+	  }
+
+	  const url = `${apiUrl}/${resource}/${id}`;
+	  const response = await fetch(url, {
+		method: 'PATCH',
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(meta?.headers || {})
+		},
+		body: JSON.stringify(variables)
 	  });
 
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error updating resource',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  return {
-		data: data.data || data,
+		data: data.data || data
 	  };
 	} catch (error) {
-	  console.error("Error updating job:", error);
-	  throw error;
+	  throw new HttpError(error as any);
 	}
   },
 
   deleteOne: async ({ resource, id, variables, meta }) => {
-	if (!id) {
-	  throw new Error('Job ID is required');
-	}
-
-	const url = `${apiUrl}/${resource}/${id}`;
-
 	try {
-	  const { data } = await httpClient.delete(url, {
-		data: variables,
-		headers: meta?.headers,
+	  if (!id) {
+		throw new Error('ID is required');
+	  }
+
+	  const url = `${apiUrl}/${resource}/${id}`;
+	  const response = await fetch(url, {
+		method: 'DELETE',
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(meta?.headers || {})
+		},
+		body: JSON.stringify(variables)
 	  });
 
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error deleting resource',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  return {
-		data: data.data || data,
+		data: data.data || data
 	  };
 	} catch (error) {
-	  console.error("Error deleting job:", error);
-	  throw error;
+	  throw new HttpError(error as any);
 	}
   },
 
   getMany: async ({ resource, ids, meta }) => {
-	if (!ids || !ids.length) {
-	  return { data: [] };
-	}
-
-	const url = `${apiUrl}/${resource}`;
-
 	try {
-	  const { data } = await httpClient.get(url, {
-		params: { ids: ids.join(",") },
-		headers: meta?.headers,
+	  if (!ids || !ids.length) {
+		return { data: [] };
+	  }
+
+	  const url = `${apiUrl}/${resource}`;
+	  const response = await fetch(url, {
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(meta?.headers || {})
+		},
+		params: { ids: ids.join(",") }
 	  });
 
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error fetching resources',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  return {
-		data: data.data || (Array.isArray(data) ? data : []),
+		data: data.data || (Array.isArray(data) ? data : [])
 	  };
 	} catch (error) {
-	  console.error("Error fetching multiple jobs:", error);
-	  throw error;
+	  throw new HttpError(error as any);
 	}
   },
-
-  getApiUrl: () => apiUrl,
 
   custom: async ({ url, method, payload, query, headers }) => {
 	try {
-	  let axiosResponse;
-	  switch (method) {
-		case "put":
-		case "post":
-		case "patch":
-		  axiosResponse = await httpClient[method](url, payload, { headers });
-		  break;
-		case "delete":
-		  axiosResponse = await httpClient.delete(url, {
-			data: payload,
-			headers: headers,
-		  });
-		  break;
-		default:
-		  axiosResponse = await httpClient.get(url, {
-			params: query,
-			headers,
-		  });
-		  break;
+	  const config: RequestInit = {
+		method: method || 'GET',
+		headers: {
+		  'Content-Type': 'application/json',
+		  ...(headers || {})
+		}
+	  };
+
+	  if (payload) {
+		config.body = JSON.stringify(payload);
 	  }
 
-	  const { data } = axiosResponse;
+	  const response = await fetch(url, config);
+
+	  if (!response.ok) {
+		throw new HttpError({
+		  message: 'Error in custom request',
+		  statusCode: response.status
+		});
+	  }
+
+	  const data = await response.json();
 	  return { data };
 	} catch (error) {
-	  console.error("Error in custom request:", error);
-	  throw error;
+	  throw new HttpError(error as any);
 	}
   },
+
+  getApiUrl: () => apiUrl
 });
