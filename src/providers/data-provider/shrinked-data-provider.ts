@@ -10,7 +10,7 @@ const generateFilters = (filters?: CrudFilters) => {
   filters?.forEach((filter) => {
 	if ("field" in filter) {
 	  const { field, operator, value } = filter;
-	  if (operator === "eq") {
+	  if (operator === "eq" && value !== undefined) {
 		queryFilters[field] = String(value);
 	  }
 	}
@@ -19,20 +19,15 @@ const generateFilters = (filters?: CrudFilters) => {
   return queryFilters;
 };
 
-const generateSort = (sorters?: CrudSorting) => {
+const generateSort = (sorters?: CrudSorting): Record<string, string> => {
   if (sorters && sorters.length > 0) {
+	const { field, order } = sorters[0];
 	return {
-	  sort: String(sorters[0].field),
-	  order: String(sorters[0].order)
+	  sort: String(field),
+	  order: String(order)
 	};
   }
   return {};
-};
-
-const generateQueryString = (params: Record<string, string>) => {
-  return Object.entries(params)
-	.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-	.join('&');
 };
 
 export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => ({
@@ -41,15 +36,22 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 	  const current = pagination?.current || 1;
 	  const pageSize = pagination?.pageSize || 10;
 
-	  // Build query parameters
-	  const queryParams = {
+	  // Combine all query parameters
+	  const baseParams = {
 		page: String(current),
-		limit: String(pageSize),
-		...generateFilters(filters),
-		...generateSort(sorters)
+		limit: String(pageSize)
 	  };
 
-	  const queryString = generateQueryString(queryParams);
+	  const filterParams = generateFilters(filters);
+	  const sortParams = generateSort(sorters);
+	  
+	  // Convert params to query string
+	  const queryString = new URLSearchParams({
+		...baseParams,
+		...filterParams,
+		...sortParams
+	  }).toString();
+
 	  const url = `${apiUrl}/${resource}${queryString ? `?${queryString}` : ''}`;
 
 	  const response = await fetch(url, {
@@ -208,11 +210,11 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		return { data: [] };
 	  }
 
-	  const queryString = generateQueryString({
+	  const params = new URLSearchParams({
 		ids: ids.join(",")
 	  });
 
-	  const url = `${apiUrl}/${resource}${queryString ? `?${queryString}` : ''}`;
+	  const url = `${apiUrl}/${resource}?${params.toString()}`;
 	  const response = await fetch(url, {
 		headers: {
 		  'Content-Type': 'application/json',
@@ -238,8 +240,8 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 
   custom: async ({ url, method, payload, query, headers }) => {
 	try {
-	  const queryString = query ? generateQueryString(query as Record<string, string>) : '';
-	  const fullUrl = `${url}${queryString ? `?${queryString}` : ''}`;
+	  const params = query ? new URLSearchParams(query as Record<string, string>) : null;
+	  const fullUrl = `${url}${params ? `?${params.toString()}` : ''}`;
 
 	  const response = await fetch(fullUrl, {
 		method: method || 'GET',
