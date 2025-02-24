@@ -196,13 +196,24 @@ const App = (props: React.PropsWithChildren<{}>) => {
     getIdentity: async () => {
       // Prioritize session data
       if (session?.user) {
-        return {
+        // Get user info from session
+        const userInfo = {
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
           token: session.accessToken,
-          userId: session.user.id || null, // Make sure to include userId for API Key operations
         };
+
+        // Try to get userId from custom attributes if they exist
+        // Only add userId if it's actually available in the session
+        if (session.user && (session.user as any).id) {
+          return {
+            ...userInfo,
+            userId: (session.user as any).id
+          };
+        }
+        
+        return userInfo;
       }
       
       // Only try custom auth if no session exists
