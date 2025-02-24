@@ -201,6 +201,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           email: session.user.email,
           avatar: session.user.image,
           token: session.accessToken,
+          userId: session.user.id || null, // Make sure to include userId for API Key operations
         };
       }
       
@@ -248,6 +249,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/jobs/show/:id",
               meta: {
                 canDelete: true,
+                icon: "chart-line"
+              },
+            },
+            {
+              name: "api-keys",
+              list: "/api-keys",
+              meta: {
+                label: "API Keys",
+                icon: "key"
               },
             },
             {
@@ -258,6 +268,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/categories/show/:id",
               meta: {
                 canDelete: true,
+                icon: "tag"
               },
             },
             {
@@ -266,6 +277,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/output/show/:id",
               meta: {
                 canDelete: true,
+                icon: "box"
               },
             },
           ]}

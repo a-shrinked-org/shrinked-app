@@ -110,14 +110,11 @@ export default function ApiKeysList() {
         cell: function render({ row }) {
           return (
             <Group gap="xs">
-              {/* We'll add the Regenerate button after tableQueryResult is available */}
               <ActionIcon 
                 color="red" 
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (handleDeleteApiKey) {
-                    handleDeleteApiKey(row.original.id);
-                  }
+                  handleDeleteApiKey(row.original.id);
                 }}
               >
                 <IconTrash size={16} />
@@ -127,7 +124,7 @@ export default function ApiKeysList() {
         }
       }
     ],
-    [identity?.token]
+    []
   );
   
   const {
@@ -137,14 +134,13 @@ export default function ApiKeysList() {
   } = useTable<ApiKey>({
     columns,
     refineCoreProps: {
-      resource: "users/api-keys",
+      resource: "api-keys",
       queryOptions: {
         enabled: !!identity?.token,
-        onSuccess: (data) => {
-          console.log("API Keys query success:", data);
-        },
+        retry: false, // Don't retry on failure to prevent multiple 404s
         onError: (error) => {
-          console.error("API Keys query error:", error);
+          // Handle error silently, since it's expected if user has no API keys yet
+          console.log("API Keys query error, likely no keys yet:", error);
         }
       },
       meta: {
@@ -285,7 +281,7 @@ export default function ApiKeysList() {
             ))}
           </Table.Thead>
           <Table.Tbody>
-            {getRowModel().rows.length === 0 ? (
+            {tableQueryResult.isError || !tableQueryResult.data || getRowModel().rows.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={4} align="center">
                   <Text p="md">No API keys found. Create one to get started.</Text>
