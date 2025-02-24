@@ -250,11 +250,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
                 canDelete: true,
                 icon: "chart-line",
                 label: "Jobs",
-                // These props help with the sidebar navigation display
-                parent: {
-                  icon: "chart-line",
-                  label: "Jobs"
-                },
+                parent: "Jobs",
                 hide: false // Make sure it's not hidden
               },
             },
