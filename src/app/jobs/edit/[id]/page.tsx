@@ -11,7 +11,8 @@ import {
   Group, 
   Box, 
   Title,
-  Paper
+  Paper,
+  Text  // Added missing Text import
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { IconArrowLeft } from '@tabler/icons-react';
@@ -24,7 +25,7 @@ interface Identity {
 }
 
 type JobEditForm = {
-  _id?: string;  // Added _id field
+  _id?: string;
   jobName: string;
   scenario: string;
   lang: string;
@@ -37,17 +38,8 @@ export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
-    
-  if (!identity?.token) {
-    return (
-      <Box p="md">
-        <Text>Loading authentication...</Text>
-      </Box>
-    );
-  }
 
-  console.log("Edit page id:", id); // Debug log
-
+  // Move form initialization before any conditional returns
   const formProps: UseFormProps = {
     refineCoreProps: {
       resource: "jobs",
@@ -64,9 +56,9 @@ export default function JobEdit() {
         }
       },
       meta: {
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`
-        }
+        headers: identity?.token ? {
+          'Authorization': `Bearer ${identity.token}`
+        } : undefined
       }
     }
   };
@@ -78,7 +70,16 @@ export default function JobEdit() {
     formState: { errors },
     setValue,
     watch,
-  } = useForm<JobEditForm>(formProps);  // Added type to useForm
+  } = useForm<JobEditForm>(formProps);
+
+  // Authentication check after hooks
+  if (!identity?.token) {
+    return (
+      <Box p="md">
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
+  }
 
   const onSubmitHandler = async (data: FieldValues) => {
     try {
@@ -99,7 +100,7 @@ export default function JobEdit() {
       });
     }
   };
-
+  
   return (
     <Box p="md">
       <Paper p="md" radius="md">

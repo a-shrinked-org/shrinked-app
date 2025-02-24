@@ -24,7 +24,7 @@ interface Identity {
 }
 
 interface Job {
-  _id: string;  // Changed from id to _id
+  _id: string;
   jobName: string;
   scenario: string;
   lang: string;
@@ -37,20 +37,11 @@ interface Job {
 
 export default function JobShow() {
   const params = useParams();
-  console.log("Show page params:", params); // Debug log
-  
   const { edit, list } = useNavigation();
   const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
-    
-  if (!identity?.token) {
-    return (
-      <Box p="md">
-        <Text>Loading authentication...</Text>
-      </Box>
-    );
-  }
   
+  // Move useShow before any conditional returns
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
@@ -64,14 +55,23 @@ export default function JobShow() {
       }
     },
     meta: {
-      headers: {
-        'Authorization': `Bearer ${identity?.token}`
-      }
+      headers: identity?.token ? {
+        'Authorization': `Bearer ${identity.token}`
+      } : undefined
     }
   });
-  
+
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
+
+  // Authentication check after hooks
+  if (!identity?.token) {
+    return (
+      <Box p="md">
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
+  }
 
   if (isLoading) {
     return (
