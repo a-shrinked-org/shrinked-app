@@ -55,40 +55,43 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	  const url = `${apiUrl}/${resource}`;
-	  console.log("Headers:", meta?.headers); // Debug token
+	const url = `${apiUrl}/${resource}`;
+	console.log("Headers:", meta?.headers);
+	
+	try {
+	  // Fix: Get current and pageSize from pagination
+	  const current = pagination?.current || 1;
+	  const pageSize = pagination?.pageSize || 10;
+
+	  const { data } = await httpClient.get(url, {
+		params: {
+		  page: current,
+		  limit: pageSize,
+		  ...generateFilters(filters),
+		  ...generateSort(sorters),
+		},
+		headers: meta?.headers,
+	  });
 	  
-	  try {
-		const { data } = await httpClient.get(url, {
-		  params: {
-			page: current,
-			limit: pageSize,
-			...generateFilters(filters),
-			...generateSort(sorters),
-		  },
-		  headers: meta?.headers,
-		});
-		
-		console.log("API Response:", data); // See exact response structure
-		
-		// Extract data based on your API structure
-		const jobs = data.jobs || data.data || data;
-		const total = data.total || (Array.isArray(jobs) ? jobs.length : 0);
-  
-		console.log("Processed data:", { jobs, total }); // Verify processed data
-		
-		return {
-		  data: jobs,
-		  total: total
-		};
-	  } catch (error) {
-		console.error("Error details:", {
-		  config: error.config,
-		  response: error.response?.data
-		});
-		throw error;
-	  }
+	  console.log("API Response:", data);
+	  
+	  const jobs = data.jobs || data.data || data;
+	  const total = data.total || (Array.isArray(jobs) ? jobs.length : 0);
+	  
+	  console.log("Processed data:", { jobs, total });
+	  
+	  return {
+		data: jobs,
+		total: total
+	  };
+	} catch (error) {
+	  console.error("Error details:", {
+		config: error.config,
+		response: error.response?.data
+	  });
+	  throw error;
 	}
+  }, // Added missing comma here
 
   getOne: async ({ resource, id, meta }) => {
 	if (!id) {
@@ -102,7 +105,6 @@ export const shrinkedDataProvider = (
 		headers: meta?.headers,
 	  });
 
-	  // Handle the case where the job data is nested under a 'data' property
 	  return {
 		data: data.data || data,
 	  };
