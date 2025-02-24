@@ -1,8 +1,7 @@
 import { 
   DataProvider,
   CrudFilters,
-  CrudSorting,
-  HttpError
+  CrudSorting
 } from "@refinedev/core";
 
 const generateFilters = (filters?: CrudFilters) => {
@@ -32,29 +31,32 @@ const generateSort = (sorters?: CrudSorting) => {
 export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
 	try {
-	  const url = `${apiUrl}/${resource}`;
 	  const current = pagination?.current || 1;
 	  const pageSize = pagination?.pageSize || 10;
+
+	  // Build URL with query parameters
+	  const params = new URLSearchParams({
+		page: current.toString(),
+		limit: pageSize.toString(),
+		...generateFilters(filters),
+		...generateSort(sorters)
+	  });
+
+	  const url = `${apiUrl}/${resource}?${params.toString()}`;
 
 	  const response = await fetch(url, {
 		method: 'GET',
 		headers: {
 		  'Content-Type': 'application/json',
 		  ...(meta?.headers || {})
-		},
-		params: {
-		  page: current,
-		  limit: pageSize,
-		  ...generateFilters(filters),
-		  ...generateSort(sorters),
 		}
 	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error fetching data',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
@@ -66,7 +68,7 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		total
 	  };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
@@ -85,10 +87,10 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error fetching resource',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
@@ -96,7 +98,7 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		data: data.data || data
 	  };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
@@ -113,10 +115,10 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error creating resource',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
@@ -124,7 +126,7 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		data: data.data || data
 	  };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
@@ -145,10 +147,10 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error updating resource',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
@@ -156,7 +158,7 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		data: data.data || data
 	  };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
@@ -177,10 +179,10 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error deleting resource',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
@@ -188,7 +190,7 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		data: data.data || data
 	  };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
@@ -198,20 +200,23 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		return { data: [] };
 	  }
 
-	  const url = `${apiUrl}/${resource}`;
+	  const params = new URLSearchParams({
+		ids: ids.join(",")
+	  });
+
+	  const url = `${apiUrl}/${resource}?${params.toString()}`;
 	  const response = await fetch(url, {
 		headers: {
 		  'Content-Type': 'application/json',
 		  ...(meta?.headers || {})
-		},
-		params: { ids: ids.join(",") }
+		}
 	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error fetching resources',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
@@ -219,37 +224,35 @@ export const shrinkedDataProvider = (apiUrl: string): Partial<DataProvider> => (
 		data: data.data || (Array.isArray(data) ? data : [])
 	  };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
   custom: async ({ url, method, payload, query, headers }) => {
 	try {
-	  const config: RequestInit = {
+	  const queryString = query ? `?${new URLSearchParams(query).toString()}` : '';
+	  const fullUrl = `${url}${queryString}`;
+
+	  const response = await fetch(fullUrl, {
 		method: method || 'GET',
 		headers: {
 		  'Content-Type': 'application/json',
 		  ...(headers || {})
-		}
-	  };
-
-	  if (payload) {
-		config.body = JSON.stringify(payload);
-	  }
-
-	  const response = await fetch(url, config);
+		},
+		...(payload ? { body: JSON.stringify(payload) } : {})
+	  });
 
 	  if (!response.ok) {
-		throw new HttpError({
+		throw {
 		  message: 'Error in custom request',
 		  statusCode: response.status
-		});
+		};
 	  }
 
 	  const data = await response.json();
 	  return { data };
 	} catch (error) {
-	  throw new HttpError(error as any);
+	  throw error;
 	}
   },
 
