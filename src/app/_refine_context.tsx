@@ -209,27 +209,16 @@ const App = (props: React.PropsWithChildren<{}>) => {
     getIdentity: async () => {
       // Prioritize session data
       if (session?.user) {
-        // Extract userId from session if available
         let userId = null;
         
-        // Use Next Auth user.id directly if it exists
-        if (session.user.id) {
-          userId = session.user.id;
-        } 
-        // Or try to extract from a custom claim if it exists
-        else if ((session.user as any).userId) {
-          userId = (session.user as any).userId;
-        }
-        // Otherwise use the customAuthProvider
-        else {
-          try {
-            const identity = await customAuthProvider.getIdentity();
-            if (identity && identity.userId) {
-              userId = identity.userId;
-            }
-          } catch (err) {
-            console.error("Error getting userId from customAuthProvider:", err);
+        // Try to get user ID from custom auth provider
+        try {
+          const identity = await customAuthProvider.getIdentity();
+          if (identity && identity.userId) {
+            userId = identity.userId;
           }
+        } catch (err) {
+          console.error("Error getting userId from customAuthProvider:", err);
         }
         
         // Get token from session
@@ -237,12 +226,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
         
         // Create user info with all available data
         const userInfo = {
-          id: userId,
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
           token: token,
-          userId: userId,
+          userId: userId
         };
         
         // Log the identity for debugging
