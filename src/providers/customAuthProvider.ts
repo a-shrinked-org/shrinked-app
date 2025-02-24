@@ -224,17 +224,18 @@ class AuthProviderClass implements AuthProvider {
 	try {
 	  const userData: UserData = JSON.parse(userStr);
 	  return {
-		id: userData.id,
+		id: userData.userId || userData._id,
 		name: userData.username || userData.email,
 		email: userData.email,
-		avatar: userData.avatar,
+		avatar: userData.avatar || '',
 		roles: userData.roles || [],
 		token: userData.accessToken,
 		subscriptionPlan: userData.subscriptionPlan,
-		userHash: userData.userHash,
+		apiKeys: userData.apiKeys || [],
 		userId: userData.id
 	  };
 	} catch (error) {
+	  console.error("Error parsing user data:", error);
 	  return null;
 	}
   }

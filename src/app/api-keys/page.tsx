@@ -80,14 +80,19 @@ export default function ApiKeysList() {
         console.log("No token available, skipping API keys fetch");
         return;
       }
-      
+  
       setIsLoadingKeys(true);
       setError(null);
-      
+  
       try {
-        console.log("Fetching API keys...");
-        // Use the ApiKeyService to fetch API keys
-        const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
+        console.log("Fetching API keys from profile...");
+        
+        // Fetch user profile instead of calling a separate API for keys
+        const userProfile = await ApiKeyService.getUserProfile(identity.token);
+  
+        // Extract API keys from the profile
+        const fetchedApiKeys = userProfile.apiKeys || [];
+  
         console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
         setApiKeys(fetchedApiKeys);
       } catch (error) {
@@ -98,7 +103,7 @@ export default function ApiKeysList() {
         setIsLoadingKeys(false);
       }
     };
-    
+  
     if (identity?.token) {
       fetchApiKeys();
     }
@@ -106,13 +111,14 @@ export default function ApiKeysList() {
 
   const refreshApiKeys = async () => {
     if (!identity?.token) return;
-    
+  
     setIsLoadingKeys(true);
     setError(null);
-    
+  
     try {
-      const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
-      setApiKeys(fetchedApiKeys);
+      // Fetch user profile again to update API keys
+      const userProfile = await ApiKeyService.getUserProfile(identity.token);
+      setApiKeys(userProfile.apiKeys || []);
     } catch (error) {
       console.error('Error refreshing API keys:', error);
       setApiKeys([]);
@@ -121,13 +127,12 @@ export default function ApiKeysList() {
       setIsLoadingKeys(false);
     }
   };
-
+  
   const handleCreateApiKey = async () => {
     if (!keyName) return;
-    
-    // Get userId from identity
+  
     const effectiveUserId = userId || identity?.userId;
-    
+  
     if (!effectiveUserId || !identity?.token) {
       console.error("Missing required data for creating API key:", {
         keyName: !!keyName,
@@ -137,24 +142,24 @@ export default function ApiKeysList() {
       setError("Cannot create API key: User ID is missing");
       return;
     }
-    
+  
     setIsLoading(true);
     setError(null);
-    
+  
     try {
-      console.log(`Creating API key with userId: ${effectiveUserId}`);
-      
-      // Use the ApiKeyService to create a new API key
-      const newKey = await ApiKeyService.createApiKey(identity.token, effectiveUserId, keyName);
+      console.log(`Creating API key for userId: ${effectiveUserId}`);
+  
+      // Create API key through the profile API
+      const newKey = await ApiKeyService.createApiKey(identity.token, keyName);
+  
       console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
-      
+  
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
-      
+  
       // Refresh the API keys list
       refreshApiKeys();
-      
     } catch (error) {
       console.error("Error creating API key:", error);
       setError(`Error creating API key: ${error instanceof Error ? error.message : String(error)}`);
@@ -165,14 +170,13 @@ export default function ApiKeysList() {
   
   const handleDeleteApiKey = async (keyId: string) => {
     if (!identity?.token) return;
-    
+  
     try {
-      // Use the ApiKeyService to delete an API key
+      // Use the API to delete the key from the user's profile
       await ApiKeyService.deleteApiKey(identity.token, keyId);
-      
+  
       // Refresh the API keys list
       refreshApiKeys();
-      
     } catch (error) {
       console.error("Error deleting API key:", error);
       setError(`Error deleting API key: ${error instanceof Error ? error.message : String(error)}`);
