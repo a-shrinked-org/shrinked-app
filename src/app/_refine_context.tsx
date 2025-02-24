@@ -55,7 +55,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
   useEffect(() => {
     const checkAuthentication = async () => {
       if (status === "loading") return;
-
+  
       try {
         if (session) {
           setAuthState({
@@ -65,12 +65,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
           });
           return;
         }
-
-        const result = await customAuthProvider.check();
-        
+  
+        // Let the authProvider.check handle the rest
         setAuthState({
           isChecking: false,
-          isAuthenticated: result.authenticated,
+          isAuthenticated: false,
           initialized: true,
         });
       } catch (error) {
@@ -82,7 +81,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
         });
       }
     };
-
+  
     checkAuthentication();
   }, [status, session]);
 
@@ -152,16 +151,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
     },
+  
     check: async () => {
+      // Skip check if we're on login page or have a session
+      if (to === "/login" || session) {
+        return { authenticated: !!session };
+      }
+  
       try {
-        // If we're already on the login page, no need to check auth
-        if (to === "/login") {
-          return { authenticated: false };
-        }
-        
         const result = await customAuthProvider.check();
         
-        // Only redirect to login if not authenticated AND not already on login page
+        // Not authenticated and not on login page - redirect to login
         if (!result.authenticated && to !== "/login") {
           return {
             authenticated: false,
@@ -171,7 +171,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           };
         }
         
-        // If authenticated and on login page, redirect to jobs
+        // Authenticated but on login page - redirect to jobs
         if (result.authenticated && to === "/login") {
           return {
             authenticated: true,
@@ -179,6 +179,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           };
         }
         
+        // Just return authentication status in other cases
         return {
           authenticated: result.authenticated
         };
@@ -191,8 +192,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
     },
+  
     getIdentity: async () => {
-      // First try to get session data (Auth0)
+      // Prioritize session data
       if (session?.user) {
         return {
           name: session.user.name,
@@ -202,16 +204,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
       
-      // If no session, try custom auth
-      const identity = await customAuthProvider.getIdentity();
-      if (identity) {
-        console.log("Custom auth identity:", identity);
+      // Only try custom auth if no session exists
+      try {
+        const identity = await customAuthProvider.getIdentity();
         return identity;
+      } catch (error) {
+        return null;
       }
-      
-      // If both fail, return null
-      return null;
     },
+  
     logout: async (params: any = {}) => {
       const result = await customAuthProvider.logout(params);
       setAuthState({

@@ -172,23 +172,14 @@ class AuthProviderClass implements AuthProvider {
 	const accessToken = localStorage.getItem('accessToken');
 	const refreshToken = localStorage.getItem('refreshToken');
   
-	console.log("Checking auth tokens:", {
-	  hasUser: !!userStr,
-	  hasAccess: !!accessToken,
-	  hasRefresh: !!refreshToken
-	});
-  
-	if (!accessToken || !refreshToken) {
-	  console.log("No tokens found");
+	if (!accessToken || !refreshToken || !userStr) {
+	  console.log("No tokens or user data found");
 	  this.clearStorage();
-	  return {
-		authenticated: false
-	  };
+	  return { authenticated: false };
 	}
   
 	try {
-	  // Try to validate the current token
-	  console.log("Validating access token");
+	  // Only make one profile check
 	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
@@ -197,92 +188,43 @@ class AuthProviderClass implements AuthProvider {
 	  });
   
 	  if (response.ok) {
-		const userData = await response.json();
-		// Update stored user data with current tokens
-		const updatedUserData = {
-		  ...userData,
-		  accessToken,
-		  refreshToken
-		};
-		localStorage.setItem('user', JSON.stringify(updatedUserData));
-		console.log("Token valid, user authenticated");
-		return {
-		  authenticated: true
-		};
+		return { authenticated: true };
 	  }
   
-	  if (response.status === 403 || response.status === 401) {
-		console.log("Token invalid, attempting refresh");
+	  // If token is invalid, try refresh once
+	  if (response.status === 401 || response.status === 403) {
 		const newTokens = await this.refreshAccessToken(refreshToken);
-		
-		if (!newTokens) {
-		  console.log("Token refresh failed");
-		  this.clearStorage();
-		  return {
-			authenticated: false
-		  };
-		}
-  
-		const retryResponse = await fetch(`${API_URL}/users/profile`, {
-		  method: 'GET',
-		  headers: {
-			'Authorization': `Bearer ${newTokens.accessToken}`,
-		  },
-		});
-  
-		if (retryResponse.ok) {
-		  const userData = await retryResponse.json();
-		  const updatedUserData = {
-			...userData,
-			accessToken: newTokens.accessToken,
-			refreshToken: newTokens.refreshToken
-		  };
-		  localStorage.setItem('user', JSON.stringify(updatedUserData));
-		  console.log("Authentication restored with new tokens");
-		  return {
-			authenticated: true
-		  };
-		}
+		return { authenticated: !!newTokens };
 	  }
   
-	  console.log("Authentication failed");
-	  this.clearStorage();
-	  return {
-		authenticated: false
-	  };
+	  return { authenticated: false };
 	} catch (error) {
 	  console.error("Auth check error:", error);
 	  this.clearStorage();
-	  return {
-		authenticated: false
-	  };
+	  return { authenticated: false };
 	}
   }
 
   async getIdentity() {
-  const userStr = localStorage.getItem('user');
-  if (!userStr) {
-	console.log("No user data in localStorage");
-	return null;
-  }
-  
-  try {
-	const userData: UserData = JSON.parse(userStr);
-	console.log("Parsed user data:", userData);
+	const userStr = localStorage.getItem('user');
+	if (!userStr) {
+	  return null;
+	}
 	
-	return {
-	  id: userData.id,
-	  name: userData.username || userData.email,
-	  email: userData.email,
-	  avatar: userData.avatar,
-	  roles: userData.roles || [],
-	  token: userData.accessToken,
-	  subscriptionPlan: userData.subscriptionPlan,
-	  userHash: userData.userHash
-	};
-  } catch (error) {
-	console.error("GetIdentity error:", error);
-	return null;
+	try {
+	  const userData: UserData = JSON.parse(userStr);
+	  return {
+		id: userData.id,
+		name: userData.username || userData.email,
+		email: userData.email,
+		avatar: userData.avatar,
+		roles: userData.roles || [],
+		token: userData.accessToken,
+		subscriptionPlan: userData.subscriptionPlan,
+		userHash: userData.userHash
+	  };
+	} catch (error) {
+	  return null;
 	}
   }
 
