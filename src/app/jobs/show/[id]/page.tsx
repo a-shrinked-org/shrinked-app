@@ -12,10 +12,18 @@ import {
   Box,
   Grid,
   Card,
-  Alert
+  Alert,
+  Tabs
 } from '@mantine/core';
-import { IconEdit, IconArrowLeft, IconAlertCircle } from '@tabler/icons-react';
+import { IconEdit, IconArrowLeft, IconAlertCircle, IconChartLine, IconTimeline } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
+import dynamic from 'next/dynamic';
+
+// Import the JobProcessingFlow component with dynamic loading for client-side rendering
+const JobProcessingFlow = dynamic(
+  () => import('@/components/JobProcessingFlow'),
+  { ssr: false, loading: () => <div>Loading flow diagram...</div> }
+);
 
 interface Identity {
   token?: string;
@@ -41,7 +49,6 @@ export default function JobShow() {
   const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
   
-  // Move useShow before any conditional returns
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
@@ -143,74 +150,106 @@ export default function JobShow() {
             </Group>
           </Group>
 
-          <Grid>
-            <Grid.Col span={12}>
+          <Tabs defaultValue="details">
+            <Tabs.List>
+              <Tabs.Tab value="details" leftSection={<IconChartLine size={16} />}>
+                Details
+              </Tabs.Tab>
+              <Tabs.Tab value="processing" leftSection={<IconTimeline size={16} />}>
+                Processing Flow
+              </Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="details" pt="md">
+              <Grid>
+                <Grid.Col span={12}>
+                  <Card withBorder p="md">
+                    <Stack gap="md">
+                      <Group justify="space-between">
+                        <div>
+                          <Text size="sm" c="dimmed">Job Name</Text>
+                          <Text fw={500}>{record?.jobName}</Text>
+                        </div>
+                        <Badge 
+                          color={getStatusColor(record?.status || '')}
+                          variant="light"
+                          size="lg"
+                        >
+                          {record?.status ? formatText(record.status) : 'Unknown'}
+                        </Badge>
+                      </Group>
+
+                      <div>
+                        <Text size="sm" c="dimmed">Scenario</Text>
+                        <Text>
+                          {record?.scenario ? formatText(record.scenario) : 'N/A'}
+                        </Text>
+                      </div>
+
+                      <div>
+                        <Text size="sm" c="dimmed">Language</Text>
+                        <Text>
+                          {record?.lang === 'en' ? 'English' : 
+                          record?.lang === 'uk' ? 'Ukrainian' : 
+                          record?.lang || 'N/A'}
+                        </Text>
+                      </div>
+
+                      <div>
+                        <Text size="sm" c="dimmed">Link</Text>
+                        <Text>{record?.link || 'N/A'}</Text>
+                      </div>
+
+                      <Group>
+                        <div>
+                          <Text size="sm" c="dimmed">Public</Text>
+                          <Badge color={record?.isPublic ? "green" : "gray"} variant="light">
+                            {record?.isPublic ? "Yes" : "No"}
+                          </Badge>
+                        </div>
+                        <div>
+                          <Text size="sm" c="dimmed">Create Page</Text>
+                          <Badge color={record?.createPage ? "green" : "gray"} variant="light">
+                            {record?.createPage ? "Yes" : "No"}
+                          </Badge>
+                        </div>
+                      </Group>
+
+                      <div>
+                        <Text size="sm" c="dimmed">Created At</Text>
+                        <Text>
+                          {record?.createdAt 
+                            ? new Date(record.createdAt).toLocaleString(undefined, {
+                                timeZone: "UTC",
+                              })
+                            : "N/A"}
+                        </Text>
+                      </div>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+              </Grid>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="processing" pt="md">
               <Card withBorder p="md">
                 <Stack gap="md">
-                  <Group justify="space-between">
-                    <div>
-                      <Text size="sm" c="dimmed">Job Name</Text>
-                      <Text fw={500}>{record?.jobName}</Text>
-                    </div>
-                    <Badge 
-                      color={getStatusColor(record?.status || '')}
-                      variant="light"
-                      size="lg"
-                    >
-                      {record?.status ? formatText(record.status) : 'Unknown'}
-                    </Badge>
-                  </Group>
-
-                  <div>
-                    <Text size="sm" c="dimmed">Scenario</Text>
-                    <Text>
-                      {record?.scenario ? formatText(record.scenario) : 'N/A'}
-                    </Text>
-                  </div>
-
-                  <div>
-                    <Text size="sm" c="dimmed">Language</Text>
-                    <Text>
-                      {record?.lang === 'en' ? 'English' : 
-                       record?.lang === 'uk' ? 'Ukrainian' : 
-                       record?.lang || 'N/A'}
-                    </Text>
-                  </div>
-
-                  <div>
-                    <Text size="sm" c="dimmed">Link</Text>
-                    <Text>{record?.link || 'N/A'}</Text>
-                  </div>
-
-                  <Group>
-                    <div>
-                      <Text size="sm" c="dimmed">Public</Text>
-                      <Badge color={record?.isPublic ? "green" : "gray"} variant="light">
-                        {record?.isPublic ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <Text size="sm" c="dimmed">Create Page</Text>
-                      <Badge color={record?.createPage ? "green" : "gray"} variant="light">
-                        {record?.createPage ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                  </Group>
-
-                  <div>
-                    <Text size="sm" c="dimmed">Created At</Text>
-                    <Text>
-                      {record?.createdAt 
-                        ? new Date(record.createdAt).toLocaleString(undefined, {
-                            timeZone: "UTC",
-                          })
-                        : "N/A"}
-                    </Text>
-                  </div>
+                  <Text size="sm" fw={500}>Job Processing Flow</Text>
+                  <Text size="xs" c="dimmed">
+                    Visual representation of the job processing pipeline
+                  </Text>
+                  
+                  {/* Job Flow Visualization */}
+                  {record && (
+                    <JobProcessingFlow 
+                      jobScenario={record.scenario} 
+                      jobStatus={record.status} 
+                    />
+                  )}
                 </Stack>
               </Card>
-            </Grid.Col>
-          </Grid>
+            </Tabs.Panel>
+          </Tabs>
         </Stack>
       </Paper>
     </Box>
