@@ -2,6 +2,8 @@ import { AuthProvider } from "@refinedev/core";
 
 interface UserData {
   id?: string;
+  userId?: string; // Add this property
+  _id?: string;    // Add this property
   email: string;
   username: string;
   roles?: string[];
@@ -224,7 +226,7 @@ class AuthProviderClass implements AuthProvider {
 	try {
 	  const userData: UserData = JSON.parse(userStr);
 	  return {
-		id: userData.userId || userData._id,
+		id: userData.userId || userData._id || userData.id, // Include userData.id as fallback
 		name: userData.username || userData.email,
 		email: userData.email,
 		avatar: userData.avatar || '',
@@ -232,7 +234,7 @@ class AuthProviderClass implements AuthProvider {
 		token: userData.accessToken,
 		subscriptionPlan: userData.subscriptionPlan,
 		apiKeys: userData.apiKeys || [],
-		userId: userData.id
+		userId: userData.userId || userData._id || userData.id
 	  };
 	} catch (error) {
 	  console.error("Error parsing user data:", error);
