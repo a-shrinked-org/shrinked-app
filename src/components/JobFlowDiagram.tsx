@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { Box, Text, Group, Stack, Paper } from '@mantine/core';
-import { IconUpload, IconBrain, IconFileText, IconDocument } from '@tabler/icons-react';
+import { IconUpload, IconBrain, IconFileText, IconFile } from '@tabler/icons-react';
 
 interface JobFlowDiagramProps {
   jobScenario?: string;
@@ -78,7 +78,7 @@ export default function JobFlowDiagram({
       case 'output':
         return <IconFileText size={20} />;
       case 'document':
-        return <IconDocument size={20} />;
+        return <IconFile size={20} />;
       default:
         return <IconUpload size={20} />;
     }
