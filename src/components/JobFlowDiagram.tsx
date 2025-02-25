@@ -7,7 +7,6 @@ import { IconUpload, IconBrain, IconFileText, IconFile } from '@tabler/icons-rea
 interface JobFlowDiagramProps {
   jobScenario?: string;
   jobStatus?: string;
-  // Add steps if they're available in the job data
   steps?: Array<{
     name: string;
     status: string;
@@ -21,131 +20,60 @@ export default function JobFlowDiagram({
   jobStatus = 'PENDING',
   steps = []
 }: JobFlowDiagramProps) {
-  // Get actual job status data or use mock data if not available
   const hasStepsData = steps && steps.length > 0;
-  
-  // Normalize values
   const status = (jobStatus || '').toUpperCase();
   const scenario = (jobScenario || '').toUpperCase();
-  
-  // Determine step statuses based on job status if no step data is provided
+
   const getStepStatus = (stepIndex: number) => {
-    if (status === 'COMPLETED') {
-      return 'COMPLETED';
-    }
-    
-    if (status === 'IN_PROGRESS') {
-      if (stepIndex === 0) return 'COMPLETED';
-      if (stepIndex === 1) return 'IN_PROGRESS';
-      return 'PENDING';
-    }
-    
-    if (status === 'FAILED') {
-      if (stepIndex === 0) return 'COMPLETED';
-      if (stepIndex === 1) return 'FAILED';
-      return 'PENDING';
-    }
-    
+    if (status === 'COMPLETED') return 'COMPLETED';
+    if (status === 'IN_PROGRESS') return stepIndex === 0 ? 'COMPLETED' : stepIndex === 1 ? 'IN_PROGRESS' : 'PENDING';
+    if (status === 'FAILED') return stepIndex === 0 ? 'COMPLETED' : stepIndex === 1 ? 'FAILED' : 'PENDING';
     return 'PENDING';
   };
-  
-  // Get background color for step block based on status
+
   const getBlockStyle = (stepStatus: string) => {
     const status = stepStatus.toUpperCase();
-    
-    if (status === 'COMPLETED') {
-      return { backgroundColor: '#f6ffed', borderColor: '#b7eb8f' };
-    }
-    
-    if (status === 'IN_PROGRESS') {
-      return { backgroundColor: '#e6f7ff', borderColor: '#91d5ff' };
-    }
-    
-    if (status === 'FAILED') {
-      return { backgroundColor: '#fff2f0', borderColor: '#ffccc7' };
-    }
-    
+    if (status === 'COMPLETED') return { backgroundColor: '#f6ffed', borderColor: '#b7eb8f' };
+    if (status === 'IN_PROGRESS') return { backgroundColor: '#e6f7ff', borderColor: '#91d5ff' };
+    if (status === 'FAILED') return { backgroundColor: '#fff2f0', borderColor: '#ffccc7' };
     return { backgroundColor: '#f5f5f5', borderColor: '#d9d9d9' };
   };
 
-  // Get icon for step
   const getStepIcon = (stepType: string) => {
     switch (stepType.toLowerCase()) {
-      case 'upload':
-        return <IconUpload size={20} />;
-      case 'processing':
-        return <IconBrain size={20} />;
-      case 'output':
-        return <IconFileText size={20} />;
-      case 'document':
-        return <IconFile size={20} />;
-      default:
-        return <IconUpload size={20} />;
+      case 'upload': return <IconUpload size={20} />;
+      case 'processing': return <IconBrain size={20} />;
+      case 'output': return <IconFileText size={20} />;
+      case 'document': return <IconFile size={20} />;
+      default: return <IconUpload size={20} />;
     }
   };
 
-  // Get formatted time duration if available
   const getTimeDuration = (step: any) => {
-    // If actual step data with timestamps is available
     if (step && step.startTime && step.endTime) {
-      const start = new Date(step.startTime);
-      const end = new Date(step.endTime);
-      const durationMs = end.getTime() - start.getTime();
-      
-      // Format duration based on length
-      if (durationMs < 60000) {
-        return `${Math.round(durationMs / 1000)}s`;
-      } else {
-        return `${Math.round(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`;
-      }
+      const durationMs = new Date(step.endTime).getTime() - new Date(step.startTime).getTime();
+      return durationMs < 60000 ? `${Math.round(durationMs / 1000)}s` : `${Math.round(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`;
     }
-    
-    // If no actual timing data, return placeholder or empty string
-    const status = step?.status?.toUpperCase() || '';
-    if (status === 'COMPLETED') {
-      return 'Completed';
-    } else if (status === 'IN_PROGRESS') {
-      return 'In Progress...';
-    }
-    
-    return '';
+    return step?.status?.toUpperCase() === 'COMPLETED' ? 'Completed' : step?.status?.toUpperCase() === 'IN_PROGRESS' ? 'In Progress...' : '';
   };
 
-  // Define the steps based on scenario
   const flowSteps = hasStepsData ? steps : [
-    { 
-      name: 'File Upload', 
-      status: getStepStatus(0),
-      type: 'upload'
-    },
-    { 
-      name: 'AI Processing', 
-      status: getStepStatus(1),
-      type: 'processing'
-    },
-    { 
-      name: 'Result Output', 
-      status: getStepStatus(2),
-      type: 'output'
-    }
+    { name: 'File Upload', status: getStepStatus(0), type: 'upload' },
+    { name: 'AI Processing', status: getStepStatus(1), type: 'processing' },
+    { name: 'Result Output', status: getStepStatus(2), type: 'output' }
   ];
-  
-  // Add document step for PLATOGRAM_DOC scenario if not using actual steps data
+
   if (!hasStepsData && scenario.includes('PLATOGRAM_DOC')) {
-    flowSteps.push({ 
-      name: 'Document Generation', 
-      status: getStepStatus(3),
-      type: 'document'
-    });
+    flowSteps.push({ name: 'Document Generation', status: getStepStatus(3), type: 'document' });
   }
 
   return (
     <Paper p="md" withBorder>
-      <Stack gap="md">
+      <Stack spacing="md">
         <Text fw={500} size="lg">Job Processing Flow</Text>
         
         <Box mt={20}>
-          <Group align="flex-start" justify="space-between" gap="md">
+          <Group align="flex-start" justify="space-between" spacing="md">
             {flowSteps.map((step, index) => (
               <Box key={index} style={{ position: 'relative', flex: 1 }}>
                 <Paper
@@ -159,21 +87,16 @@ export default function JobFlowDiagram({
                     ...getBlockStyle(step.status)
                   }}
                 >
-                  <Group position="apart" mb={8}>
+                  <Group justify="space-between" mb={8}>
                     <Box>{getStepIcon(step.type || '')}</Box>
-                    <Text size="xs" color="dimmed">
-                      {getTimeDuration(step)}
-                    </Text>
+                    <Text size="xs" color="dimmed">{getTimeDuration(step)}</Text>
                   </Group>
                   
                   <Text fw={500}>{step.name}</Text>
                   
-                  <Text size="xs" color="dimmed" mt={4}>
-                    {step.status}
-                  </Text>
+                  <Text size="xs" color="dimmed" mt={4}>{step.status}</Text>
                 </Paper>
                 
-                {/* Add connector arrow, except for the last item */}
                 {index < flowSteps.length - 1 && (
                   <Box
                     style={{
