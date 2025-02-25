@@ -11,10 +11,12 @@ import {
   Connection,
   ConnectionMode,
   NodeTypes,
+  Node,
+  Edge
 } from '@xyflow/react';
 import { Paper, Loader, Center } from '@mantine/core';
 
-// Import adapter components instead of original components
+// Import adapter components
 import {
   UploadNodeAdapter,
   AiNodeAdapter,
@@ -22,17 +24,16 @@ import {
   EmailNodeAdapter
 } from './NodeAdapters';
 
-// Import your existing types
+// Import types
 import type { 
-  LogicNode, 
-  LogicEdge, 
+  NodeData,
   ProcessingStatus,
   JobProcessingFlowProps 
 } from '@/types/logic';
 
 import '@xyflow/react/dist/style.css';
 
-// Define node types mapping to the adapter components
+// Define node types mapping to adapter components
 const nodeTypes: NodeTypes = {
   uploadNode: UploadNodeAdapter,
   aiNode: AiNodeAdapter,
@@ -101,12 +102,12 @@ const getNodeDescription = (stepType: string, status: ProcessingStatus): string 
   }
 };
 
-// Define nodes based on job scenarios
-const getNodesForScenario = (scenario: string, jobStatus: string): LogicNode[] => {
+// Define nodes based on job scenarios - now using @xyflow/react types directly
+const getNodesForScenario = (scenario: string, jobStatus: string): Node<NodeData>[] => {
   const spacingY = 120; // Vertical spacing between nodes
   
   // Default flow for any scenario
-  const baseNodes: LogicNode[] = [
+  const baseNodes: Node<NodeData>[] = [
     {
       id: 'upload',
       type: 'uploadNode',
@@ -171,9 +172,9 @@ const getNodesForScenario = (scenario: string, jobStatus: string): LogicNode[] =
   return baseNodes;
 };
 
-// Define edges based on nodes
-const getEdgesForNodes = (nodes: LogicNode[]): LogicEdge[] => {
-  const edges: LogicEdge[] = [];
+// Define edges based on nodes - now using @xyflow/react types directly
+const getEdgesForNodes = (nodes: Node<NodeData>[]): Edge[] => {
+  const edges: Edge[] = [];
   
   for (let i = 0; i < nodes.length - 1; i++) {
     const sourceStatus = nodes[i].data.config?.status as ProcessingStatus;
@@ -196,7 +197,7 @@ const getEdgesForNodes = (nodes: LogicNode[]): LogicEdge[] => {
 };
 
 export default function JobProcessingFlow({ jobScenario, jobStatus }: JobProcessingFlowProps) {
-  // Generate nodes based on job scenario and status
+  // Generate nodes based on job scenario and status - using XYFlow types directly
   const initialNodes = getNodesForScenario(jobScenario, jobStatus);
   const initialEdges = getEdgesForNodes(initialNodes);
 
