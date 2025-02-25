@@ -20,7 +20,7 @@ import { useParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 
 const SimpleJobProcessingFlow = dynamic(
-  () => import('../components/SimpleJobProcessingFlow'),
+  () => import('@/components/SimpleJobProcessingFlow'),
   { ssr: false, loading: () => <div>Loading flow diagram...</div> }
 );
 
