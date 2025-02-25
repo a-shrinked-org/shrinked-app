@@ -232,90 +232,85 @@ const App = (props: React.PropsWithChildren<{}>) => {
   }
 
   return (
-    <>
-      <RefineKbarProvider>
-        <Refine
-          routerProvider={routerProvider}
-          dataProvider={dataProvider}
-          authProvider={authProvider}
-          notificationProvider={notificationProvider}
-          resources={[
-            {
-              name: "jobs",
-              list: "/jobs",
-              create: "/jobs/create",
-              edit: "/jobs/edit/:id",
-              show: "/jobs/show/:id",
-              meta: {
-                canDelete: true,
-                icon: "chart-line",
-                label: "Jobs",
-                parent: "Jobs",
-                hide: false // Make sure it's not hidden
+      <>
+        <RefineKbarProvider>
+          <Refine
+            routerProvider={routerProvider}
+            dataProvider={dataProvider}
+            authProvider={authProvider}
+            notificationProvider={notificationProvider}
+            resources={[
+              {
+                name: "jobs",
+                list: "/jobs",
+                create: "/jobs/create",
+                edit: "/jobs/edit/:id",
+                show: "/jobs/show/:id",
+                meta: {
+                  canDelete: true,
+                  icon: "chart-line",
+                  label: "Jobs",
+                  hide: false
+                },
               },
-            },
-            {
-              name: "api-keys",
-              list: "/api-keys",
-              meta: {
-                icon: "key",
-                label: "API Keys",
-                parent: "API Keys",
-                hide: false
+              {
+                name: "api-keys",
+                list: "/api-keys",
+                meta: {
+                  icon: "key",
+                  label: "API Keys",
+                  hide: false
+                },
               },
-            },
-            {
-              name: "categories",
-              list: "/categories",
-              create: "/categories/create",
-              edit: "/categories/edit/:id",
-              show: "/categories/show/:id",
-              meta: {
-                canDelete: true,
-                icon: "tag",
-                label: "Categories",
-                // These props help with the sidebar navigation display
-                parent: "Categories",
-                hide: false // Make sure it's not hidden
+              {
+                name: "categories",
+                list: "/categories",
+                create: "/categories/create",
+                edit: "/categories/edit/:id",
+                show: "/categories/show/:id",
+                meta: {
+                  canDelete: true,
+                  icon: "tag",
+                  label: "Categories",
+                  hide: false
+                },
               },
-            },
-            {
-              name: "output",
-              list: "/output",
-              show: "/output/show/:id",
-              meta: {
-                canDelete: true,
-                icon: "box",
-                label: "Output",
-                // These props help with the sidebar navigation display
-                parent: "Output",
-                hide: false // Make sure it's not hidden
+              {
+                name: "output",
+                list: "/output",
+                show: "/output/show/:id",
+                meta: {
+                  canDelete: true,
+                  icon: "box",
+                  label: "Output",
+                  hide: false
+                },
               },
-            },
-          ]}
-          options={{
-            syncWithLocation: true,
-            warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true
-          }}
-        >
-          {props.children}
-          <RefineKbar />
-          <ToastContainer />
-        </Refine>
-      </RefineKbarProvider>
-    </>
-  );
-};
-
-export const RefineContext = (
-  props: React.PropsWithChildren<RefineContextProps>
-) => {
-  return (
-    <SessionProvider>
-      <App {...props} />
-    </SessionProvider>
-  );
-};
-
-export default RefineContext;
+            ]}
+            options={{
+              syncWithLocation: true,
+              warnWhenUnsavedChanges: true,
+              useNewQueryKeys: true,
+              breadcrumb: false // Disable breadcrumbs
+            }}
+          >
+            {props.children}
+            <RefineKbar />
+            <ToastContainer />
+          </Refine>
+        </RefineKbarProvider>
+      </>
+    );
+  };
+  
+  export const RefineContext = (
+    props: React.PropsWithChildren<RefineContextProps>
+  ) => {
+    return (
+      <SessionProvider>
+        <App {...props} />
+      </SessionProvider>
+    );
+  };
+  
+  export default RefineContext;
