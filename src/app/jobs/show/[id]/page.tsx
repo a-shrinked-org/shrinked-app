@@ -19,8 +19,15 @@ import { IconEdit, IconArrowLeft, IconAlertCircle, IconChartLine, IconTimeline }
 import { useParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 
-const SimpleJobProcessingFlow = dynamic(
-  () => import('@/components/SimpleJobProcessingFlow'),
+// Import the SimpleListView component with dynamic loading for client-side rendering
+const SimpleListView = dynamic(
+  () => import('@/components/SimpleListView'),
+  { ssr: false, loading: () => <div>Loading processing timeline...</div> }
+);
+
+// Keep ReactFlow as a fallback option
+const FallbackFlowComponent = dynamic(
+  () => import('@/components/FallbackFlowComponent'),
   { ssr: false, loading: () => <div>Loading flow diagram...</div> }
 );
 
@@ -238,13 +245,21 @@ export default function JobShow() {
                     Visual representation of the job processing pipeline
                   </Text>
                   
-                  {/* Job Flow Visualization */}
+                  {/* Timeline View of Job Processing Flow */}
                   {record && (
-                    <SimpleJobProcessingFlow 
+                    <SimpleListView 
                       jobScenario={record.scenario} 
                       jobStatus={record.status} 
                     />
                   )}
+                  
+                  {/* Uncomment this for the ReactFlow fallback version */}
+                  {/* {record && (
+                    <FallbackFlowComponent 
+                      jobScenario={record.scenario} 
+                      jobStatus={record.status} 
+                    />
+                  )} */}
                 </Stack>
               </Card>
             </Tabs.Panel>
