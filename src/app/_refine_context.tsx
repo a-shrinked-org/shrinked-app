@@ -260,6 +260,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
               meta: {
                 icon: "key",
                 label: "API Keys",
+                parent: "API Keys",
                 hide: false
               },
             },
