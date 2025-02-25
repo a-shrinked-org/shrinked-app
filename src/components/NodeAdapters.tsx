@@ -27,6 +27,7 @@ export const UploadNodeAdapter = (props: XYNodeProps) => {
     yPos: 0,
     zIndex: 0,
     dragHandle: props.dragHandle || '',
+    dragging: false, // Add the missing dragging property
   };
   
   return <OriginalUploadNode {...adaptedProps} />;
@@ -43,6 +44,7 @@ export const AiNodeAdapter = (props: XYNodeProps) => {
     yPos: 0,
     zIndex: 0,
     dragHandle: props.dragHandle || '',
+    dragging: false, // Add the missing dragging property
   };
   
   return <OriginalAiNode {...adaptedProps} />;
@@ -59,6 +61,7 @@ export const PdfNodeAdapter = (props: XYNodeProps) => {
     yPos: 0,
     zIndex: 0,
     dragHandle: props.dragHandle || '',
+    dragging: false, // Add the missing dragging property
   };
   
   return <OriginalPdfNode {...adaptedProps} />;
@@ -75,6 +78,7 @@ export const EmailNodeAdapter = (props: XYNodeProps) => {
     yPos: 0,
     zIndex: 0,
     dragHandle: props.dragHandle || '',
+    dragging: false, // Add the missing dragging property
   };
   
   return <OriginalEmailNode {...adaptedProps} />;
