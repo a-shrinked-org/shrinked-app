@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -10,222 +10,60 @@ import {
   addEdge,
   Connection,
   ConnectionMode,
-  NodeTypes,
-  Node,
-  Edge
 } from '@xyflow/react';
-import { Paper, Loader, Center } from '@mantine/core';
-
-// Import adapter components
-import {
-  UploadNodeAdapter,
-  AiNodeAdapter,
-  PdfNodeAdapter,
-  EmailNodeAdapter
-} from './NodeAdapters';
-
-// Import types
-import type { 
-  NodeData,
-  ProcessingStatus,
-  JobProcessingFlowProps 
-} from '@/types/logic';
+import { Paper } from '@mantine/core';
 
 import '@xyflow/react/dist/style.css';
 
-// Define node types mapping to adapter components
-const nodeTypes: NodeTypes = {
-  uploadNode: UploadNodeAdapter,
-  aiNode: AiNodeAdapter,
-  pdfNode: PdfNodeAdapter,
-  emailNode: EmailNodeAdapter,
-};
-
-// Map job status to node processing status
-const mapJobStatusToNodeStatus = (
-  jobStatus: string, 
-  nodePosition: 'first' | 'middle' | 'last' | 'document'
-): ProcessingStatus => {
-  if (jobStatus === 'completed') {
-    return 'completed';
+// Simple node data structure based on the example
+const initialNodes = [
+  {
+    id: 'upload-1',
+    type: 'default',
+    position: { x: 0, y: 0 },
+    data: { label: 'Upload Node' }
+  },
+  {
+    id: 'ai-1',
+    type: 'default',
+    position: { x: 0, y: 100 },
+    data: { label: 'AI Processing' }
+  },
+  {
+    id: 'output-1',
+    type: 'default',
+    position: { x: 0, y: 200 },
+    data: { label: 'Result Output' }
   }
-  
-  if (jobStatus === 'in_progress') {
-    if (nodePosition === 'first') {
-      return 'completed';
-    } else if (nodePosition === 'middle') {
-      return 'in_progress';
-    } else {
-      return 'pending';
-    }
+];
+
+const initialEdges = [
+  { 
+    id: 'e1-2', 
+    source: 'upload-1', 
+    target: 'ai-1', 
+    type: 'default' 
+  },
+  {
+    id: 'e2-3',
+    source: 'ai-1',
+    target: 'output-1',
+    type: 'default'
   }
-  
-  if (jobStatus === 'failed') {
-    if (nodePosition === 'middle') {
-      return 'failed';
-    } else if (nodePosition === 'first') {
-      return 'completed';
-    } else {
-      return 'pending';
-    }
-  }
-  
-  return 'pending';
-};
+];
 
-// Define node descriptions based on status
-const getNodeDescription = (stepType: string, status: ProcessingStatus): string => {
-  switch (stepType) {
-    case 'upload':
-      return status === 'completed' ? 'File uploaded successfully' : 
-             status === 'in_progress' ? 'Uploading file...' : 
-             'Waiting for file upload';
-    
-    case 'processing':
-      return status === 'completed' ? 'Processing completed' : 
-             status === 'in_progress' ? 'Currently processing' : 
-             status === 'failed' ? 'Processing failed' : 
-             'Waiting to process';
-    
-    case 'output':
-      return status === 'completed' ? 'Results ready' : 
-             status === 'in_progress' ? 'Generating results...' : 
-             'Waiting for results';
-    
-    case 'document':
-      return status === 'completed' ? 'Document generated' : 
-             status === 'in_progress' ? 'Generating document...' : 
-             'Waiting to generate document';
-    
-    default:
-      return '';
-  }
-};
-
-// Define nodes based on job scenarios - now using @xyflow/react types directly
-const getNodesForScenario = (scenario: string, jobStatus: string): Node<NodeData>[] => {
-  const spacingY = 120; // Vertical spacing between nodes
-  
-  // Default flow for any scenario
-  const baseNodes: Node<NodeData>[] = [
-    {
-      id: 'upload',
-      type: 'uploadNode',
-      position: { x: 50, y: 50 },
-      data: { 
-        label: 'File Upload',
-        description: getNodeDescription('upload', 
-          mapJobStatusToNodeStatus(jobStatus, 'first')),
-        config: {
-          status: mapJobStatusToNodeStatus(jobStatus, 'first'),
-          allowedTypes: ['audio', 'video', 'document']
-        }
-      }
-    },
-    {
-      id: 'processing',
-      type: 'aiNode',
-      position: { x: 50, y: 50 + spacingY },
-      data: { 
-        label: 'AI Processing',
-        description: getNodeDescription('processing', 
-          mapJobStatusToNodeStatus(jobStatus, 'middle')),
-        config: {
-          status: mapJobStatusToNodeStatus(jobStatus, 'middle'),
-          model: scenario.includes('PLATOGRAM') ? 'Platogram' : 'Default'
-        }
-      }
-    },
-    {
-      id: 'output',
-      type: 'emailNode',
-      position: { x: 50, y: 50 + spacingY * 2 },
-      data: { 
-        label: 'Result Output',
-        description: getNodeDescription('output', 
-          mapJobStatusToNodeStatus(jobStatus, 'last')),
-        config: {
-          status: mapJobStatusToNodeStatus(jobStatus, 'last')
-        }
-      }
-    }
-  ];
-
-  // Add scenario-specific nodes
-  if (scenario === 'SINGLE_FILE_PLATOGRAM_DOC') {
-    baseNodes.push({
-      id: 'document',
-      type: 'pdfNode',
-      position: { x: 50, y: 50 + spacingY * 3 },
-      data: { 
-        label: 'Document Generation',
-        description: getNodeDescription('document', 
-          mapJobStatusToNodeStatus(jobStatus, 'document')),
-        config: {
-          status: mapJobStatusToNodeStatus(jobStatus, 'document'),
-          template: 'Standard Report'
-        }
-      }
-    });
-  }
-
-  return baseNodes;
-};
-
-// Define edges based on nodes - now using @xyflow/react types directly
-const getEdgesForNodes = (nodes: Node<NodeData>[]): Edge[] => {
-  const edges: Edge[] = [];
-  
-  for (let i = 0; i < nodes.length - 1; i++) {
-    const sourceStatus = nodes[i].data.config?.status as ProcessingStatus;
-    const targetStatus = nodes[i+1].data.config?.status as ProcessingStatus;
-    
-    edges.push({
-      id: `e${i}-${i+1}`,
-      source: nodes[i].id,
-      target: nodes[i+1].id,
-      type: 'smoothstep',
-      animated: sourceStatus === 'completed' && targetStatus === 'in_progress',
-      style: {
-        stroke: sourceStatus === 'completed' ? '#1890ff' : '#d9d9d9',
-        strokeWidth: 2,
-      }
-    });
-  }
-
-  return edges;
-};
+interface JobProcessingFlowProps {
+  jobScenario?: string;
+  jobStatus?: string;
+}
 
 export default function JobProcessingFlow({ jobScenario, jobStatus }: JobProcessingFlowProps) {
-  // Generate nodes based on job scenario and status - using XYFlow types directly
-  const initialNodes = getNodesForScenario(jobScenario, jobStatus);
-  const initialEdges = getEdgesForNodes(initialNodes);
-
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  // Update flow when job status or scenario changes
-  useEffect(() => {
-    const updatedNodes = getNodesForScenario(jobScenario, jobStatus);
-    const updatedEdges = getEdgesForNodes(updatedNodes);
-    
-    setNodes(updatedNodes);
-    setEdges(updatedEdges);
-  }, [jobScenario, jobStatus, setNodes, setEdges]);
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((eds) => addEdge(connection, eds));
   }, [setEdges]);
-
-  if (!jobScenario) {
-    return (
-      <Paper className="h-[300px] w-full">
-        <Center h={300}>
-          <Loader size="sm" />
-        </Center>
-      </Paper>
-    );
-  }
 
   return (
     <Paper className="h-[400px] w-full" withBorder>
@@ -235,13 +73,11 @@ export default function JobProcessingFlow({ jobScenario, jobStatus }: JobProcess
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView
-        attributionPosition="bottom-right"
       >
-        <Controls />
         <Background />
+        <Controls />
       </ReactFlow>
     </Paper>
   );
