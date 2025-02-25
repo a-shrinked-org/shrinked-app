@@ -4,15 +4,19 @@ import { useEffect } from 'react';
 import { Box, Text, Group, Stack, Paper } from '@mantine/core';
 import { IconUpload, IconBrain, IconFileText, IconFile } from '@tabler/icons-react';
 
+// Updated interface to include optional type property
+interface StepData {
+  name: string;
+  status: string;
+  startTime?: string;
+  endTime?: string;
+  type?: string; // Make type optional since it might not be in API data
+}
+
 interface JobFlowDiagramProps {
   jobScenario?: string;
   jobStatus?: string;
-  steps?: Array<{
-    name: string;
-    status: string;
-    startTime?: string;
-    endTime?: string;
-  }>;
+  steps?: StepData[];
 }
 
 export default function JobFlowDiagram({ 
@@ -39,6 +43,21 @@ export default function JobFlowDiagram({
     return { backgroundColor: '#f5f5f5', borderColor: '#d9d9d9' };
   };
 
+  // Get step type based on index if not provided
+  const getStepType = (step: StepData, index: number): string => {
+    // If step has a type, use it
+    if (step.type) return step.type;
+
+    // Otherwise, infer type from index and scenario
+    switch (index) {
+      case 0: return 'upload';
+      case 1: return 'processing';
+      case 2: return 'output';
+      case 3: return 'document';
+      default: return 'upload';
+    }
+  };
+
   const getStepIcon = (stepType: string) => {
     switch (stepType.toLowerCase()) {
       case 'upload': return <IconUpload size={20} />;
@@ -49,7 +68,7 @@ export default function JobFlowDiagram({
     }
   };
 
-  const getTimeDuration = (step: any) => {
+  const getTimeDuration = (step: StepData) => {
     if (step && step.startTime && step.endTime) {
       const durationMs = new Date(step.endTime).getTime() - new Date(step.startTime).getTime();
       return durationMs < 60000 ? `${Math.round(durationMs / 1000)}s` : `${Math.round(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`;
@@ -57,14 +76,24 @@ export default function JobFlowDiagram({
     return step?.status?.toUpperCase() === 'COMPLETED' ? 'Completed' : step?.status?.toUpperCase() === 'IN_PROGRESS' ? 'In Progress...' : '';
   };
 
-  const flowSteps = hasStepsData ? steps : [
-    { name: 'File Upload', status: getStepStatus(0), type: 'upload' },
-    { name: 'AI Processing', status: getStepStatus(1), type: 'processing' },
-    { name: 'Result Output', status: getStepStatus(2), type: 'output' }
-  ];
-
-  if (!hasStepsData && scenario.includes('PLATOGRAM_DOC')) {
-    flowSteps.push({ name: 'Document Generation', status: getStepStatus(3), type: 'document' });
+  // Create flow steps based on data or scenario
+  let flowSteps: StepData[] = [];
+  
+  if (hasStepsData) {
+    // Use the actual steps data from API
+    flowSteps = steps;
+  } else {
+    // Create default steps based on scenario
+    flowSteps = [
+      { name: 'File Upload', status: getStepStatus(0) },
+      { name: 'AI Processing', status: getStepStatus(1) },
+      { name: 'Result Output', status: getStepStatus(2) }
+    ];
+    
+    // Add document step for PLATOGRAM_DOC scenario
+    if (scenario.includes('PLATOGRAM_DOC')) {
+      flowSteps.push({ name: 'Document Generation', status: getStepStatus(3) });
+    }
   }
 
   return (
@@ -88,7 +117,7 @@ export default function JobFlowDiagram({
                   }}
                 >
                   <Group justify="space-between" mb={8}>
-                    <Box>{getStepIcon(step.type || '')}</Box>
+                    <Box>{getStepIcon(getStepType(step, index))}</Box>
                     <Text size="xs" c="dimmed">{getTimeDuration(step)}</Text>
                   </Group>
                   
