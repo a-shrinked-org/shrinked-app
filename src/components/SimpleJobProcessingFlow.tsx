@@ -10,20 +10,11 @@ import {
   addEdge,
   Connection,
   ConnectionMode,
-  NodeProps
 } from '@xyflow/react';
 import { Paper, Loader, Center, Text, Group } from '@mantine/core';
 import { IconCheck, IconClock, IconHourglass, IconX } from '@tabler/icons-react';
 
 import '@xyflow/react/dist/style.css';
-
-// Define node data type
-interface NodeData {
-  label: string;
-  status: string;
-  time?: string;
-  icon?: React.ReactNode;
-}
 
 // Define node style based on status
 const getNodeStyle = (status: string) => {
@@ -107,21 +98,6 @@ interface JobProcessingFlowProps {
   jobStatus?: string;
 }
 
-// Custom node component with proper type
-const CustomNode = ({ data }: NodeProps<NodeData>) => (
-  <div>
-    <Group justify="space-between" align="center">
-      <Text fw={500}>{data.label}</Text>
-      {data.icon}
-    </Group>
-    {data.time && (
-      <Text size="xs" mt={4} c="dimmed">
-        {data.time}
-      </Text>
-    )}
-  </div>
-);
-
 export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 'pending' }: JobProcessingFlowProps) {
   // Create nodes based on job scenario and status
   const initialNodes = useMemo(() => {
@@ -129,12 +105,13 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
     const nodes = [
       {
         id: 'upload',
+        type: 'default',
         position: { x: 25, y: 50 },
         data: { 
           label: 'File Upload',
           status: getNodeStatus(jobStatus, 0),
           time: getTimeForNode(jobStatus, 0),
-          icon: getStatusIcon(getNodeStatus(jobStatus, 0))
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 0))
         },
         style: {
           width: 200,
@@ -147,12 +124,13 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
       },
       {
         id: 'processing',
+        type: 'default',
         position: { x: 25, y: 160 },
         data: { 
           label: 'AI Processing',
           status: getNodeStatus(jobStatus, 1),
           time: getTimeForNode(jobStatus, 1),
-          icon: getStatusIcon(getNodeStatus(jobStatus, 1))
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 1))
         },
         style: {
           width: 200,
@@ -165,12 +143,13 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
       },
       {
         id: 'output',
+        type: 'default',
         position: { x: 25, y: 270 },
         data: { 
           label: 'Result Output',
           status: getNodeStatus(jobStatus, 2),
           time: getTimeForNode(jobStatus, 2),
-          icon: getStatusIcon(getNodeStatus(jobStatus, 2))
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 2))
         },
         style: {
           width: 200,
@@ -188,12 +167,13 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
     if (scenarioUpper.includes('PLATOGRAM_DOC')) {
       nodes.push({
         id: 'document',
+        type: 'default',
         position: { x: 25, y: 380 },
         data: { 
           label: 'Document Generation',
           status: getNodeStatus(jobStatus, 3),
           time: getTimeForNode(jobStatus, 3),
-          icon: getStatusIcon(getNodeStatus(jobStatus, 3))
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 3))
         },
         style: {
           width: 200,
@@ -258,11 +238,6 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Use the CustomNode component with proper typing
-  const nodeTypes = useMemo(() => ({
-    default: CustomNode
-  }), []);
-
   const onConnect = useCallback((connection: Connection) => {
     setEdges((eds) => addEdge(connection, eds));
   }, [setEdges]);
@@ -285,10 +260,10 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView
         proOptions={{ hideAttribution: true }}
+        nodeTypes={{}}
       >
         <Controls />
         <Background />
