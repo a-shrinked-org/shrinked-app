@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -16,9 +16,11 @@ import { IconCheck, IconClock, IconHourglass, IconX } from '@tabler/icons-react'
 
 import '@xyflow/react/dist/style.css';
 
-// Define node style based on status
+// Define node style based on status - with case-insensitive matching
 const getNodeStyle = (status: string) => {
-  switch (status) {
+  const normalizedStatus = status.toLowerCase();
+  
+  switch (normalizedStatus) {
     case 'completed':
       return { 
         backgroundColor: '#e6ffed', 
@@ -46,9 +48,11 @@ const getNodeStyle = (status: string) => {
   }
 };
 
-// Get icon based on status
+// Get icon based on status - with case-insensitive matching
 const getStatusIcon = (status: string) => {
-  switch (status) {
+  const normalizedStatus = status.toLowerCase();
+  
+  switch (normalizedStatus) {
     case 'completed':
       return <IconCheck size={18} color="#52c41a" />;
     case 'in_progress':
@@ -60,19 +64,21 @@ const getStatusIcon = (status: string) => {
   }
 };
 
-// Map job status to node status
-const getNodeStatus = (jobStatus: string, nodeIndex: number) => {
-  if (jobStatus === 'completed') {
+// Map job status to node status - with case-insensitive matching
+const getNodeStatus = (jobStatus: string = '', nodeIndex: number) => {
+  const normalizedStatus = jobStatus.toLowerCase();
+  
+  if (normalizedStatus === 'completed') {
     return 'completed';
   }
   
-  if (jobStatus === 'in_progress') {
+  if (normalizedStatus === 'in_progress') {
     if (nodeIndex === 0) return 'completed';
     if (nodeIndex === 1) return 'in_progress';
     return 'pending';
   }
   
-  if (jobStatus === 'failed') {
+  if (normalizedStatus === 'failed') {
     if (nodeIndex === 0) return 'completed';
     if (nodeIndex === 1) return 'failed';
     return 'pending';
@@ -99,6 +105,15 @@ interface JobProcessingFlowProps {
 }
 
 export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 'pending' }: JobProcessingFlowProps) {
+  // Debug output
+  useEffect(() => {
+    console.log("Flow component props:", { 
+      jobScenario, 
+      jobStatus, 
+      normalizedStatus: jobStatus?.toLowerCase() 
+    });
+  }, [jobScenario, jobStatus]);
+  
   // Create nodes based on job scenario and status
   const initialNodes = useMemo(() => {
     // Base nodes that appear in all scenarios
@@ -163,7 +178,7 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
     ];
     
     // Add document node specifically for PLATOGRAM_DOC scenario
-    const scenarioUpper = jobScenario.toUpperCase();
+    const scenarioUpper = (jobScenario || '').toUpperCase();
     if (scenarioUpper.includes('PLATOGRAM_DOC')) {
       nodes.push({
         id: 'document',
@@ -186,6 +201,7 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
       });
     }
     
+    console.log("Created nodes:", nodes.length);
     return nodes;
   }, [jobScenario, jobStatus]);
   
@@ -218,7 +234,7 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
     });
     
     // Connect output to document for PLATOGRAM_DOC scenario
-    const scenarioUpper = jobScenario.toUpperCase();
+    const scenarioUpper = (jobScenario || '').toUpperCase();
     if (scenarioUpper.includes('PLATOGRAM_DOC')) {
       edges.push({
         id: 'e-output-document',
@@ -232,11 +248,19 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
       });
     }
     
+    console.log("Created edges:", edges.length);
     return edges;
   }, [jobScenario, jobStatus]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Ensure nodes and edges are updated when props change
+  useEffect(() => {
+    console.log("Updating nodes and edges");
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((eds) => addEdge(connection, eds));
@@ -254,20 +278,22 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
 
   return (
     <Paper className="h-[400px] w-full" withBorder>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        connectionMode={ConnectionMode.Loose}
-        fitView
-        proOptions={{ hideAttribution: true }}
-        nodeTypes={{}}
-      >
-        <Controls />
-        <Background />
-      </ReactFlow>
+      <div style={{ width: '100%', height: '100%' }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          connectionMode={ConnectionMode.Loose}
+          fitView
+          attributionPosition="bottom-right"
+          style={{ width: '100%', height: '100%' }}
+        >
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </div>
     </Paper>
   );
 }
