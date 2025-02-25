@@ -10,11 +10,20 @@ import {
   addEdge,
   Connection,
   ConnectionMode,
+  NodeProps
 } from '@xyflow/react';
 import { Paper, Loader, Center, Text, Group } from '@mantine/core';
 import { IconCheck, IconClock, IconHourglass, IconX } from '@tabler/icons-react';
 
 import '@xyflow/react/dist/style.css';
+
+// Define node data type
+interface NodeData {
+  label: string;
+  status: string;
+  time?: string;
+  icon?: React.ReactNode;
+}
 
 // Define node style based on status
 const getNodeStyle = (status: string) => {
@@ -97,6 +106,21 @@ interface JobProcessingFlowProps {
   jobScenario?: string;
   jobStatus?: string;
 }
+
+// Custom node component with proper type
+const CustomNode = ({ data }: NodeProps<NodeData>) => (
+  <div>
+    <Group justify="space-between" align="center">
+      <Text fw={500}>{data.label}</Text>
+      {data.icon}
+    </Group>
+    {data.time && (
+      <Text size="xs" mt={4} c="dimmed">
+        {data.time}
+      </Text>
+    )}
+  </div>
+);
 
 export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 'pending' }: JobProcessingFlowProps) {
   // Create nodes based on job scenario and status
@@ -234,21 +258,9 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Custom node renderer
+  // Use the CustomNode component with proper typing
   const nodeTypes = useMemo(() => ({
-    default: ({ data }) => (
-      <div>
-        <Group justify="space-between" align="center">
-          <Text fw={500}>{data.label}</Text>
-          {data.icon}
-        </Group>
-        {data.time && (
-          <Text size="xs" mt={4} c="dimmed">
-            {data.time}
-          </Text>
-        )}
-      </div>
-    ),
+    default: CustomNode
   }), []);
 
   const onConnect = useCallback((connection: Connection) => {
