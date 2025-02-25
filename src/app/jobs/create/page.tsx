@@ -30,8 +30,10 @@ interface JobCreateForm {
   link: string;
 }
 
+// Updated scenario options based on API documentation
 const scenarioOptions = [
-  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
+  { value: 'SINGLE_FILE_DEFAULT', label: 'Single File Default' },
+  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File with Document' },
 ];
 
 const languageOptions = [
@@ -48,7 +50,7 @@ export default function JobCreate() {
       isPublic: true,
       createPage: true,
       lang: 'en',
-      scenario: 'SINGLE_FILE_PLATOGRAM_DOC'
+      scenario: 'SINGLE_FILE_DEFAULT' // Default to SINGLE_FILE_DEFAULT
     }
   });
 
@@ -115,7 +117,7 @@ export default function JobCreate() {
                 label="Scenario"
                 data={scenarioOptions}
                 required
-                defaultValue="SINGLE_FILE_PLATOGRAM_DOC"
+                defaultValue="SINGLE_FILE_DEFAULT"
                 error={errors?.scenario?.message}
                 onChange={(value) => setValue('scenario', value || '')}
               />
