@@ -5,15 +5,15 @@ export interface ApiKey {
   name: string;
   key: string;
   userId: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export const ApiKeyService = {
   async getApiKeys(token: string): Promise<ApiKey[]> {
 	try {
-	  // The Postman collection doesn't explicitly define an endpoint for getting all API keys
-	  // Based on RESTful conventions, it should be:
-	  const response = await fetch(`${API_URL}/users/api-keys`, {
+	  // Instead of using a dedicated API keys endpoint, fetch from the profile
+	  // since the API keys are included in the profile data
+	  const response = await fetch(`${API_URL}/users/profile`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${token}`,
@@ -23,17 +23,33 @@ export const ApiKeyService = {
 
 	  if (!response.ok) {
 		if (response.status === 404) {
-		  // Handle 404 gracefully - user might not have any keys yet
 		  return [];
 		}
-		throw new Error(`Error fetching API keys: ${response.status}`);
+		throw new Error(`Error fetching profile: ${response.status}`);
 	  }
 
-	  const data = await response.json();
-	  return data.data || data || [];
+	  const profileData = await response.json();
+	  
+	  // Check if apiKeys exists in the profile data
+	  if (!profileData.apiKeys || !Array.isArray(profileData.apiKeys)) {
+		console.log("No API keys found in profile data");
+		return [];
+	  }
+	  
+	  // Transform the API keys array into the format expected by the UI
+	  const formattedApiKeys: ApiKey[] = profileData.apiKeys.map((key: string, index: number) => {
+		return {
+		  id: key, // Use the key itself as the ID
+		  name: `API Key ${index + 1}`, // Generate a name since we don't have one
+		  key: key,
+		  userId: profileData.userId || profileData._id
+		};
+	  });
+	  
+	  console.log(`Transformed ${formattedApiKeys.length} API keys from profile data`);
+	  return formattedApiKeys;
 	} catch (error) {
-	  console.error('Error fetching API keys:', error);
-	  // Return empty array on error to avoid breaking the UI
+	  console.error('Error fetching API keys from profile:', error);
 	  return [];
 	}
   },
@@ -55,6 +71,12 @@ export const ApiKeyService = {
 	  }
 
 	  const data = await response.json();
+	  
+	  // Add a name field if not present in the response
+	  if (!data.name && name) {
+		data.name = name;
+	  }
+	  
 	  return data;
 	} catch (error) {
 	  console.error('Error creating API key:', error);
