@@ -14,29 +14,30 @@ import {
 } from '@xyflow/react';
 import { Paper, Loader, Center } from '@mantine/core';
 
-// Import your existing node components with the correct paths
-import { UploadNode } from '@/components/logic-builder/nodes/UploadNode';
-import { AiNode } from '@/components/logic-builder/nodes/AiNode';
-import { PdfNode } from '@/components/logic-builder/nodes/PdfNode';
-import { EmailNode } from '@/components/logic-builder/nodes/EmailNode';
+// Import adapter components instead of original components
+import {
+  UploadNodeAdapter,
+  AiNodeAdapter,
+  PdfNodeAdapter,
+  EmailNodeAdapter
+} from './NodeAdapters';
 
 // Import your existing types
 import type { 
   LogicNode, 
   LogicEdge, 
-  NodeData, 
   ProcessingStatus,
   JobProcessingFlowProps 
 } from '@/types/logic';
 
 import '@xyflow/react/dist/style.css';
 
-// Define node types mapping to your existing components
+// Define node types mapping to the adapter components
 const nodeTypes: NodeTypes = {
-  uploadNode: UploadNode,
-  aiNode: AiNode,
-  pdfNode: PdfNode,
-  emailNode: EmailNode,
+  uploadNode: UploadNodeAdapter,
+  aiNode: AiNodeAdapter,
+  pdfNode: PdfNodeAdapter,
+  emailNode: EmailNodeAdapter,
 };
 
 // Map job status to node processing status
