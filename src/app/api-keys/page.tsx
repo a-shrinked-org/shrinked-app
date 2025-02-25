@@ -71,7 +71,7 @@ export default function ApiKeysList() {
     }
   }, [identity, userId]);
 
-  // Fetch API Keys
+  // Fetch API Keys using getApiKeys from ApiKeyService
   useEffect(() => {
     const fetchApiKeys = async () => {
       if (!identity?.token) {
@@ -83,14 +83,8 @@ export default function ApiKeysList() {
       setError(null);
   
       try {
-        console.log("Fetching API keys from profile...");
-        
-        // Fetch user profile instead of calling a separate API for keys
-        const userProfile = await ApiKeyService.getUserProfile(identity.token);
-  
-        // Extract API keys from the profile
-        const fetchedApiKeys = userProfile.apiKeys || [];
-  
+        console.log("Fetching API keys...");
+        const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
         console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
         setApiKeys(fetchedApiKeys);
       } catch (error) {
@@ -114,9 +108,8 @@ export default function ApiKeysList() {
     setError(null);
   
     try {
-      // Fetch user profile again to update API keys
-      const userProfile = await ApiKeyService.getUserProfile(identity.token);
-      setApiKeys(userProfile.apiKeys || []);
+      const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
+      setApiKeys(fetchedApiKeys);
     } catch (error) {
       console.error('Error refreshing API keys:', error);
       setApiKeys([]);
@@ -147,7 +140,7 @@ export default function ApiKeysList() {
     try {
       console.log(`Creating API key for userId: ${effectiveUserId}`);
   
-      // Create API key through the profile API
+      // Create API key through the profile API using createApiKey from ApiKeyService
       const newKey = await ApiKeyService.createApiKey(identity.token, effectiveUserId, keyName);
   
       console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
@@ -170,10 +163,7 @@ export default function ApiKeysList() {
     if (!identity?.token) return;
   
     try {
-      // Use the API to delete the key from the user's profile
       await ApiKeyService.deleteApiKey(identity.token, keyId);
-  
-      // Refresh the API keys list
       refreshApiKeys();
     } catch (error) {
       console.error("Error deleting API key:", error);
@@ -206,7 +196,6 @@ export default function ApiKeysList() {
     );
   }
 
-  // Check if we can create keys (need key name and token)
   const canCreateKey = !!(keyName && identity?.token);
 
   return (
@@ -232,16 +221,16 @@ export default function ApiKeysList() {
         <Table highlightOnHover>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
                 NAME
               </Table.Th>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
                 API KEY
               </Table.Th>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
                 CREATED AT
               </Table.Th>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
                 ACTIONS
               </Table.Th>
             </Table.Tr>
@@ -264,9 +253,11 @@ export default function ApiKeysList() {
                   </Table.Td>
                   <Table.Td>
                     <Group>
-                      <Code>{key.key.length > 16 ? 
-                        `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
-                        key.key}</Code>
+                      <Code>
+                        {key.key.length > 16 ? 
+                          `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
+                          key.key}
+                      </Code>
                       <CopyButton value={key.key} timeout={2000}>
                         {({ copied, copy }) => (
                           <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
@@ -285,7 +276,6 @@ export default function ApiKeysList() {
                   </Table.Td>
                   <Table.Td>
                     <Group gap="xs">
-                      {/* Updated property name from apiKeyId to keyId */}
                       <RegenerateApiKeyButton 
                         keyId={key.id} 
                         token={identity.token || ""} 
