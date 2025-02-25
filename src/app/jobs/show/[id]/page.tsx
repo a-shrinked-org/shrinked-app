@@ -13,21 +13,15 @@ import {
   Grid,
   Card,
   Alert,
-  Tabs
+  Divider
 } from '@mantine/core';
-import { IconEdit, IconArrowLeft, IconAlertCircle, IconChartLine, IconTimeline } from '@tabler/icons-react';
+import { IconEdit, IconArrowLeft, IconAlertCircle } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 
-// Import the SimpleListView component with dynamic loading for client-side rendering
-const SimpleListView = dynamic(
-  () => import('@/components/SimpleListView'),
-  { ssr: false, loading: () => <div>Loading processing timeline...</div> }
-);
-
-// Keep ReactFlow as a fallback option
-const FallbackFlowComponent = dynamic(
-  () => import('@/components/FallbackFlowComponent'),
+// Import the JobFlowDiagram component with dynamic loading for client-side rendering
+const JobFlowDiagram = dynamic(
+  () => import('@/components/JobFlowDiagram'),
   { ssr: false, loading: () => <div>Loading flow diagram...</div> }
 );
 
@@ -47,6 +41,12 @@ interface Job {
   link: string;
   status: string;
   createdAt: string;
+  steps?: Array<{
+    name: string;
+    status: string;
+    startTime?: string;
+    endTime?: string;
+  }>;
 }
 
 export default function JobShow() {
@@ -156,114 +156,85 @@ export default function JobShow() {
             </Group>
           </Group>
 
-          <Tabs defaultValue="details">
-            <Tabs.List>
-              <Tabs.Tab value="details" leftSection={<IconChartLine size={16} />}>
-                Details
-              </Tabs.Tab>
-              <Tabs.Tab value="processing" leftSection={<IconTimeline size={16} />}>
-                Processing Flow
-              </Tabs.Tab>
-            </Tabs.List>
-
-            <Tabs.Panel value="details" pt="md">
-              <Grid>
-                <Grid.Col span={12}>
-                  <Card withBorder p="md">
-                    <Stack gap="md">
-                      <Group justify="space-between">
-                        <div>
-                          <Text size="sm" c="dimmed">Job Name</Text>
-                          <Text fw={500}>{record?.jobName}</Text>
-                        </div>
-                        <Badge 
-                          color={getStatusColor(record?.status || '')}
-                          variant="light"
-                          size="lg"
-                        >
-                          {record?.status ? formatText(record.status) : 'Unknown'}
-                        </Badge>
-                      </Group>
-
-                      <div>
-                        <Text size="sm" c="dimmed">Scenario</Text>
-                        <Text>
-                          {record?.scenario ? formatText(record.scenario) : 'N/A'}
-                        </Text>
-                      </div>
-
-                      <div>
-                        <Text size="sm" c="dimmed">Language</Text>
-                        <Text>
-                          {record?.lang === 'en' ? 'English' : 
-                          record?.lang === 'uk' ? 'Ukrainian' : 
-                          record?.lang || 'N/A'}
-                        </Text>
-                      </div>
-
-                      <div>
-                        <Text size="sm" c="dimmed">Link</Text>
-                        <Text>{record?.link || 'N/A'}</Text>
-                      </div>
-
-                      <Group>
-                        <div>
-                          <Text size="sm" c="dimmed">Public</Text>
-                          <Badge color={record?.isPublic ? "green" : "gray"} variant="light">
-                            {record?.isPublic ? "Yes" : "No"}
-                          </Badge>
-                        </div>
-                        <div>
-                          <Text size="sm" c="dimmed">Create Page</Text>
-                          <Badge color={record?.createPage ? "green" : "gray"} variant="light">
-                            {record?.createPage ? "Yes" : "No"}
-                          </Badge>
-                        </div>
-                      </Group>
-
-                      <div>
-                        <Text size="sm" c="dimmed">Created At</Text>
-                        <Text>
-                          {record?.createdAt 
-                            ? new Date(record.createdAt).toLocaleString(undefined, {
-                                timeZone: "UTC",
-                              })
-                            : "N/A"}
-                        </Text>
-                      </div>
-                    </Stack>
-                  </Card>
-                </Grid.Col>
-              </Grid>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="processing" pt="md">
+          <Grid>
+            <Grid.Col span={12}>
               <Card withBorder p="md">
                 <Stack gap="md">
-                  <Text size="sm" fw={500}>Job Processing Flow</Text>
-                  <Text size="xs" c="dimmed">
-                    Visual representation of the job processing pipeline
-                  </Text>
-                  
-                  {/* Timeline View of Job Processing Flow */}
-                  {record && (
-                    <SimpleListView 
-                      jobScenario={record.scenario} 
-                      jobStatus={record.status} 
-                    />
-                  )}
-                  
-                  {/* Uncomment this for the ReactFlow fallback version */}
-                  {/* {record && (
-                    <FallbackFlowComponent 
-                      jobScenario={record.scenario} 
-                      jobStatus={record.status} 
-                    />
-                  )} */}
+                  <Group justify="space-between">
+                    <div>
+                      <Text size="sm" c="dimmed">Job Name</Text>
+                      <Text fw={500}>{record?.jobName}</Text>
+                    </div>
+                    <Badge 
+                      color={getStatusColor(record?.status || '')}
+                      variant="light"
+                      size="lg"
+                    >
+                      {record?.status ? formatText(record.status) : 'Unknown'}
+                    </Badge>
+                  </Group>
+
+                  <div>
+                    <Text size="sm" c="dimmed">Scenario</Text>
+                    <Text>
+                      {record?.scenario ? formatText(record.scenario) : 'N/A'}
+                    </Text>
+                  </div>
+
+                  <div>
+                    <Text size="sm" c="dimmed">Language</Text>
+                    <Text>
+                      {record?.lang === 'en' ? 'English' : 
+                      record?.lang === 'uk' ? 'Ukrainian' : 
+                      record?.lang || 'N/A'}
+                    </Text>
+                  </div>
+
+                  <div>
+                    <Text size="sm" c="dimmed">Link</Text>
+                    <Text>{record?.link || 'N/A'}</Text>
+                  </div>
+
+                  <Group>
+                    <div>
+                      <Text size="sm" c="dimmed">Public</Text>
+                      <Badge color={record?.isPublic ? "green" : "gray"} variant="light">
+                        {record?.isPublic ? "Yes" : "No"}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Text size="sm" c="dimmed">Create Page</Text>
+                      <Badge color={record?.createPage ? "green" : "gray"} variant="light">
+                        {record?.createPage ? "Yes" : "No"}
+                      </Badge>
+                    </div>
+                  </Group>
+
+                  <div>
+                    <Text size="sm" c="dimmed">Created At</Text>
+                    <Text>
+                      {record?.createdAt 
+                        ? new Date(record.createdAt).toLocaleString(undefined, {
+                            timeZone: "UTC",
+                          })
+                        : "N/A"}
+                    </Text>
+                  </div>
                 </Stack>
               </Card>
-            </Tabs.Panel>
-          </Tabs>
+            </Grid.Col>
+          </Grid>
+
+          <Divider my="sm" />
+          
+          {/* Job Processing Flow Diagram - integrated into the main page */}
+          {record && (
+            <JobFlowDiagram 
+              jobScenario={record.scenario} 
+              jobStatus={record.status}
+              steps={record.steps} 
+            />
+          )}
         </Stack>
       </Paper>
     </Box>
