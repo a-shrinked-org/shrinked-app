@@ -20,7 +20,8 @@ import {
   IconBriefcase, 
   IconCategory, 
   IconLogout,
-  IconFiles 
+  IconFiles,
+  IconKey
 } from '@tabler/icons-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 import { Breadcrumb } from "../breadcrumb";
@@ -75,6 +76,12 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       resource: "output" 
     },
     { 
+      label: 'API Keys', 
+      icon: IconKey,
+      href: '/api-keys',
+      resource: "api-keys" 
+    },
+    { 
       label: 'Categories', 
       icon: IconCategory,
       href: '/categories',
@@ -114,7 +121,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
                 <MantineNavLink
                   label={item.label}
                   leftSection={<item.icon size="1.2rem" stroke={1.5} />}
-                  active={pathname === item.href}
+                  active={pathname === item.href || pathname?.startsWith(item.href + '/')}
                   onClick={() => router.push(item.href)}
                 />
               </CanAccess>
@@ -151,11 +158,8 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Container size={768} px="md">
-          <Stack>
-            <Breadcrumb />
-            {children}
-          </Stack>
+        <Container size={1200} px="md">
+          {children}
         </Container>
       </AppShell.Main>
     </AppShell>
