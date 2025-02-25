@@ -14,11 +14,11 @@ import {
 } from '@xyflow/react';
 import { Paper, Loader, Center } from '@mantine/core';
 
-// Import your existing node components
-import { UploadNode } from '../logic-builder/nodes/UploadNode';
-import { AiNode } from '../logic-builder/nodes/AiNode';
-import { PdfNode } from '../logic-builder/nodes/PdfNode';
-import { EmailNode } from '../logic-builder/nodes/EmailNode';
+// Import your existing node components with the correct paths
+import { UploadNode } from '@/components/logic-builder/nodes/UploadNode';
+import { AiNode } from '@/components/logic-builder/nodes/AiNode';
+import { PdfNode } from '@/components/logic-builder/nodes/PdfNode';
+import { EmailNode } from '@/components/logic-builder/nodes/EmailNode';
 
 // Import your existing types
 import type { 
