@@ -19,9 +19,9 @@ import { IconEdit, IconArrowLeft, IconAlertCircle, IconChartLine, IconTimeline }
 import { useParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 
-// Import the JobProcessingFlow component with dynamic loading for client-side rendering
-const JobProcessingFlow = dynamic(
-  () => import('@/components/JobProcessingFlow'),
+// Import the SimpleJobProcessingFlow component with dynamic loading for client-side rendering
+const SimpleJobProcessingFlow = dynamic(
+  () => import('@/components/SimpleJobProcessingFlow'),
   { ssr: false, loading: () => <div>Loading flow diagram...</div> }
 );
 
@@ -241,7 +241,7 @@ export default function JobShow() {
                   
                   {/* Job Flow Visualization */}
                   {record && (
-                    <JobProcessingFlow 
+                    <SimpleJobProcessingFlow 
                       jobScenario={record.scenario} 
                       jobStatus={record.status} 
                     />
