@@ -17,10 +17,10 @@ import {
   CopyButton,
   Alert,
   Code
-} from '@mantine/core';
-import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey } from '@tabler/icons-react';
-import { RegenerateApiKeyButton } from '@/components/RegenerateApiKeyButton';
-import { ApiKeyService, ApiKey } from '@/services/api-key-service';
+} from "@mantine/core";
+import { IconTrash, IconCopy, IconCheck, IconPlus, IconKey } from "@tabler/icons-react";
+import { RegenerateApiKeyButton } from "@/components/RegenerateApiKeyButton";
+import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 
 interface Identity {
   token?: string;
@@ -38,15 +38,14 @@ export default function ApiKeysList() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { data: identity, isLoading: isIdentityLoading } = useGetIdentity<Identity>();
-  
+
   // Try to get userId from localStorage if not available in identity
   const userId = React.useMemo(() => {
     if (identity?.userId) return identity.userId;
-    
-    if (typeof window !== 'undefined') {
-      const userStr = localStorage.getItem('user');
+    if (typeof window !== "undefined") {
+      const userStr = localStorage.getItem("user");
       if (userStr) {
         try {
           const userData = JSON.parse(userStr);
@@ -78,24 +77,21 @@ export default function ApiKeysList() {
         console.log("No token available, skipping API keys fetch");
         return;
       }
-  
       setIsLoadingKeys(true);
       setError(null);
-  
       try {
         console.log("Fetching API keys...");
         const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
         console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
         setApiKeys(fetchedApiKeys);
       } catch (error) {
-        console.error('Error fetching API keys:', error);
+        console.error("Error fetching API keys:", error);
         setApiKeys([]);
         setError("Error fetching API keys. Please try again later.");
       } finally {
         setIsLoadingKeys(false);
       }
     };
-  
     if (identity?.token) {
       fetchApiKeys();
     }
@@ -103,53 +99,41 @@ export default function ApiKeysList() {
 
   const refreshApiKeys = async () => {
     if (!identity?.token) return;
-  
     setIsLoadingKeys(true);
     setError(null);
-  
     try {
       const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
       setApiKeys(fetchedApiKeys);
     } catch (error) {
-      console.error('Error refreshing API keys:', error);
+      console.error("Error refreshing API keys:", error);
       setApiKeys([]);
       setError("Error refreshing API keys. Please try again later.");
     } finally {
       setIsLoadingKeys(false);
     }
   };
-  
+
   const handleCreateApiKey = async () => {
     if (!keyName) return;
-  
     const effectiveUserId = userId || identity?.userId;
-  
     if (!effectiveUserId || !identity?.token) {
       console.error("Missing required data for creating API key:", {
         keyName: !!keyName,
         userId: !!effectiveUserId,
-        token: !!identity?.token
+        token: !!identity?.token,
       });
       setError("Cannot create API key: User ID is missing");
       return;
     }
-  
     setIsLoading(true);
     setError(null);
-  
     try {
       console.log(`Creating API key for userId: ${effectiveUserId}`);
-  
-      // Create API key through the profile API using createApiKey from ApiKeyService
       const newKey = await ApiKeyService.createApiKey(identity.token, effectiveUserId, keyName);
-  
       console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
-  
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
-  
-      // Refresh the API keys list
       refreshApiKeys();
     } catch (error) {
       console.error("Error creating API key:", error);
@@ -158,10 +142,9 @@ export default function ApiKeysList() {
       setIsLoading(false);
     }
   };
-  
+
   const handleDeleteApiKey = async (keyId: string) => {
     if (!identity?.token) return;
-  
     try {
       await ApiKeyService.deleteApiKey(identity.token, keyId);
       refreshApiKeys();
@@ -170,7 +153,7 @@ export default function ApiKeysList() {
       setError(`Error deleting API key: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
-  
+
   const closeSuccessModal = () => {
     setIsModalOpen(false);
     setNewApiKey(null);
@@ -202,10 +185,7 @@ export default function ApiKeysList() {
     <Stack gap="md" p="md">
       <Group justify="space-between">
         <Title order={2}>API Keys</Title>
-        <Button 
-          leftSection={<IconPlus size={16} />}
-          onClick={() => setIsCreateModalOpen(true)}
-        >
+        <Button leftSection={<IconPlus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
           Create API Key
         </Button>
       </Group>
@@ -216,21 +196,21 @@ export default function ApiKeysList() {
         </Alert>
       )}
 
-      <Box style={{ overflowX: 'auto' }}>
+      <Box style={{ overflowX: "auto" }}>
         <LoadingOverlay visible={isLoadingKeys} />
         <Table highlightOnHover>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th style={{ background: "none", fontWeight: 500, color: "#666", padding: "12px 16px", textTransform: "uppercase", fontSize: "12px" }}>
                 NAME
               </Table.Th>
-              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th style={{ background: "none", fontWeight: 500, color: "#666", padding: "12px 16px", textTransform: "uppercase", fontSize: "12px" }}>
                 API KEY
               </Table.Th>
-              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th style={{ background: "none", fontWeight: 500, color: "#666", padding: "12px 16px", textTransform: "uppercase", fontSize: "12px" }}>
                 CREATED AT
               </Table.Th>
-              <Table.Th sx={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
+              <Table.Th style={{ background: "none", fontWeight: 500, color: "#666", padding: "12px 16px", textTransform: "uppercase", fontSize: "12px" }}>
                 ACTIONS
               </Table.Th>
             </Table.Tr>
@@ -254,13 +234,13 @@ export default function ApiKeysList() {
                   <Table.Td>
                     <Group>
                       <Code>
-                        {key.key.length > 16 ? 
-                          `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
-                          key.key}
+                        {key.key.length > 16
+                          ? `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}`
+                          : key.key}
                       </Code>
                       <CopyButton value={key.key} timeout={2000}>
                         {({ copied, copy }) => (
-                          <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
+                          <ActionIcon color={copied ? "teal" : "gray"} onClick={copy} variant="subtle">
                             {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
                           </ActionIcon>
                         )}
@@ -268,21 +248,21 @@ export default function ApiKeysList() {
                     </Group>
                   </Table.Td>
                   <Table.Td>
-                    {new Intl.DateTimeFormat('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: '2-digit'
+                    {new Intl.DateTimeFormat("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "2-digit",
                     }).format(new Date(key.createdAt))}
                   </Table.Td>
                   <Table.Td>
                     <Group gap="xs">
-                      <RegenerateApiKeyButton 
-                        keyId={key.id} 
-                        token={identity.token || ""} 
+                      <RegenerateApiKeyButton
+                        keyId={key.id}
+                        token={identity.token || ""}
                         onSuccess={refreshApiKeys}
                       />
-                      <ActionIcon 
-                        color="red" 
+                      <ActionIcon
+                        color="red"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteApiKey(key.id);
@@ -318,33 +298,29 @@ export default function ApiKeysList() {
             required
           />
           <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateApiKey} disabled={!canCreateKey}>Create</Button>
+            <Button variant="light" onClick={() => setIsCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateApiKey} disabled={!canCreateKey}>
+              Create
+            </Button>
           </Group>
         </Stack>
       </Modal>
 
       {/* API Key Created Success Modal */}
-      <Modal
-        opened={isModalOpen}
-        onClose={closeSuccessModal}
-        title="Save your API key"
-        size="lg"
-      >
+      <Modal opened={isModalOpen} onClose={closeSuccessModal} title="Save your API key" size="lg">
         <Alert title="Important!" color="red" mb="md">
           Keep a record of the key below. You won&apos;t be able to view it again.
         </Alert>
-        
-        <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
+        <Box p="md" bg="gray.1" style={{ borderRadius: "4px" }}>
           <Group justify="apart">
-            <Code style={{ fontSize: '14px', wordBreak: 'break-all' }}>
-              {newApiKey}
-            </Code>
+            <Code style={{ fontSize: "14px", wordBreak: "break-all" }}>{newApiKey}</Code>
             <CopyButton value={newApiKey || ""} timeout={2000}>
               {({ copied, copy }) => (
-                <Button 
+                <Button
                   size="xs"
-                  color={copied ? 'teal' : 'blue'} 
+                  color={copied ? "teal" : "blue"}
                   onClick={copy}
                   leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
                 >
@@ -354,16 +330,12 @@ export default function ApiKeysList() {
             </CopyButton>
           </Group>
         </Box>
-        
         <Text size="sm" mt="lg">
-          You can use this API key to authenticate with the Shrinked API.
-          To use it, include it in the <Code>x-api-key</Code> header in your requests.
+          You can use this API key to authenticate with the Shrinked API. To use it, include it in the{" "}
+          <Code>x-api-key</Code> header in your requests.
         </Text>
-        
         <Group justify="center" mt="xl">
-          <Button onClick={closeSuccessModal}>
-            I&apos;ve saved my API key
-          </Button>
+          <Button onClick={closeSuccessModal}>I&apos;ve saved my API key</Button>
         </Group>
       </Modal>
     </Stack>
