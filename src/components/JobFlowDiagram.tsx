@@ -69,11 +69,11 @@ export default function JobFlowDiagram({
 
   return (
     <Paper p="md" withBorder>
-      <Stack spacing="md">
+      <Stack gap="md">
         <Text fw={500} size="lg">Job Processing Flow</Text>
         
         <Box mt={20}>
-          <Group align="flex-start" justify="space-between" spacing="md">
+          <Group align="flex-start" gap="md">
             {flowSteps.map((step, index) => (
               <Box key={index} style={{ position: 'relative', flex: 1 }}>
                 <Paper
@@ -89,12 +89,12 @@ export default function JobFlowDiagram({
                 >
                   <Group justify="space-between" mb={8}>
                     <Box>{getStepIcon(step.type || '')}</Box>
-                    <Text size="xs" color="dimmed">{getTimeDuration(step)}</Text>
+                    <Text size="xs" c="dimmed">{getTimeDuration(step)}</Text>
                   </Group>
                   
                   <Text fw={500}>{step.name}</Text>
                   
-                  <Text size="xs" color="dimmed" mt={4}>{step.status}</Text>
+                  <Text size="xs" c="dimmed" mt={4}>{step.status}</Text>
                 </Paper>
                 
                 {index < flowSteps.length - 1 && (
