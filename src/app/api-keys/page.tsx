@@ -257,8 +257,7 @@ export default function ApiKeysList() {
                   <Table.Td>
                     <Group gap="xs">
                       <RegenerateApiKeyButton
-                        keyId={key.id}
-                        token={identity.token || ""}
+                        apiKeyId={key.id}
                         onSuccess={refreshApiKeys}
                       />
                       <ActionIcon

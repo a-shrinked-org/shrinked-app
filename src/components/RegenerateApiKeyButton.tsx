@@ -13,47 +13,33 @@ import {
   LoadingOverlay
 } from '@mantine/core';
 import { IconRefresh, IconCopy, IconCheck } from '@tabler/icons-react';
-import { useGetIdentity } from "@refinedev/core";
 
-// Update the prop interface to match how it's used in page.tsx
+// Keep the original prop names to match how it's used in page.tsx
 interface RegenerateApiKeyButtonProps {
-  apiKeyId: string; // Changed from keyId to apiKeyId
+  keyId: string;
+  token: string;
   onSuccess?: () => void;
 }
 
-interface Identity {
-  token?: string;
-  email?: string;
-  name?: string;
-  userId?: string;
-}
-
 export const RegenerateApiKeyButton: React.FC<RegenerateApiKeyButtonProps> = ({ 
-  apiKeyId,  // Use apiKeyId instead of keyId
+  keyId, 
+  token,
   onSuccess 
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Get the identity to retrieve the token
-  const { data: identity } = useGetIdentity<Identity>();
 
   const handleRegenerateApiKey = async () => {
-    if (!identity?.token) {
-      console.error("No authentication token available");
-      return;
-    }
-    
     setIsLoading(true);
     
     try {
-      // Using the correct endpoint from Postman collection with apiKeyId
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-key/${apiKeyId}/regenerate`, {
+      // Using the correct endpoint from Postman collection
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/api-key/${keyId}/regenerate`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${identity.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
