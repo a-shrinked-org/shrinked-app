@@ -145,7 +145,7 @@ export default function JobFlowDiagram({
         <Text fw={500} size="lg">Job Processing Flow</Text>
         
         <Box mt={20}>
-          <Group align="flex-start" justify="space-between" spacing={12}>
+          <Group align="flex-start" justify="space-between" gap="md">
             {flowSteps.map((step, index) => (
               <Box key={index} style={{ position: 'relative', flex: 1 }}>
                 <Paper
