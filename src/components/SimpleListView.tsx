@@ -80,8 +80,8 @@ export default function SimpleListView({ jobScenario = '', jobStatus = 'PENDING'
 
   return (
     <Paper p="md" withBorder>
-      <Stack spacing="xs">
-        <Group position="apart">
+      <Stack gap="xs">
+        <Group justify="space-between">
           <Text fw={500}>Job Processing Flow</Text>
           <Badge color={getBadgeColor(getStepStatus(1))}>{status}</Badge>
         </Group>
