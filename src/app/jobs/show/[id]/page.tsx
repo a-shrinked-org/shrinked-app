@@ -20,6 +20,7 @@ import { useParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 
 // Import the SimpleJobProcessingFlow component with dynamic loading for client-side rendering
+// Make sure this path matches exactly where you saved the SimpleJobProcessingFlow.tsx file
 const SimpleJobProcessingFlow = dynamic(
   () => import('@/components/SimpleJobProcessingFlow'),
   { ssr: false, loading: () => <div>Loading flow diagram...</div> }
