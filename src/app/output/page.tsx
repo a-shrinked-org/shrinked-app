@@ -189,7 +189,7 @@ export default function ProcessingList() {
                 {data.data.map((doc) => (
                   <Table.Tr key={doc._id}>
                     <Table.Td>
-                      <Stack spacing={2}>
+                      <Stack gap={2}>
                         <Text fw={500}>{doc.title || doc.fileName || 'Untitled Document'}</Text>
                         <Text size="xs" color="dimmed">
                           {formatDateTime(doc.createdAt)}
