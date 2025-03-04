@@ -239,7 +239,8 @@ export default function Login() {
       </SimpleGrid>
       
       <Box my="lg" p="md" style={{ backgroundColor: '#F5F5F5', borderRadius: '8px', maxWidth: '100%' }}>
-        <Text size="sm" weight={500} mb="xs">Debug Info:</Text>
+        {/* Changed 'weight' to 'fw' (fontWeight) which is the correct prop in Mantine */}
+        <Text size="sm" fw={500} mb="xs">Debug Info:</Text>
         <Text size="xs" color="dimmed">
           NextAuth uses the configured Google provider in NextAuth options.<br/>
           Direct API uses your custom endpoint at api.shrinked.ai.<br/>
