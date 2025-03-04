@@ -204,7 +204,8 @@ export default function JobShow() {
             value={activeTab} 
             onChange={setActiveTab as any}
             classNames={{
-              tabsList: 'border-b border-[#202020]',
+              root: '',
+              list: 'border-b border-[#202020]',
               tab: 'data-[active=true]:bg-transparent data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:shadow-none rounded-none px-4 py-2 text-[#a1a1a1] data-[active=true]:text-white'
             }}
           >
