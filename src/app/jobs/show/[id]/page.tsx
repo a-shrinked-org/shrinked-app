@@ -16,7 +16,7 @@ import {
 import { 
   IconArrowLeft, 
   IconShare,
-  IconDotsHorizontal,
+  IconDotsVertical,
   IconDownload,
   IconAlertCircle
 } from '@tabler/icons-react';
@@ -202,7 +202,7 @@ export default function JobShow() {
               variant="subtle" 
               style={{ color: '#ffffff' }}
             >
-              <IconDotsHorizontal size={20} />
+              <IconDotsVertical size={20} />
             </ActionIcon>
           </div>
         </div>
@@ -219,42 +219,24 @@ export default function JobShow() {
         <div className="flex-1 px-8">
           <Tabs defaultValue="preview" className="w-full">
             <div className="border-b border-[#202020]">
-              <Tabs.List style={{ background: 'transparent' }}>
+              <Tabs.List variant="unstyled" style={{ background: 'transparent' }}>
                 <Tabs.Tab 
                   value="preview"
-                  style={{ 
-                    background: 'transparent', 
-                    borderBottom: activeTab === 'preview' ? '2px solid white' : 'none',
-                    color: activeTab === 'preview' ? 'white' : '#a1a1a1',
-                    borderRadius: 0,
-                    padding: '8px 16px'
-                  }}
+                  className="data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:text-white text-[#a1a1a1] rounded-none px-4 py-2"
                   onClick={() => setActiveTab('preview')}
                 >
                   Preview
                 </Tabs.Tab>
                 <Tabs.Tab 
                   value="markdown"
-                  style={{ 
-                    background: 'transparent', 
-                    borderBottom: activeTab === 'markdown' ? '2px solid white' : 'none',
-                    color: activeTab === 'markdown' ? 'white' : '#a1a1a1',
-                    borderRadius: 0,
-                    padding: '8px 16px'
-                  }}
+                  className="data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:text-white text-[#a1a1a1] rounded-none px-4 py-2"
                   onClick={() => setActiveTab('markdown')}
                 >
                   Markdown/JSON
                 </Tabs.Tab>
                 <Tabs.Tab 
                   value="question"
-                  style={{ 
-                    background: 'transparent', 
-                    borderBottom: activeTab === 'question' ? '2px solid white' : 'none',
-                    color: '#a1a1a1',
-                    borderRadius: 0,
-                    padding: '8px 16px'
-                  }}
+                  className="text-[#a1a1a1] rounded-none px-4 py-2"
                   disabled
                   onClick={() => setActiveTab('question')}
                 >
