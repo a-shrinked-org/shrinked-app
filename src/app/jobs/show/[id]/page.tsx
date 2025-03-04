@@ -2,7 +2,6 @@
 
 import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import { 
-  Stack, 
   Text, 
   Box,
   Group,
@@ -122,7 +121,7 @@ export default function JobShow() {
 
   if (!identity?.token) {
     return (
-      <Box className="relative min-h-[200px]">
+      <Box>
         <LoadingOverlay visible />
         <Text>Authentication required</Text>
       </Box>
@@ -131,7 +130,7 @@ export default function JobShow() {
 
   if (isLoading) {
     return (
-      <Box className="relative min-h-[200px]">
+      <Box>
         <LoadingOverlay visible />
         <Text>Loading...</Text>
       </Box>
@@ -141,7 +140,7 @@ export default function JobShow() {
   if (isError || !jobId) {
     return (
       <Box p="md">
-        <Box mb="md" p="md" bg="#252525" style={{ borderRadius: 8, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+        <Box mb="md" p="md" style={{ backgroundColor: '#252525', borderRadius: 8 }}>
           <Group>
             <IconAlertCircle size={20} color="red" />
             <Text c="red">Unable to load job details. Please try again.</Text>
@@ -169,11 +168,11 @@ export default function JobShow() {
   }
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: '#0a0a0a', color: '#ffffff' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
       {/* Main content area */}
-      <div className="flex-1 flex flex-col">
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <Box p="md" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Button 
             variant="outline" 
             leftSection={<IconArrowLeft size={16} />}
@@ -226,7 +225,6 @@ export default function JobShow() {
               styles={{
                 root: {
                   color: '#ffffff',
-                  backgroundColor: '#131313',
                   '&:hover': {
                     backgroundColor: '#202020',
                   },
@@ -236,22 +234,22 @@ export default function JobShow() {
               <IconDotsVertical size={20} />
             </ActionIcon>
           </Group>
-        </Box>
+        </div>
 
         {/* Document title */}
-        <Box p="lg">
+        <div style={{ padding: '24px' }}>
           <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
             {record?.output?.title || record?.jobName || 'Untitled Document'}
           </Text>
           <Text c="dimmed" mt="xs">
             {getFilenameFromLink(record?.link) || 'No source file'}
           </Text>
-        </Box>
+        </div>
 
         {/* Tabs and content */}
-        <Box p="lg" sx={{ flex: 1 }}>
+        <div style={{ padding: '24px', flex: 1 }}>
           <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
-            <Tabs.List bg="transparent" style={{ borderBottom: '1px solid #202020' }}>
+            <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
               <Tabs.Tab 
                 value="preview"
                 styles={{
@@ -309,8 +307,8 @@ export default function JobShow() {
             </Tabs.List>
 
             <Tabs.Panel value="preview" pt="md">
-              <Box bg="white" c="black" p="lg" style={{ borderRadius: 8, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
-                <Box mx="auto" sx={{ maxWidth: '3xl' }}>
+              <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
+                <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
                   {record?.output?.pdfUrl ? (
                     <Document file={record.output.pdfUrl} loading={<Text>Loading PDF...</Text>}>
                       <Page pageNumber={1} width={800} />
@@ -323,7 +321,7 @@ export default function JobShow() {
                       <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
                         Origin
                       </Text>
-                      <Text c="#3b1b1b" mb="md">
+                      <Text style={{ color: '#3b1b1b', marginBottom: '1rem' }}>
                         <a href={record?.link} style={{ color: 'blue', textDecoration: 'underline', wordBreak: 'break-all' }}>
                           {record?.link || 'No source link available'}
                         </a>
@@ -355,51 +353,51 @@ export default function JobShow() {
                       )}
                     </>
                   )}
-                </Box>
-              </Box>
+                </div>
+              </div>
             </Tabs.Panel>
 
             <Tabs.Panel value="markdown" pt="md">
-              <Box p="md" c="dimmed" style={{ borderRadius: 8 }}>
+              <div style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
                 <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '70vh' }}>
                   {JSON.stringify(record?.output, null, 2) || 'No markdown content available'}
                 </pre>
-              </Box>
+              </div>
             </Tabs.Panel>
 
             <Tabs.Panel value="question" pt="md">
-              <Box p="md" c="dimmed" style={{ borderRadius: 8 }}>
+              <div style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
                 Question interface would appear here
-              </Box>
+              </div>
             </Tabs.Panel>
           </Tabs>
-        </Box>
+        </div>
       </div>
 
       {/* Right sidebar */}
-      <div className="w-96" style={{ borderLeft: '1px solid #202020', padding: '1.5rem' }}>
-        <Box mb="xl">
+      <div style={{ width: '384px', borderLeft: '1px solid #202020', padding: '1.5rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Created
           </Text>
           <Text>{identity?.name || 'Unknown User'}</Text>
-        </Box>
+        </div>
 
-        <Box mb="xl">
+        <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Duration
           </Text>
           <Text>{formatDuration(record?.totalDuration)}</Text>
-        </Box>
+        </div>
 
-        <Box mb="xl">
+        <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Status
           </Text>
           <Text>{record?.status ? formatText(record.status) : 'Unknown'}</Text>
-        </Box>
+        </div>
 
-        <Box mb="xl">
+        <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Language
           </Text>
@@ -408,15 +406,22 @@ export default function JobShow() {
              record?.lang === 'uk' ? 'Ukrainian' : 
              record?.lang || 'Unknown'}
           </Text>
-        </Box>
+        </div>
 
-        <Box mb="md">
+        <div style={{ marginBottom: '1.5rem' }}>
           <Text c="dimmed" mb="md">
             Logic steps / events
           </Text>
 
-          <Box sx={{ position: 'relative' }}>
-            <Box sx={{ position: 'absolute', left: '1rem', top: '1rem', bottom: '1rem', width: 2, backgroundColor: '#202020' }} />
+          <div style={{ position: 'relative' }}>
+            <div style={{ 
+              position: 'absolute', 
+              left: '1rem', 
+              top: '1rem', 
+              bottom: '1rem', 
+              width: '2px', 
+              backgroundColor: '#202020' 
+            }} />
 
             {record?.steps?.map((step, index) => {
               let bgOuterColor = '#202020';
@@ -435,8 +440,8 @@ export default function JobShow() {
               }
               
               return (
-                <Box key={index} mb="xl">
-                  <Group align="flex-start">
+                <div key={index} style={{ marginBottom: '2rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
                     <div 
                       style={{ 
                         width: '32px', 
@@ -452,14 +457,13 @@ export default function JobShow() {
                     >
                       <div style={{ width: '16px', height: '16px', backgroundColor: bgInnerColor, borderRadius: '50%' }} />
                     </div>
-                    <Box 
-                      ml="md" 
-                      p="sm" 
-                      sx={{ 
+                    <div 
+                      style={{ 
+                        marginLeft: '1rem', 
+                        padding: '0.75rem', 
                         backgroundColor: bgCardColor, 
-                        borderRadius: 8, 
-                        flex: 1, 
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' 
+                        borderRadius: '8px', 
+                        flex: 1
                       }}
                     >
                       <Text fw={500} c="white">
@@ -468,20 +472,20 @@ export default function JobShow() {
                       <Text c="dimmed" size="sm">
                         {step.status ? formatText(step.status) : 'No status'}
                       </Text>
-                    </Box>
+                    </div>
                     {step.duration && (
-                      <Text ml="xs" c="dimmed" size="sm">
+                      <Text style={{ marginLeft: '0.5rem', color: '#757575', fontSize: '0.875rem' }}>
                         {formatDuration(step.duration)}
                       </Text>
                     )}
-                  </Group>
-                </Box>
+                  </div>
+                </div>
               );
             })}
             
             {(!record?.steps || record.steps.length === 0) && (
-              <Box mb="xl">
-                <Group align="flex-start">
+              <div style={{ marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start' }}>
                   <div 
                     style={{ 
                       width: '32px', 
@@ -497,14 +501,13 @@ export default function JobShow() {
                   >
                     <div style={{ width: '16px', height: '16px', backgroundColor: '#2b2b2b', borderRadius: '50%' }} />
                   </div>
-                  <Box 
-                    ml="md" 
-                    p="sm" 
-                    sx={{ 
+                  <div 
+                    style={{ 
+                      marginLeft: '1rem', 
+                      padding: '0.75rem', 
                       backgroundColor: '#202020', 
-                      borderRadius: 8, 
-                      flex: 1, 
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' 
+                      borderRadius: '8px', 
+                      flex: 1
                     }}
                   >
                     <Text fw={500} c="white">
@@ -513,12 +516,12 @@ export default function JobShow() {
                     <Text c="dimmed" size="sm">
                       Processing information unavailable
                     </Text>
-                  </Box>
-                </Group>
-              </Box>
+                  </div>
+                </div>
+              </div>
             )}
-          </Box>
-        </Box>
+          </div>
+        </div>
       </div>
     </div>
   );
