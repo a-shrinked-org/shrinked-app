@@ -40,36 +40,75 @@ interface Job {
 }
 
 const getStatusColor = (status: string) => {
-  switch (status?.toLowerCase()) {
+  if (!status) return 'gray';
+  
+  const statusLower = status.toLowerCase();
+  switch (statusLower) {
     case 'completed':
       return 'green';
     case 'in_progress':
+    case 'processing':
       return 'blue';
     case 'failed':
+    case 'error':
       return 'red';
+    case 'pending':
+    case 'queued':
+      return 'yellow';
     default:
       return 'gray';
   }
 };
 
 const formatScenarioName = (scenario: string) => {
-if (scenario?.includes('PLATOGRAM')) {
-  return (
-    <Group gap={8} align="center">
-      <Box style={{ 
-        width: 8, 
-        height: 8, 
-        borderRadius: '50%', 
-        backgroundColor: '#7048E8',
-        flexShrink: 0
-      }} />
-      <Text size="sm">Default</Text>
-    </Group>
+  if (!scenario) return 'Unknown';
+  
+  // Check for "Single File Default" scenario
+  if (scenario.includes('SINGLE_FILE_DEFAULT')) {
+    return (
+      <Group gap={8} align="center">
+        <Box style={{ 
+          width: 8, 
+          height: 8, 
+          borderRadius: '50%', 
+          backgroundColor: '#7048E8',
+          flexShrink: 0
+        }} />
+        <Text size="sm">Default</Text>
+      </Group>
     );
   }
-  return scenario?.replace(/_/g, ' ')
+  
+  // Legacy check for PLATOGRAM scenario
+  if (scenario.includes('PLATOGRAM')) {
+    return (
+      <Group gap={8} align="center">
+        <Box style={{ 
+          width: 8, 
+          height: 8, 
+          borderRadius: '50%', 
+          backgroundColor: '#7048E8',
+          flexShrink: 0
+        }} />
+        <Text size="sm">Default</Text>
+      </Group>
+    );
+  }
+  
+  // Format other scenario names
+  return scenario.replace(/_/g, ' ')
     .toLowerCase()
     .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+// Format status text for display
+const formatStatusText = (status: string) => {
+  if (!status) return 'Unknown';
+  
+  return status.toLowerCase()
+    .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 };
@@ -116,10 +155,7 @@ export default function JobList() {
                 textTransform: 'capitalize'
               }}
             >
-              {status?.toLowerCase()
-                .split('_')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ')}
+              {formatStatusText(status)}
             </Badge>
           );
         }
@@ -223,15 +259,16 @@ export default function JobList() {
     setIsStatusModalOpen(true);
     
     try {
+      // Update status check endpoints based on Postman collection
       const [sandboxResponse, prodResponse] = await Promise.all([
-        fetch("https://sandbox.temporary.name/status", {
+        fetch("https://api.shrinked.ai/status", {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${identity?.token}`,
             'Content-Type': 'application/json'
           },
         }),
-        fetch("https://temporary.name/status", {
+        fetch("https://api.shrinked.ai/status", {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${identity?.token}`,
@@ -243,21 +280,21 @@ export default function JobList() {
       let combinedStatus = "";
   
       if (sandboxResponse.status === 502) {
-        combinedStatus += "Sandbox: Server is under maintenance.\n";
+        combinedStatus += "API: Server is under maintenance.\n";
       } else if (!sandboxResponse.ok) {
-        combinedStatus += `Sandbox: Error ${sandboxResponse.status}\n`;
+        combinedStatus += `API: Error ${sandboxResponse.status}\n`;
       } else {
         const sandboxResult = await sandboxResponse.json();
-        combinedStatus += `Sandbox: ${sandboxResult.status}\n`;
+        combinedStatus += `API: ${sandboxResult.status || 'Ok'}\n`;
       }
   
       if (prodResponse.status === 502) {
-        combinedStatus += "Production: Server is under maintenance.";
+        combinedStatus += "Processing: Server is under maintenance.";
       } else if (!prodResponse.ok) {
-        combinedStatus += `Production: Error ${prodResponse.status}`;
+        combinedStatus += `Processing: Error ${prodResponse.status}`;
       } else {
         const prodResult = await prodResponse.json();
-        combinedStatus += `Production: ${prodResult.status}`;
+        combinedStatus += `Processing: ${prodResult.status || 'Ok'}`;
       }
   
       setStatusResult(combinedStatus);
