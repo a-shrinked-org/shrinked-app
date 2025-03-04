@@ -1,7 +1,7 @@
 "use client";
 
 import { useNavigation, useGetIdentity, useResource } from "@refinedev/core";
-import { useForm, UseFormProps } from "@refinedev/react-hook-form";
+import { useForm } from "@refinedev/react-hook-form";
 import { 
   TextInput, 
   Select, 
@@ -11,11 +11,12 @@ import {
   Group, 
   Box, 
   Title,
-  Paper
+  Paper,
+  Text
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { IconArrowLeft } from '@tabler/icons-react';
-import { FieldValues } from "react-hook-form";
+import { HttpError } from "@refinedev/core";
 
 interface Identity {
   token?: string;
@@ -24,6 +25,7 @@ interface Identity {
 }
 
 type JobEditForm = {
+  _id?: string;
   jobName: string;
   scenario: string;
   lang: string;
@@ -32,35 +34,10 @@ type JobEditForm = {
   link: string;
 }
 
-const scenarioOptions = [
-  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
-  // Add other scenarios as needed
-];
-
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'uk', label: 'Ukrainian' },
-  // Add other languages as needed
-];
-
 export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
   const { data: identity } = useGetIdentity<Identity>();
-
-  const formProps: UseFormProps = {
-    refineCoreProps: {
-      resource: "jobs",
-      id,
-      action: "edit",
-      redirect: false,
-      meta: {
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`
-        }
-      }
-    }
-  };
 
   const {
     refineCore: { onFinish },
@@ -69,9 +46,38 @@ export default function JobEdit() {
     formState: { errors },
     setValue,
     watch,
-  } = useForm(formProps);
+  } = useForm<JobEditForm, HttpError, JobEditForm>({
+    refineCoreProps: {
+      resource: "jobs",
+      id,
+      action: "edit",
+      redirect: false,
+      queryOptions: {
+        enabled: !!id && !!identity?.token,
+        onSuccess: (data) => {
+          console.log("Edit query success:", data);
+        },
+        onError: (error) => {
+          console.error("Edit query error:", error);
+        }
+      },
+      meta: {
+        headers: identity?.token ? {
+          'Authorization': `Bearer ${identity.token}`
+        } : undefined
+      }
+    }
+  });
 
-  const onSubmitHandler = async (data: FieldValues) => {
+  if (!identity?.token) {
+    return (
+      <Box p="md">
+        <Text>Loading authentication...</Text>
+      </Box>
+    );
+  }
+
+  const onSubmitHandler = async (data: JobEditForm) => {
     try {
       await onFinish(data);
       
@@ -112,24 +118,30 @@ export default function JobEdit() {
                 label="Job Name"
                 placeholder="Enter job name"
                 required
-                error={errors?.jobName?.message?.toString()}
+                error={errors?.jobName?.message}
                 {...register('jobName', { required: 'Job name is required' })}
               />
 
               <Select
                 label="Scenario"
-                data={scenarioOptions}
+                data={[
+                  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
+                  // Add other scenarios as needed
+                ]}
                 required
-                error={errors?.scenario?.message?.toString()}
+                error={errors?.scenario?.message}
                 value={watch('scenario')}
                 onChange={(value) => setValue('scenario', value || '')}
               />
 
               <Select
                 label="Language"
-                data={languageOptions}
+                data={[
+                  { value: 'en', label: 'English' },
+                  { value: 'uk', label: 'Ukrainian' }
+                ]}
                 required
-                error={errors?.lang?.message?.toString()}
+                error={errors?.lang?.message}
                 value={watch('lang')}
                 onChange={(value) => setValue('lang', value || '')}
               />
@@ -138,7 +150,7 @@ export default function JobEdit() {
                 label="Link"
                 placeholder="Enter file link"
                 required
-                error={errors?.link?.message?.toString()}
+                error={errors?.link?.message}
                 {...register('link', { required: 'Link is required' })}
               />
 

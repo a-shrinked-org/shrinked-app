@@ -20,16 +20,17 @@ import {
   IconBriefcase, 
   IconCategory, 
   IconLogout,
-  IconFiles 
+  IconFiles,
+  IconKey
 } from '@tabler/icons-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
-import { Breadcrumb } from "../breadcrumb";
 
 interface Identity {
   id?: string;
   name?: string;
   email?: string;
   avatar?: string;
+  username?: string;
 }
 
 export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
@@ -42,9 +43,23 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
 
   // Use either session or custom auth identity
   const userInfo = {
-    name: session?.user?.name || identity?.name,
+    name: session?.user?.name || identity?.name || identity?.username,
     email: session?.user?.email || identity?.email,
     avatar: session?.user?.image || identity?.avatar,
+  };
+
+  // Generate initials from the user's name or email
+  const getInitials = () => {
+    if (userInfo.name) {
+      const nameParts = userInfo.name.split(' ');
+      if (nameParts.length > 1) {
+        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+      }
+      return userInfo.name.substring(0, 2).toUpperCase();
+    } else if (userInfo.email) {
+      return userInfo.email.substring(0, 2).toUpperCase();
+    }
+    return 'UN'; // Unknown
   };
 
   const handleLogout = () => {
@@ -73,6 +88,12 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       icon: IconFiles,
       href: '/output',
       resource: "output" 
+    },
+    { 
+      label: 'API Keys', 
+      icon: IconKey,
+      href: '/api-keys',
+      resource: "api-keys" 
     },
     { 
       label: 'Categories', 
@@ -114,7 +135,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
                 <MantineNavLink
                   label={item.label}
                   leftSection={<item.icon size="1.2rem" stroke={1.5} />}
-                  active={pathname === item.href}
+                  active={pathname === item.href || pathname?.startsWith(item.href + '/')}
                   onClick={() => router.push(item.href)}
                 />
               </CanAccess>
@@ -128,14 +149,20 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
                   src={userInfo.avatar} 
                   radius="xl" 
                   size="md"
-                />
+                  color="blue"
+                  alt={userInfo.name || userInfo.email || 'User'}
+                >
+                  {getInitials()}
+                </Avatar>
                 <Stack gap={0}>
                   <Text size="sm" fw={500}>
-                    {userInfo.name}
+                    {userInfo.name || userInfo.email || 'User'}
                   </Text>
-                  <Text size="xs" c="dimmed">
-                    {userInfo.email}
-                  </Text>
+                  {userInfo.email && (
+                    <Text size="xs" c="dimmed">
+                      {userInfo.email}
+                    </Text>
+                  )}
                 </Stack>
               </Group>
             </Box>
@@ -151,11 +178,8 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Container size={768} px="md">
-          <Stack>
-            <Breadcrumb />
-            {children}
-          </Stack>
+        <Container size={1200} px="md">
+          {children}
         </Container>
       </AppShell.Main>
     </AppShell>

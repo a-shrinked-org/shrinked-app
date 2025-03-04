@@ -2,15 +2,16 @@
 
 import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-import { SessionProvider, signIn, useSession } from "next-auth/react";
+import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
-import { toast, ToastContainer, Id } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
+import { Session } from "next-auth";
 
 interface RefineContextProps {}
 
@@ -40,6 +41,19 @@ const notificationProvider: NotificationProvider = {
   },
 };
 
+// Define the extended session with properly typed user property
+interface CustomSession extends Session {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    accessToken?: string;
+    refreshToken?: string;
+  };
+  accessToken?: string;
+}
+
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession();
   const to = usePathname();
@@ -51,7 +65,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
-  // Auth check effect
+  // Auth check effect with token refresh
   useEffect(() => {
     const checkAuthentication = async () => {
       if (status === "loading") return;
@@ -66,13 +80,21 @@ const App = (props: React.PropsWithChildren<{}>) => {
           return;
         }
 
-        const result = await customAuthProvider.check();
-        
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: result.authenticated,
-          initialized: true,
-        });
+        // Try to check authentication via custom provider if no session
+        const checkResult = await customAuthProvider.check();
+        if (checkResult.authenticated) {
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: true,
+            initialized: true,
+          });
+        } else {
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: false,
+            initialized: true,
+          });
+        }
       } catch (error) {
         console.error("Auth check error:", error);
         setAuthState({
@@ -89,140 +111,127 @@ const App = (props: React.PropsWithChildren<{}>) => {
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
+      if (params.providerName === "google") {
+        signIn("google", {
           callbackUrl: "/jobs",
           redirect: true,
         });
         return {
           success: false,
           error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
+            message: "Redirecting to Google...",
+            name: "Google",
+          },
         };
-      }
-      
-      try {
-        const result = await customAuthProvider.login(params);
-        
-        if (result.success) {
-          setAuthState({
-            isChecking: false,
-            isAuthenticated: true,
-            initialized: true,
-          });
-          
+      } else if (params.email && params.password) {
+        const result = await signIn("credentials", {
+          email: params.email,
+          password: params.password,
+          redirect: false,
+        });
+
+        if (result?.error) {
           notificationProvider.open({
-            message: "Welcome back!",
-            type: "success",
-            key: "login-success"
+            message: "Login Failed",
+            description: result.error,
+            type: "error",
+            key: "login-error",
           });
-          
           return {
-            ...result,
-            redirectTo: "/jobs"
+            success: false,
+            error: {
+              message: result.error,
+              name: "Login Failed",
+            },
           };
         }
-        
-        notificationProvider.open({
-          message: "Login Failed",
-          description: result.error?.message || "Invalid credentials",
-          type: "error",
-          key: "login-error"
-        });
-        
-        return result;
-      } catch (error) {
-        console.error("Login error:", error);
-        
-        notificationProvider.open({
-          message: "Login Error",
-          description: "An unexpected error occurred",
-          type: "error",
-          key: "login-error"
-        });
-        
+
         return {
-          success: false,
-          error: {
-            message: "Login failed",
-            name: "Auth Error"
-          }
+          success: true,
+          redirectTo: "/jobs",
         };
       }
+
+      return {
+        success: false,
+        error: {
+          message: "Invalid login parameters",
+          name: "Login Error",
+        },
+      };
     },
     check: async () => {
-      try {
-        // If we're already on the login page, no need to check auth
-        if (to === "/login") {
-          return { authenticated: false };
+      if (status === "loading") return { authenticated: false };
+      if (to === "/login" || session) return { authenticated: !!session };
+      
+      // Safely access refreshToken
+      const sessionRefreshToken = session?.user?.refreshToken;
+      const localRefreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = sessionRefreshToken || localRefreshToken;
+      
+      if (refreshToken) {
+        const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
+        if (newTokens) {
+          localStorage.setItem('accessToken', newTokens.accessToken);
+          localStorage.setItem('refreshToken', newTokens.refreshToken);
+          return { authenticated: true };
         }
-        
-        const result = await customAuthProvider.check();
-        
-        // Only redirect to login if not authenticated AND not already on login page
-        if (!result.authenticated && to !== "/login") {
-          return {
-            authenticated: false,
-            error: new Error("Not authenticated"),
-            logout: true,
-            redirectTo: "/login"
-          };
-        }
-        
-        // If authenticated and on login page, redirect to jobs
-        if (result.authenticated && to === "/login") {
-          return {
-            authenticated: true,
-            redirectTo: "/jobs"
-          };
-        }
-        
-        return {
-          authenticated: result.authenticated
-        };
-      } catch (error) {
-        return {
-          authenticated: false,
-          error: new Error("Authentication check failed"),
-          logout: true,
-          redirectTo: "/login"
-        };
       }
+      return { authenticated: false, redirectTo: "/login" };
     },
     getIdentity: async () => {
-      // First try to get session data (Auth0)
       if (session?.user) {
         return {
-          name: session.user.name,
-          email: session.user.email,
-          avatar: session.user.image,
-          token: session.accessToken,
+          id: session.user.id,
+          name: session.user.name || undefined,
+          email: session.user.email || undefined,
+          avatar: session.user.image || undefined,
+          token: session.user.accessToken,
         };
       }
-      
-      // If no session, try custom auth
-      const identity = await customAuthProvider.getIdentity();
-      if (identity) {
-        console.log("Custom auth identity:", identity);
-        return identity;
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        return {
+          id: userData.id,
+          name: userData.username || userData.email,
+          email: userData.email,
+          avatar: userData.avatar,
+          token: userData.accessToken,
+        };
       }
-      
-      // If both fail, return null
       return null;
     },
-    logout: async (params: any = {}) => {
-      const result = await customAuthProvider.logout(params);
-      setAuthState({
-        isChecking: false,
-        isAuthenticated: false,
-        initialized: true,
-      });
+    logout: async () => {
+      await signOut({ callbackUrl: "/login" });
       return {
         success: true,
-        redirectTo: "/login"
+        redirectTo: "/login",
       };
+    },
+    onError: async (error) => {
+      if (error?.response?.status === 401) {
+        // Safely access refreshToken
+        const sessionRefreshToken = session?.user?.refreshToken;
+        const localRefreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = sessionRefreshToken || localRefreshToken;
+        
+        if (refreshToken) {
+          try {
+            const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
+            if (newTokens) {
+              // Update session or localStorage with new tokens
+              localStorage.setItem('accessToken', newTokens.accessToken);
+              localStorage.setItem('refreshToken', newTokens.refreshToken);
+              return { error: null }; // Continue with refreshed token
+            }
+          } catch (refreshError) {
+            console.error("Failed to refresh token:", refreshError);
+          }
+        }
+        return { logout: true, redirectTo: "/login" };
+      }
+      return { error };
     },
   };
 
@@ -247,6 +256,18 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/jobs/show/:id",
               meta: {
                 canDelete: true,
+                icon: "chart-line",
+                label: "Jobs",
+                hide: false
+              },
+            },
+            {
+              name: "api-keys",
+              list: "/api-keys",
+              meta: {
+                icon: "key",
+                label: "API Keys",
+                hide: false
               },
             },
             {
@@ -257,6 +278,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/categories/show/:id",
               meta: {
                 canDelete: true,
+                icon: "tag",
+                label: "Categories",
+                hide: false
               },
             },
             {
@@ -265,13 +289,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
               show: "/output/show/:id",
               meta: {
                 canDelete: true,
+                icon: "box",
+                label: "Output",
+                hide: false
               },
             },
           ]}
           options={{
             syncWithLocation: true,
             warnWhenUnsavedChanges: true,
-            useNewQueryKeys: true
+            useNewQueryKeys: true,
+            breadcrumb: false // Disable breadcrumbs
           }}
         >
           {props.children}

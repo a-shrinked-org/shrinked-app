@@ -1,102 +1,88 @@
 "use client";
 
 import React, { useState, ChangeEvent, FormEvent } from 'react';
-import { useLogin, useRegister } from "@refinedev/core";
+import { useLogin } from "@refinedev/core";
 import { 
-  Paper, 
+  Card, 
   Title, 
   TextInput, 
   Button, 
   Container, 
   Divider, 
   Alert,
-  Tabs,
+  SimpleGrid,
+  Group,
+  Text,
+  Image,
 } from '@mantine/core';
+import { IconBrandGoogle, IconBook, IconCode, IconRocket } from '@tabler/icons-react';
 
 interface FormData {
   email: string;
   password: string;
-  username: string;
 }
 
 export default function Login() {
-  const { mutate: login, isLoading: isLoginLoading } = useLogin();
-  const { mutate: register, isLoading: isRegisterLoading } = useRegister();
+  const { mutate: login, isLoading } = useLogin();
   const [error, setError] = useState<string>("");
-  const [formData, setFormData] = useState<FormData>({
-    email: "",
-    password: "",
-    username: ""
-  });
+  const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
+    setFormData({ ...formData, [name]: value });
     setError("");
   };
 
-  const handleCustomLogin = async (e: FormEvent<HTMLFormElement>) => {
+  const handleGoogleLogin = () => {
+    login(
+      { providerName: "google" },
+      {
+        onError: (error: any) => {
+          setError(error?.message || "Google login failed");
+        },
+      }
+    );
+  };
+
+  const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    
+
     if (!formData.email || !formData.password) {
-      setError("Please enter both email and password");
+      setError("Please enter your email and password");
       return;
     }
 
-    try {
-      login({
-        email: formData.email,
-        password: formData.password
-      }, {
+    login(
+      { email: formData.email, password: formData.password },
+      {
         onError: (error: any) => {
           setError(error?.message || "Login failed");
-        }
-      });
-    } catch (err) {
-      setError("An unexpected error occurred");
-    }
-  };
-
-  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    
-    if (!formData.email || !formData.password || !formData.username) {
-      setError("Please fill in all fields");
-      return;
-    }
-
-    try {
-      register(formData, {
-        onError: (error: any) => {
-          setError(error?.message || "Registration failed");
-        }
-      });
-    } catch (err) {
-      setError("An unexpected error occurred");
-    }
-  };
-
-  const handleAuth0Login = () => {
-    login({
-      providerName: "auth0"
-    }, {
-      onError: (error: any) => {
-        setError(error?.message || "Auth0 login failed");
+        },
       }
-    });
+    );
   };
+
+  // Determine if the email button should be active (enabled) or passive (disabled)
+  const isEmailButtonActive = !!formData.email.trim() && !!formData.password.trim();
 
   return (
-    <Container size="xs" mt="xl">
-      <Paper radius="md" p="xl" withBorder>
-        <Title order={2} ta="center" mt="md" mb="md">
-          Welcome
+    <Container
+      size="xs"
+      px={{ base: 'sm', md: 'xl' }}
+      style={{
+        backgroundColor: 'transparent',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Card radius="md" p="xl" withBorder style={{ backgroundColor: '#F5F5F5', maxWidth: '100%' }}>
+        <Title order={2} ta="center" mb="md" style={{ color: 'white' }}>
+          Your first deploy
+          is just a sign-up away.
         </Title>
 
         {error && (
@@ -105,111 +91,90 @@ export default function Login() {
           </Alert>
         )}
 
-        <Tabs defaultValue="login">
-          <Tabs.List grow mb="md">
-            <Tabs.Tab value="login">Login</Tabs.Tab>
-            <Tabs.Tab value="register">Register</Tabs.Tab>
-          </Tabs.List>
+        <Button
+          fullWidth
+          variant="filled"
+          onClick={handleGoogleLogin}
+          loading={isLoading}
+          leftSection={<IconBrandGoogle size={20} />}
+          mb="md"
+          style={{ 
+            backgroundColor: '#4285F4', // Google blue
+            color: '#FFFFFF',
+            borderColor: 'transparent',
+          }}
+        >
+          Sign in with Google
+        </Button>
 
-          <Tabs.Panel value="login">
-            <Button
-              fullWidth
-              variant="outline"
-              onClick={handleAuth0Login}
-              loading={isLoginLoading}
-              leftSection={
-                <img
-                  src="https://refine.ams3.cdn.digitaloceanspaces.com/superplate-auth-icons%2Fauth0-2.svg"
-                  alt="Auth0"
-                  style={{ width: 20, height: 20 }}
-                />
-              }
-            >
-              Sign in with Auth0
-            </Button>
+        <Divider label="Or continue with email" labelPosition="center" my="lg" />
 
-            <Divider
-              label="Or continue with email"
-              labelPosition="center"
-              my="lg"
-            />
+        <form onSubmit={handleEmailSubmit}>
+          <TextInput
+            label="Your work email"
+            placeholder="you@example.com"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            required
+            mb="md"
+            disabled={isLoading}
+            styles={{
+              input: { backgroundColor: '#333333', color: '#FFFFFF' },
+              label: { color: '#333333' },
+            }}
+          />
+          <TextInput
+            label="Password"
+            type="password"
+            placeholder="Enter your password"
+            name="password"
+            value={formData.password}
+            onChange={handleInputChange}
+            required
+            mb="md"
+            disabled={isLoading}
+            styles={{
+              input: { backgroundColor: '#333333', color: '#FFFFFF' },
+              label: { color: '#333333' },
+            }}
+          />
+          <Button
+            type="submit"
+            fullWidth
+            loading={isLoading}
+            disabled={!isEmailButtonActive}
+            style={{
+              backgroundColor: isEmailButtonActive ? '#D87A16' : '#666666',
+              color: '#FFFFFF',
+              opacity: isEmailButtonActive ? 1 : 0.6,
+            }}
+          >
+            Continue with email
+          </Button>
+        </form>
+      </Card>
 
-            <form onSubmit={handleCustomLogin}>
-              <TextInput
-                label="Email"
-                placeholder="you@example.com"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                mb="md"
-                disabled={isLoginLoading}
-              />
-              <TextInput
-                label="Password"
-                type="password"
-                placeholder="Your password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                mb="md"
-                disabled={isLoginLoading}
-              />
-              <Button 
-                type="submit" 
-                fullWidth
-                loading={isLoginLoading}
-              >
-                Sign in
-              </Button>
-            </form>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="register">
-            <form onSubmit={handleRegister}>
-              <TextInput
-                label="Email"
-                placeholder="you@example.com"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                mb="md"
-                disabled={isRegisterLoading}
-              />
-              <TextInput
-                label="Username"
-                placeholder="Your username"
-                name="username"
-                value={formData.username}
-                onChange={handleInputChange}
-                required
-                mb="md"
-                disabled={isRegisterLoading}
-              />
-              <TextInput
-                label="Password"
-                type="password"
-                placeholder="Your password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                mb="md"
-                disabled={isRegisterLoading}
-              />
-              <Button 
-                type="submit" 
-                fullWidth
-                loading={isRegisterLoading}
-              >
-                Register
-              </Button>
-            </form>
-          </Tabs.Panel>
-        </Tabs>
-      </Paper>
+      <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
+        <Card radius="md" p="sm" withBorder style={{ backgroundColor: '#F5F5F5' }}>
+          <Group justify="center">
+            <IconBook size={24} style={{ color: '#333333' }} />
+            <Text size="sm" style={{ color: '#333333' }}>Resources</Text>
+          </Group>
+        </Card>
+        <Card radius="md" p="sm" withBorder style={{ backgroundColor: '#F5F5F5' }}>
+          <Group justify="center">
+            <IconCode size={24} style={{ color: '#333333' }} />
+            <Text size="sm" style={{ color: '#333333' }}>Guides</Text>
+          </Group>
+        </Card>
+        <Card radius="md" p="sm" withBorder style={{ backgroundColor: '#F5F5F5' }}>
+          <Group justify="center">
+            <IconRocket size={24} style={{ color: '#333333' }} />
+            <Text size="sm" style={{ color: '#333333' }}>Examples</Text>
+          </Group>
+        </Card>
+      </SimpleGrid>
     </Container>
   );
 }
