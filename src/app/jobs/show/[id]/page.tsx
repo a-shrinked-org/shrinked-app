@@ -1,29 +1,25 @@
 "use client";
 
-import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useGetIdentity } from "@refinedev/core";
+import { useTable } from "@refinedev/react-table";
+import { ColumnDef, flexRender } from "@tanstack/react-table";
+import React, { useState, useCallback, useEffect } from "react";
 import { 
-  Paper, 
-  Title, 
-  Group, 
+  Table, 
   Button, 
-  Stack, 
-  Text, 
-  Badge,
+  Group, 
+  Title, 
   Box,
-  Grid,
-  Card,
-  Alert,
-  Divider
+  Select,
+  NumberInput,
+  Stack,
+  ActionIcon,
+  Modal,
+  Text,
+  LoadingOverlay,
+  Badge
 } from '@mantine/core';
-import { IconEdit, IconArrowLeft, IconAlertCircle } from '@tabler/icons-react';
-import { useParams } from "next/navigation";
-import dynamic from 'next/dynamic';
-
-// Import the JobFlowDiagram component with dynamic loading for client-side rendering
-const JobFlowDiagram = dynamic(
-  () => import('@/components/JobFlowDiagram'),
-  { ssr: false, loading: () => <div>Loading flow diagram...</div> }
-);
+import { IconEye, IconEdit, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
 interface Identity {
   token?: string;
@@ -41,202 +37,382 @@ interface Job {
   link: string;
   status: string;
   createdAt: string;
-  steps?: Array<{
-    name: string;
-    status: string;
-    startTime?: string;
-    endTime?: string;
-  }>;
 }
 
-export default function JobShow() {
-  const params = useParams();
-  const { edit, list } = useNavigation();
-  const jobId = params.id as string;
-  const { data: identity } = useGetIdentity<Identity>();
+const getStatusColor = (status: string) => {
+  if (!status) return 'gray';
   
-  const { queryResult } = useShow<Job>({
-    resource: "jobs",
-    id: jobId,
-    queryOptions: {
-      enabled: !!jobId && !!identity?.token,
-      onSuccess: (data) => {
-        console.log("Show query success:", data);
+  const statusLower = status.toLowerCase();
+  switch (statusLower) {
+    case 'completed':
+      return 'green';
+    case 'in_progress':
+    case 'processing':
+      return 'blue';
+    case 'failed':
+    case 'error':
+      return 'red';
+    case 'pending':
+    case 'queued':
+      return 'yellow';
+    default:
+      return 'gray';
+  }
+};
+
+const formatScenarioName = (scenario: string) => {
+  if (!scenario) return 'Unknown';
+  
+  // Check for "Single File Default" scenario
+  if (scenario.includes('SINGLE_FILE_DEFAULT')) {
+    return (
+      <Group gap={8} align="center">
+        <Box style={{ 
+          width: 8, 
+          height: 8, 
+          borderRadius: '50%', 
+          backgroundColor: '#7048E8',
+          flexShrink: 0
+        }} />
+        <Text size="sm">Default</Text>
+      </Group>
+    );
+  }
+  
+  // Legacy check for PLATOGRAM scenario
+  if (scenario.includes('PLATOGRAM')) {
+    return (
+      <Group gap={8} align="center">
+        <Box style={{ 
+          width: 8, 
+          height: 8, 
+          borderRadius: '50%', 
+          backgroundColor: '#7048E8',
+          flexShrink: 0
+        }} />
+        <Text size="sm">Default</Text>
+      </Group>
+    );
+  }
+  
+  // Format other scenario names
+  return scenario.replace(/_/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+// Format status text for display
+const formatStatusText = (status: string) => {
+  if (!status) return 'Unknown';
+  
+  return status.toLowerCase()
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+export default function JobList() {
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusResult, setStatusResult] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { data: identity } = useGetIdentity<Identity>();
+  const { edit, show, create } = useNavigation();
+
+  const columns = React.useMemo<ColumnDef<Job>[]>(
+    () => [
+      {
+        id: "jobInfo",
+        header: "NAME",
+        size: 300,
+        cell: function render({ row }) {
+          return (
+            <Stack gap={4} style={{ padding: '4px 0' }}>
+              <Text size="sm" style={{ fontWeight: 500 }}>{row.original.jobName}</Text>
+              <Text size="xs" c="dimmed" style={{ letterSpacing: '0.2px' }}>
+                ID: {row.original._id.substring(0, 8)}...
+              </Text>
+            </Stack>
+          );
+        }
       },
-      onError: (error) => {
-        console.error("Show query error:", error);
+      {
+        id: "status",
+        accessorKey: "status",
+        header: "STATUS",
+        size: 200,
+        cell: function render({ getValue }) {
+          const status = getValue<string>();
+          return (
+            <Badge 
+              color={getStatusColor(status)} 
+              variant="light" 
+              size="lg"
+              style={{
+                padding: '6px 12px',
+                textTransform: 'capitalize'
+              }}
+            >
+              {formatStatusText(status)}
+            </Badge>
+          );
+        }
+      },
+      {
+        id: "scenario",
+        accessorKey: "scenario",
+        header: "LOGIC",
+        size: 150,
+        cell: function render({ getValue }) {
+          const scenario = getValue<string>();
+          return formatScenarioName(scenario);
+        }
+      },
+      {
+        id: "createdAt",
+        accessorKey: "createdAt",
+        header: "CREATED AT",
+        size: 120,
+        cell: function render({ getValue }) {
+          const date = new Date(getValue<string>());
+          return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit'
+          }).format(date);
+        }
+      },
+      {
+        id: "isPublic",
+        accessorKey: "isPublic",
+        header: "PUBLIC",
+        size: 100,
+        cell: function render({ getValue }) {
+          const isPublic = getValue<boolean>();
+          return (
+            <Badge color={isPublic ? "green" : "gray"} variant="light">
+              {isPublic ? "Yes" : "No"}
+            </Badge>
+          );
+        }
+      },
+      {
+        id: "createPage",
+        accessorKey: "createPage",
+        header: "PAGE",
+        size: 100,
+        cell: function render({ getValue }) {
+          const createPage = getValue<boolean>();
+          return (
+            <Badge color={createPage ? "green" : "gray"} variant="light">
+              {createPage ? "Yes" : "No"}
+            </Badge>
+          );
+        }
       }
-    },
-    meta: {
-      headers: identity?.token ? {
-        'Authorization': `Bearer ${identity.token}`
-      } : undefined
+    ],
+    []
+  );
+
+  const {
+    getHeaderGroups,
+    getRowModel,
+    setOptions,
+    refineCore: { tableQueryResult: { data: tableData } },
+    getState,
+    setPageIndex,
+    getCanPreviousPage,
+    getPageCount,
+    getCanNextPage,
+    nextPage,
+    previousPage,
+    setPageSize,
+  } = useTable<Job>({
+    columns,
+    refineCoreProps: {
+      resource: "jobs",
+      queryOptions: {
+        enabled: !!identity?.token,
+        onSuccess: (data) => {
+          console.log("Table query success:", data);
+        },
+        onError: (error) => {
+          console.error("Table query error:", error);
+        }
+      },
+      meta: {
+        headers: identity?.token ? {
+          'Authorization': `Bearer ${identity.token}`
+        } : undefined
+      }
     }
   });
+
+  useEffect(() => {
+    console.log("Current table data:", tableData);
+  }, [tableData]);
+
+  const checkStatus = useCallback(async () => {
+    setIsLoading(true);
+    setIsStatusModalOpen(true);
+    
+    try {
+      // Update status check endpoints based on Postman collection
+      const [sandboxResponse, prodResponse] = await Promise.all([
+        fetch("https://api.shrinked.ai/status", {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity?.token}`,
+            'Content-Type': 'application/json'
+          },
+        }),
+        fetch("https://api.shrinked.ai/status", {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${identity?.token}`,
+            'Content-Type': 'application/json'
+          },
+        })
+      ]);
   
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'green';
-      case 'in_progress':
-        return 'blue';
-      case 'failed':
-        return 'red';
-      default:
-        return 'gray';
+      let combinedStatus = "";
+  
+      if (sandboxResponse.status === 502) {
+        combinedStatus += "API: Server is under maintenance.\n";
+      } else if (!sandboxResponse.ok) {
+        combinedStatus += `API: Error ${sandboxResponse.status}\n`;
+      } else {
+        const sandboxResult = await sandboxResponse.json();
+        combinedStatus += `API: ${sandboxResult.status || 'Ok'}\n`;
+      }
+  
+      if (prodResponse.status === 502) {
+        combinedStatus += "Processing: Server is under maintenance.";
+      } else if (!prodResponse.ok) {
+        combinedStatus += `Processing: Error ${prodResponse.status}`;
+      } else {
+        const prodResult = await prodResponse.json();
+        combinedStatus += `Processing: ${prodResult.status || 'Ok'}`;
+      }
+  
+      setStatusResult(combinedStatus);
+    } catch (error) {
+      console.error("Error checking status:", error);
+      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
-  };
-  
-  const formatText = (text: string) => {
-    return text
-      .toLowerCase()
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
+  }, [identity?.token]);
 
-  const { data, isLoading, isError } = queryResult;
-  const record = data?.data;
-
-  // Authentication check after hooks
   if (!identity?.token) {
     return (
       <Box p="md">
+        <LoadingOverlay visible />
         <Text>Loading authentication...</Text>
       </Box>
     );
   }
 
-  if (isLoading) {
-    return (
-      <Box p="md">
-        <Text>Loading...</Text>
-      </Box>
-    );
-  }
-
-  if (isError || !jobId) {
-    return (
-      <Box p="md">
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Unable to load job details. Please try again.
-        </Alert>
-        <Button
-          mt="md"
-          variant="light"
-          leftSection={<IconArrowLeft size={16} />}
-          onClick={() => list('jobs')}
-        >
-          Back to List
-        </Button>
-      </Box>
-    );
-  }
-
   return (
-    <Box p="md">
-      <Paper p="md" radius="md">
-        <Stack gap="lg">
-          <Group justify="space-between">
-            <Title order={2}>Job Details</Title>
-            <Group>
-              <Button
-                variant="light"
-                leftSection={<IconArrowLeft size={16} />}
-                onClick={() => list('jobs')}
-              >
-                Back to List
-              </Button>
-              <Button
-                onClick={() => edit('jobs', jobId)}
-                leftSection={<IconEdit size={16} />}
-              >
-                Edit
-              </Button>
-            </Group>
-          </Group>
+    <Stack gap="md" p="md">
+      <Group justify="space-between">
+        <Title order={2}>Jobs List</Title>
+        <Group>
+          <Button variant="light" onClick={checkStatus}>
+            Check Server Status
+          </Button>
+          <Button onClick={() => create("jobs")}>
+            Create Job
+          </Button>
+        </Group>
+      </Group>
 
-          <Grid>
-            <Grid.Col span={12}>
-              <Card withBorder p="md">
-                <Stack gap="md">
-                  <Group justify="space-between">
-                    <div>
-                      <Text size="sm" c="dimmed">Job Name</Text>
-                      <Text fw={500}>{record?.jobName}</Text>
-                    </div>
-                    <Badge 
-                      color={getStatusColor(record?.status || '')}
-                      variant="light"
-                      size="lg"
-                    >
-                      {record?.status ? formatText(record.status) : 'Unknown'}
-                    </Badge>
-                  </Group>
+     <Box style={{ overflowX: 'auto' }}>
+       <Table highlightOnHover>
+         <Table.Thead>
+           {getHeaderGroups().map((headerGroup) => (
+             <Table.Tr key={headerGroup.id}>
+               {headerGroup.headers.map((header) => (
+                 <Table.Th 
+                   key={header.id}
+                   style={{ 
+                     background: 'none',
+                     fontWeight: 500,
+                     color: '#666',
+                     padding: '12px 16px',
+                     textTransform: 'uppercase',
+                     fontSize: '12px'
+                   }}
+                 >
+                   {flexRender(header.column.columnDef.header, header.getContext())}
+                 </Table.Th>
+               ))}
+             </Table.Tr>
+           ))}
+         </Table.Thead>
+         <Table.Tbody>
+           {getRowModel().rows.map((row) => (
+             <Table.Tr 
+               key={row.id}
+               onClick={() => show("jobs", row.original._id)}
+               style={{ cursor: 'pointer' }}
+               className="hover:bg-gray-100 transition-colors"
+             >
+               {row.getVisibleCells().map((cell) => (
+                 <Table.Td key={cell.id}>
+                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                 </Table.Td>
+               ))}
+             </Table.Tr>
+           ))}
+         </Table.Tbody>
+       </Table>
+     </Box>
 
-                  <div>
-                    <Text size="sm" c="dimmed">Scenario</Text>
-                    <Text>
-                      {record?.scenario ? formatText(record.scenario) : 'N/A'}
-                    </Text>
-                  </div>
+      <Group justify="center" gap="xs">
+        <Button
+          variant="light"
+          disabled={!getCanPreviousPage()}
+          onClick={() => previousPage()}
+        >
+          <IconChevronLeft size={18} />
+        </Button>
+        <Text>
+          Page{' '}
+          <strong>
+            {getState().pagination.pageIndex + 1} of {getPageCount()}
+          </strong>
+        </Text>
+        <Button
+          variant="light"
+          disabled={!getCanNextPage()}
+          onClick={() => nextPage()}
+        >
+          <IconChevronRight size={18} />
+        </Button>
+        <Select
+          value={getState().pagination.pageSize.toString()}
+          onChange={(value) => setPageSize(Number(value))}
+          data={['10', '20', '30', '40', '50'].map((size) => ({
+            value: size,
+            label: `${size} records per page`,
+          }))}
+        />
+      </Group>
 
-                  <div>
-                    <Text size="sm" c="dimmed">Language</Text>
-                    <Text>
-                      {record?.lang === 'en' ? 'English' : 
-                      record?.lang === 'uk' ? 'Ukrainian' : 
-                      record?.lang || 'N/A'}
-                    </Text>
-                  </div>
-
-                  <div>
-                    <Text size="sm" c="dimmed">Link</Text>
-                    <Text>{record?.link || 'N/A'}</Text>
-                  </div>
-
-                  <Group>
-                    <div>
-                      <Text size="sm" c="dimmed">Public</Text>
-                      <Badge color={record?.isPublic ? "green" : "gray"} variant="light">
-                        {record?.isPublic ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <Text size="sm" c="dimmed">Create Page</Text>
-                      <Badge color={record?.createPage ? "green" : "gray"} variant="light">
-                        {record?.createPage ? "Yes" : "No"}
-                      </Badge>
-                    </div>
-                  </Group>
-
-                  <div>
-                    <Text size="sm" c="dimmed">Created At</Text>
-                    <Text>
-                      {record?.createdAt 
-                        ? new Date(record.createdAt).toLocaleString(undefined, {
-                            timeZone: "UTC",
-                          })
-                        : "N/A"}
-                    </Text>
-                  </div>
-                </Stack>
-              </Card>
-            </Grid.Col>
-          </Grid>
-
-          <Divider my="sm" />
-          
-          {/* Job Processing Flow Diagram - integrated into the main page */}
-          {record && (
-            <JobFlowDiagram 
-              jobScenario={record.scenario} 
-              jobStatus={record.status}
-              steps={record.steps} 
-            />
-          )}
-        </Stack>
-      </Paper>
-    </Box>
+      <Modal
+        opened={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        title="Server Status"
+      >
+        {isLoading ? (
+          <LoadingOverlay visible />
+        ) : (
+          <Text style={{ whiteSpace: 'pre-line' }}>{statusResult}</Text>
+        )}
+      </Modal>
+    </Stack>
   );
 }
