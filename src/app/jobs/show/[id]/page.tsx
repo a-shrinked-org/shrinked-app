@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useShow, useGetIdentity, useCustom } from "@refinedev/core";
 import { 
   Text, 
   Box,
@@ -18,7 +18,7 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
 // Configure react-pdf worker
@@ -47,10 +47,16 @@ interface Job {
     startTime?: string;
     endTime?: string;
     duration?: number;
+    totalDuration?: number;
+    data?: {
+      resultId?: string;
+      [key: string]: any;
+    };
   }>;
   endTime?: string;
   startTime?: string;
   totalDuration?: number;
+  totalTokenUsage?: number;
   output?: {
     title?: string;
     abstract?: string;
@@ -63,13 +69,28 @@ interface Job {
   };
 }
 
+interface ProcessingDocument {
+  _id: string;
+  title?: string;
+  abstract?: string;
+  contributors?: string;
+  introduction?: string;
+  conclusion?: string;
+  passages?: string[];
+  references?: Array<any>;
+  pdfUrl?: string;
+}
+
 export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
   const jobId = params.id as string;
   const { data: identity } = useGetIdentity<Identity>();
   const [activeTab, setActiveTab] = useState("preview");
+  const [processingDocId, setProcessingDocId] = useState<string | null>(null);
+  const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   
+  // Fetch job details
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
@@ -77,9 +98,35 @@ export default function JobShow() {
       enabled: !!jobId && !!identity?.token,
       onSuccess: (data) => {
         console.log("Show query success:", data);
+        
+        // Extract processing document ID from the PLATOGRAM_PROCESSING step
+        const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
+        if (processingStep && processingStep.data?.resultId) {
+          setProcessingDocId(processingStep.data.resultId);
+        }
       },
       onError: (error) => {
         console.error("Show query error:", error);
+      }
+    },
+    meta: {
+      headers: identity?.token ? {
+        'Authorization': `Bearer ${identity.token}`
+      } : undefined
+    }
+  });
+  
+  // Fetch processing document data when processingDocId is available
+  const { data: processingData, isLoading: isProcessingLoading } = useCustom<ProcessingDocument>({
+    url: `${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`,
+    method: "get",
+    queryOptions: {
+      enabled: !!processingDocId && !!identity?.token,
+      onSuccess: (data) => {
+        console.log("Processing document loaded:", data);
+      },
+      onError: (error) => {
+        console.error("Processing document error:", error);
       }
     },
     meta: {
@@ -115,9 +162,12 @@ export default function JobShow() {
 
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
+  const processingDoc = processingData?.data;
+  const isDocLoading = isLoading || (!!processingDocId && isProcessingLoading);
 
   // Log data to debug
   console.log("Fetched record:", record);
+  console.log("Processing document:", processingDoc);
 
   if (!identity?.token) {
     return (
@@ -166,6 +216,18 @@ export default function JobShow() {
       </Box>
     );
   }
+
+  // Combine job record data with processing document data
+  const combinedData = {
+    title: processingDoc?.title || record?.jobName,
+    abstract: processingDoc?.abstract || "",
+    contributors: processingDoc?.contributors || "",
+    pdfUrl: processingDoc?.pdfUrl || "",
+    introduction: processingDoc?.introduction || "",
+    conclusion: processingDoc?.conclusion || "",
+    passages: processingDoc?.passages || [],
+    references: processingDoc?.references || []
+  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
@@ -239,7 +301,7 @@ export default function JobShow() {
         {/* Document title */}
         <div style={{ padding: '24px' }}>
           <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
-            {record?.output?.title || record?.jobName || 'Untitled Document'}
+            {combinedData.title || 'Untitled Document'}
           </Text>
           <Text c="dimmed" mt="xs">
             {getFilenameFromLink(record?.link) || 'No source file'}
@@ -307,60 +369,70 @@ export default function JobShow() {
             </Tabs.List>
 
             <Tabs.Panel value="preview" pt="md">
-              <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
-                <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
-                  {record?.output?.pdfUrl ? (
-                    <Document file={record.output.pdfUrl} loading={<Text>Loading PDF...</Text>}>
-                      <Page pageNumber={1} width={800} />
-                    </Document>
-                  ) : (
-                    <>
-                      <Text size="3xl" fw={700} style={{ fontFamily: 'serif', marginBottom: '1.5rem' }}>
-                        {record?.output?.title || record?.jobName || 'Untitled Document'}
-                      </Text>
-                      <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
-                        Origin
-                      </Text>
-                      <Text style={{ color: '#3b1b1b', marginBottom: '1rem' }}>
-                        <a href={record?.link} style={{ color: 'blue', textDecoration: 'underline', wordBreak: 'break-all' }}>
-                          {record?.link || 'No source link available'}
-                        </a>
-                      </Text>
-                      <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
-                        Abstract
-                      </Text>
-                      <Text mb="md" style={{ textAlign: 'justify' }}>
-                        {record?.output?.abstract || 'No abstract available.'}
-                      </Text>
-                      <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
-                        Contributors, Acknowledgements, Mentions
-                      </Text>
-                      {record?.output?.contributors ? (
-                        typeof record.output.contributors === 'string' && record.output.contributors.includes('<') ? (
-                          <div 
-                            style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}
-                            dangerouslySetInnerHTML={{ __html: record.output.contributors }} 
-                          />
-                        ) : (
-                          <ul style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}>
-                            {(record.output.contributors.split(',').map(contributor => contributor.trim())).map((contributor, idx) => (
-                              <li key={idx}>{contributor}</li>
-                            ))}
-                          </ul>
-                        )
-                      ) : (
-                        <Text>No contributors information available.</Text>
-                      )}
-                    </>
-                  )}
+              {isDocLoading ? (
+                <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
+                  <LoadingOverlay visible={true} />
+                  <div style={{ height: '300px' }}></div>
                 </div>
-              </div>
+              ) : (
+                <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
+                  <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
+                    {combinedData.pdfUrl ? (
+                      <Document file={combinedData.pdfUrl} loading={<Text>Loading PDF...</Text>}>
+                        <Page pageNumber={1} width={800} />
+                      </Document>
+                    ) : (
+                      <>
+                        <Text size="3xl" fw={700} style={{ fontFamily: 'serif', marginBottom: '1.5rem' }}>
+                          {combinedData.title || 'Untitled Document'}
+                        </Text>
+                        <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
+                          Origin
+                        </Text>
+                        <Text style={{ color: '#3b1b1b', marginBottom: '1rem' }}>
+                          <a href={record?.link} style={{ color: 'blue', textDecoration: 'underline', wordBreak: 'break-all' }}>
+                            {record?.link || 'No source link available'}
+                          </a>
+                        </Text>
+                        <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
+                          Abstract
+                        </Text>
+                        <Text mb="md" style={{ textAlign: 'justify' }}>
+                          {combinedData.abstract || 'No abstract available.'}
+                        </Text>
+                        <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
+                          Contributors, Acknowledgements, Mentions
+                        </Text>
+                        {combinedData.contributors ? (
+                          typeof combinedData.contributors === 'string' && combinedData.contributors.includes('<') ? (
+                            <div 
+                              style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}
+                              dangerouslySetInnerHTML={{ __html: combinedData.contributors }} 
+                            />
+                          ) : (
+                            <ul style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}>
+                              {(typeof combinedData.contributors === 'string' ? 
+                                combinedData.contributors.split(',').map(contributor => contributor.trim()) : 
+                                [combinedData.contributors]
+                              ).map((contributor, idx) => (
+                                <li key={idx}>{contributor}</li>
+                              ))}
+                            </ul>
+                          )
+                        ) : (
+                          <Text>No contributors information available.</Text>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </Tabs.Panel>
 
             <Tabs.Panel value="markdown" pt="md">
               <div style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
                 <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '70vh' }}>
-                  {JSON.stringify(record?.output, null, 2) || 'No markdown content available'}
+                  {JSON.stringify(processingDoc || {}, null, 2) || 'No markdown content available'}
                 </pre>
               </div>
             </Tabs.Panel>
@@ -380,7 +452,7 @@ export default function JobShow() {
           <Text c="dimmed" mb="xs">
             Created
           </Text>
-          <Text>{identity?.name || 'Unknown User'}</Text>
+          <Text>{identity?.name || record?.email || 'Unknown User'}</Text>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>
@@ -473,9 +545,9 @@ export default function JobShow() {
                         {step.status ? formatText(step.status) : 'No status'}
                       </Text>
                     </div>
-                    {step.duration && (
+                    {step.totalDuration && (
                       <Text style={{ marginLeft: '0.5rem', color: '#757575', fontSize: '0.875rem' }}>
-                        {formatDuration(step.duration)}
+                        {formatDuration(step.totalDuration)}
                       </Text>
                     )}
                   </div>
