@@ -20,7 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Document, Page, pdfjs } from "react-pdf"; // Added for PDF rendering
+import { Document, Page, pdfjs } from "react-pdf";
 
 // Configure react-pdf worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -60,7 +60,7 @@ interface Job {
     conclusion?: string;
     passages?: string[];
     references?: Array<any>;
-    pdfUrl?: string; // Added for PDF support
+    pdfUrl?: string;
   };
 }
 
@@ -108,7 +108,6 @@ export default function JobShow() {
       .join(' ') || '';
   };
 
-  // Extract filename from link if available
   const getFilenameFromLink = (link?: string) => {
     if (!link) return "";
     const parts = link.split("/");
@@ -121,11 +120,10 @@ export default function JobShow() {
   // Log data to debug
   console.log("Fetched record:", record);
 
-  // Authentication check after hooks
   if (!identity?.token) {
     return (
       <Box className="relative min-h-[200px]">
-        <LoadingOverlay visible={true} />
+        <LoadingOverlay visible />
         <Text>Authentication required</Text>
       </Box>
     );
@@ -134,16 +132,16 @@ export default function JobShow() {
   if (isLoading) {
     return (
       <Box className="relative min-h-[200px]">
-        <LoadingOverlay visible={true} />
-        <Text>Loading...</Text> {/* Added text for clarity */}
+        <LoadingOverlay visible />
+        <Text>Loading...</Text>
       </Box>
     );
   }
 
   if (isError || !jobId) {
     return (
-      <Box className="p-4">
-        <Box className="mb-4 p-4 bg-[#252525] rounded-lg shadow-sm">
+      <Box p="md">
+        <Box mb="md" p="md" bg="#252525" style={{ borderRadius: 8, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
           <Group>
             <IconAlertCircle size={20} color="red" />
             <Text c="red">Unable to load job details. Please try again.</Text>
@@ -153,7 +151,16 @@ export default function JobShow() {
           variant="outline"
           leftSection={<IconArrowLeft size={16} />}
           onClick={() => list('jobs')}
-          className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg"
+          styles={{
+            root: {
+              backgroundColor: '#131313',
+              borderColor: '#202020',
+              color: '#ffffff',
+              '&:hover': {
+                backgroundColor: '#202020',
+              },
+            },
+          }}
         >
           Back to Jobs
         </Button>
@@ -162,163 +169,255 @@ export default function JobShow() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0a] text-[#ffffff]">
+    <Box className="min-h-screen" style={{ backgroundColor: '#0a0a0a', color: '#ffffff' }}>
       {/* Main content area */}
-      <div className="flex-1 flex flex-col">
+      <Box flex={1} display="flex" flexDirection="column">
         {/* Header */}
-        <div className="p-4 flex justify-between items-center">
+        <Box p="md" display="flex" justify="space-between" align="center">
           <Button 
             variant="outline" 
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => list('jobs')}
-            className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg"
+            styles={{
+              root: {
+                backgroundColor: '#131313',
+                borderColor: '#202020',
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: '#202020',
+                },
+              },
+            }}
           >
             Back to Jobs
           </Button>
-          <div className="flex gap-2">
+          <Group gap="xs">
             <Button 
               variant="outline"
               leftSection={<IconShare size={16} />}
-              className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg"
+              styles={{
+                root: {
+                  backgroundColor: '#131313',
+                  borderColor: '#202020',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#202020',
+                  },
+                },
+              }}
             >
               Share
             </Button>
-            <Button className="bg-white hover:bg-[#d9d9d9] text-black rounded-lg">
+            <Button 
+              styles={{
+                root: {
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#d9d9d9',
+                  },
+                },
+              }}
+            >
               Use in a job
             </Button>
-            <ActionIcon 
+            <Button 
               variant="subtle" 
-              className="text-[#ffffff] bg-[#131313] hover:bg-[#202020] rounded-full"
+              size="xs" 
+              radius="xl" 
+              styles={{
+                root: {
+                  color: '#ffffff',
+                  backgroundColor: '#131313',
+                  '&:hover': {
+                    backgroundColor: '#202020',
+                  },
+                },
+              }}
             >
               <IconDotsVertical size={20} />
-            </ActionIcon>
-          </div>
-        </div>
+            </Button>
+          </Group>
+        </Box>
 
         {/* Document title */}
-        <div className="px-8 py-4">
-          <h1 className="text-3xl font-serif">
+        <Box p="lg">
+          <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
             {record?.output?.title || record?.jobName || 'Untitled Document'}
-          </h1>
-          <p className="text-[#a1a1a1] mt-1">
+          </Text>
+          <Text c="dimmed" mt="xs">
             {getFilenameFromLink(record?.link) || 'No source file'}
-          </p>
-        </div>
+          </Text>
+        </Box>
 
         {/* Tabs and content */}
-        <div className="flex-1 px-8">
-          <Tabs 
-            value={activeTab} 
-            onChange={(value) => setActiveTab(value || "preview")}
-            classNames={{
-              list: 'bg-transparent border-b border-[#202020]',
-              tab: 'data-[active=true]:bg-transparent data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:shadow-none rounded-none px-4 py-2 text-[#a1a1a1] data-[active=true]:text-white'
-            }}
-          >
-            <Tabs.List bg="transparent" variant="unstyled">
-              <Tabs.Tab value="preview">Preview</Tabs.Tab>
-              <Tabs.Tab value="markdown">Markdown/JSON</Tabs.Tab>
-              <Tabs.Tab value="question" disabled rightSection={
-                <Badge className="ml-2 bg-[#291e3f] text-[#9e8bc3] hover:bg-[#291e3f] text-xs rounded">
-                  Coming soon
-                </Badge>
-              }>
+        <Box p="lg" flex={1}>
+          <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
+            <Tabs.List bg="transparent" style={{ borderBottom: '1px solid #202020' }}>
+              <Tabs.Tab 
+                value="preview"
+                styles={{
+                  tab: {
+                    backgroundColor: 'transparent',
+                    color: '#a1a1a1',
+                    '&[data-active]': {
+                      borderBottom: '2px solid #ffffff',
+                      color: '#ffffff',
+                    },
+                  },
+                }}
+              >
+                Preview
+              </Tabs.Tab>
+              <Tabs.Tab 
+                value="markdown"
+                styles={{
+                  tab: {
+                    backgroundColor: 'transparent',
+                    color: '#a1a1a1',
+                    '&[data-active]': {
+                      borderBottom: '2px solid #ffffff',
+                      color: '#ffffff',
+                    },
+                  },
+                }}
+              >
+                Markdown/JSON
+              </Tabs.Tab>
+              <Tabs.Tab 
+                value="question" 
+                disabled
+                rightSection={
+                  <Badge 
+                    style={{ backgroundColor: '#291e3f', color: '#9e8bc3', '&:hover': { backgroundColor: '#291e3f' } }}
+                    size="xs"
+                  >
+                    Coming soon
+                  </Badge>
+                }
+                styles={{
+                  tab: {
+                    backgroundColor: 'transparent',
+                    color: '#a1a1a1',
+                    '&[data-active]': {
+                      borderBottom: '2px solid #ffffff',
+                      color: '#ffffff',
+                    },
+                  },
+                }}
+              >
                 Ask a question
               </Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value="preview" className="mt-4">
-              <div className="bg-white text-black p-8 rounded-lg shadow-sm">
-                <div className="max-w-3xl mx-auto">
+            <Tabs.Panel value="preview" pt="md">
+              <Box bg="white" c="black" p="lg" style={{ borderRadius: 8, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
+                <Box maw="3xl" mx="auto">
                   {record?.output?.pdfUrl ? (
                     <Document file={record.output.pdfUrl} loading={<Text>Loading PDF...</Text>}>
                       <Page pageNumber={1} width={800} />
                     </Document>
                   ) : (
                     <>
-                      <h1 className="text-3xl font-serif mb-6">
+                      <Text size="3xl" fw={700} style={{ fontFamily: 'serif', marginBottom: '1.5rem' }}>
                         {record?.output?.title || record?.jobName || 'Untitled Document'}
-                      </h1>
-                      <h2 className="text-xl font-serif mb-2">Origin</h2>
-                      <p className="text-[#3b1b1b] mb-4">
-                        <a href={record?.link} className="text-blue-700 underline break-all">
+                      </Text>
+                      <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
+                        Origin
+                      </Text>
+                      <Text c="#3b1b1b" mb="md">
+                        <a href={record?.link} style={{ color: 'blue.7', textDecoration: 'underline', wordBreak: 'break-all' }}>
                           {record?.link || 'No source link available'}
                         </a>
-                      </p>
-                      <h2 className="text-xl font-serif mb-2">Abstract</h2>
-                      <p className="mb-4 text-justify">
+                      </Text>
+                      <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
+                        Abstract
+                      </Text>
+                      <Text mb="md" style={{ textAlign: 'justify' }}>
                         {record?.output?.abstract || 'No abstract available.'}
-                      </p>
-                      <h2 className="text-xl font-serif mb-2">Contributors, Acknowledgements, Mentions</h2>
+                      </Text>
+                      <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
+                        Contributors, Acknowledgements, Mentions
+                      </Text>
                       {record?.output?.contributors ? (
                         typeof record.output.contributors === 'string' && record.output.contributors.includes('<') ? (
-                          <div 
-                            className="list-disc pl-6" 
+                          <Box 
+                            pl="md" 
+                            component="ul" 
+                            style={{ listStyle: 'disc' }}
                             dangerouslySetInnerHTML={{ __html: record.output.contributors }} 
                           />
                         ) : (
-                          <ul className="list-disc pl-6">
+                          <Box component="ul" pl="md" style={{ listStyle: 'disc' }}>
                             {(record.output.contributors.split(',').map(contributor => contributor.trim())).map((contributor, idx) => (
-                              <li key={idx}>{contributor}</li>
+                              <Text component="li" key={idx}>{contributor}</Text>
                             ))}
-                          </ul>
+                          </Box>
                         )
                       ) : (
-                        <p>No contributors information available.</p>
+                        <Text>No contributors information available.</Text>
                       )}
                     </>
                   )}
-                </div>
-              </div>
+                </Box>
+              </Box>
             </Tabs.Panel>
 
-            <Tabs.Panel value="markdown" className="mt-4">
-              <div className="p-4 text-[#a1a1a1] overflow-auto max-h-[70vh] rounded-lg">
-                <pre className="whitespace-pre-wrap">
+            <Tabs.Panel value="markdown" pt="md">
+              <Box p="md" c="dimmed" style={{ borderRadius: 8 }}>
+                <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '70vh' }}>
                   {JSON.stringify(record?.output, null, 2) || 'No markdown content available'}
                 </pre>
-              </div>
+              </Box>
             </Tabs.Panel>
 
-            <Tabs.Panel value="question" className="mt-4">
-              <div className="p-4 text-[#a1a1a1] rounded-lg">
+            <Tabs.Panel value="question" pt="md">
+              <Box p="md" c="dimmed" style={{ borderRadius: 8 }}>
                 Question interface would appear here
-              </div>
+              </Box>
             </Tabs.Panel>
           </Tabs>
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Right sidebar */}
-      <div className="w-96 border-l border-[#202020] p-6 rounded-r-lg">
-        <div className="mb-8">
-          <h3 className="text-[#757575] mb-1">Created</h3>
-          <p className="text-white">{identity?.name || 'Unknown User'}</p>
-        </div>
+      <Box w={384} style={{ borderLeft: '1px solid #202020', padding: '1.5rem' }}>
+        <Box mb="xl">
+          <Text c="dimmed" mb="xs">
+            Created
+          </Text>
+          <Text>{identity?.name || 'Unknown User'}</Text>
+        </Box>
 
-        <div className="mb-8">
-          <h3 className="text-[#757575] mb-1">Duration</h3>
-          <p className="text-white">{formatDuration(record?.totalDuration)}</p>
-        </div>
+        <Box mb="xl">
+          <Text c="dimmed" mb="xs">
+            Duration
+          </Text>
+          <Text>{formatDuration(record?.totalDuration)}</Text>
+        </Box>
 
-        <div className="mb-8">
-          <h3 className="text-[#757575] mb-1">Extra</h3>
-          <p className="text-white">Data Response</p>
-        </div>
+        <Box mb="xl">
+          <Text c="dimmed" mb="xs">
+            Extra
+          </Text>
+          <Text>Data Response</Text>
+        </Box>
 
-        <div className="mb-8">
-          <h3 className="text-[#757575] mb-1">Extra 2</h3>
-          <p className="text-white">Data Response 2</p>
-        </div>
+        <Box mb="xl">
+          <Text c="dimmed" mb="xs">
+            Extra 2
+          </Text>
+          <Text>Data Response 2</Text>
+        </Box>
 
-        <div className="mb-6">
-          <h3 className="text-[#757575] mb-4">Logic steps / events</h3>
+        <Box mb="md">
+          <Text c="dimmed" mb="md">
+            Logic steps / events
+          </Text>
 
-          <div className="relative">
-            {/* Vertical line */}
-            <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-[#202020]"></div>
+          <Box style={{ position: 'relative' }}>
+            <Box style={{ position: 'absolute', left: '1rem', top: '1rem', bottom: '1rem', width: 2, backgroundColor: '#202020' }} />
 
-            {/* Steps */}
             {record?.steps?.map((step, index) => {
               let bgOuterColor = '#202020';
               let bgInnerColor = '#2b2b2b';
@@ -336,48 +435,91 @@ export default function JobShow() {
               }
               
               return (
-                <div key={index} className="mb-8 relative">
-                  <div className="flex items-start">
-                    <div className="rounded-full flex items-center justify-center z-10 w-8 h-8" 
-                         style={{ backgroundColor: bgOuterColor }}>
-                      <div className="rounded-full w-4 h-4" 
-                           style={{ backgroundColor: bgInnerColor }}></div>
-                    </div>
-                    <div className="ml-4 rounded-lg p-3 flex-1 shadow-sm" 
-                         style={{ backgroundColor: bgCardColor }}>
-                      <p className="text-white font-medium">
+                <Box key={index} mb="xl">
+                  <Group align="flex-start">
+                    <Box 
+                      w={32} 
+                      h={32} 
+                      style={{ 
+                        backgroundColor: bgOuterColor, 
+                        borderRadius: '50%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        position: 'relative', 
+                        zIndex: 10 
+                      }}
+                    >
+                      <Box w={16} h={16} style={{ backgroundColor: bgInnerColor, borderRadius: '50%' }} />
+                    </Box>
+                    <Box 
+                      ml="md" 
+                      p="sm" 
+                      style={{ 
+                        backgroundColor: bgCardColor, 
+                        borderRadius: 8, 
+                        flex: 1, 
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' 
+                      }}
+                    >
+                      <Text fw={500} c="white">
                         {formatText(step.name) || `Step ${index + 1}`}
-                      </p>
-                      <p className="text-[#a1a1a1] text-sm">
+                      </Text>
+                      <Text c="dimmed" size="sm">
                         {step.status ? formatText(step.status) : 'No status'}
-                      </p>
-                    </div>
+                      </Text>
+                    </Box>
                     {step.duration && (
-                      <div className="ml-2 text-[#757575] text-sm">
+                      <Text ml="xs" c="dimmed" size="sm">
                         {formatDuration(step.duration)}
-                      </div>
+                      </Text>
                     )}
-                  </div>
-                </div>
+                  </Group>
+                </Box>
               );
             })}
             
             {(!record?.steps || record.steps.length === 0) && (
-              <div className="mb-8 relative">
-                <div className="flex items-start">
-                  <div className="bg-[#202020] w-8 h-8 rounded-full flex items-center justify-center z-10">
-                    <div className="bg-[#2b2b2b] w-4 h-4 rounded-full"></div>
-                  </div>
-                  <div className="ml-4 bg-[#202020] rounded-lg p-3 flex-1 shadow-sm">
-                    <p className="text-white font-medium">No steps available</p>
-                    <p className="text-[#a1a1a1] text-sm">Processing information unavailable</p>
-                  </div>
-                </div>
-              </div>
+              <Box mb="xl">
+                <Group align="flex-start">
+                  <Box 
+                    w={32} 
+                    h={32} 
+                    style={{ 
+                      backgroundColor: '#202020', 
+                      borderRadius: '50%', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      position: 'relative', 
+                      zIndex: 10 
+                    }}
+                  >
+                    <Box w={16} h={16} style={{ backgroundColor: '#2b2b2b', borderRadius: '50%' }} />
+                  </Box>
+                  <Box 
+                    ml="md" 
+                    p="sm" 
+                    style={{ 
+                      backgroundColor: '#202020', 
+                      borderRadius: 8, 
+                      flex: 1, 
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' 
+                    }}
+                  >
+                    <Text fw={500} c="white">
+                      No steps available
+                    </Text>
+                    <Text c="dimmed" size="sm">
+                      Processing information unavailable
+                    </Text>
+                  </Box>
+                </Group>
+              </Box>
             )}
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   );
 }
