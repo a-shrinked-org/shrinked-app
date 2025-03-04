@@ -202,7 +202,7 @@ export default function JobShow() {
         <div className="flex-1 px-8">
           <Tabs 
             value={activeTab} 
-            onChange={setActiveTab as any}
+            onChange={(value) => setActiveTab(value || "preview")}
             classNames={{
               root: '',
               list: 'border-b border-[#202020]',
