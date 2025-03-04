@@ -19,8 +19,7 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import dynamic from 'next/dynamic';
+import { useState } from "react"; // Removed unnecessary useEffect import
 
 interface Identity {
   token?: string;
@@ -135,7 +134,7 @@ export default function JobShow() {
   if (isError || !jobId) {
     return (
       <Box className="p-4">
-        <Box className="mb-4 p-4 bg-[#252525] rounded">
+        <Box className="mb-4 p-4 bg-[#252525] rounded-lg shadow-sm"> {/* Rounded corners and shadow */}
           <Group>
             <IconAlertCircle size={20} color="red" />
             <Text c="red">Unable to load job details. Please try again.</Text>
@@ -145,7 +144,7 @@ export default function JobShow() {
           variant="outline"
           leftSection={<IconArrowLeft size={16} />}
           onClick={() => list('jobs')}
-          className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff]"
+          className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg" // Rounded corners
         >
           Back to Jobs
         </Button>
@@ -163,25 +162,24 @@ export default function JobShow() {
             variant="outline" 
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => list('jobs')}
-            className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff]"
+            className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg" // Rounded corners
           >
             Back to Jobs
           </Button>
-
           <div className="flex gap-2">
             <Button 
               variant="outline"
               leftSection={<IconShare size={16} />}
-              className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff]"
+              className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg" // Rounded corners
             >
               Share
             </Button>
-            <Button className="bg-white hover:bg-[#d9d9d9] text-black">
+            <Button className="bg-white hover:bg-[#d9d9d9] text-black rounded-lg"> {/* Rounded corners */}
               Use in a job
             </Button>
             <ActionIcon 
               variant="subtle" 
-              className="text-[#ffffff]"
+              className="text-[#ffffff] bg-[#131313] hover:bg-[#202020] rounded-full" // Rounded circle for icon
             >
               <IconDotsVertical size={20} />
             </ActionIcon>
@@ -204,8 +202,7 @@ export default function JobShow() {
             value={activeTab} 
             onChange={(value) => setActiveTab(value || "preview")}
             classNames={{
-              root: '',
-              list: 'border-b border-[#202020]',
+              list: 'bg-transparent border-b border-[#202020]',
               tab: 'data-[active=true]:bg-transparent data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:shadow-none rounded-none px-4 py-2 text-[#a1a1a1] data-[active=true]:text-white'
             }}
           >
@@ -213,7 +210,7 @@ export default function JobShow() {
               <Tabs.Tab value="preview">Preview</Tabs.Tab>
               <Tabs.Tab value="markdown">Markdown/JSON</Tabs.Tab>
               <Tabs.Tab value="question" disabled rightSection={
-                <Badge className="ml-2 bg-[#291e3f] text-[#9e8bc3] hover:bg-[#291e3f] text-xs">
+                <Badge className="ml-2 bg-[#291e3f] text-[#9e8bc3] hover:bg-[#291e3f] text-xs rounded">
                   Coming soon
                 </Badge>
               }>
@@ -221,46 +218,53 @@ export default function JobShow() {
               </Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value="preview" pt="md">
-              <div className="bg-white text-black p-8 rounded">
+            <Tabs.Panel value="preview" className="mt-4">
+              <div className="bg-white text-black p-8 rounded-lg shadow-sm"> {/* Rounded corners and shadow */}
                 <div className="max-w-3xl mx-auto">
                   <h1 className="text-3xl font-serif mb-6">
                     {record?.output?.title || record?.jobName || 'Untitled Document'}
                   </h1>
-
                   <h2 className="text-xl font-serif mb-2">Origin</h2>
                   <p className="text-[#3b1b1b] mb-4">
                     <a href={record?.link} className="text-blue-700 underline break-all">
                       {record?.link || 'No source link available'}
                     </a>
                   </p>
-
                   <h2 className="text-xl font-serif mb-2">Abstract</h2>
                   <p className="mb-4 text-justify">
                     {record?.output?.abstract || 'No abstract available.'}
                   </p>
-
                   <h2 className="text-xl font-serif mb-2">Contributors, Acknowledgements, Mentions</h2>
-                  <div
-                    className="list-disc pl-6"
-                    dangerouslySetInnerHTML={{ 
-                      __html: record?.output?.contributors || 'No contributors information available.' 
-                    }} 
-                  />
+                  {record?.output?.contributors ? (
+                    typeof record.output.contributors === 'string' && record.output.contributors.includes('<') ? (
+                      <div 
+                        className="list-disc pl-6" 
+                        dangerouslySetInnerHTML={{ __html: record.output.contributors }} 
+                      />
+                    ) : (
+                      <ul className="list-disc pl-6">
+                        {(record.output.contributors.split(',').map(contributor => contributor.trim())).map((contributor, idx) => (
+                          <li key={idx}>{contributor}</li>
+                        ))}
+                      </ul>
+                    )
+                  ) : (
+                    <p>No contributors information available.</p>
+                  )}
                 </div>
               </div>
             </Tabs.Panel>
 
-            <Tabs.Panel value="markdown" pt="md">
-              <div className="p-4 text-[#a1a1a1] overflow-auto max-h-[70vh]">
+            <Tabs.Panel value="markdown" className="mt-4">
+              <div className="p-4 text-[#a1a1a1] overflow-auto max-h-[70vh] rounded-lg"> {/* Rounded corners */}
                 <pre className="whitespace-pre-wrap">
                   {JSON.stringify(record?.output, null, 2) || 'No markdown content available'}
                 </pre>
               </div>
             </Tabs.Panel>
 
-            <Tabs.Panel value="question" pt="md">
-              <div className="p-4 text-[#a1a1a1]">
+            <Tabs.Panel value="question" className="mt-4">
+              <div className="p-4 text-[#a1a1a1] rounded-lg"> {/* Rounded corners */}
                 Question interface would appear here
               </div>
             </Tabs.Panel>
@@ -269,7 +273,7 @@ export default function JobShow() {
       </div>
 
       {/* Right sidebar */}
-      <div className="w-96 border-l border-[#202020] p-6">
+      <div className="w-96 border-l border-[#202020] p-6 rounded-r-lg"> {/* Rounded right edge */}
         <div className="mb-8">
           <h3 className="text-[#757575] mb-1">Created</h3>
           <p className="text-white">{identity?.name || 'Unknown User'}</p>
@@ -281,19 +285,13 @@ export default function JobShow() {
         </div>
 
         <div className="mb-8">
-          <h3 className="text-[#757575] mb-1">Status</h3>
-          <p className="text-white">
-            {record?.status ? formatText(record.status) : 'Unknown'}
-          </p>
+          <h3 className="text-[#757575] mb-1">Extra</h3>
+          <p className="text-white">Data Response</p>
         </div>
 
         <div className="mb-8">
-          <h3 className="text-[#757575] mb-1">Language</h3>
-          <p className="text-white">
-            {record?.lang === 'en' ? 'English' : 
-             record?.lang === 'uk' ? 'Ukrainian' : 
-             record?.lang || 'Unknown'}
-          </p>
+          <h3 className="text-[#757575] mb-1">Extra 2</h3>
+          <p className="text-white">Data Response 2</p>
         </div>
 
         <div className="mb-6">
@@ -305,7 +303,6 @@ export default function JobShow() {
 
             {/* Steps */}
             {record?.steps?.map((step, index) => {
-              // Determine step color based on status
               let bgOuterColor = '#202020';
               let bgInnerColor = '#2b2b2b';
               let bgCardColor = '#202020';
@@ -329,8 +326,8 @@ export default function JobShow() {
                       <div className="rounded-full w-4 h-4" 
                            style={{ backgroundColor: bgInnerColor }}></div>
                     </div>
-                    <div className="ml-4 rounded-lg p-3 flex-1" 
-                         style={{ backgroundColor: bgCardColor }}>
+                    <div className="ml-4 rounded-lg p-3 flex-1 shadow-sm" 
+                         style={{ backgroundColor: bgCardColor }}> {/* Rounded corners and shadow */}
                       <p className="text-white font-medium">
                         {formatText(step.name) || `Step ${index + 1}`}
                       </p>
@@ -348,14 +345,13 @@ export default function JobShow() {
               );
             })}
             
-            {/* If no steps are available, show placeholder */}
             {(!record?.steps || record.steps.length === 0) && (
               <div className="mb-8 relative">
                 <div className="flex items-start">
                   <div className="bg-[#202020] w-8 h-8 rounded-full flex items-center justify-center z-10">
                     <div className="bg-[#2b2b2b] w-4 h-4 rounded-full"></div>
                   </div>
-                  <div className="ml-4 bg-[#202020] rounded-lg p-3 flex-1">
+                  <div className="ml-4 bg-[#202020] rounded-lg p-3 flex-1 shadow-sm"> {/* Rounded corners and shadow */}
                     <p className="text-white font-medium">No steps available</p>
                     <p className="text-[#a1a1a1] text-sm">Processing information unavailable</p>
                   </div>
