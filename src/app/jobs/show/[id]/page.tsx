@@ -10,30 +10,23 @@ import {
   Tabs,
   LoadingOverlay,
   ActionIcon,
-  Title,
   Badge
 } from '@mantine/core';
 import { 
   IconArrowLeft, 
   IconShare,
   IconDotsVertical,
-  IconDownload,
   IconAlertCircle
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
 
-// Import the JobFlowDiagram component with dynamic loading for client-side rendering
-const JobFlowDiagram = dynamic(
-  () => import('@/components/JobFlowDiagram'),
-  { ssr: false, loading: () => <div>Loading flow diagram...</div> }
-);
-
 interface Identity {
   token?: string;
   email?: string;
   name?: string;
+  id?: string;
 }
 
 interface Job {
@@ -93,27 +86,6 @@ export default function JobShow() {
     }
   });
   
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'green';
-      case 'in_progress':
-        return 'blue';
-      case 'failed':
-        return 'red';
-      default:
-        return 'gray';
-    }
-  };
-  
-  const formatText = (text: string) => {
-    return text
-      .toLowerCase()
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
   const formatDuration = (durationInMs?: number) => {
     if (!durationInMs) return "N/A";
     
@@ -124,8 +96,13 @@ export default function JobShow() {
     return `${minutes}m ${seconds}s`;
   };
 
-  const { data, isLoading, isError } = queryResult;
-  const record = data?.data;
+  const formatText = (text: string) => {
+    return text
+      ?.toLowerCase()
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ') || '';
+  };
 
   // Extract filename from link if available
   const getFilenameFromLink = (link?: string) => {
@@ -134,18 +111,22 @@ export default function JobShow() {
     return parts[parts.length - 1] || "";
   };
 
+  const { data, isLoading, isError } = queryResult;
+  const record = data?.data;
+
   // Authentication check after hooks
   if (!identity?.token) {
     return (
-      <Box style={{ position: 'relative', minHeight: '200px' }}>
+      <Box className="relative min-h-[200px]">
         <LoadingOverlay visible={true} />
+        <Text>Authentication required</Text>
       </Box>
     );
   }
 
   if (isLoading) {
     return (
-      <Box style={{ position: 'relative', minHeight: '200px' }}>
+      <Box className="relative min-h-[200px]">
         <LoadingOverlay visible={true} />
       </Box>
     );
@@ -153,8 +134,8 @@ export default function JobShow() {
 
   if (isError || !jobId) {
     return (
-      <Box p="md">
-        <Box mb="md" p="md" style={{ background: '#252525', borderRadius: '4px' }}>
+      <Box className="p-4">
+        <Box className="mb-4 p-4 bg-[#252525] rounded">
           <Group>
             <IconAlertCircle size={20} color="red" />
             <Text c="red">Unable to load job details. Please try again.</Text>
@@ -164,7 +145,7 @@ export default function JobShow() {
           variant="outline"
           leftSection={<IconArrowLeft size={16} />}
           onClick={() => list('jobs')}
-          style={{ background: '#131313', borderColor: '#202020', color: '#ffffff' }}
+          className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff]"
         >
           Back to Jobs
         </Button>
@@ -182,7 +163,7 @@ export default function JobShow() {
             variant="outline" 
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => list('jobs')}
-            style={{ background: '#131313', borderColor: '#202020', color: '#ffffff' }}
+            className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff]"
           >
             Back to Jobs
           </Button>
@@ -191,16 +172,16 @@ export default function JobShow() {
             <Button 
               variant="outline"
               leftSection={<IconShare size={16} />}
-              style={{ background: '#131313', borderColor: '#202020', color: '#ffffff' }}
+              className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff]"
             >
               Share
             </Button>
-            <Button style={{ background: 'white', color: 'black' }}>
+            <Button className="bg-white hover:bg-[#d9d9d9] text-black">
               Use in a job
             </Button>
             <ActionIcon 
               variant="subtle" 
-              style={{ color: '#ffffff' }}
+              className="text-[#ffffff]"
             >
               <IconDotsVertical size={20} />
             </ActionIcon>
@@ -209,7 +190,9 @@ export default function JobShow() {
 
         {/* Document title */}
         <div className="px-8 py-4">
-          <h1 className="text-3xl font-serif">{record?.output?.title || record?.jobName || 'Untitled Document'}</h1>
+          <h1 className="text-3xl font-serif">
+            {record?.output?.title || record?.jobName || 'Untitled Document'}
+          </h1>
           <p className="text-[#a1a1a1] mt-1">
             {getFilenameFromLink(record?.link) || 'No source file'}
           </p>
@@ -217,40 +200,25 @@ export default function JobShow() {
 
         {/* Tabs and content */}
         <div className="flex-1 px-8">
-          <Tabs defaultValue="preview" className="w-full">
-            <div className="border-b border-[#202020]">
-              <Tabs.List variant="unstyled" style={{ background: 'transparent' }}>
-                <Tabs.Tab 
-                  value="preview"
-                  className="data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:text-white text-[#a1a1a1] rounded-none px-4 py-2"
-                  onClick={() => setActiveTab('preview')}
-                >
-                  Preview
-                </Tabs.Tab>
-                <Tabs.Tab 
-                  value="markdown"
-                  className="data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:text-white text-[#a1a1a1] rounded-none px-4 py-2"
-                  onClick={() => setActiveTab('markdown')}
-                >
-                  Markdown/JSON
-                </Tabs.Tab>
-                <Tabs.Tab 
-                  value="question"
-                  className="text-[#a1a1a1] rounded-none px-4 py-2"
-                  disabled
-                  onClick={() => setActiveTab('question')}
-                >
-                  Ask a question
-                  <Badge 
-                    ml="xs" 
-                    style={{ background: '#291e3f', color: '#9e8bc3' }}
-                    size="xs"
-                  >
-                    Coming soon
-                  </Badge>
-                </Tabs.Tab>
-              </Tabs.List>
-            </div>
+          <Tabs 
+            value={activeTab} 
+            onChange={setActiveTab as any}
+            classNames={{
+              tabsList: 'border-b border-[#202020]',
+              tab: 'data-[active=true]:bg-transparent data-[active=true]:border-b-2 data-[active=true]:border-white data-[active=true]:shadow-none rounded-none px-4 py-2 text-[#a1a1a1] data-[active=true]:text-white'
+            }}
+          >
+            <Tabs.List bg="transparent" variant="unstyled">
+              <Tabs.Tab value="preview">Preview</Tabs.Tab>
+              <Tabs.Tab value="markdown">Markdown/JSON</Tabs.Tab>
+              <Tabs.Tab value="question" disabled rightSection={
+                <Badge className="ml-2 bg-[#291e3f] text-[#9e8bc3] hover:bg-[#291e3f] text-xs">
+                  Coming soon
+                </Badge>
+              }>
+                Ask a question
+              </Tabs.Tab>
+            </Tabs.List>
 
             <Tabs.Panel value="preview" pt="md">
               <div className="bg-white text-black p-8 rounded">
@@ -272,14 +240,19 @@ export default function JobShow() {
                   </p>
 
                   <h2 className="text-xl font-serif mb-2">Contributors, Acknowledgements, Mentions</h2>
-                  <div dangerouslySetInnerHTML={{ __html: record?.output?.contributors || 'No contributors information available.' }} />
+                  <div
+                    className="list-disc pl-6"
+                    dangerouslySetInnerHTML={{ 
+                      __html: record?.output?.contributors || 'No contributors information available.' 
+                    }} 
+                  />
                 </div>
               </div>
             </Tabs.Panel>
 
             <Tabs.Panel value="markdown" pt="md">
-              <div className="p-4 text-[#a1a1a1]">
-                <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto' }}>
+              <div className="p-4 text-[#a1a1a1] overflow-auto max-h-[70vh]">
+                <pre className="whitespace-pre-wrap">
                   {JSON.stringify(record?.output, null, 2) || 'No markdown content available'}
                 </pre>
               </div>
@@ -332,28 +305,31 @@ export default function JobShow() {
             {/* Steps */}
             {record?.steps?.map((step, index) => {
               // Determine step color based on status
-              let bgColor = '#202020';
-              let dotColor = '#2b2b2b';
+              let bgOuterColor = '#202020';
+              let bgInnerColor = '#2b2b2b';
+              let bgCardColor = '#202020';
               
               if (step.status?.toLowerCase() === 'completed') {
-                bgColor = '#1a2516';
-                dotColor = '#102d1d';
+                bgOuterColor = '#1a2516';
+                bgInnerColor = '#102d1d';
+                bgCardColor = '#2a392f';
               } else if (step.status?.toLowerCase().includes('error') || 
                          step.status?.toLowerCase().includes('failed')) {
-                bgColor = '#251313';
-                dotColor = '#3b1b1b';
+                bgOuterColor = '#251313';
+                bgInnerColor = '#3b1b1b';
+                bgCardColor = '#3b1b1b';
               }
               
               return (
                 <div key={index} className="mb-8 relative">
                   <div className="flex items-start">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center z-10`} 
-                         style={{ background: bgColor }}>
-                      <div className={`w-4 h-4 rounded-full`} 
-                           style={{ background: dotColor }}></div>
+                    <div className="rounded-full flex items-center justify-center z-10 w-8 h-8" 
+                         style={{ backgroundColor: bgOuterColor }}>
+                      <div className="rounded-full w-4 h-4" 
+                           style={{ backgroundColor: bgInnerColor }}></div>
                     </div>
                     <div className="ml-4 rounded-lg p-3 flex-1" 
-                         style={{ background: bgColor }}>
+                         style={{ backgroundColor: bgCardColor }}>
                       <p className="text-white font-medium">
                         {formatText(step.name) || `Step ${index + 1}`}
                       </p>
