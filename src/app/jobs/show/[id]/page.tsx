@@ -19,7 +19,11 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
-import { useState } from "react"; // Removed unnecessary useEffect import
+import { useState } from "react";
+import { Document, Page, pdfjs } from "react-pdf"; // Added for PDF rendering
+
+// Configure react-pdf worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 interface Identity {
   token?: string;
@@ -56,6 +60,7 @@ interface Job {
     conclusion?: string;
     passages?: string[];
     references?: Array<any>;
+    pdfUrl?: string; // Added for PDF support
   };
 }
 
@@ -113,6 +118,9 @@ export default function JobShow() {
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
 
+  // Log data to debug
+  console.log("Fetched record:", record);
+
   // Authentication check after hooks
   if (!identity?.token) {
     return (
@@ -127,6 +135,7 @@ export default function JobShow() {
     return (
       <Box className="relative min-h-[200px]">
         <LoadingOverlay visible={true} />
+        <Text>Loading...</Text> {/* Added text for clarity */}
       </Box>
     );
   }
@@ -134,7 +143,7 @@ export default function JobShow() {
   if (isError || !jobId) {
     return (
       <Box className="p-4">
-        <Box className="mb-4 p-4 bg-[#252525] rounded-lg shadow-sm"> {/* Rounded corners and shadow */}
+        <Box className="mb-4 p-4 bg-[#252525] rounded-lg shadow-sm">
           <Group>
             <IconAlertCircle size={20} color="red" />
             <Text c="red">Unable to load job details. Please try again.</Text>
@@ -144,7 +153,7 @@ export default function JobShow() {
           variant="outline"
           leftSection={<IconArrowLeft size={16} />}
           onClick={() => list('jobs')}
-          className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg" // Rounded corners
+          className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg"
         >
           Back to Jobs
         </Button>
@@ -162,7 +171,7 @@ export default function JobShow() {
             variant="outline" 
             leftSection={<IconArrowLeft size={16} />}
             onClick={() => list('jobs')}
-            className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg" // Rounded corners
+            className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg"
           >
             Back to Jobs
           </Button>
@@ -170,16 +179,16 @@ export default function JobShow() {
             <Button 
               variant="outline"
               leftSection={<IconShare size={16} />}
-              className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg" // Rounded corners
+              className="bg-[#131313] hover:bg-[#202020] border-[#202020] text-[#ffffff] rounded-lg"
             >
               Share
             </Button>
-            <Button className="bg-white hover:bg-[#d9d9d9] text-black rounded-lg"> {/* Rounded corners */}
+            <Button className="bg-white hover:bg-[#d9d9d9] text-black rounded-lg">
               Use in a job
             </Button>
             <ActionIcon 
               variant="subtle" 
-              className="text-[#ffffff] bg-[#131313] hover:bg-[#202020] rounded-full" // Rounded circle for icon
+              className="text-[#ffffff] bg-[#131313] hover:bg-[#202020] rounded-full"
             >
               <IconDotsVertical size={20} />
             </ActionIcon>
@@ -219,44 +228,52 @@ export default function JobShow() {
             </Tabs.List>
 
             <Tabs.Panel value="preview" className="mt-4">
-              <div className="bg-white text-black p-8 rounded-lg shadow-sm"> {/* Rounded corners and shadow */}
+              <div className="bg-white text-black p-8 rounded-lg shadow-sm">
                 <div className="max-w-3xl mx-auto">
-                  <h1 className="text-3xl font-serif mb-6">
-                    {record?.output?.title || record?.jobName || 'Untitled Document'}
-                  </h1>
-                  <h2 className="text-xl font-serif mb-2">Origin</h2>
-                  <p className="text-[#3b1b1b] mb-4">
-                    <a href={record?.link} className="text-blue-700 underline break-all">
-                      {record?.link || 'No source link available'}
-                    </a>
-                  </p>
-                  <h2 className="text-xl font-serif mb-2">Abstract</h2>
-                  <p className="mb-4 text-justify">
-                    {record?.output?.abstract || 'No abstract available.'}
-                  </p>
-                  <h2 className="text-xl font-serif mb-2">Contributors, Acknowledgements, Mentions</h2>
-                  {record?.output?.contributors ? (
-                    typeof record.output.contributors === 'string' && record.output.contributors.includes('<') ? (
-                      <div 
-                        className="list-disc pl-6" 
-                        dangerouslySetInnerHTML={{ __html: record.output.contributors }} 
-                      />
-                    ) : (
-                      <ul className="list-disc pl-6">
-                        {(record.output.contributors.split(',').map(contributor => contributor.trim())).map((contributor, idx) => (
-                          <li key={idx}>{contributor}</li>
-                        ))}
-                      </ul>
-                    )
+                  {record?.output?.pdfUrl ? (
+                    <Document file={record.output.pdfUrl} loading={<Text>Loading PDF...</Text>}>
+                      <Page pageNumber={1} width={800} />
+                    </Document>
                   ) : (
-                    <p>No contributors information available.</p>
+                    <>
+                      <h1 className="text-3xl font-serif mb-6">
+                        {record?.output?.title || record?.jobName || 'Untitled Document'}
+                      </h1>
+                      <h2 className="text-xl font-serif mb-2">Origin</h2>
+                      <p className="text-[#3b1b1b] mb-4">
+                        <a href={record?.link} className="text-blue-700 underline break-all">
+                          {record?.link || 'No source link available'}
+                        </a>
+                      </p>
+                      <h2 className="text-xl font-serif mb-2">Abstract</h2>
+                      <p className="mb-4 text-justify">
+                        {record?.output?.abstract || 'No abstract available.'}
+                      </p>
+                      <h2 className="text-xl font-serif mb-2">Contributors, Acknowledgements, Mentions</h2>
+                      {record?.output?.contributors ? (
+                        typeof record.output.contributors === 'string' && record.output.contributors.includes('<') ? (
+                          <div 
+                            className="list-disc pl-6" 
+                            dangerouslySetInnerHTML={{ __html: record.output.contributors }} 
+                          />
+                        ) : (
+                          <ul className="list-disc pl-6">
+                            {(record.output.contributors.split(',').map(contributor => contributor.trim())).map((contributor, idx) => (
+                              <li key={idx}>{contributor}</li>
+                            ))}
+                          </ul>
+                        )
+                      ) : (
+                        <p>No contributors information available.</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
             </Tabs.Panel>
 
             <Tabs.Panel value="markdown" className="mt-4">
-              <div className="p-4 text-[#a1a1a1] overflow-auto max-h-[70vh] rounded-lg"> {/* Rounded corners */}
+              <div className="p-4 text-[#a1a1a1] overflow-auto max-h-[70vh] rounded-lg">
                 <pre className="whitespace-pre-wrap">
                   {JSON.stringify(record?.output, null, 2) || 'No markdown content available'}
                 </pre>
@@ -264,7 +281,7 @@ export default function JobShow() {
             </Tabs.Panel>
 
             <Tabs.Panel value="question" className="mt-4">
-              <div className="p-4 text-[#a1a1a1] rounded-lg"> {/* Rounded corners */}
+              <div className="p-4 text-[#a1a1a1] rounded-lg">
                 Question interface would appear here
               </div>
             </Tabs.Panel>
@@ -273,7 +290,7 @@ export default function JobShow() {
       </div>
 
       {/* Right sidebar */}
-      <div className="w-96 border-l border-[#202020] p-6 rounded-r-lg"> {/* Rounded right edge */}
+      <div className="w-96 border-l border-[#202020] p-6 rounded-r-lg">
         <div className="mb-8">
           <h3 className="text-[#757575] mb-1">Created</h3>
           <p className="text-white">{identity?.name || 'Unknown User'}</p>
@@ -327,7 +344,7 @@ export default function JobShow() {
                            style={{ backgroundColor: bgInnerColor }}></div>
                     </div>
                     <div className="ml-4 rounded-lg p-3 flex-1 shadow-sm" 
-                         style={{ backgroundColor: bgCardColor }}> {/* Rounded corners and shadow */}
+                         style={{ backgroundColor: bgCardColor }}>
                       <p className="text-white font-medium">
                         {formatText(step.name) || `Step ${index + 1}`}
                       </p>
@@ -351,7 +368,7 @@ export default function JobShow() {
                   <div className="bg-[#202020] w-8 h-8 rounded-full flex items-center justify-center z-10">
                     <div className="bg-[#2b2b2b] w-4 h-4 rounded-full"></div>
                   </div>
-                  <div className="ml-4 bg-[#202020] rounded-lg p-3 flex-1 shadow-sm"> {/* Rounded corners and shadow */}
+                  <div className="ml-4 bg-[#202020] rounded-lg p-3 flex-1 shadow-sm">
                     <p className="text-white font-medium">No steps available</p>
                     <p className="text-[#a1a1a1] text-sm">Processing information unavailable</p>
                   </div>
