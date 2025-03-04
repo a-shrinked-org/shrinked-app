@@ -54,6 +54,7 @@ interface Job {
       resultId?: string;
       [key: string]: any;
     };
+    _id?: string; // Added step _id for clarity
   }>;
   endTime?: string;
   startTime?: string;
@@ -104,12 +105,24 @@ export default function JobShow() {
         
         // Extract processing document ID from the PLATOGRAM_PROCESSING step
         const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
-        if (processingStep && processingStep.data?.resultId) {
-          console.log("Extracted processingDocId:", processingStep.data.resultId);
-          setProcessingDocId(processingStep.data.resultId);
+        if (processingStep) {
+          console.log("Found PLATOGRAM_PROCESSING step:", processingStep);
+          // Use resultId from data, not the step _id
+          const resultId = processingStep.data?.resultId;
+          if (resultId) {
+            console.log("Extracted processingDocId (resultId):", resultId);
+            setProcessingDocId(resultId);
+          } else {
+            console.log("No resultId found in PLATOGRAM_PROCESSING step data");
+            setProcessingDocId(null);
+            setErrorMessage("No processing document ID found in job steps.");
+          }
+          // Log step _id for comparison
+          console.log("Step _id (not used):", processingStep._id);
         } else {
-          console.log("No PLATOGRAM_PROCESSING step or resultId found");
+          console.log("No PLATOGRAM_PROCESSING step found");
           setProcessingDocId(null);
+          setErrorMessage("No processing step found in job.");
         }
       },
       onError: (error) => {
@@ -178,9 +191,8 @@ export default function JobShow() {
         // Optionally redirect to login
         list('/login');
       }
-    } catch (error: unknown) { // Explicitly type as 'unknown'
+    } catch (error: unknown) {
       console.error("Token refresh error:", error);
-      // Narrow the type to handle potential Error object or other types
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       setErrorMessage("Error refreshing token: " + errorMessage);
     }
