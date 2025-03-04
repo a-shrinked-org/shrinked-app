@@ -2,7 +2,7 @@
 
 import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-import { SessionProvider, signIn, signOut } from "next-auth/react";
+import { SessionProvider, signIn, signOut, useSession } from "next-auth/react"; // Added useSession import
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
@@ -41,7 +41,7 @@ const notificationProvider: NotificationProvider = {
 };
 
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession(); // Called at component level
+  const { data: session, status } = useSession(); // Correctly using useSession
   const to = usePathname();
   const { push } = useNavigation();
   
