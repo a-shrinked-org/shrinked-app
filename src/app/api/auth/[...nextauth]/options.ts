@@ -10,13 +10,16 @@ interface CustomToken extends JWT {
   user?: any;
 }
 
+// Fix the session type to match NextAuth's expected shape
 interface CustomSession extends Session {
   accessToken?: string;
   refreshToken?: string;
-  user?: {
-    name?: string;
-    email?: string;
-    image?: string;
+  // Ensure user matches the Session's user structure (using null instead of undefined)
+  user: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    // Allow additional properties
     [key: string]: any;
   };
 }
@@ -88,6 +91,9 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }: { session: CustomSession; token: CustomToken }) {
+      // Make sure session.user exists and has the expected structure
+      session.user = session.user || { name: null, email: null, image: null };
+      
       if (token) {
         session.accessToken = token.accessToken;
         session.refreshToken = token.refreshToken;
