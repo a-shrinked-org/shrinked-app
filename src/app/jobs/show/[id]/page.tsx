@@ -9,13 +9,15 @@ import {
   Tabs,
   LoadingOverlay,
   ActionIcon,
-  Badge
+  Badge,
+  Notification
 } from '@mantine/core';
 import { 
   IconArrowLeft, 
   IconShare,
   IconDotsVertical,
-  IconAlertCircle
+  IconAlertCircle,
+  IconRefresh
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -85,11 +87,12 @@ export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
   const jobId = params.id as string;
-  const { data: identity } = useGetIdentity<Identity>();
+  const { data: identity, refetch: refetchIdentity } = useGetIdentity<Identity>(); // Added refetch for token refresh
   const [activeTab, setActiveTab] = useState("preview");
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
-  
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   // Fetch job details
   const { queryResult } = useShow<Job>({
     resource: "jobs",
@@ -102,11 +105,16 @@ export default function JobShow() {
         // Extract processing document ID from the PLATOGRAM_PROCESSING step
         const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
         if (processingStep && processingStep.data?.resultId) {
+          console.log("Extracted processingDocId:", processingStep.data.resultId);
           setProcessingDocId(processingStep.data.resultId);
+        } else {
+          console.log("No PLATOGRAM_PROCESSING step or resultId found");
+          setProcessingDocId(null);
         }
       },
       onError: (error) => {
         console.error("Show query error:", error);
+        setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
       }
     },
     meta: {
@@ -117,7 +125,7 @@ export default function JobShow() {
   });
   
   // Fetch processing document data when processingDocId is available
-  const { data: processingData, isLoading: isProcessingLoading } = useCustom<ProcessingDocument>({
+  const { data: processingData, isLoading: isProcessingLoading, refetch: refetchProcessing, isError: isProcessingError } = useCustom<ProcessingDocument>({
     url: `${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`,
     method: "get",
     queryOptions: {
@@ -127,6 +135,13 @@ export default function JobShow() {
       },
       onError: (error) => {
         console.error("Processing document error:", error);
+        if (error.status === 401) {
+          console.log("Unauthorized - Attempting token refresh...");
+          setErrorMessage("Authentication failed. Attempting to refresh token...");
+          handleTokenRefresh();
+        } else {
+          setErrorMessage("Failed to load processing document: " + (error.message || "Unknown error"));
+        }
       }
     },
     meta: {
@@ -136,6 +151,39 @@ export default function JobShow() {
     }
   });
   
+  // Token refresh function
+  const handleTokenRefresh = async () => {
+    try {
+      // Simulate a token refresh call (replace with actual API call to /auth/refresh)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${identity?.token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refreshToken: identity?.token }) // Adjust to use actual refresh token if separate
+      });
+      
+      if (response.ok) {
+        const refreshedData = await response.json();
+        console.log("Token refresh successful:", refreshedData);
+        // Update identity with new token (this assumes Refine updates identity internally)
+        refetchIdentity();
+        setErrorMessage("Token refreshed successfully. Reloading data...");
+        // Refetch processing document with new token
+        refetchProcessing();
+      } else {
+        console.error("Token refresh failed:", response.status);
+        setErrorMessage("Failed to refresh token. Please log in again.");
+        // Optionally redirect to login
+        list('/login');
+      }
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      setErrorMessage("Error refreshing token: " + (error.message || "Unknown error"));
+    }
+  };
+
   const formatDuration = (durationInMs?: number) => {
     if (!durationInMs) return "N/A";
     
@@ -168,6 +216,7 @@ export default function JobShow() {
   // Log data to debug
   console.log("Fetched record:", record);
   console.log("Processing document:", processingDoc);
+  console.log("Using token for processing document:", identity?.token);
 
   if (!identity?.token) {
     return (
@@ -219,14 +268,14 @@ export default function JobShow() {
 
   // Combine job record data with processing document data
   const combinedData = {
-    title: processingDoc?.title || record?.jobName,
-    abstract: processingDoc?.abstract || "",
-    contributors: processingDoc?.contributors || "",
-    pdfUrl: processingDoc?.pdfUrl || "",
-    introduction: processingDoc?.introduction || "",
-    conclusion: processingDoc?.conclusion || "",
-    passages: processingDoc?.passages || [],
-    references: processingDoc?.references || []
+    title: processingDoc?.title || record?.output?.title || record?.jobName,
+    abstract: processingDoc?.abstract || record?.output?.abstract || "",
+    contributors: processingDoc?.contributors || record?.output?.contributors || "",
+    pdfUrl: processingDoc?.pdfUrl || record?.output?.pdfUrl || "",
+    introduction: processingDoc?.introduction || record?.output?.introduction || "",
+    conclusion: processingDoc?.conclusion || record?.output?.conclusion || "",
+    passages: processingDoc?.passages || record?.output?.passages || [],
+    references: processingDoc?.references || record?.output?.references || []
   };
 
   return (
@@ -374,6 +423,29 @@ export default function JobShow() {
                   <LoadingOverlay visible={true} />
                   <div style={{ height: '300px' }}></div>
                 </div>
+              ) : isProcessingError || !processingDoc ? (
+                <Box p="lg" bg="white" c="black" style={{ borderRadius: 8 }}>
+                  <Text>
+                    Processed document data not available. {errorMessage && `Error: ${errorMessage}`}
+                    <Button 
+                      leftSection={<IconRefresh size={16} />} 
+                      onClick={() => refetchProcessing()} 
+                      mt="md"
+                      styles={{
+                        root: {
+                          backgroundColor: '#131313',
+                          borderColor: '#202020',
+                          color: '#ffffff',
+                          '&:hover': {
+                            backgroundColor: '#202020',
+                          },
+                        },
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </Text>
+                </Box>
               ) : (
                 <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
                   <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
