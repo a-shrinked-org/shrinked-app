@@ -41,14 +41,12 @@ export default function ProcessingList() {
   const { show } = useNavigation();
   
   const { data, isLoading, refetch } = useList<ProcessedDocument>({
-    resource: "processing",
-    filters: [
-      {
-        field: "userId",
-        operator: "eq",
-        value: identity?.id,
-      },
-    ],
+    resource: "processing/user",
+    resourceId: identity?.id,
+    method: "get",
+    metaData: {
+      resource: "documents"
+    },
     pagination: {
       pageSize: 100,
     },
