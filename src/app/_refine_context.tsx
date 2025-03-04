@@ -8,10 +8,10 @@ import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
-import { toast, ToastContainer, Id } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
-import { Session } from "next-auth"; // Import Session type
+import { Session } from "next-auth";
 
 interface RefineContextProps {}
 
@@ -41,19 +41,21 @@ const notificationProvider: NotificationProvider = {
   },
 };
 
+// Define the extended session with properly typed user property
 interface CustomSession extends Session {
-  user?: {
+  user: {
     id: string;
-    name?: string;
-    email?: string;
-    image?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
     accessToken?: string;
     refreshToken?: string;
   };
+  accessToken?: string;
 }
 
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession<CustomSession>(); // Type the useSession result
+  const { data: session, status } = useSession();
   const to = usePathname();
   const { push } = useNavigation();
   
@@ -161,7 +163,12 @@ const App = (props: React.PropsWithChildren<{}>) => {
     check: async () => {
       if (status === "loading") return { authenticated: false };
       if (to === "/login" || session) return { authenticated: !!session };
-      const refreshToken = session?.user?.refreshToken || localStorage.getItem('refreshToken');
+      
+      // Safely access refreshToken
+      const sessionRefreshToken = session?.user?.refreshToken;
+      const localRefreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = sessionRefreshToken || localRefreshToken;
+      
       if (refreshToken) {
         const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
         if (newTokens) {
@@ -176,9 +183,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
       if (session?.user) {
         return {
           id: session.user.id,
-          name: session.user.name,
-          email: session.user.email,
-          avatar: session.user.image,
+          name: session.user.name || undefined,
+          email: session.user.email || undefined,
+          avatar: session.user.image || undefined,
           token: session.user.accessToken,
         };
       }
@@ -204,7 +211,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
     },
     onError: async (error) => {
       if (error?.response?.status === 401) {
-        const refreshToken = session?.user?.refreshToken || localStorage.getItem('refreshToken');
+        // Safely access refreshToken
+        const sessionRefreshToken = session?.user?.refreshToken;
+        const localRefreshToken = localStorage.getItem('refreshToken');
+        const refreshToken = sessionRefreshToken || localRefreshToken;
+        
         if (refreshToken) {
           try {
             const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
