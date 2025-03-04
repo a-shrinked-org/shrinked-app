@@ -16,7 +16,13 @@ import {
   ActionIcon,
   Tooltip
 } from '@mantine/core';
-import { IconDownload, IconEye, IconFileText } from '@tabler/icons-react';
+import { 
+  IconDownload, 
+  IconEye, 
+  IconFileText, 
+  IconMail, 
+  IconTrash 
+} from '@tabler/icons-react';
 
 interface Identity {
   token?: string;
@@ -34,14 +40,19 @@ interface ProcessedDocument {
   size: number;
   createdAt: string;
   status: string;
+  title?: string; // Optional title field
 }
 
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const { show } = useNavigation();
   
+  // Only fetch data when identity is available
   const { data, isLoading, refetch } = useList<ProcessedDocument>({
-    resource: "processing/user/" + identity?.id + "/documents",
+    resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
+    queryOptions: {
+      enabled: !!identity?.id, // Only run the query when identity.id exists
+    },
     pagination: {
       pageSize: 100,
     },
@@ -52,9 +63,17 @@ export default function ProcessingList() {
     }
   });
 
+  // Debug: Log the data when it changes
+  useEffect(() => {
+    if (data) {
+      console.log("Processing documents response:", data);
+    }
+  }, [data]);
+
   // This effect will refetch data when identity is loaded
   useEffect(() => {
     if (identity?.id) {
+      console.log("Identity loaded, refetching data:", identity);
       refetch();
     }
   }, [identity, refetch]);
@@ -95,19 +114,39 @@ export default function ProcessingList() {
     }
   };
 
-  const handleViewDocument = (id: string) => {
+  const handleViewDocument = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     window.open(`/processing/${id}/document`, '_blank');
   };
 
-  const handleDownloadDocument = (id: string) => {
+  const handleDownloadDocument = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     window.open(`/api/shrinked.ai/processing/${id}/document/download`, '_blank');
   };
 
-  const handleViewPdf = (id: string) => {
+  const handleViewPdf = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     window.open(`/pdf/${id}/json`, '_blank');
   };
 
-  if (identityLoading || isLoading) {
+  const handleSendEmail = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    console.log(`Send document ${id} to email`);
+    // Implement email sending logic or show modal
+    alert("Email functionality will be implemented here");
+  };
+
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    console.log(`Delete document ${id}`);
+    // Implement delete confirmation and logic
+    if (confirm("Are you sure you want to delete this document?")) {
+      // Call delete API here
+      alert("Delete functionality will be implemented here");
+    }
+  };
+
+  if (identityLoading || (isLoading && identity?.id)) {
     return (
       <Stack p="md" style={{ position: 'relative', minHeight: '200px' }}>
         <LoadingOverlay visible={true} />
@@ -150,7 +189,12 @@ export default function ProcessingList() {
                 {data.data.map((doc) => (
                   <Table.Tr key={doc._id}>
                     <Table.Td>
-                      <Text fw={500}>{doc.fileName || 'Untitled Document'}</Text>
+                      <Stack spacing={2}>
+                        <Text fw={500}>{doc.title || doc.fileName || 'Untitled Document'}</Text>
+                        <Text size="xs" color="dimmed">
+                          {formatDateTime(doc.createdAt)}
+                        </Text>
+                      </Stack>
                     </Table.Td>
                     <Table.Td>{formatFileSize(doc.size)}</Table.Td>
                     <Table.Td>{doc.mimeType || 'Unknown'}</Table.Td>
@@ -166,7 +210,7 @@ export default function ProcessingList() {
                           <ActionIcon 
                             variant="light" 
                             color="blue"
-                            onClick={() => handleViewDocument(doc._id)}
+                            onClick={(e) => handleViewDocument(doc._id, e)}
                           >
                             <IconEye size={16} />
                           </ActionIcon>
@@ -175,7 +219,7 @@ export default function ProcessingList() {
                           <ActionIcon 
                             variant="light" 
                             color="green"
-                            onClick={() => handleDownloadDocument(doc._id)}
+                            onClick={(e) => handleDownloadDocument(doc._id, e)}
                           >
                             <IconDownload size={16} />
                           </ActionIcon>
@@ -184,9 +228,27 @@ export default function ProcessingList() {
                           <ActionIcon 
                             variant="light" 
                             color="red"
-                            onClick={() => handleViewPdf(doc._id)}
+                            onClick={(e) => handleViewPdf(doc._id, e)}
                           >
                             <IconFileText size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Send to Email">
+                          <ActionIcon 
+                            variant="light" 
+                            color="indigo"
+                            onClick={(e) => handleSendEmail(doc._id, e)}
+                          >
+                            <IconMail size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Delete">
+                          <ActionIcon 
+                            variant="light" 
+                            color="red"
+                            onClick={(e) => handleDelete(doc._id, e)}
+                          >
+                            <IconTrash size={16} />
                           </ActionIcon>
                         </Tooltip>
                       </Group>
