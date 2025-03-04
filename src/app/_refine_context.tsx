@@ -2,7 +2,7 @@
 
 import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-import { SessionProvider, signIn, signOut, useSession } from "next-auth/react"; // Added useSession import
+import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
@@ -11,6 +11,7 @@ import { customAuthProvider } from "@providers/customAuthProvider";
 import { toast, ToastContainer, Id } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
+import { Session } from "next-auth"; // Import Session type
 
 interface RefineContextProps {}
 
@@ -40,8 +41,19 @@ const notificationProvider: NotificationProvider = {
   },
 };
 
+interface CustomSession extends Session {
+  user?: {
+    id: string;
+    name?: string;
+    email?: string;
+    image?: string;
+    accessToken?: string;
+    refreshToken?: string;
+  };
+}
+
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession(); // Correctly using useSession
+  const { data: session, status } = useSession<CustomSession>(); // Type the useSession result
   const to = usePathname();
   const { push } = useNavigation();
   
