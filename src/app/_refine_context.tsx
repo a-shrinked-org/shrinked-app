@@ -159,37 +159,20 @@ const App = (props: React.PropsWithChildren<{}>) => {
       };
     },
     check: async () => {
-      // Use session and status from the component scope
-      if (status === "loading") {
-        return { authenticated: false };
-      }
-      if (to === "/login" || session) {
-        return { authenticated: !!session };
-      }
-
-      // Try to refresh token if session is invalid
+      if (status === "loading") return { authenticated: false };
+      if (to === "/login" || session) return { authenticated: !!session };
       const refreshToken = session?.user?.refreshToken || localStorage.getItem('refreshToken');
       if (refreshToken) {
-        try {
-          const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
-          if (newTokens) {
-            // Update session or localStorage with new tokens (simplified for this example)
-            localStorage.setItem('accessToken', newTokens.accessToken);
-            localStorage.setItem('refreshToken', newTokens.refreshToken);
-            return { authenticated: true };
-          }
-        } catch (error) {
-          console.error("Token refresh failed:", error);
+        const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
+        if (newTokens) {
+          localStorage.setItem('accessToken', newTokens.accessToken);
+          localStorage.setItem('refreshToken', newTokens.refreshToken);
+          return { authenticated: true };
         }
       }
-
-      return {
-        authenticated: false,
-        redirectTo: "/login",
-      };
+      return { authenticated: false, redirectTo: "/login" };
     },
     getIdentity: async () => {
-      // Use session from the component scope
       if (session?.user) {
         return {
           id: session.user.id,
@@ -197,6 +180,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
           email: session.user.email,
           avatar: session.user.image,
           token: session.user.accessToken,
+        };
+      }
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        return {
+          id: userData.id,
+          name: userData.username || userData.email,
+          email: userData.email,
+          avatar: userData.avatar,
+          token: userData.accessToken,
         };
       }
       return null;
