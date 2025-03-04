@@ -87,7 +87,7 @@ export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
   const jobId = params.id as string;
-  const { data: identity, refetch: refetchIdentity } = useGetIdentity<Identity>(); // Added refetch for token refresh
+  const { data: identity, refetch: refetchIdentity } = useGetIdentity<Identity>();
   const [activeTab, setActiveTab] = useState("preview");
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
@@ -178,9 +178,11 @@ export default function JobShow() {
         // Optionally redirect to login
         list('/login');
       }
-    } catch (error) {
+    } catch (error: unknown) { // Explicitly type as 'unknown'
       console.error("Token refresh error:", error);
-      setErrorMessage("Error refreshing token: " + (error.message || "Unknown error"));
+      // Narrow the type to handle potential Error object or other types
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setErrorMessage("Error refreshing token: " + errorMessage);
     }
   };
 
