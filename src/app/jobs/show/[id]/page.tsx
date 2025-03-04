@@ -454,21 +454,21 @@ export default function JobShow() {
           </Text>
           <Text>{identity?.name || 'Unknown User'}</Text>
         </div>
-      
+
         <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Duration
           </Text>
           <Text>{formatDuration(record?.totalDuration)}</Text>
         </div>
-      
+
         <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Status
           </Text>
           <Text>{record?.status ? formatText(record.status) : 'Unknown'}</Text>
         </div>
-      
+
         <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
             Language
@@ -479,9 +479,6 @@ export default function JobShow() {
              record?.lang || 'Unknown'}
           </Text>
         </div>
-      
-        {/* Rest of your component... */}
-      </div>
 
         <div style={{ marginBottom: '1.5rem' }}>
           <Text c="dimmed" mb="md">
