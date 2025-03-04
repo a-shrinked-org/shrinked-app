@@ -3,6 +3,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
+import type { NextAuthOptions } from "next-auth";
 
 interface CustomToken extends JWT {
   accessToken?: string;
@@ -24,7 +25,7 @@ interface CustomSession extends Session {
   };
 }
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: "766372410745-62h4u9a79hetvm4858o5e95eg8jvapv8.apps.googleusercontent.com",
@@ -113,9 +114,9 @@ export const authOptions = {
   pages: {
     signIn: '/login',
   },
-  // Enable JWT for handling sessions
+  // Enable JWT for handling sessions - must use proper enum value "jwt"
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
     maxAge: 30 * 24 * 60 * 60, // 30 days
   }
 };
