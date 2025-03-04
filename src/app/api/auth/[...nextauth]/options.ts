@@ -1,5 +1,4 @@
 // src/app/api/auth/[...nextauth]/options.ts
-import Auth0Provider from "next-auth/providers/auth0";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { JWT } from "next-auth/jwt";
@@ -8,31 +7,30 @@ import { Session } from "next-auth";
 interface CustomToken extends JWT {
   accessToken?: string;
   refreshToken?: string;
+  user?: any;
 }
 
 interface CustomSession extends Session {
   accessToken?: string;
   refreshToken?: string;
+  user?: {
+    name?: string;
+    email?: string;
+    image?: string;
+    [key: string]: any;
+  };
 }
 
 export const authOptions = {
   providers: [
-    Auth0Provider({
-      clientId: "iFAGGfUgqtWx7VuuQAVAgABC1Knn7viR",
-      clientSecret: "Nfayt26AhphY4q_qzANYIIgNDFQ4Sh8lM_NKoDPVpmb9NCsiPW7uLPeT1yilNVPV",
-      issuer: "https://dev-w0dm4z23pib7oeui.us.auth0.com",
-      authorization: {
-        params: {
-          audience: "https://platogram.vercel.app/",
-          scope: "openid profile email"
-        }
-      }
-    }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: "766372410745-62h4u9a79hetvm4858o5e95eg8jvapv8.apps.googleusercontent.com",
+      clientSecret: "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",
       authorization: {
         params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
           scope: "openid email profile"
         }
       }
@@ -76,30 +74,43 @@ export const authOptions = {
   secret: `UItTuD1HcGXIj8ZfHUswhYdNd40Lc325R8VlxQPUoR0=`,
   callbacks: {
     async jwt({ token, account, user }: { token: CustomToken; account: any; user: any }) {
-      if (account) {
-        token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
+      // Initial sign in
+      if (account && user) {
+        return {
+          ...token,
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
+          user,
+        };
       }
-      if (user) {
-        token.user = user;
-      }
+      
+      // Return previous token if the access token has not expired yet
       return token;
     },
     async session({ session, token }: { session: CustomSession; token: CustomToken }) {
-      session.accessToken = token.accessToken;
-      session.refreshToken = token.refreshToken;
-      
-      if (token.user) {
-        session.user = {
-          ...session.user,
-          ...token.user
-        };
+      if (token) {
+        session.accessToken = token.accessToken;
+        session.refreshToken = token.refreshToken;
+        
+        // Pass user info to the client
+        if (token.user) {
+          session.user = {
+            ...session.user,
+            ...token.user
+          };
+        }
       }
       return session;
     }
   },
+  debug: process.env.NODE_ENV === 'development',
   pages: {
     signIn: '/login',
+  },
+  // Enable JWT for handling sessions
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   }
 };
 
