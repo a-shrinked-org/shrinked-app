@@ -13,7 +13,6 @@ import {
   SimpleGrid,
   Group,
   Text,
-  Image,
 } from '@mantine/core';
 import { IconBrandGoogle, IconBook, IconCode, IconRocket } from '@tabler/icons-react';
 
@@ -38,6 +37,7 @@ export default function Login() {
       { providerName: "google" },
       {
         onError: (error: any) => {
+          console.error("Google login error:", error);
           setError(error?.message || "Google login failed");
         },
       }
@@ -56,7 +56,11 @@ export default function Login() {
     login(
       { email: formData.email, password: formData.password },
       {
+        onSuccess: () => {
+          // The redirect is handled by the auth provider, so we don't need to do anything here
+        },
         onError: (error: any) => {
+          console.error("Email login error:", error);
           setError(error?.message || "Login failed");
         },
       }
@@ -80,7 +84,7 @@ export default function Login() {
       }}
     >
       <Card radius="md" p="xl" withBorder style={{ backgroundColor: '#F5F5F5', maxWidth: '100%' }}>
-        <Title order={2} ta="center" mb="md" style={{ color: 'white' }}>
+        <Title order={2} ta="center" mb="md">
           Your first deploy
           is just a sign-up away.
         </Title>
