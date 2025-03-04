@@ -29,9 +29,10 @@ interface Identity {
 
 interface ProcessedDocument {
   _id: string;
-  jobId: string;
-  userId: string;
-  fileName: string;
+  jobId?: string; // May not exist in actual data
+  user?: string; // Instead of userId
+  userId?: string; // Backup field
+  fileName?: string;
   createdAt: string;
   output?: {
     title?: string;
@@ -82,9 +83,10 @@ export default function ProcessingList() {
     }).format(date);
   };
 
-  const handleViewDocument = (jobId: string, e?: React.MouseEvent) => {
+  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    window.open(`/jobs/show/${jobId}`, '_blank');
+    // From the console log, it appears _id is the job ID
+    window.open(`/jobs/show/${doc._id}`, '_blank');
   };
 
   const handleSendEmail = (id: string, e?: React.MouseEvent) => {
@@ -155,7 +157,7 @@ export default function ProcessingList() {
                           <ActionIcon 
                             variant="light" 
                             color="blue"
-                            onClick={(e) => handleViewDocument(doc.jobId, e)}
+                            onClick={(e) => handleViewDocument(doc, e)}
                           >
                             <IconEye size={16} />
                           </ActionIcon>
