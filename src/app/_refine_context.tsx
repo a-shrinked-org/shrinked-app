@@ -2,7 +2,7 @@
 
 import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-import { SessionProvider, signIn, useSession } from "next-auth/react";
+import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
@@ -51,11 +51,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
-  // Auth check effect
+  // Auth check effect with token refresh
   useEffect(() => {
     const checkAuthentication = async () => {
       if (status === "loading") return;
-  
+
       try {
         if (session) {
           setAuthState({
@@ -65,13 +65,22 @@ const App = (props: React.PropsWithChildren<{}>) => {
           });
           return;
         }
-  
-        // Let the authProvider.check handle the rest
-        setAuthState({
-          isChecking: false,
-          isAuthenticated: false,
-          initialized: true,
-        });
+
+        // Try to check authentication via custom provider if no session
+        const checkResult = await customAuthProvider.check();
+        if (checkResult.authenticated) {
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: true,
+            initialized: true,
+          });
+        } else {
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: false,
+            initialized: true,
+          });
+        }
       } catch (error) {
         console.error("Auth check error:", error);
         setAuthState({
@@ -81,149 +90,129 @@ const App = (props: React.PropsWithChildren<{}>) => {
         });
       }
     };
-  
+
     checkAuthentication();
   }, [status, session]);
 
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
+      if (params.providerName === "google") {
+        signIn("google", {
           callbackUrl: "/jobs",
           redirect: true,
         });
         return {
           success: false,
           error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
+            message: "Redirecting to Google...",
+            name: "Google",
+          },
         };
-      }
-      
-      try {
-        const result = await customAuthProvider.login(params);
-        
-        if (result.success) {
-          setAuthState({
-            isChecking: false,
-            isAuthenticated: true,
-            initialized: true,
-          });
-          
+      } else if (params.email && params.password) {
+        const result = await signIn("credentials", {
+          email: params.email,
+          password: params.password,
+          redirect: false,
+        });
+
+        if (result?.error) {
           notificationProvider.open({
-            message: "Welcome back!",
-            type: "success",
-            key: "login-success"
+            message: "Login Failed",
+            description: result.error,
+            type: "error",
+            key: "login-error",
           });
-          
           return {
-            ...result,
-            redirectTo: "/jobs"
+            success: false,
+            error: {
+              message: result.error,
+              name: "Login Failed",
+            },
           };
         }
-        
-        notificationProvider.open({
-          message: "Login Failed",
-          description: result.error?.message || "Invalid credentials",
-          type: "error",
-          key: "login-error"
-        });
-        
-        return result;
-      } catch (error) {
-        console.error("Login error:", error);
-        
-        notificationProvider.open({
-          message: "Login Error",
-          description: "An unexpected error occurred",
-          type: "error",
-          key: "login-error"
-        });
-        
+
         return {
-          success: false,
-          error: {
-            message: "Login failed",
-            name: "Auth Error"
-          }
+          success: true,
+          redirectTo: "/jobs",
         };
       }
+
+      return {
+        success: false,
+        error: {
+          message: "Invalid login parameters",
+          name: "Login Error",
+        },
+      };
     },
-  
     check: async () => {
-      // Skip check if we're on login page or have a session
+      const { data: session, status } = useSession();
+      if (status === "loading") return { authenticated: false };
       if (to === "/login" || session) {
         return { authenticated: !!session };
       }
-  
-      try {
-        const result = await customAuthProvider.check();
-        
-        // Not authenticated and not on login page - redirect to login
-        if (!result.authenticated && to !== "/login") {
-          return {
-            authenticated: false,
-            error: new Error("Not authenticated"),
-            logout: true,
-            redirectTo: "/login"
-          };
+
+      // Try to refresh token if session is invalid
+      const refreshToken = session?.user?.refreshToken || localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        try {
+          const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
+          if (newTokens) {
+            // Update session or localStorage with new tokens (simplified for this example)
+            localStorage.setItem('accessToken', newTokens.accessToken);
+            localStorage.setItem('refreshToken', newTokens.refreshToken);
+            return { authenticated: true };
+          }
+        } catch (error) {
+          console.error("Token refresh failed:", error);
         }
-        
-        // Authenticated but on login page - redirect to jobs
-        if (result.authenticated && to === "/login") {
-          return {
-            authenticated: true,
-            redirectTo: "/jobs"
-          };
-        }
-        
-        // Just return authentication status in other cases
-        return {
-          authenticated: result.authenticated
-        };
-      } catch (error) {
-        return {
-          authenticated: false,
-          error: new Error("Authentication check failed"),
-          logout: true,
-          redirectTo: "/login"
-        };
       }
+
+      return {
+        authenticated: false,
+        redirectTo: "/login",
+      };
     },
-  
     getIdentity: async () => {
-      // Prioritize session data
+      const { data: session } = useSession();
       if (session?.user) {
         return {
+          id: session.user.id,
           name: session.user.name,
           email: session.user.email,
           avatar: session.user.image,
-          token: session.accessToken,
+          token: session.user.accessToken,
         };
       }
-      
-      // Only try custom auth if no session exists
-      try {
-        const identity = await customAuthProvider.getIdentity();
-        return identity;
-      } catch (error) {
-        return null;
-      }
+      return null;
     },
-  
-    logout: async (params: any = {}) => {
-      const result = await customAuthProvider.logout(params);
-      setAuthState({
-        isChecking: false,
-        isAuthenticated: false,
-        initialized: true,
-      });
+    logout: async () => {
+      await signOut({ callbackUrl: "/login" });
       return {
         success: true,
-        redirectTo: "/login"
+        redirectTo: "/login",
       };
+    },
+    onError: async (error) => {
+      if (error?.response?.status === 401) {
+        const refreshToken = session?.user?.refreshToken || localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          try {
+            const newTokens = await customAuthProvider.refreshAccessToken(refreshToken);
+            if (newTokens) {
+              // Update session or localStorage with new tokens
+              localStorage.setItem('accessToken', newTokens.accessToken);
+              localStorage.setItem('refreshToken', newTokens.refreshToken);
+              return { error: null }; // Continue with refreshed token
+            }
+          } catch (refreshError) {
+            console.error("Failed to refresh token:", refreshError);
+          }
+        }
+        return { logout: true, redirectTo: "/login" };
+      }
+      return { error };
     },
   };
 
@@ -232,85 +221,85 @@ const App = (props: React.PropsWithChildren<{}>) => {
   }
 
   return (
-      <>
-        <RefineKbarProvider>
-          <Refine
-            routerProvider={routerProvider}
-            dataProvider={dataProvider}
-            authProvider={authProvider}
-            notificationProvider={notificationProvider}
-            resources={[
-              {
-                name: "jobs",
-                list: "/jobs",
-                create: "/jobs/create",
-                edit: "/jobs/edit/:id",
-                show: "/jobs/show/:id",
-                meta: {
-                  canDelete: true,
-                  icon: "chart-line",
-                  label: "Jobs",
-                  hide: false
-                },
+    <>
+      <RefineKbarProvider>
+        <Refine
+          routerProvider={routerProvider}
+          dataProvider={dataProvider}
+          authProvider={authProvider}
+          notificationProvider={notificationProvider}
+          resources={[
+            {
+              name: "jobs",
+              list: "/jobs",
+              create: "/jobs/create",
+              edit: "/jobs/edit/:id",
+              show: "/jobs/show/:id",
+              meta: {
+                canDelete: true,
+                icon: "chart-line",
+                label: "Jobs",
+                hide: false
               },
-              {
-                name: "api-keys",
-                list: "/api-keys",
-                meta: {
-                  icon: "key",
-                  label: "API Keys",
-                  hide: false
-                },
+            },
+            {
+              name: "api-keys",
+              list: "/api-keys",
+              meta: {
+                icon: "key",
+                label: "API Keys",
+                hide: false
               },
-              {
-                name: "categories",
-                list: "/categories",
-                create: "/categories/create",
-                edit: "/categories/edit/:id",
-                show: "/categories/show/:id",
-                meta: {
-                  canDelete: true,
-                  icon: "tag",
-                  label: "Categories",
-                  hide: false
-                },
+            },
+            {
+              name: "categories",
+              list: "/categories",
+              create: "/categories/create",
+              edit: "/categories/edit/:id",
+              show: "/categories/show/:id",
+              meta: {
+                canDelete: true,
+                icon: "tag",
+                label: "Categories",
+                hide: false
               },
-              {
-                name: "output",
-                list: "/output",
-                show: "/output/show/:id",
-                meta: {
-                  canDelete: true,
-                  icon: "box",
-                  label: "Output",
-                  hide: false
-                },
+            },
+            {
+              name: "output",
+              list: "/output",
+              show: "/output/show/:id",
+              meta: {
+                canDelete: true,
+                icon: "box",
+                label: "Output",
+                hide: false
               },
-            ]}
-            options={{
-              syncWithLocation: true,
-              warnWhenUnsavedChanges: true,
-              useNewQueryKeys: true,
-              breadcrumb: false // Disable breadcrumbs
-            }}
-          >
-            {props.children}
-            <RefineKbar />
-            <ToastContainer />
-          </Refine>
-        </RefineKbarProvider>
-      </>
-    );
-  };
-  
-  export const RefineContext = (
-    props: React.PropsWithChildren<RefineContextProps>
-  ) => {
-    return (
-      <SessionProvider>
-        <App {...props} />
-      </SessionProvider>
-    );
-  };
-  
-  export default RefineContext;
+            },
+          ]}
+          options={{
+            syncWithLocation: true,
+            warnWhenUnsavedChanges: true,
+            useNewQueryKeys: true,
+            breadcrumb: false // Disable breadcrumbs
+          }}
+        >
+          {props.children}
+          <RefineKbar />
+          <ToastContainer />
+        </Refine>
+      </RefineKbarProvider>
+    </>
+  );
+};
+
+export const RefineContext = (
+  props: React.PropsWithChildren<RefineContextProps>
+) => {
+  return (
+    <SessionProvider>
+      <App {...props} />
+    </SessionProvider>
+  );
+};
+
+export default RefineContext;
