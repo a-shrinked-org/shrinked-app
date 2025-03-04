@@ -1,7 +1,7 @@
 "use client";
 
 import { useList, useGetIdentity, useNavigation } from "@refinedev/core";
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { 
   Card, 
   Group, 
@@ -9,17 +9,13 @@ import {
   Stack,
   Button,
   Text,
-  Divider,
   LoadingOverlay,
   Table,
-  Badge,
   ActionIcon,
   Tooltip
 } from '@mantine/core';
 import { 
-  IconDownload, 
   IconEye, 
-  IconFileText, 
   IconMail, 
   IconTrash 
 } from '@tabler/icons-react';
@@ -36,11 +32,10 @@ interface ProcessedDocument {
   jobId: string;
   userId: string;
   fileName: string;
-  mimeType: string;
-  size: number;
   createdAt: string;
-  status: string;
-  title?: string; // Optional title field
+  output?: {
+    title?: string;
+  }
 }
 
 export default function ProcessingList() {
@@ -78,55 +73,18 @@ export default function ProcessingList() {
     }
   }, [identity, refetch]);
 
-  const formatDateTime = (dateString: string) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: '2-digit'
     }).format(date);
   };
 
-  const formatFileSize = (size: number) => {
-    if (size < 1024) return `${size} B`;
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
-    if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-    return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return 'green';
-      case 'in_progress':
-      case 'processing':
-        return 'blue';
-      case 'failed':
-      case 'error':
-        return 'red';
-      case 'pending':
-      case 'queued':
-        return 'yellow';
-      default:
-        return 'gray';
-    }
-  };
-
-  const handleViewDocument = (id: string, e?: React.MouseEvent) => {
+  const handleViewDocument = (jobId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    window.open(`/processing/${id}/document`, '_blank');
-  };
-
-  const handleDownloadDocument = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    window.open(`/api/shrinked.ai/processing/${id}/document/download`, '_blank');
-  };
-
-  const handleViewPdf = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    window.open(`/pdf/${id}/json`, '_blank');
+    window.open(`/jobs/show/${jobId}`, '_blank');
   };
 
   const handleSendEmail = (id: string, e?: React.MouseEvent) => {
@@ -165,22 +123,19 @@ export default function ProcessingList() {
   return (
     <Stack p="md">
       <Group justify="space-between">
-        <Title order={2}>Processed Documents</Title>
+        <Title order={2}>Doc Store</Title>
         <Button onClick={() => refetch()}>Refresh</Button>
       </Group>
 
       <Card withBorder>
         <Stack>
           {!data?.data.length ? (
-            <Text>No processed documents found.</Text>
+            <Text>No documents found.</Text>
           ) : (
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>File Name</Table.Th>
-                  <Table.Th>Size</Table.Th>
-                  <Table.Th>Type</Table.Th>
-                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Document Title</Table.Th>
                   <Table.Th>Date</Table.Th>
                   <Table.Th>Actions</Table.Th>
                 </Table.Tr>
@@ -189,48 +144,20 @@ export default function ProcessingList() {
                 {data.data.map((doc) => (
                   <Table.Tr key={doc._id}>
                     <Table.Td>
-                      <Stack gap={2}>
-                        <Text fw={500}>{doc.title || doc.fileName || 'Untitled Document'}</Text>
-                        <Text size="xs" color="dimmed">
-                          {formatDateTime(doc.createdAt)}
-                        </Text>
-                      </Stack>
+                      <Text fw={500}>
+                        {doc.output?.title || doc.fileName || 'Untitled Document'}
+                      </Text>
                     </Table.Td>
-                    <Table.Td>{formatFileSize(doc.size)}</Table.Td>
-                    <Table.Td>{doc.mimeType || 'Unknown'}</Table.Td>
-                    <Table.Td>
-                      <Badge color={getStatusColor(doc.status)}>
-                        {doc.status || 'Unknown'}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{formatDateTime(doc.createdAt)}</Table.Td>
+                    <Table.Td>{formatDate(doc.createdAt)}</Table.Td>
                     <Table.Td>
                       <Group>
                         <Tooltip label="View Document">
                           <ActionIcon 
                             variant="light" 
                             color="blue"
-                            onClick={(e) => handleViewDocument(doc._id, e)}
+                            onClick={(e) => handleViewDocument(doc.jobId, e)}
                           >
                             <IconEye size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Download">
-                          <ActionIcon 
-                            variant="light" 
-                            color="green"
-                            onClick={(e) => handleDownloadDocument(doc._id, e)}
-                          >
-                            <IconDownload size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="View PDF">
-                          <ActionIcon 
-                            variant="light" 
-                            color="red"
-                            onClick={(e) => handleViewPdf(doc._id, e)}
-                          >
-                            <IconFileText size={16} />
                           </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Send to Email">
