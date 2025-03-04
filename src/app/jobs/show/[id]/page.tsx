@@ -169,11 +169,11 @@ export default function JobShow() {
   }
 
   return (
-    <Box className="min-h-screen" style={{ backgroundColor: '#0a0a0a', color: '#ffffff' }}>
+    <div className="flex min-h-screen" style={{ backgroundColor: '#0a0a0a', color: '#ffffff' }}>
       {/* Main content area */}
-      <Box flex={1} display="flex" flexDirection="column">
+      <div className="flex-1 flex flex-col">
         {/* Header */}
-        <Box p="md" display="flex" justify="space-between" align="center">
+        <Box p="md" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Button 
             variant="outline" 
             leftSection={<IconArrowLeft size={16} />}
@@ -221,10 +221,8 @@ export default function JobShow() {
             >
               Use in a job
             </Button>
-            <Button 
+            <ActionIcon 
               variant="subtle" 
-              size="xs" 
-              radius="xl" 
               styles={{
                 root: {
                   color: '#ffffff',
@@ -236,7 +234,7 @@ export default function JobShow() {
               }}
             >
               <IconDotsVertical size={20} />
-            </Button>
+            </ActionIcon>
           </Group>
         </Box>
 
@@ -251,7 +249,7 @@ export default function JobShow() {
         </Box>
 
         {/* Tabs and content */}
-        <Box p="lg" flex={1}>
+        <Box p="lg" sx={{ flex: 1 }}>
           <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
             <Tabs.List bg="transparent" style={{ borderBottom: '1px solid #202020' }}>
               <Tabs.Tab 
@@ -289,7 +287,7 @@ export default function JobShow() {
                 disabled
                 rightSection={
                   <Badge 
-                    style={{ backgroundColor: '#291e3f', color: '#9e8bc3', '&:hover': { backgroundColor: '#291e3f' } }}
+                    style={{ backgroundColor: '#291e3f', color: '#9e8bc3' }}
                     size="xs"
                   >
                     Coming soon
@@ -312,7 +310,7 @@ export default function JobShow() {
 
             <Tabs.Panel value="preview" pt="md">
               <Box bg="white" c="black" p="lg" style={{ borderRadius: 8, boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)' }}>
-                <Box maw="3xl" mx="auto">
+                <Box mx="auto" sx={{ maxWidth: '3xl' }}>
                   {record?.output?.pdfUrl ? (
                     <Document file={record.output.pdfUrl} loading={<Text>Loading PDF...</Text>}>
                       <Page pageNumber={1} width={800} />
@@ -326,7 +324,7 @@ export default function JobShow() {
                         Origin
                       </Text>
                       <Text c="#3b1b1b" mb="md">
-                        <a href={record?.link} style={{ color: 'blue.7', textDecoration: 'underline', wordBreak: 'break-all' }}>
+                        <a href={record?.link} style={{ color: 'blue', textDecoration: 'underline', wordBreak: 'break-all' }}>
                           {record?.link || 'No source link available'}
                         </a>
                       </Text>
@@ -341,18 +339,16 @@ export default function JobShow() {
                       </Text>
                       {record?.output?.contributors ? (
                         typeof record.output.contributors === 'string' && record.output.contributors.includes('<') ? (
-                          <Box 
-                            pl="md" 
-                            component="ul" 
-                            style={{ listStyle: 'disc' }}
+                          <div 
+                            style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}
                             dangerouslySetInnerHTML={{ __html: record.output.contributors }} 
                           />
                         ) : (
-                          <Box component="ul" pl="md" style={{ listStyle: 'disc' }}>
+                          <ul style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}>
                             {(record.output.contributors.split(',').map(contributor => contributor.trim())).map((contributor, idx) => (
-                              <Text component="li" key={idx}>{contributor}</Text>
+                              <li key={idx}>{contributor}</li>
                             ))}
-                          </Box>
+                          </ul>
                         )
                       ) : (
                         <Text>No contributors information available.</Text>
@@ -378,10 +374,10 @@ export default function JobShow() {
             </Tabs.Panel>
           </Tabs>
         </Box>
-      </Box>
+      </div>
 
       {/* Right sidebar */}
-      <Box w={384} style={{ borderLeft: '1px solid #202020', padding: '1.5rem' }}>
+      <div className="w-96" style={{ borderLeft: '1px solid #202020', padding: '1.5rem' }}>
         <Box mb="xl">
           <Text c="dimmed" mb="xs">
             Created
@@ -398,16 +394,20 @@ export default function JobShow() {
 
         <Box mb="xl">
           <Text c="dimmed" mb="xs">
-            Extra
+            Status
           </Text>
-          <Text>Data Response</Text>
+          <Text>{record?.status ? formatText(record.status) : 'Unknown'}</Text>
         </Box>
 
         <Box mb="xl">
           <Text c="dimmed" mb="xs">
-            Extra 2
+            Language
           </Text>
-          <Text>Data Response 2</Text>
+          <Text>
+            {record?.lang === 'en' ? 'English' : 
+             record?.lang === 'uk' ? 'Ukrainian' : 
+             record?.lang || 'Unknown'}
+          </Text>
         </Box>
 
         <Box mb="md">
@@ -415,8 +415,8 @@ export default function JobShow() {
             Logic steps / events
           </Text>
 
-          <Box style={{ position: 'relative' }}>
-            <Box style={{ position: 'absolute', left: '1rem', top: '1rem', bottom: '1rem', width: 2, backgroundColor: '#202020' }} />
+          <Box sx={{ position: 'relative' }}>
+            <Box sx={{ position: 'absolute', left: '1rem', top: '1rem', bottom: '1rem', width: 2, backgroundColor: '#202020' }} />
 
             {record?.steps?.map((step, index) => {
               let bgOuterColor = '#202020';
@@ -437,10 +437,10 @@ export default function JobShow() {
               return (
                 <Box key={index} mb="xl">
                   <Group align="flex-start">
-                    <Box 
-                      w={32} 
-                      h={32} 
+                    <div 
                       style={{ 
+                        width: '32px', 
+                        height: '32px',
                         backgroundColor: bgOuterColor, 
                         borderRadius: '50%', 
                         display: 'flex', 
@@ -450,12 +450,12 @@ export default function JobShow() {
                         zIndex: 10 
                       }}
                     >
-                      <Box w={16} h={16} style={{ backgroundColor: bgInnerColor, borderRadius: '50%' }} />
-                    </Box>
+                      <div style={{ width: '16px', height: '16px', backgroundColor: bgInnerColor, borderRadius: '50%' }} />
+                    </div>
                     <Box 
                       ml="md" 
                       p="sm" 
-                      style={{ 
+                      sx={{ 
                         backgroundColor: bgCardColor, 
                         borderRadius: 8, 
                         flex: 1, 
@@ -482,10 +482,10 @@ export default function JobShow() {
             {(!record?.steps || record.steps.length === 0) && (
               <Box mb="xl">
                 <Group align="flex-start">
-                  <Box 
-                    w={32} 
-                    h={32} 
+                  <div 
                     style={{ 
+                      width: '32px', 
+                      height: '32px',
                       backgroundColor: '#202020', 
                       borderRadius: '50%', 
                       display: 'flex', 
@@ -495,12 +495,12 @@ export default function JobShow() {
                       zIndex: 10 
                     }}
                   >
-                    <Box w={16} h={16} style={{ backgroundColor: '#2b2b2b', borderRadius: '50%' }} />
-                  </Box>
+                    <div style={{ width: '16px', height: '16px', backgroundColor: '#2b2b2b', borderRadius: '50%' }} />
+                  </div>
                   <Box 
                     ml="md" 
                     p="sm" 
-                    style={{ 
+                    sx={{ 
                       backgroundColor: '#202020', 
                       borderRadius: 8, 
                       flex: 1, 
@@ -519,7 +519,7 @@ export default function JobShow() {
             )}
           </Box>
         </Box>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
