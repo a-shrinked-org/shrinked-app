@@ -2,7 +2,7 @@
 
 import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
-import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
+import { SessionProvider, signIn, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import routerProvider from "@refinedev/nextjs-router";
@@ -41,7 +41,7 @@ const notificationProvider: NotificationProvider = {
 };
 
 const App = (props: React.PropsWithChildren<{}>) => {
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession(); // Called at component level
   const to = usePathname();
   const { push } = useNavigation();
   
@@ -147,8 +147,10 @@ const App = (props: React.PropsWithChildren<{}>) => {
       };
     },
     check: async () => {
-      const { data: session, status } = useSession();
-      if (status === "loading") return { authenticated: false };
+      // Use session and status from the component scope
+      if (status === "loading") {
+        return { authenticated: false };
+      }
       if (to === "/login" || session) {
         return { authenticated: !!session };
       }
@@ -175,7 +177,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
       };
     },
     getIdentity: async () => {
-      const { data: session } = useSession();
+      // Use session from the component scope
       if (session?.user) {
         return {
           id: session.user.id,
