@@ -26,26 +26,72 @@ import { PDFViewer, Document, Page, Text as PDFText, View, StyleSheet } from '@r
 // Define PDF styles
 const styles = StyleSheet.create({
   page: {
-    padding: 30,
-    fontSize: 12,
-    fontFamily: 'Helvetica',
+    padding: 72, // 1 inch margins (72 points)
+    fontFamily: 'Times-Roman',
+    fontSize: 11,
+    lineHeight: 1.2,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontSize: 16,
+    fontFamily: 'Times-Bold',
+    marginBottom: 24,
     textAlign: 'center',
   },
+  abstract: {
+    marginBottom: 24,
+  },
+  abstractHeader: {
+    fontFamily: 'Times-Italic',
+    fontSize: 12,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  abstractText: {
+    textAlign: 'justify',
+  },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 15,
+    fontSize: 14,
+    fontFamily: 'Times-Bold',
+    marginTop: 20,
     marginBottom: 10,
   },
-  text: {
+  subsectionTitle: {
     fontSize: 12,
-    marginBottom: 5,
+    fontFamily: 'Times-Bold',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  text: {
+    fontSize: 11,
+    marginBottom: 8,
     textAlign: 'justify',
+    textIndent: 24, // First line indent
+  },
+  firstParagraph: {
+    fontSize: 11,
+    marginBottom: 8,
+    textAlign: 'justify',
+    textIndent: 0, // No indent for first paragraph after heading
+  },
+  listItem: {
+    fontSize: 11,
+    marginBottom: 4,
+    textIndent: -16,
+    paddingLeft: 16,
+  },
+  referenceItem: {
+    fontSize: 10,
+    marginBottom: 6,
+    textIndent: -16,
+    paddingLeft: 16,
+  },
+  pageNumber: {
+    position: 'absolute',
+    fontSize: 10,
+    bottom: 40,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
 });
 
@@ -109,41 +155,219 @@ interface ProcessingDocument {
   };
 }
 
-// PDF Document Component
+// Basic PDF Document Component
 const MyDocument = ({ data }: { data: ProcessingDocument['output'] }) => (
   <Document>
     <Page size="A4" style={styles.page}>
+      {/* Title */}
       <PDFText style={styles.title}>{data.title || 'Untitled Document'}</PDFText>
       
-      <PDFText style={styles.sectionTitle}>Abstract</PDFText>
-      <PDFText style={styles.text}>{data.abstract || 'No abstract available.'}</PDFText>
+      {/* Abstract Section */}
+      <View style={styles.abstract}>
+        <PDFText style={styles.abstractHeader}>Abstract</PDFText>
+        <PDFText style={styles.abstractText}>{data.abstract || 'No abstract available.'}</PDFText>
+      </View>
 
-      <PDFText style={styles.sectionTitle}>Introduction</PDFText>
-      <PDFText style={styles.text}>{data.introduction || 'No introduction available.'}</PDFText>
+      {/* Introduction Section */}
+      <PDFText style={styles.sectionTitle}>1. Introduction</PDFText>
+      <PDFText style={styles.firstParagraph}>{data.introduction || 'No introduction available.'}</PDFText>
 
-      <PDFText style={styles.sectionTitle}>Chapters</PDFText>
-      {data.chapters?.map((chapter, index) => (
-        <PDFText key={index} style={styles.text}>{chapter.title}</PDFText>
-      )) || <PDFText style={styles.text}>No chapters available.</PDFText>}
+      {/* Chapters Section */}
+      {data.chapters && data.chapters.length > 0 && (
+        <>
+          {data.chapters.map((chapter, index) => (
+            <View key={index}>
+              <PDFText style={styles.sectionTitle}>
+                {`${index + 2}. ${chapter.title}`}
+              </PDFText>
+              {data.passages && data.passages[index] && (
+                <PDFText style={styles.firstParagraph}>{data.passages[index]}</PDFText>
+              )}
+            </View>
+          ))}
+        </>
+      )}
 
-      <PDFText style={styles.sectionTitle}>Passages</PDFText>
-      {data.passages?.map((passage, index) => (
-        <PDFText key={index} style={styles.text}>{passage}</PDFText>
-      )) || <PDFText style={styles.text}>No passages available.</PDFText>}
+      {/* Conclusion Section */}
+      <PDFText style={styles.sectionTitle}>{`${(data.chapters?.length || 0) + 2}. Conclusion`}</PDFText>
+      <PDFText style={styles.firstParagraph}>{data.conclusion || 'No conclusion available.'}</PDFText>
 
-      <PDFText style={styles.sectionTitle}>Conclusion</PDFText>
-      <PDFText style={styles.text}>{data.conclusion || 'No conclusion available.'}</PDFText>
+      {/* References Section */}
+      <PDFText style={styles.sectionTitle}>{`${(data.chapters?.length || 0) + 3}. References`}</PDFText>
+      {data.references && data.references.length > 0 ? (
+        data.references.map((ref, index) => (
+          <PDFText key={index} style={styles.referenceItem}>
+            [{index + 1}] {ref.item}
+          </PDFText>
+        ))
+      ) : (
+        <PDFText style={styles.firstParagraph}>No references available.</PDFText>
+      )}
 
-      <PDFText style={styles.sectionTitle}>References</PDFText>
-      {data.references?.map((ref, index) => (
-        <PDFText key={index} style={styles.text}>{ref.item}</PDFText>
-      )) || <PDFText style={styles.text}>No references available.</PDFText>}
-
-      <PDFText style={styles.sectionTitle}>Contributors, Acknowledgements, Mentions</PDFText>
-      <PDFText style={styles.text}>{data.contributors || 'No contributors information available.'}</PDFText>
+      {/* Contributors Section */}
+      <PDFText style={styles.sectionTitle}>{`${(data.chapters?.length || 0) + 4}. Acknowledgements`}</PDFText>
+      <PDFText style={styles.firstParagraph}>{data.contributors || 'No contributors information available.'}</PDFText>
+      
+      {/* Page Number */}
+      <PDFText 
+        style={styles.pageNumber} 
+        render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+        fixed 
+      />
     </Page>
   </Document>
 );
+
+// Enhanced PDF Document Component
+const EnhancedDocument = ({ data }: { data: ProcessingDocument['output'] }) => {
+  // Helper function to chunk text into paragraphs
+  const createParagraphs = (text) => {
+    if (!text) return [<PDFText style={styles.firstParagraph}>No content available.</PDFText>];
+    
+    // Split text by double newlines or periods followed by space to create paragraphs
+    const paragraphs = text.split(/\n\n|\.\s+/g).filter(p => p.trim().length > 0);
+    
+    return paragraphs.map((paragraph, idx) => (
+      <PDFText 
+        key={idx} 
+        style={idx === 0 ? styles.firstParagraph : styles.text}
+      >
+        {paragraph.trim() + (paragraph.endsWith('.') ? '' : '.')}
+      </PDFText>
+    ));
+  };
+
+  return (
+    <Document>
+      {/* Cover Page */}
+      <Page size="A4" style={styles.page}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <PDFText style={[styles.title, { fontSize: 24, marginBottom: 48 }]}>
+            {data.title || 'Untitled Document'}
+          </PDFText>
+          
+          {data.abstract && (
+            <View style={{ marginTop: 72, maxWidth: '80%' }}>
+              <PDFText style={[styles.abstractHeader, { textAlign: 'center' }]}>Abstract</PDFText>
+              <PDFText style={[styles.abstractText, { textAlign: 'justify' }]}>{data.abstract}</PDFText>
+            </View>
+          )}
+          
+          {data.contributors && (
+            <View style={{ position: 'absolute', bottom: 100, textAlign: 'center' }}>
+              <PDFText style={{ fontSize: 12, marginBottom: 8 }}>Prepared by:</PDFText>
+              <PDFText style={{ fontSize: 12 }}>{data.contributors}</PDFText>
+            </View>
+          )}
+        </View>
+        
+        <PDFText 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+          fixed 
+        />
+      </Page>
+
+      {/* Table of Contents */}
+      <Page size="A4" style={styles.page}>
+        <PDFText style={[styles.title, { fontSize: 16 }]}>Table of Contents</PDFText>
+        
+        <PDFText style={[styles.firstParagraph, { marginBottom: 12 }]}>
+          1. Introduction.........................................................................................3
+        </PDFText>
+        
+        {data.chapters && data.chapters.map((chapter, index) => (
+          <PDFText key={index} style={[styles.firstParagraph, { marginBottom: 8 }]}>
+            {`${index + 2}. ${chapter.title}`.padEnd(60, '.')}
+            {`${index + 4}`}
+          </PDFText>
+        ))}
+        
+        <PDFText style={[styles.firstParagraph, { marginBottom: 8 }]}>
+          {`${(data.chapters?.length || 0) + 2}. Conclusion`.padEnd(60, '.')}
+          {`${(data.chapters?.length || 0) + 4}`}
+        </PDFText>
+        
+        <PDFText style={[styles.firstParagraph, { marginBottom: 8 }]}>
+          {`${(data.chapters?.length || 0) + 3}. References`.padEnd(60, '.')}
+          {`${(data.chapters?.length || 0) + 5}`}
+        </PDFText>
+        
+        <PDFText 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+          fixed 
+        />
+      </Page>
+
+      {/* Introduction Page */}
+      <Page size="A4" style={styles.page}>
+        <PDFText style={styles.sectionTitle}>1. Introduction</PDFText>
+        {createParagraphs(data.introduction)}
+        
+        <PDFText 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+          fixed 
+        />
+      </Page>
+
+      {/* Chapter Pages */}
+      {data.chapters && data.chapters.map((chapter, index) => (
+        <Page key={index} size="A4" style={styles.page}>
+          <PDFText style={styles.sectionTitle}>
+            {`${index + 2}. ${chapter.title}`}
+          </PDFText>
+          
+          {data.passages && data.passages[index] ? (
+            createParagraphs(data.passages[index])
+          ) : (
+            <PDFText style={styles.firstParagraph}>No content available for this chapter.</PDFText>
+          )}
+          
+          <PDFText 
+            style={styles.pageNumber} 
+            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+            fixed 
+          />
+        </Page>
+      ))}
+
+      {/* Conclusion Page */}
+      <Page size="A4" style={styles.page}>
+        <PDFText style={styles.sectionTitle}>{`${(data.chapters?.length || 0) + 2}. Conclusion`}</PDFText>
+        {createParagraphs(data.conclusion)}
+        
+        <PDFText 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+          fixed 
+        />
+      </Page>
+
+      {/* References Page */}
+      <Page size="A4" style={styles.page}>
+        <PDFText style={styles.sectionTitle}>{`${(data.chapters?.length || 0) + 3}. References`}</PDFText>
+        
+        {data.references && data.references.length > 0 ? (
+          data.references.map((ref, index) => (
+            <PDFText key={index} style={styles.referenceItem}>
+              [{index + 1}] {ref.item}
+            </PDFText>
+          ))
+        ) : (
+          <PDFText style={styles.firstParagraph}>No references available.</PDFText>
+        )}
+        
+        <PDFText 
+          style={styles.pageNumber} 
+          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} 
+          fixed 
+        />
+      </Page>
+    </Document>
+  );
+};
 
 export default function JobShow() {
   const params = useParams();
@@ -527,8 +751,16 @@ export default function JobShow() {
                 </Box>
               ) : (
                 <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: 8 }}>
-                  <PDFViewer style={{ width: '100%', height: '500px' }}>
-                    <MyDocument data={combinedData} />
+                  <PDFViewer 
+                    style={{ 
+                      width: '100%', 
+                      height: '700px', 
+                      border: '1px solid #ddd', 
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      backgroundColor: '#f5f5f5' 
+                    }}
+                  >
+                    <EnhancedDocument data={combinedData} />
                   </PDFViewer>
                 </div>
               )}
