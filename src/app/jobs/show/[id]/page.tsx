@@ -751,13 +751,17 @@ export default function JobShow() {
                   </Text>
                 </Box>
               ) : (
-                <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: 8 }}>
+                <div style={{ 
+                  backgroundColor: 'white', 
+                  padding: '32px', 
+                  borderRadius: 8,
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)'  // <-- Move the shadow here
+                }}>
                   <PDFViewer 
                     style={{ 
                       width: '100%', 
                       height: '700px', 
-                      border: '1px solid #ddd', 
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      border: '1px solid #ddd',
                       backgroundColor: '#f5f5f5' 
                     }}
                   >
