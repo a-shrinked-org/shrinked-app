@@ -4,17 +4,18 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosInstance, AxiosError } from "axios";
 
 const axiosInstance = axios.create();
 
+// Type the error properly as AxiosError
 axiosInstance.interceptors.response.use(
   (response) => {
 	return response;
   },
-  (error) => {
+  (error: AxiosError) => {
 	const customError: HttpError = {
-	  ...error,
+	  ...error as any,
 	  message: error.response?.data?.message || "Error occurred",
 	  statusCode: error.response?.status,
 	};
