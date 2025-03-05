@@ -4,12 +4,12 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosInstance, AxiosError, AxiosResponse } from "axios";
 
 const axiosInstance = axios.create();
 
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response: AxiosResponse) => response,
   (error: AxiosError) => {
 	const customError: HttpError = {
 	  message: (error.response?.data as any)?.message || "An unexpected error occurred",
@@ -19,7 +19,7 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-const generateFilters = (filters?: CrudFilters) => {
+const generateFilters = (filters?: CrudFilters): { [key: string]: any } => {
   const queryFilters: { [key: string]: any } = {};
 
   filters?.forEach((filter) => {
@@ -34,7 +34,7 @@ const generateFilters = (filters?: CrudFilters) => {
   return queryFilters;
 };
 
-const generateSort = (sorters?: CrudSorting) => {
+const generateSort = (sorters?: CrudSorting): { sort?: string; order?: string } => {
   if (sorters && sorters.length > 0) {
 	const sort = sorters[0].field;
 	const order = sorters[0].order;
@@ -67,8 +67,8 @@ export const shrinkedDataProvider = (
 		total: data.total || (data.data || data).length,
 	  };
 	} catch (error) {
-	  // The interceptor should handle this, but adding explicit typing for safety
-	  throw error; // Let Refine handle the HttpError from the interceptor
+	  // Explicitly type error as AxiosError or unknown, but let interceptor handle it
+	  throw error as AxiosError | HttpError;
 	}
   },
 
@@ -82,7 +82,7 @@ export const shrinkedDataProvider = (
 
 	  return { data };
 	} catch (error) {
-	  throw error;
+	  throw error as AxiosError | HttpError;
 	}
   },
 
@@ -96,7 +96,7 @@ export const shrinkedDataProvider = (
 
 	  return { data };
 	} catch (error) {
-	  throw error;
+	  throw error as AxiosError | HttpError;
 	}
   },
 
@@ -110,7 +110,7 @@ export const shrinkedDataProvider = (
 
 	  return { data };
 	} catch (error) {
-	  throw error;
+	  throw error as AxiosError | HttpError;
 	}
   },
 
@@ -125,7 +125,7 @@ export const shrinkedDataProvider = (
 
 	  return { data };
 	} catch (error) {
-	  throw error;
+	  throw error as AxiosError | HttpError;
 	}
   },
 
@@ -140,7 +140,7 @@ export const shrinkedDataProvider = (
 
 	  return { data };
 	} catch (error) {
-	  throw error;
+	  throw error as AxiosError | HttpError;
 	}
   },
 
@@ -148,7 +148,7 @@ export const shrinkedDataProvider = (
 
   custom: async ({ url, method, payload, query, headers }) => {
 	try {
-	  let axiosResponse;
+	  let axiosResponse: AxiosResponse;
 
 	  switch (method) {
 		case "put":
@@ -159,7 +159,7 @@ export const shrinkedDataProvider = (
 		case "delete":
 		  axiosResponse = await httpClient.delete(url, {
 			data: payload,
-			headers: headers,
+			headers,
 		  });
 		  break;
 		default:
@@ -173,7 +173,7 @@ export const shrinkedDataProvider = (
 	  const { data } = axiosResponse;
 	  return { data };
 	} catch (error) {
-	  throw error;
+	  throw error as AxiosError | HttpError;
 	}
   },
 });
