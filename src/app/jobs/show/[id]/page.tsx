@@ -19,7 +19,7 @@ import {
   IconRefresh
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 // Import both authUtils and useAuth
 import { authUtils, useAuth } from "@/utils/authUtils";
@@ -95,8 +95,13 @@ export default function JobShow() {
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
-  // Use state to track if document has been fetched successfully
-  const [hasLoadedDocument, setHasLoadedDocument] = useState(false);
+  
+  // Track fetch attempts to prevent endless retries on failure
+  const [fetchAttempts, setFetchAttempts] = useState(0);
+  const MAX_FETCH_ATTEMPTS = 3;
+  
+  // Use a ref to track the current token for comparison
+  const currentTokenRef = useRef<string | null>(null);
   
   // Use our centralized auth hook - this provides refreshToken and handleAuthError
   const { refreshToken, handleAuthError } = useAuth();
@@ -119,6 +124,8 @@ export default function JobShow() {
           if (resultId) {
             console.log("Extracted processingDocId (resultId):", resultId);
             setProcessingDocId(resultId);
+            // Reset fetch attempts when we get a new processingDocId
+            setFetchAttempts(0);
           } else {
             console.log("No resultId found in PLATOGRAM_PROCESSING step data");
             setProcessingDocId(null);
@@ -148,19 +155,27 @@ export default function JobShow() {
   
   // Direct method to fetch processing document with better error handling
   const getProcessingDocument = useCallback(async () => {
-    if (!processingDocId) return;
+    if (!processingDocId) {
+      console.log("No processingDocId available, skipping fetch");
+      return;
+    }
+    
+    // Update current token ref for comparison
+    const token = localStorage.getItem('accessToken') || identity?.token;
+    currentTokenRef.current = token || null;
+    
+    // Increment fetch attempt counter
+    setFetchAttempts(prev => prev + 1);
     
     try {
       setIsLoadingDoc(true);
-      // Always use the latest token from localStorage first, then fall back to identity
-      const token = localStorage.getItem('accessToken') || identity?.token;
       
       if (!token) {
         setErrorMessage("No authentication token available");
         return;
       }
       
-      console.log("Fetching document with token prefix:", token.substring(0, 20) + "...");
+      console.log(`Fetching document attempt ${fetchAttempts + 1} with token prefix:`, token.substring(0, 20) + "...");
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
         method: 'GET',
@@ -197,7 +212,8 @@ export default function JobShow() {
               console.log("Document fetched successfully after token refresh:", data);
               setProcessingDoc(data);
               setErrorMessage(null);
-              setHasLoadedDocument(true);
+              // Reset fetch attempts on success
+              setFetchAttempts(0);
               return;
             } else {
               throw new Error(`Failed to fetch document after token refresh: ${newResponse.status}`);
@@ -217,7 +233,8 @@ export default function JobShow() {
       console.log("Document fetched successfully:", data);
       setProcessingDoc(data);
       setErrorMessage(null);
-      setHasLoadedDocument(true);
+      // Reset fetch attempts on success
+      setFetchAttempts(0);
     } catch (error) {
       console.error("Error fetching processing document:", error);
       setErrorMessage("Failed to load processing document: " + 
@@ -225,28 +242,39 @@ export default function JobShow() {
     } finally {
       setIsLoadingDoc(false);
     }
-  }, [processingDocId, identity?.token, refreshToken, identityRefetch]);
+  }, [processingDocId, identity?.token, refreshToken, identityRefetch, fetchAttempts]);
   
   // Add a button to manually refetch when needed
   const manualRefetch = () => {
-    setHasLoadedDocument(false);
+    // Reset fetch attempts when manually retrying
+    setFetchAttempts(0);
     getProcessingDocument();
   };
   
-  // Modified useEffect to prevent infinite fetch loops
+  // Modified useEffect to fetch document with retries but prevent infinite loops
   useEffect(() => {
-    if (processingDocId && identity?.token && !hasLoadedDocument) {
-      console.log("ProcessingDocId or identity changed and document not yet loaded, fetching document");
+    if (processingDocId && identity?.token && fetchAttempts < MAX_FETCH_ATTEMPTS) {
+      console.log(`ProcessingDocId available, identity token available, and fetch attempts (${fetchAttempts}) < max (${MAX_FETCH_ATTEMPTS})`);
       getProcessingDocument();
+    } else if (fetchAttempts >= MAX_FETCH_ATTEMPTS) {
+      console.log(`Max fetch attempts (${MAX_FETCH_ATTEMPTS}) reached. Use the retry button to try again.`);
+      setErrorMessage(`Failed to load processing document after ${MAX_FETCH_ATTEMPTS} attempts. Please try again.`);
     }
-  }, [processingDocId, identity, hasLoadedDocument, getProcessingDocument]);
+  }, [processingDocId, identity, getProcessingDocument, fetchAttempts]);
   
-  // Also refetch data when localStorage token changes
+  // Monitor localStorage for token changes
   useEffect(() => {
     const checkTokenAndRefetch = () => {
       if (processingDocId) {
-        console.log("Storage event detected, checking if token changed");
-        getProcessingDocument();
+        const newToken = localStorage.getItem('accessToken');
+        
+        // Only refetch if token has actually changed
+        if (newToken && newToken !== currentTokenRef.current) {
+          console.log("Token changed, resetting fetch attempts and refetching");
+          currentTokenRef.current = newToken;
+          setFetchAttempts(0);
+          getProcessingDocument();
+        }
       }
     };
     
