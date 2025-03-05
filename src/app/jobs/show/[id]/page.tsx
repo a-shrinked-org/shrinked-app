@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigation, useShow, useGetIdentity, useCustom } from "@refinedev/core";
+import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import { 
   Text, 
   Box,
@@ -21,7 +21,7 @@ import {
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { authUtils, useAuth } from "@/utils/authUtils";
+import { useAuth } from "@/utils/authUtils";
 
 // Configure react-pdf worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -187,9 +187,10 @@ export default function JobShow() {
       console.log("Document fetched successfully:", data);
       setProcessingDoc(data);
       setErrorMessage(null);
-    } catch (error) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`Attempt ${attempt + 1} failed:`, error);
-      setErrorMessage(`Failed to load document: ${error.message}`);
+      setErrorMessage(`Failed to load document: ${errorMessage}`);
       await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second delay before retry
       return await getProcessingDocument(attempt + 1); // Retry on failure
     } finally {
