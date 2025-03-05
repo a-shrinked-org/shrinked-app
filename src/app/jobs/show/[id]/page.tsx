@@ -222,7 +222,7 @@ const MyDocument = ({ data }: { data: ProcessingDocument['output'] }) => (
 const EnhancedDocument = ({ data }: { data: ProcessingDocument['output'] }) => {
   // Helper function to chunk text into paragraphs
   const createParagraphs = (text) => {
-    if (!text) return [<PDFText style={styles.firstParagraph}>No content available.</PDFText>];
+    if (!text) return [<PDFText key="no-content" style={styles.firstParagraph}>No content available.</PDFText>];
     
     // Split text by double newlines or periods followed by space to create paragraphs
     const paragraphs = text.split(/\n\n|\.\s+/g).filter(p => p.trim().length > 0);
