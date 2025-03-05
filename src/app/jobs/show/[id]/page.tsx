@@ -161,8 +161,11 @@ export default function JobShow() {
           // Use our centralized token refresh which will handle all token refresh logic
           refreshToken().then(success => {
             if (success) {
-              // Only refetch the processing document if token refresh was successful
-              refetchProcessing();
+              // First wait for identity to refresh to get the new token
+              identityRefetch().then(() => {
+                // Now refetch processing document with the new token
+                refetchProcessing();
+              });
             }
           });
         } else {
