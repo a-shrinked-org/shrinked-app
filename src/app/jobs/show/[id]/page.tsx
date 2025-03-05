@@ -22,7 +22,7 @@ import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 // Import the auth hook
-import { useAuth } from "./utils/authUtils";
+import { authUtils } from "@/utils/authUtils";
 
 // Configure react-pdf worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
