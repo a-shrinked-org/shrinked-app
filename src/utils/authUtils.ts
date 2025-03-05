@@ -20,7 +20,8 @@ export const API_CONFIG = {
 	PROFILE: '/users/profile',
 	PERMISSIONS: '/users/permissions',
 	LOGIN: '/auth/login',
-	LOGOUT: '/auth/logout'
+	LOGOUT: '/auth/logout',
+	STATUS: '/status'  // Added status endpoint
   },
   
   // Retry settings
@@ -165,6 +166,103 @@ export const authUtils = {
    */
   getRefreshToken: (): string | null => {
 	return localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+  },
+  
+  /**
+   * Check the status of API services
+   * @returns {Promise<string>} The combined status message
+   */
+  checkServiceStatus: async (): Promise<string> => {
+	// Check if we're offline
+	if (!navigator.onLine) {
+	  return "You appear to be offline. Please check your internet connection.";
+	}
+	
+	// Get the token
+	const token = authUtils.getAccessToken();
+	
+	if (!token) {
+	  return "Authentication required to check server status.";
+	}
+	
+	let combinedStatus = "";
+	
+	// Check API status
+	try {
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 10000);
+	  
+	  const apiResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.STATUS}`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${token}`,
+		  'Content-Type': 'application/json'
+		},
+		signal: controller.signal
+	  }).catch(error => {
+		clearTimeout(timeoutId);
+		throw error;
+	  });
+	  
+	  clearTimeout(timeoutId);
+	  
+	  if (apiResponse.status === 502) {
+		combinedStatus += "API: Server is under maintenance.\n";
+	  } else if (apiResponse.status === 521 || apiResponse.status === 522 || apiResponse.status === 523) {
+		combinedStatus += "API: The server is currently unreachable (Cloudflare error).\n";
+	  } else if (!apiResponse.ok) {
+		combinedStatus += `API: Error ${apiResponse.status}\n`;
+	  } else {
+		const apiResult = await apiResponse.json();
+		combinedStatus += `API: ${apiResult.status || 'Ok'}\n`;
+	  }
+	} catch (error) {
+	  if (error instanceof Error && error.name === 'AbortError') {
+		combinedStatus += "API: Request timed out after 10 seconds.\n";
+	  } else {
+		combinedStatus += "API: Request failed (network error).\n";
+	  }
+	}
+	
+	// Check Processing status (using the same endpoint but for demonstration,
+	// you could use a different endpoint if needed)
+	try {
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 10000);
+	  
+	  const processingResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.STATUS}`, {
+		method: 'GET',
+		headers: {
+		  'Authorization': `Bearer ${token}`,
+		  'Content-Type': 'application/json'
+		},
+		signal: controller.signal
+	  }).catch(error => {
+		clearTimeout(timeoutId);
+		throw error;
+	  });
+	  
+	  clearTimeout(timeoutId);
+	  
+	  if (processingResponse.status === 502) {
+		combinedStatus += "Processing: Server is under maintenance.";
+	  } else if (processingResponse.status === 521 || processingResponse.status === 522 || processingResponse.status === 523) {
+		combinedStatus += "Processing: The server is currently unreachable (Cloudflare error).";
+	  } else if (!processingResponse.ok) {
+		combinedStatus += `Processing: Error ${processingResponse.status}`;
+	  } else {
+		const processingResult = await processingResponse.json();
+		combinedStatus += `Processing: ${processingResult.status || 'Ok'}`;
+	  }
+	} catch (error) {
+	  if (error instanceof Error && error.name === 'AbortError') {
+		combinedStatus += "Processing: Request timed out after 10 seconds.";
+	  } else {
+		combinedStatus += "Processing: Request failed (network error).";
+	  }
+	}
+	
+	return combinedStatus;
   }
 };
 
@@ -238,11 +336,17 @@ export function useAuth() {
 	return false;
   };
   
+  // Add status check function to useAuth hook
+  const checkStatus = async (): Promise<string> => {
+	return await authUtils.checkServiceStatus();
+  };
+  
   return {
 	refreshToken,
 	handleAuthError,
 	isRefreshing,
 	identity,
-	clearAuth: authUtils.clearAuthStorage
+	clearAuth: authUtils.clearAuthStorage,
+	checkStatus // Expose the status check through the hook
   };
 }
