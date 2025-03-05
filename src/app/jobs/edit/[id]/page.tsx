@@ -38,6 +38,12 @@ type JobEditForm = {
   link: string;
 }
 
+// Define an interface for HTTP errors with status
+interface HttpErrorWithStatus {
+  status?: number;
+  message?: string;
+}
+
 export default function JobEdit() {
   const { list } = useNavigation();
   const { id } = useResource();
@@ -121,9 +127,11 @@ export default function JobEdit() {
       });
 
       list('jobs');
-    } catch (error) {
-      // Improved error handling
-      if (error?.status === 521 || error?.status === 522 || error?.status === 523) {
+    } catch (error: unknown) {
+      // Improved error handling with proper typing
+      const httpError = error as HttpErrorWithStatus;
+      
+      if (httpError?.status === 521 || httpError?.status === 522 || httpError?.status === 523) {
         showNotification({
           title: 'Error',
           message: 'The server is currently unreachable. Please try again later.',
@@ -179,6 +187,7 @@ export default function JobEdit() {
               <Select
                 label="Scenario"
                 data={[
+                  { value: 'SINGLE_FILE_DEFAULT', label: 'Single File Default' },
                   { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File Platogram Doc' },
                   // Add other scenarios as needed
                 ]}
