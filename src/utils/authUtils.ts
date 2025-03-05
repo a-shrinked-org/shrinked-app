@@ -2,7 +2,33 @@
 import { useGetIdentity, useNotification, useNavigation } from "@refinedev/core";
 import { useState } from "react";
 
-const API_URL = 'https://api.shrinked.ai';
+// Centralized configuration
+export const API_CONFIG = {
+  // Base URL for API calls
+  API_URL: 'https://api.shrinked.ai',
+  
+  // Storage keys
+  STORAGE_KEYS: {
+	ACCESS_TOKEN: 'accessToken',
+	REFRESH_TOKEN: 'refreshToken',
+	USER_DATA: 'user'
+  },
+  
+  // Endpoints
+  ENDPOINTS: {
+	REFRESH: '/auth/refresh',
+	PROFILE: '/users/profile',
+	PERMISSIONS: '/users/permissions',
+	LOGIN: '/auth/login',
+	LOGOUT: '/auth/logout'
+  },
+  
+  // Retry settings
+  RETRY: {
+	MAX_ATTEMPTS: 3,
+	DELAY_MS: 1000 // Base delay in ms (will be multiplied by attempt number)
+  }
+};
 
 /**
  * Central authentication utilities
@@ -15,61 +41,89 @@ export const authUtils = {
    */
   refreshToken: async (): Promise<boolean> => {
 	try {
-	  // Get refresh token from localStorage (as used in your customAuthProvider)
-	  const refreshToken = localStorage.getItem('refreshToken');
+	  // Get refresh token from localStorage
+	  const refreshToken = localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
 	  
 	  if (!refreshToken) {
 		console.error("No refresh token available");
 		return false;
 	  }
 	  
-	  // Make refresh token request
-	  const response = await fetch(`${API_URL}/auth/refresh`, {
-		method: "POST",
-		headers: {
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ refreshToken })
-	  });
-	  
-	  if (!response.ok) {
-		console.error("Token refresh failed:", response.status);
+	  // Check if we're offline
+	  if (!navigator.onLine) {
+		console.error("No internet connection");
 		return false;
 	  }
 	  
-	  // Process successful response
-	  const data = await response.json();
-	  
-	  if (!data.accessToken || !data.refreshToken) {
-		console.error("Invalid refresh token response");
-		return false;
-	  }
-	  
-	  console.log("Token refresh successful");
-	  
-	  // Update localStorage tokens
-	  localStorage.setItem('accessToken', data.accessToken);
-	  localStorage.setItem('refreshToken', data.refreshToken);
-	  
-	  // Update user object with new tokens
-	  const userStr = localStorage.getItem('user');
-	  if (userStr) {
-		try {
-		  const userData = JSON.parse(userStr);
-		  const updatedUserData = {
-			...userData,
-			accessToken: data.accessToken,
-			refreshToken: data.refreshToken
-		  };
-		  localStorage.setItem('user', JSON.stringify(updatedUserData));
-		} catch (e) {
-		  console.error("Failed to update user data with new tokens", e);
+	  // Make refresh token request with error handling for network issues
+	  try {
+		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.REFRESH}`, {
+		  method: "POST",
+		  headers: {
+			'Content-Type': 'application/json'
+		  },
+		  body: JSON.stringify({ refreshToken })
+		});
+		
+		if (!response.ok) {
+		  console.error("Token refresh failed:", response.status);
+		  
+		  // Handle Cloudflare errors
+		  if (response.status === 521 || response.status === 522 || response.status === 523) {
+			console.error("Server unreachable (Cloudflare error)");
+		  }
+		  
+		  return false;
 		}
+		
+		// Process successful response
+		const data = await response.json();
+		
+		if (!data.accessToken || !data.refreshToken) {
+		  console.error("Invalid refresh token response");
+		  return false;
+		}
+		
+		console.log("Token refresh successful");
+		
+		// Update localStorage tokens
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, data.accessToken);
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, data.refreshToken);
+		
+		// Update user object with new tokens
+		await authUtils.updateStoredUserWithTokens(data.accessToken, data.refreshToken);
+		
+		return true;
+	  } catch (error) {
+		console.error("Network error during token refresh:", error);
+		return false;
 	  }
-	  
-	  return true;
 	} catch (error) {
 	  console.error("Error refreshing token:", error);
+	  return false;
+	}
+  },
+  
+  /**
+   * Update stored user data with new tokens
+   */
+  updateStoredUserWithTokens: async (accessToken: string, refreshToken: string): Promise<boolean> => {
+	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	if (!userStr) {
+	  return false;
+	}
+	
+	try {
+	  const userData = JSON.parse(userStr);
+	  const updatedUserData = {
+		...userData,
+		accessToken,
+		refreshToken
+	  };
+	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+	  return true;
+	} catch (e) {
+	  console.error("Failed to update user data with new tokens", e);
 	  return false;
 	}
   },
@@ -88,6 +142,29 @@ export const authUtils = {
 	}
 	
 	return false;
+  },
+  
+  /**
+   * Clear all authentication data from storage
+   */
+  clearAuthStorage: (): void => {
+	localStorage.removeItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+	localStorage.removeItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+	localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+  },
+  
+  /**
+   * Get the current authentication token
+   */
+  getAccessToken: (): string | null => {
+	return localStorage.getItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+  },
+  
+  /**
+   * Get the current refresh token
+   */
+  getRefreshToken: (): string | null => {
+	return localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
   }
 };
 
@@ -165,6 +242,7 @@ export function useAuth() {
 	refreshToken,
 	handleAuthError,
 	isRefreshing,
-	identity
+	identity,
+	clearAuth: authUtils.clearAuthStorage
   };
 }

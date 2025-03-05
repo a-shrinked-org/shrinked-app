@@ -11,9 +11,14 @@ import {
   Group, 
   Box, 
   Title,
-  Paper
+  Paper,
+  Alert
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
+// Replaced Tabler icons with Lucide
+import { ArrowLeft, AlertCircle } from 'lucide-react';
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface Identity {
   token?: string;
@@ -58,22 +63,60 @@ export default function JobCreate() {
     register, 
     handleSubmit, 
     formState: { errors },
-    setValue 
+    setValue,
+    setError 
   } = form;
 
   const onSubmit = handleSubmit(async (data: JobCreateForm) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/jobs`, {
+      // Check if online before making request
+      if (!navigator.onLine) {
+        showNotification({
+          title: 'Error',
+          message: 'You appear to be offline. Please check your internet connection.',
+          color: 'red',
+          icon: <AlertCircle size={16} />
+        });
+        return;
+      }
+      
+      // Use token from centralized auth utilities
+      const token = authUtils.getAccessToken() || identity?.token;
+      
+      if (!token) {
+        showNotification({
+          title: 'Error',
+          message: 'Authentication required',
+          color: 'red',
+          icon: <AlertCircle size={16} />
+        });
+        return;
+      }
+      
+      const response = await fetch(`${API_CONFIG.API_URL}/jobs`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${identity?.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(data)
       });
 
+      // Handle Cloudflare errors
+      if (response.status === 521 || response.status === 522 || response.status === 523) {
+        throw new Error('The server is currently unreachable. Please try again later.');
+      }
+
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+        // Attempt to parse error message from response
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || `Error: ${response.status}`;
+        } catch {
+          errorMessage = `Error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
       showNotification({
@@ -84,10 +127,13 @@ export default function JobCreate() {
 
       list('jobs');
     } catch (error) {
+      console.error("Create job error:", error);
+      
       showNotification({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to create job',
-        color: 'red'
+        color: 'red',
+        icon: <AlertCircle size={16} />
       });
     }
   });
@@ -98,10 +144,24 @@ export default function JobCreate() {
         <Stack gap="lg">
           <Group justify="space-between">
             <Title order={2}>Create New Job</Title>
-            <Button variant="light" onClick={() => list('jobs')}>
+            <Button 
+              variant="light" 
+              onClick={() => list('jobs')}
+              leftSection={<ArrowLeft size={16} />}
+            >
               Back to List
             </Button>
           </Group>
+
+          {errors?.root?.serverError && (
+            <Alert 
+              icon={<AlertCircle size={16} />}
+              color="red" 
+              title="Error"
+            >
+              {errors.root.serverError.message}
+            </Alert>
+          )}
 
           <form onSubmit={onSubmit}>
             <Stack gap="md">

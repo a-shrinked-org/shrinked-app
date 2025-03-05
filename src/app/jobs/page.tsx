@@ -11,15 +11,25 @@ import {
   Title, 
   Box,
   Select,
-  NumberInput,
   Stack,
-  ActionIcon,
   Modal,
   Text,
   LoadingOverlay,
-  Badge
+  Badge,
+  Alert
 } from '@mantine/core';
-import { IconEye, IconEdit, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+// Replace Tabler icons with Lucide icons
+import { 
+  Eye, 
+  Edit, 
+  ChevronLeft, 
+  ChevronRight, 
+  AlertCircle,
+  RefreshCw,
+  Info
+} from 'lucide-react';
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface Identity {
   token?: string;
@@ -39,6 +49,7 @@ interface Job {
   createdAt: string;
 }
 
+// Status helper functions
 const getStatusColor = (status: string) => {
   if (!status) return 'gray';
   
@@ -117,6 +128,7 @@ export default function JobList() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusResult, setStatusResult] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null); // New error state
   
   const { data: identity } = useGetIdentity<Identity>();
   const { edit, show, create } = useNavigation();
@@ -219,7 +231,6 @@ export default function JobList() {
   const {
     getHeaderGroups,
     getRowModel,
-    setOptions,
     refineCore: { tableQueryResult: { data: tableData } },
     getState,
     setPageIndex,
@@ -229,6 +240,7 @@ export default function JobList() {
     nextPage,
     previousPage,
     setPageSize,
+    refetch,
   } = useTable<Job>({
     columns,
     refineCoreProps: {
@@ -236,76 +248,140 @@ export default function JobList() {
       queryOptions: {
         enabled: !!identity?.token,
         onSuccess: (data) => {
+          setError(null); // Clear any previous errors on success
           console.log("Table query success:", data);
         },
         onError: (error) => {
           console.error("Table query error:", error);
+          
+          // Enhanced error handling with different error types
+          if (!navigator.onLine) {
+            setError("You appear to be offline. Please check your internet connection.");
+          } else if (error.status === 521 || error.status === 522 || error.status === 523) {
+            setError("The server is currently unreachable. Please try again later.");
+          } else if (error.status === 401 || error.status === 403) {
+            setError("Authentication error. Please log in again.");
+            // Attempt to refresh token
+            authUtils.refreshToken().then(success => {
+              if (success) {
+                refetch(); // Retry the request if token refresh was successful
+              }
+            });
+          } else {
+            setError(`Error loading jobs: ${error.message || "Unknown error"}`);
+          }
         }
       },
       meta: {
         headers: identity?.token ? {
-          'Authorization': `Bearer ${identity.token}`
+          'Authorization': `Bearer ${authUtils.getAccessToken() || identity.token}`
         } : undefined
       }
     }
   });
 
-  useEffect(() => {
-    console.log("Current table data:", tableData);
-  }, [tableData]);
-
+  // Enhanced status check function with better error handling
   const checkStatus = useCallback(async () => {
     setIsLoading(true);
+    setStatusResult(null);
     setIsStatusModalOpen(true);
     
     try {
-      // Update status check endpoints based on Postman collection
-      const [sandboxResponse, prodResponse] = await Promise.all([
-        fetch("https://api.shrinked.ai/status", {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity?.token}`,
-            'Content-Type': 'application/json'
-          },
-        }),
-        fetch("https://api.shrinked.ai/status", {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${identity?.token}`,
-            'Content-Type': 'application/json'
-          },
-        })
-      ]);
-  
-      let combinedStatus = "";
-  
-      if (sandboxResponse.status === 502) {
-        combinedStatus += "API: Server is under maintenance.\n";
-      } else if (!sandboxResponse.ok) {
-        combinedStatus += `API: Error ${sandboxResponse.status}\n`;
-      } else {
-        const sandboxResult = await sandboxResponse.json();
-        combinedStatus += `API: ${sandboxResult.status || 'Ok'}\n`;
+      // Check if we're online
+      if (!navigator.onLine) {
+        setStatusResult("You appear to be offline. Please check your internet connection.");
+        return;
       }
-  
-      if (prodResponse.status === 502) {
-        combinedStatus += "Processing: Server is under maintenance.";
-      } else if (!prodResponse.ok) {
-        combinedStatus += `Processing: Error ${prodResponse.status}`;
-      } else {
-        const prodResult = await prodResponse.json();
-        combinedStatus += `Processing: ${prodResult.status || 'Ok'}`;
+      
+      // Use the centralized auth token
+      const token = authUtils.getAccessToken() || identity?.token;
+      
+      if (!token) {
+        setStatusResult("Authentication required to check server status.");
+        return;
       }
-  
-      setStatusResult(combinedStatus);
+      
+      try {
+        // Make status check requests with timeouts
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const [apiResponse, processingResponse] = await Promise.all([
+          fetch(`${API_CONFIG.API_URL}/status`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            signal: controller.signal
+          }).catch(e => {
+            return { ok: false, status: e.name === 'AbortError' ? 'timeout' : 500 };
+          }),
+          
+          fetch(`${API_CONFIG.API_URL}/status`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            signal: controller.signal
+          }).catch(e => {
+            return { ok: false, status: e.name === 'AbortError' ? 'timeout' : 500 };
+          })
+        ]);
+        
+        clearTimeout(timeoutId);
+        
+        let combinedStatus = "";
+        
+        // Handle API status
+        if (apiResponse.status === 'timeout') {
+          combinedStatus += "API: Request timed out after 10 seconds.\n";
+        } else if (apiResponse.status === 521 || apiResponse.status === 522 || apiResponse.status === 523) {
+          combinedStatus += "API: The server is currently unreachable (Cloudflare error).\n";
+        } else if (apiResponse.status === 502) {
+          combinedStatus += "API: Server is under maintenance.\n";
+        } else if (!apiResponse.ok) {
+          combinedStatus += `API: Error ${apiResponse.status}\n`;
+        } else {
+          const apiResult = await apiResponse.json();
+          combinedStatus += `API: ${apiResult.status || 'Ok'}\n`;
+        }
+        
+        // Handle Processing status
+        if (processingResponse.status === 'timeout') {
+          combinedStatus += "Processing: Request timed out after 10 seconds.";
+        } else if (processingResponse.status === 521 || processingResponse.status === 522 || processingResponse.status === 523) {
+          combinedStatus += "Processing: The server is currently unreachable (Cloudflare error).";
+        } else if (processingResponse.status === 502) {
+          combinedStatus += "Processing: Server is under maintenance.";
+        } else if (!processingResponse.ok) {
+          combinedStatus += `Processing: Error ${processingResponse.status}`;
+        } else {
+          const processingResult = await processingResponse.json();
+          combinedStatus += `Processing: ${processingResult.status || 'Ok'}`;
+        }
+        
+        setStatusResult(combinedStatus);
+        
+      } catch (fetchError) {
+        console.error("Error fetching status:", fetchError);
+        setStatusResult(`Error checking status: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+      }
     } catch (error) {
-      console.error("Error checking status:", error);
+      console.error("Error in status check:", error);
       setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
   }, [identity?.token]);
 
+  // Log table data for debugging
+  useEffect(() => {
+    console.log("Current table data:", tableData);
+  }, [tableData]);
+
+  // Loading state
   if (!identity?.token) {
     return (
       <Box p="md">
@@ -320,7 +396,7 @@ export default function JobList() {
       <Group justify="space-between">
         <Title order={2}>Jobs List</Title>
         <Group>
-          <Button variant="light" onClick={checkStatus}>
+          <Button variant="light" onClick={checkStatus} leftSection={<Info size={16} />}>
             Check Server Status
           </Button>
           <Button onClick={() => create("jobs")}>
@@ -329,68 +405,92 @@ export default function JobList() {
         </Group>
       </Group>
 
-     <Box style={{ overflowX: 'auto' }}>
-       <Table highlightOnHover>
-         <Table.Thead>
-           {getHeaderGroups().map((headerGroup) => (
-             <Table.Tr key={headerGroup.id}>
-               {headerGroup.headers.map((header) => (
-                 <Table.Th 
-                   key={header.id}
-                   style={{ 
-                     background: 'none',
-                     fontWeight: 500,
-                     color: '#666',
-                     padding: '12px 16px',
-                     textTransform: 'uppercase',
-                     fontSize: '12px'
-                   }}
-                 >
-                   {flexRender(header.column.columnDef.header, header.getContext())}
-                 </Table.Th>
-               ))}
-             </Table.Tr>
-           ))}
-         </Table.Thead>
-         <Table.Tbody>
-           {getRowModel().rows.map((row) => (
-             <Table.Tr 
-               key={row.id}
-               onClick={() => show("jobs", row.original._id)}
-               style={{ cursor: 'pointer' }}
-               className="hover:bg-gray-100 transition-colors"
-             >
-               {row.getVisibleCells().map((cell) => (
-                 <Table.Td key={cell.id}>
-                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                 </Table.Td>
-               ))}
-             </Table.Tr>
-           ))}
-         </Table.Tbody>
-       </Table>
-     </Box>
+      {/* Display errors if any */}
+      {error && (
+        <Alert 
+          icon={<AlertCircle size={16} />} 
+          title="Error" 
+          color="red" 
+          onClose={() => setError(null)}
+          withCloseButton
+        >
+          {error}
+        </Alert>
+      )}
+
+      <Box style={{ overflowX: 'auto', position: 'relative' }}>
+        <LoadingOverlay visible={isLoading} />
+        <Table highlightOnHover>
+          <Table.Thead>
+            {getHeaderGroups().map((headerGroup) => (
+              <Table.Tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <Table.Th 
+                    key={header.id}
+                    style={{ 
+                      background: 'none',
+                      fontWeight: 500,
+                      color: '#666',
+                      padding: '12px 16px',
+                      textTransform: 'uppercase',
+                      fontSize: '12px'
+                    }}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Thead>
+          <Table.Tbody>
+            {getRowModel().rows.length === 0 ? (
+              <Table.Tr>
+                <Table.Td colSpan={columns.length} align="center" p="xl">
+                  <Text c="dimmed">No jobs found. Create a new job to get started.</Text>
+                </Table.Td>
+              </Table.Tr>
+            ) : (
+              getRowModel().rows.map((row) => (
+                <Table.Tr 
+                  key={row.id}
+                  onClick={() => show("jobs", row.original._id)}
+                  style={{ cursor: 'pointer' }}
+                  className="hover:bg-gray-100 transition-colors"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <Table.Td key={cell.id}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              ))
+            )}
+          </Table.Tbody>
+        </Table>
+      </Box>
 
       <Group justify="center" gap="xs">
         <Button
           variant="light"
           disabled={!getCanPreviousPage()}
           onClick={() => previousPage()}
+          leftSection={<ChevronLeft size={18} />}
         >
-          <IconChevronLeft size={18} />
+          Previous
         </Button>
         <Text>
           Page{' '}
           <strong>
-            {getState().pagination.pageIndex + 1} of {getPageCount()}
+            {getState().pagination.pageIndex + 1} of {getPageCount() || 1}
           </strong>
         </Text>
         <Button
           variant="light"
           disabled={!getCanNextPage()}
           onClick={() => nextPage()}
+          rightSection={<ChevronRight size={18} />}
         >
-          <IconChevronRight size={18} />
+          Next
         </Button>
         <Select
           value={getState().pagination.pageSize.toString()}
@@ -402,15 +502,32 @@ export default function JobList() {
         />
       </Group>
 
+      {/* Status check modal with improved error handling */}
       <Modal
         opened={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
         title="Server Status"
       >
         {isLoading ? (
-          <LoadingOverlay visible />
+          <Box style={{ position: 'relative', height: '100px' }}>
+            <LoadingOverlay visible />
+          </Box>
         ) : (
-          <Text style={{ whiteSpace: 'pre-line' }}>{statusResult}</Text>
+          <>
+            {statusResult ? (
+              <Text style={{ whiteSpace: 'pre-line' }}>{statusResult}</Text>
+            ) : (
+              <Text>No status information available.</Text>
+            )}
+            <Button 
+              mt="md" 
+              leftSection={<RefreshCw size={16} />}
+              onClick={checkStatus}
+              loading={isLoading}
+            >
+              Refresh Status
+            </Button>
+          </>
         )}
       </Modal>
     </Stack>

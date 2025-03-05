@@ -12,11 +12,15 @@ import {
   Box, 
   Title,
   Paper,
-  Text
+  Text,
+  Alert
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import { IconArrowLeft } from '@tabler/icons-react';
+// Replaced Tabler icons with Lucide
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { HttpError } from "@refinedev/core";
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface Identity {
   token?: string;
@@ -46,6 +50,7 @@ export default function JobEdit() {
     formState: { errors },
     setValue,
     watch,
+    setError,
   } = useForm<JobEditForm, HttpError, JobEditForm>({
     refineCoreProps: {
       resource: "jobs",
@@ -59,11 +64,29 @@ export default function JobEdit() {
         },
         onError: (error) => {
           console.error("Edit query error:", error);
+          
+          // Enhanced error handling
+          if (!navigator.onLine) {
+            setError("root.serverError", {
+              type: "manual",
+              message: "You appear to be offline. Please check your internet connection."
+            });
+          } else if (error?.status === 521 || error?.status === 522 || error?.status === 523) {
+            setError("root.serverError", {
+              type: "manual",
+              message: "The server is currently unreachable. Please try again later."
+            });
+          } else {
+            setError("root.serverError", {
+              type: "manual",
+              message: error?.message || "Failed to load job details"
+            });
+          }
         }
       },
       meta: {
         headers: identity?.token ? {
-          'Authorization': `Bearer ${identity.token}`
+          'Authorization': `Bearer ${authUtils.getAccessToken() || identity.token}`
         } : undefined
       }
     }
@@ -79,6 +102,16 @@ export default function JobEdit() {
 
   const onSubmitHandler = async (data: JobEditForm) => {
     try {
+      if (!navigator.onLine) {
+        showNotification({
+          title: 'Error',
+          message: 'You appear to be offline. Please check your internet connection.',
+          color: 'red',
+          icon: <AlertCircle size={16} />
+        });
+        return;
+      }
+      
       await onFinish(data);
       
       showNotification({
@@ -89,11 +122,22 @@ export default function JobEdit() {
 
       list('jobs');
     } catch (error) {
-      showNotification({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to update job',
-        color: 'red'
-      });
+      // Improved error handling
+      if (error?.status === 521 || error?.status === 522 || error?.status === 523) {
+        showNotification({
+          title: 'Error',
+          message: 'The server is currently unreachable. Please try again later.',
+          color: 'red',
+          icon: <AlertCircle size={16} />
+        });
+      } else {
+        showNotification({
+          title: 'Error',
+          message: error instanceof Error ? error.message : 'Failed to update job',
+          color: 'red',
+          icon: <AlertCircle size={16} />
+        });
+      }
     }
   };
 
@@ -105,12 +149,22 @@ export default function JobEdit() {
             <Title order={2}>Edit Job</Title>
             <Button
               variant="light"
-              leftSection={<IconArrowLeft size={16} />}
+              leftSection={<ArrowLeft size={16} />}
               onClick={() => list('jobs')}
             >
               Back to List
             </Button>
           </Group>
+
+          {errors?.root?.serverError?.message && (
+            <Alert 
+              icon={<AlertCircle size={16} />}
+              color="red" 
+              title="Error"
+            >
+              {errors.root.serverError.message}
+            </Alert>
+          )}
 
           <form onSubmit={handleSubmit(onSubmitHandler)}>
             <Stack gap="md">

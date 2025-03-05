@@ -9,18 +9,22 @@ import {
   Tabs,
   LoadingOverlay,
   ActionIcon,
-  Badge
+  Badge,
+  Alert
 } from '@mantine/core';
+// Replace Tabler icons with Lucide
 import { 
-  IconArrowLeft, 
-  IconShare,
-  IconDotsVertical,
-  IconAlertCircle,
-  IconRefresh
-} from '@tabler/icons-react';
+  ArrowLeft, 
+  Share,
+  MoreVertical,
+  AlertCircle,
+  RefreshCw
+} from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/utils/authUtils";
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { PDFViewer, Document, Page, Text as PDFText, View, StyleSheet } from '@react-pdf/renderer';
 
 // Define PDF styles
@@ -219,7 +223,6 @@ const MyDocument = ({ data }: { data: ProcessingDocument['output'] }) => (
 );
 
 // Enhanced PDF Document Component
-// Enhanced PDF Document Component
 const EnhancedDocument = ({ data }: { data: ProcessingDocument['output'] }) => {
   // Helper function to chunk text into paragraphs
   const createParagraphs = (text: string | undefined | null) => {
@@ -412,18 +415,25 @@ export default function JobShow() {
       },
       onError: (error) => {
         console.error("Show query error:", error);
-        setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
+        // Improved error handling for different scenarios
+        if (!navigator.onLine) {
+          setErrorMessage("You appear to be offline. Please check your internet connection.");
+        } else if (error?.status === 521 || error?.status === 522 || error?.status === 523) {
+          setErrorMessage("The server is currently unreachable. Please try again later.");
+        } else {
+          setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
+        }
         handleAuthError(error);
       }
     },
     meta: {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('accessToken') || identity?.token || ''}`
+        'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
       }
     }
   });
 
-  // Fetch processing document
+  // Fetch processing document with improved error handling
   const getProcessingDocument = useCallback(async (attempt = 0) => {
     const MAX_ATTEMPTS = 3;
     if (attempt >= MAX_ATTEMPTS) {
@@ -438,12 +448,19 @@ export default function JobShow() {
       return;
     }
 
+    // Check if we're online
+    if (!navigator.onLine) {
+      setErrorMessage("You appear to be offline. Please check your internet connection.");
+      return;
+    }
+
     try {
       setIsLoadingDoc(true);
-      const token = localStorage.getItem('accessToken') || identity?.token;
+      // Use centralized token management
+      const token = authUtils.getAccessToken() || identity?.token;
       console.log(`Fetching document attempt ${attempt + 1} with token prefix:`, token.substring(0, 20) + "...");
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
+      const response = await fetch(`${API_CONFIG.API_URL}/processing/${processingDocId}/document`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -451,12 +468,18 @@ export default function JobShow() {
         },
       });
 
+      // Handle Cloudflare errors
+      if (response.status === 521 || response.status === 522 || response.status === 523) {
+        throw new Error("The server is currently unreachable. Please try again later.");
+      }
+
+      // Handle auth errors and refresh token if needed
       if (response.status === 401 || response.status === 403) {
         console.log(`Attempt ${attempt + 1} failed with ${response.status}. Refreshing token...`);
         const success = await refreshToken();
         if (success) {
           await identityRefetch();
-          const newToken = localStorage.getItem('accessToken');
+          const newToken = authUtils.getAccessToken();
           if (newToken) {
             console.log("Token refreshed, retrying...");
             return await getProcessingDocument(attempt + 1);
@@ -477,8 +500,18 @@ export default function JobShow() {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`Attempt ${attempt + 1} failed:`, error);
       setErrorMessage(`Failed to load document: ${errorMessage}`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return await getProcessingDocument(attempt + 1);
+      
+      // Add exponential backoff before retrying
+      const backoffTime = Math.min(1000 * Math.pow(2, attempt), 5000); // Max 5 seconds
+      await new Promise(resolve => setTimeout(resolve, backoffTime));
+      
+      // Only retry on network errors or 5xx errors, not on 4xx errors (except auth)
+      const status = error instanceof Error && 'status' in error ? (error as any).status : null;
+      const shouldRetry = !status || status >= 500 || status === 401 || status === 403;
+      
+      if (shouldRetry && attempt < MAX_ATTEMPTS - 1) {
+        return await getProcessingDocument(attempt + 1);
+      }
     } finally {
       setIsLoadingDoc(false);
     }
@@ -493,6 +526,10 @@ export default function JobShow() {
 
   const manualRefetch = () => {
     console.log("Manual refetch triggered");
+    // Clear previous error message
+    setErrorMessage(null);
+    // Reset processing doc to trigger a fresh fetch
+    setProcessingDoc(null);
     getProcessingDocument(0);
   };
 
@@ -525,7 +562,7 @@ export default function JobShow() {
   console.log("Fetched record:", record);
   console.log("Processing document:", processingDoc);
   console.log("Using token for processing document:", 
-    localStorage.getItem('accessToken')?.substring(0, 20) || identity?.token?.substring(0, 20) || 'none');
+    authUtils.getAccessToken()?.substring(0, 20) || identity?.token?.substring(0, 20) || 'none');
 
   if (!identity?.token) {
     return (
@@ -550,13 +587,13 @@ export default function JobShow() {
       <Box p="md">
         <Box mb="md" p="md" style={{ backgroundColor: '#252525', borderRadius: 8 }}>
           <Group>
-            <IconAlertCircle size={20} color="red" />
+            <AlertCircle size={20} color="red" />
             <Text c="red">Unable to load job details. Please try again.</Text>
           </Group>
         </Box>
         <Button
           variant="outline"
-          leftSection={<IconArrowLeft size={16} />}
+          leftSection={<ArrowLeft size={16} />}
           onClick={() => list('jobs')}
           styles={{
             root: {

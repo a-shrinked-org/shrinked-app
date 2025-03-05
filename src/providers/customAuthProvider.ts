@@ -1,5 +1,5 @@
 import { AuthProvider } from "@refinedev/core";
-import { authUtils } from "@/utils/authUtils"; // Import the auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface UserData {
   id?: string;
@@ -17,8 +17,6 @@ interface UserData {
   refreshToken?: string;
 }
 
-const API_URL = 'https://api.shrinked.ai';
-
 class AuthProviderClass implements AuthProvider {
   constructor() {
 	this.login = this.login.bind(this);
@@ -30,7 +28,6 @@ class AuthProviderClass implements AuthProvider {
 	this.forgotPassword = this.forgotPassword.bind(this);
 	this.updatePassword = this.updatePassword.bind(this);
 	this.getPermissions = this.getPermissions.bind(this);
-	this.refreshAccessToken = this.refreshAccessToken.bind(this);
   }
 
   async login(params: any) {
@@ -48,14 +45,14 @@ class AuthProviderClass implements AuthProvider {
 	}
 
 	if (providerName === "google") {
-	  window.location.href = `${API_URL}/auth/google`;
+	  window.location.href = `${API_CONFIG.API_URL}/auth/google`;
 	  return {
 		success: true
 	  };
 	}
 
 	if (providerName === "github") {
-	  window.location.href = `${API_URL}/auth/github`;
+	  window.location.href = `${API_CONFIG.API_URL}/auth/github`;
 	  return {
 		success: true
 	  };
@@ -63,13 +60,35 @@ class AuthProviderClass implements AuthProvider {
 
 	// Handle email/password login
 	try {
-	  const loginResponse = await fetch(`${API_URL}/auth/login`, {
+	  // Check for internet connection
+	  if (!navigator.onLine) {
+		return {
+		  success: false,
+		  error: {
+			message: 'Network error: You appear to be offline',
+			name: 'Connection Error'
+		  }
+		};
+	  }
+
+	  const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({ email, password }),
 	  });
+
+	  // Handle Cloudflare errors
+	  if (loginResponse.status === 521 || loginResponse.status === 522 || loginResponse.status === 523) {
+		return {
+		  success: false,
+		  error: {
+			message: 'The server is currently unreachable. Please try again later.',
+			name: 'Connection Error'
+		  }
+		};
+	  }
 
 	  const loginData = await loginResponse.json();
 
@@ -83,19 +102,47 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 
-	  localStorage.setItem('accessToken', loginData.accessToken);
-	  localStorage.setItem('refreshToken', loginData.refreshToken);
+	  // Store tokens using centralized utilities
+	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, loginData.accessToken);
+	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, loginData.refreshToken);
 
 	  // Fetch user profile after successful login
-	  const profileResponse = await fetch(`${API_URL}/users/profile`, {
-		method: 'GET',
-		headers: {
-		  'Authorization': `Bearer ${loginData.accessToken}`,
-		},
-	  });
+	  try {
+		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+		  method: 'GET',
+		  headers: {
+			'Authorization': `Bearer ${loginData.accessToken}`,
+		  },
+		});
 
-	  if (!profileResponse.ok) {
-		this.clearStorage();
+		if (!profileResponse.ok) {
+		  authUtils.clearAuthStorage();
+		  return {
+			success: false,
+			error: {
+			  message: 'Could not verify user profile',
+			  name: 'Login Error'
+			}
+		  };
+		}
+
+		const userData: UserData = await profileResponse.json();
+		const userDataWithTokens = {
+		  ...userData,
+		  accessToken: loginData.accessToken,
+		  refreshToken: loginData.refreshToken
+		};
+		
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userDataWithTokens));
+
+		return {
+		  success: true,
+		  redirectTo: "/jobs",
+		  user: userDataWithTokens
+		};
+	  } catch (profileError) {
+		console.error("Error fetching user profile:", profileError);
+		authUtils.clearAuthStorage();
 		return {
 		  success: false,
 		  error: {
@@ -104,23 +151,8 @@ class AuthProviderClass implements AuthProvider {
 		  }
 		};
 	  }
-
-	  const userData: UserData = await profileResponse.json();
-	  const userDataWithTokens = {
-		...userData,
-		accessToken: loginData.accessToken,
-		refreshToken: loginData.refreshToken
-	  };
-	  
-	  localStorage.setItem('user', JSON.stringify(userDataWithTokens));
-
-	  return {
-		success: true,
-		redirectTo: "/jobs",
-		user: userDataWithTokens
-	  };
 	} catch (error) {
-	  this.clearStorage();
+	  authUtils.clearAuthStorage();
 	  return {
 		success: false,
 		error: {
@@ -134,7 +166,7 @@ class AuthProviderClass implements AuthProvider {
   async register(params: any) {
 	const { email, password, username } = params;
 	try {
-	  const registerResponse = await fetch(`${API_URL}/auth/register`, {
+	  const registerResponse = await fetch(`${API_CONFIG.API_URL}/auth/register`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -172,19 +204,19 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async check() {
-	const userStr = localStorage.getItem('user');
-	const accessToken = localStorage.getItem('accessToken');
-	const refreshToken = localStorage.getItem('refreshToken');
+	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	const accessToken = authUtils.getAccessToken();
+	const refreshToken = authUtils.getRefreshToken();
   
 	if (!accessToken || !refreshToken || !userStr) {
 	  console.log("No tokens or user data found");
-	  this.clearStorage();
+	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	}
   
 	try {
 	  // Try to validate the current token
-	  const response = await fetch(`${API_URL}/users/profile`, {
+	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
 		method: 'GET',
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
@@ -199,7 +231,7 @@ class AuthProviderClass implements AuthProvider {
 		  accessToken,
 		  refreshToken
 		};
-		localStorage.setItem('user', JSON.stringify(updatedUserData));
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
 		return { authenticated: true };
 	  }
   
@@ -209,17 +241,17 @@ class AuthProviderClass implements AuthProvider {
 		return { authenticated: refreshSuccess };
 	  }
   
-	  this.clearStorage();
+	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	} catch (error) {
 	  console.error("Auth check error:", error);
-	  this.clearStorage();
+	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	}
   }
 
   async getIdentity() {
-	const userStr = localStorage.getItem('user');
+	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	if (!userStr) {
 	  return null;
 	}
@@ -244,17 +276,17 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async getPermissions() {
-	const userStr = localStorage.getItem('user');
+	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	if (!userStr) return null;
 
 	try {
 	  const userData: UserData = JSON.parse(userStr);
-	  const accessToken = userData.accessToken || localStorage.getItem('accessToken');
+	  const accessToken = userData.accessToken || authUtils.getAccessToken();
 	  
 	  if (!accessToken) return null;
 	  
 	  // Try to get permissions with current token
-	  const response = await fetch(`${API_URL}/users/permissions`, {
+	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
 		headers: {
 		  'Authorization': `Bearer ${accessToken}`,
 		},
@@ -266,10 +298,11 @@ class AuthProviderClass implements AuthProvider {
 		if (!refreshSuccess) return null;
 		
 		// Get fresh token after refresh
-		const newAccessToken = localStorage.getItem('accessToken');
+		const newAccessToken = authUtils.getAccessToken();
+		if (!newAccessToken) return null;
 		
 		// Retry with new token
-		const newResponse = await fetch(`${API_URL}/users/permissions`, {
+		const newResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
 		  headers: {
 			'Authorization': `Bearer ${newAccessToken}`,
 		  },
@@ -293,7 +326,7 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async updatePassword(params: any) {
-	const userStr = localStorage.getItem('user');
+	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	if (!userStr) {
 	  return {
 		success: false,
@@ -306,7 +339,7 @@ class AuthProviderClass implements AuthProvider {
 
 	try {
 	  const userData: UserData = JSON.parse(userStr);
-	  const accessToken = userData.accessToken || localStorage.getItem('accessToken');
+	  const accessToken = userData.accessToken || authUtils.getAccessToken();
 	  
 	  if (!accessToken) {
 		return {
@@ -318,7 +351,7 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 	  
-	  const response = await fetch(`${API_URL}/auth/update-password`, {
+	  const response = await fetch(`${API_CONFIG.API_URL}/auth/update-password`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -341,10 +374,19 @@ class AuthProviderClass implements AuthProvider {
 		}
 		
 		// Get fresh token after refresh
-		const newAccessToken = localStorage.getItem('accessToken');
+		const newAccessToken = authUtils.getAccessToken();
+		if (!newAccessToken) {
+		  return {
+			success: false,
+			error: {
+			  message: "Authentication failed",
+			  name: "Update password failed"
+			}
+		  };
+		}
 		
 		// Retry with new token
-		const newResponse = await fetch(`${API_URL}/auth/update-password`, {
+		const newResponse = await fetch(`${API_CONFIG.API_URL}/auth/update-password`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
@@ -392,7 +434,7 @@ class AuthProviderClass implements AuthProvider {
 
   async forgotPassword(params: any) {
 	try {
-	  const response = await fetch(`${API_URL}/auth/forgot-password`, {
+	  const response = await fetch(`${API_CONFIG.API_URL}/auth/forgot-password`, {
 		method: 'POST',
 		headers: {
 		  'Content-Type': 'application/json',
@@ -428,9 +470,9 @@ class AuthProviderClass implements AuthProvider {
   async logout() {
 	// Attempt to invalidate refresh token on server if available
 	try {
-	  const refreshToken = localStorage.getItem('refreshToken');
+	  const refreshToken = authUtils.getRefreshToken();
 	  if (refreshToken) {
-		await fetch(`${API_URL}/auth/logout`, {
+		await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
@@ -444,7 +486,9 @@ class AuthProviderClass implements AuthProvider {
 	  // Continue with logout even if server request fails
 	}
 	
-	this.clearStorage();
+	// Use centralized method to clear storage
+	authUtils.clearAuthStorage();
+	
 	return {
 	  success: true,
 	  redirectTo: "/login",
@@ -465,7 +509,7 @@ class AuthProviderClass implements AuthProvider {
 	  }
 	  
 	  // If refresh failed, log out
-	  this.clearStorage();
+	  authUtils.clearAuthStorage();
 	  return {
 		logout: true,
 		redirectTo: "/login",
@@ -475,18 +519,6 @@ class AuthProviderClass implements AuthProvider {
 	
 	// For other errors, just pass through
 	return { error };
-  }
-
-  // This method is kept for backward compatibility
-  // but delegates to our centralized implementation
-  async refreshAccessToken(refreshToken: string) {
-	return await authUtils.refreshToken();
-  }
-
-  private clearStorage() {
-	localStorage.removeItem('accessToken');
-	localStorage.removeItem('refreshToken');
-	localStorage.removeItem('user');
   }
 }
 
