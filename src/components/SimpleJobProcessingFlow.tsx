@@ -116,6 +116,7 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
   }, [jobScenario, jobStatus]);
   
   // Create nodes based on job scenario and status
+// Create nodes based on job scenario and status
   const initialNodes = useMemo(() => {
     // Base nodes that appear in all scenarios
     const nodes = [
@@ -135,6 +136,68 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
           borderWidth: 1,
           borderStyle: 'solid',
           borderRadius: 8,
+          ...getNodeStyle(getNodeStatus(jobStatus, 0))
+        }
+      },
+      {
+        id: 'processing',
+        type: 'default',
+        position: { x: 25, y: 160 },
+        data: { 
+          label: 'AI Processing',
+          status: getNodeStatus(jobStatus, 1),
+          time: getTimeForNode(jobStatus, 1),
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 1))
+        },
+        style: {
+          width: 200,
+          padding: 12,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderRadius: 8,
+          ...getNodeStyle(getNodeStatus(jobStatus, 1))
+        }
+      },
+      {
+        id: 'output',
+        type: 'default',
+        position: { x: 25, y: 270 },
+        data: { 
+          label: 'Result Output',
+          status: getNodeStatus(jobStatus, 2),
+          time: getTimeForNode(jobStatus, 2),
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 2))
+        },
+        style: {
+          width: 200,
+          padding: 12,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderRadius: 8,
+          ...getNodeStyle(getNodeStatus(jobStatus, 2))
+        }
+      }
+    ];
+    
+    // Add document node specifically for PLATOGRAM_DOC scenario
+    const scenarioUpper = (jobScenario || '').toUpperCase();
+    if (scenarioUpper.includes('PLATOGRAM_DOC')) {
+      nodes.push({
+        id: 'document',
+        type: 'default',
+        position: { x: 25, y: 380 },
+        data: { 
+          label: 'Document Generation',
+          status: getNodeStatus(jobStatus, 3),
+          time: getTimeForNode(jobStatus, 3),
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 3))
+        },
+        style: {
+          width: 200,
+          padding: 12,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderRadius: 8,
           ...getNodeStyle(getNodeStatus(jobStatus, 3))
         }
       });
@@ -142,53 +205,6 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
     
     console.log("Created nodes:", nodes.length);
     return nodes;
-  }, [jobScenario, jobStatus]);
-  
-  // Create edges between nodes
-  const initialEdges = useMemo(() => {
-    const edges = [];
-    
-    // Connect upload to processing
-    edges.push({
-      id: 'e-upload-processing',
-      source: 'upload',
-      target: 'processing',
-      animated: getNodeStatus(jobStatus, 0) === 'completed' && getNodeStatus(jobStatus, 1) === 'in_progress',
-      style: {
-        stroke: getNodeStatus(jobStatus, 0) === 'completed' ? '#1890ff' : '#d9d9d9',
-        strokeWidth: 2
-      }
-    });
-    
-    // Connect processing to output
-    edges.push({
-      id: 'e-processing-output',
-      source: 'processing',
-      target: 'output',
-      animated: getNodeStatus(jobStatus, 1) === 'completed' && getNodeStatus(jobStatus, 2) === 'in_progress',
-      style: {
-        stroke: getNodeStatus(jobStatus, 1) === 'completed' ? '#1890ff' : '#d9d9d9',
-        strokeWidth: 2
-      }
-    });
-    
-    // Connect output to document for PLATOGRAM_DOC scenario
-    const scenarioUpper = (jobScenario || '').toUpperCase();
-    if (scenarioUpper.includes('PLATOGRAM_DOC')) {
-      edges.push({
-        id: 'e-output-document',
-        source: 'output',
-        target: 'document',
-        animated: getNodeStatus(jobStatus, 2) === 'completed' && getNodeStatus(jobStatus, 3) === 'in_progress',
-        style: {
-          stroke: getNodeStatus(jobStatus, 2) === 'completed' ? '#1890ff' : '#d9d9d9',
-          strokeWidth: 2
-        }
-      });
-    }
-    
-    console.log("Created edges:", edges.length);
-    return edges;
   }, [jobScenario, jobStatus]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
