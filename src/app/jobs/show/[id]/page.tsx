@@ -685,7 +685,7 @@ export default function JobShow() {
                 },
               }}
             >
-              <DotsVertical size={20} />
+              <MoreVertical size={20} />
             </ActionIcon>
           </Group>
         </div>
@@ -769,7 +769,7 @@ export default function JobShow() {
                   <Text>
                     Processed document data not available. {errorMessage && `Error: ${errorMessage}`}
                     <Button 
-                      leftSection={<Refresh size={16} />} 
+                      leftSection={<RefreshCw size={16} />} 
                       onClick={manualRefetch} 
                       mt="md"
                       styles={{
