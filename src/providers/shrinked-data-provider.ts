@@ -4,7 +4,7 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosInstance } from "axios";
 
 const axiosInstance = axios.create();
 
@@ -12,9 +12,8 @@ axiosInstance.interceptors.response.use(
   (response) => {
 	return response;
   },
-  (error: AxiosError) => {
+  (error) => {
 	const customError: HttpError = {
-	  ...error,
 	  message: error.response?.data?.message || "An unexpected error occurred",
 	  statusCode: error.response?.status,
 	};
@@ -28,7 +27,6 @@ const generateFilters = (filters?: CrudFilters) => {
   filters?.forEach((filter) => {
 	if ("field" in filter) {
 	  const { field, operator, value } = filter;
-
 	  if (operator === "eq") {
 		queryFilters[field] = value;
 	  }
@@ -42,10 +40,8 @@ const generateSort = (sorters?: CrudSorting) => {
   if (sorters && sorters.length > 0) {
 	const sort = sorters[0].field;
 	const order = sorters[0].order;
-
 	return { sort, order };
   }
-
   return {};
 };
 
@@ -55,7 +51,6 @@ export const shrinkedDataProvider = (
 ): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs/key" ? "" : ""}`;
-
 	const { current = 1, pageSize = 10 } = pagination ?? {};
 
 	const { data } = await httpClient.get(url, {
@@ -81,9 +76,7 @@ export const shrinkedDataProvider = (
 	  headers: meta?.headers,
 	});
 
-	return {
-	  data,
-	};
+	return { data };
   },
 
   create: async ({ resource, variables, meta }) => {
@@ -93,9 +86,7 @@ export const shrinkedDataProvider = (
 	  headers: meta?.headers,
 	});
 
-	return {
-	  data,
-	};
+	return { data };
   },
 
   update: async ({ resource, id, variables, meta }) => {
@@ -105,9 +96,7 @@ export const shrinkedDataProvider = (
 	  headers: meta?.headers,
 	});
 
-	return {
-	  data,
-	};
+	return { data };
   },
 
   deleteOne: async ({ resource, id, variables, meta }) => {
@@ -118,9 +107,7 @@ export const shrinkedDataProvider = (
 	  headers: meta?.headers,
 	});
 
-	return {
-	  data,
-	};
+	return { data };
   },
 
   getMany: async ({ resource, ids, meta }) => {
@@ -131,16 +118,14 @@ export const shrinkedDataProvider = (
 	  headers: meta?.headers,
 	});
 
-	return {
-	  data,
-	};
+	return { data };
   },
 
   getApiUrl: () => apiUrl,
 
   custom: async ({ url, method, payload, query, headers }) => {
 	let axiosResponse;
-	
+
 	switch (method) {
 	  case "put":
 	  case "post":
