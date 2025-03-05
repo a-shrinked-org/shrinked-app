@@ -231,7 +231,10 @@ export default function JobList() {
   const {
     getHeaderGroups,
     getRowModel,
-    refineCore: { tableQueryResult: { data: tableData } },
+    refineCore: { 
+      tableQueryResult: { data: tableData },
+      refetch 
+    },
     getState,
     setPageIndex,
     getCanPreviousPage,
@@ -240,7 +243,6 @@ export default function JobList() {
     nextPage,
     previousPage,
     setPageSize,
-    refetch,
   } = useTable<Job>({
     columns,
     refineCoreProps: {
