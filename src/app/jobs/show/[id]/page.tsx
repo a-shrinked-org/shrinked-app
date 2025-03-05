@@ -9,8 +9,7 @@ import {
   Tabs,
   LoadingOverlay,
   ActionIcon,
-  Badge,
-  Notification
+  Badge
 } from '@mantine/core';
 import { 
   IconArrowLeft, 
@@ -22,6 +21,8 @@ import {
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+// Import the auth hook
+import { useAuth } from "../utils/authUtils";
 
 // Configure react-pdf worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -54,7 +55,7 @@ interface Job {
       resultId?: string;
       [key: string]: any;
     };
-    _id?: string; // Added step _id for clarity
+    _id?: string;
   }>;
   endTime?: string;
   startTime?: string;
@@ -88,11 +89,14 @@ export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
   const jobId = params.id as string;
-  const { data: identity, refetch: refetchIdentity } = useGetIdentity<Identity>();
+  const { data: identity } = useGetIdentity<Identity>();
   const [activeTab, setActiveTab] = useState("preview");
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Use our centralized auth hook
+  const { refreshToken, handleAuthError } = useAuth();
 
   // Fetch job details
   const { queryResult } = useShow<Job>({
@@ -117,7 +121,6 @@ export default function JobShow() {
             setProcessingDocId(null);
             setErrorMessage("No processing document ID found in job steps.");
           }
-          // Log step _id for comparison
           console.log("Step _id (not used):", processingStep._id);
         } else {
           console.log("No PLATOGRAM_PROCESSING step found");
@@ -128,6 +131,9 @@ export default function JobShow() {
       onError: (error) => {
         console.error("Show query error:", error);
         setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
+        
+        // Use our centralized auth error handler
+        handleAuthError(error);
       }
     },
     meta: {
@@ -207,7 +213,7 @@ export default function JobShow() {
     
     return `${minutes}m ${seconds}s`;
   };
-
+  
   const formatText = (text: string) => {
     return text
       ?.toLowerCase()
@@ -215,13 +221,13 @@ export default function JobShow() {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ') || '';
   };
-
+  
   const getFilenameFromLink = (link?: string) => {
     if (!link) return "";
     const parts = link.split("/");
     return parts[parts.length - 1] || "";
   };
-
+  
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
   const processingDoc = processingData?.data;

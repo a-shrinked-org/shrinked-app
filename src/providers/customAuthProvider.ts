@@ -1,9 +1,10 @@
 import { AuthProvider } from "@refinedev/core";
+import { authUtils } from "../utils/authUtils"; // Import the auth utilities
 
 interface UserData {
   id?: string;
-  userId?: string; // Add this property
-  _id?: string;    // Add this property
+  userId?: string;
+  _id?: string;
   email: string;
   username: string;
   roles?: string[];
@@ -202,10 +203,10 @@ class AuthProviderClass implements AuthProvider {
 		return { authenticated: true };
 	  }
   
-	  // If token is invalid, try refresh
+	  // If token is invalid, try refresh using our centralized utility
 	  if (response.status === 401 || response.status === 403) {
-		const newTokens = await this.refreshAccessToken(refreshToken);
-		return { authenticated: !!newTokens };
+		const refreshSuccess = await authUtils.refreshToken(); // Use centralized refresh
+		return { authenticated: refreshSuccess };
 	  }
   
 	  this.clearStorage();
@@ -226,7 +227,7 @@ class AuthProviderClass implements AuthProvider {
 	try {
 	  const userData: UserData = JSON.parse(userStr);
 	  return {
-		id: userData.userId || userData._id || userData.id, // Include userData.id as fallback
+		id: userData.userId || userData._id || userData.id,
 		name: userData.username || userData.email,
 		email: userData.email,
 		avatar: userData.avatar || '',
@@ -259,18 +260,18 @@ class AuthProviderClass implements AuthProvider {
 		},
 	  });
 
-	  // If token invalid, try to refresh
+	  // If token invalid, try to refresh using our centralized utility
 	  if (response.status === 401 || response.status === 403) {
-		const refreshToken = userData.refreshToken || localStorage.getItem('refreshToken');
-		if (!refreshToken) return null;
+		const refreshSuccess = await authUtils.refreshToken(); // Use centralized refresh
+		if (!refreshSuccess) return null;
 		
-		const newTokens = await this.refreshAccessToken(refreshToken);
-		if (!newTokens) return null;
+		// Get fresh token after refresh
+		const newAccessToken = localStorage.getItem('accessToken');
 		
 		// Retry with new token
 		const newResponse = await fetch(`${API_URL}/users/permissions`, {
 		  headers: {
-			'Authorization': `Bearer ${newTokens.accessToken}`,
+			'Authorization': `Bearer ${newAccessToken}`,
 		  },
 		});
 		
@@ -326,10 +327,10 @@ class AuthProviderClass implements AuthProvider {
 		body: JSON.stringify(params),
 	  });
 
-	  // If token invalid, try to refresh
+	  // If token invalid, try to refresh using our centralized utility
 	  if (response.status === 401 || response.status === 403) {
-		const refreshToken = userData.refreshToken || localStorage.getItem('refreshToken');
-		if (!refreshToken) {
+		const refreshSuccess = await authUtils.refreshToken(); // Use centralized refresh
+		if (!refreshSuccess) {
 		  return {
 			success: false,
 			error: {
@@ -339,23 +340,15 @@ class AuthProviderClass implements AuthProvider {
 		  };
 		}
 		
-		const newTokens = await this.refreshAccessToken(refreshToken);
-		if (!newTokens) {
-		  return {
-			success: false,
-			error: {
-			  message: "Session expired",
-			  name: "Update password failed"
-			}
-		  };
-		}
+		// Get fresh token after refresh
+		const newAccessToken = localStorage.getItem('accessToken');
 		
 		// Retry with new token
 		const newResponse = await fetch(`${API_URL}/auth/update-password`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${newTokens.accessToken}`,
+			'Authorization': `Bearer ${newAccessToken}`,
 		  },
 		  body: JSON.stringify(params),
 		});
@@ -462,23 +455,16 @@ class AuthProviderClass implements AuthProvider {
 	console.error("Auth error:", error);
 	const status = error?.response?.status || error?.statusCode || error?.status;
 	
-	// Handle authentication errors
+	// Handle authentication errors using our centralized utility
 	if (status === 401 || status === 403) {
-	  // Try to refresh token if possible
-	  const refreshToken = localStorage.getItem('refreshToken');
-	  if (refreshToken) {
-		try {
-		  const newTokens = await this.refreshAccessToken(refreshToken);
-		  if (newTokens) {
-			// Successfully refreshed, don't log out
-			return { error };
-		  }
-		} catch (refreshError) {
-		  console.error("Failed to refresh token:", refreshError);
-		}
+	  // Try to refresh token using the centralized utility
+	  const refreshSuccess = await authUtils.refreshToken();
+	  if (refreshSuccess) {
+		// Successfully refreshed, don't log out
+		return { error };
 	  }
 	  
-	  // If refresh failed or no refresh token, log out
+	  // If refresh failed, log out
 	  this.clearStorage();
 	  return {
 		logout: true,
@@ -491,58 +477,10 @@ class AuthProviderClass implements AuthProvider {
 	return { error };
   }
 
+  // This method is kept for backward compatibility
+  // but delegates to our centralized implementation
   async refreshAccessToken(refreshToken: string) {
-	try {
-	  console.log("Attempting to refresh token");
-	  const response = await fetch(`${API_URL}/auth/refresh`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ refreshToken }),
-	  });
-
-	  if (!response.ok) {
-		console.error("Token refresh failed:", response.status);
-		return null;
-	  }
-
-	  const data = await response.json();
-	  if (!data.accessToken || !data.refreshToken) {
-		console.error("Invalid refresh token response");
-		return null;
-	  }
-
-	  console.log("Token refresh successful");
-	  
-	  // Update tokens in localStorage
-	  localStorage.setItem('accessToken', data.accessToken);
-	  localStorage.setItem('refreshToken', data.refreshToken);
-
-	  // Update user object with new tokens
-	  const userStr = localStorage.getItem('user');
-	  if (userStr) {
-		try {
-		  const userData = JSON.parse(userStr);
-		  const updatedUserData = {
-			...userData,
-			accessToken: data.accessToken,
-			refreshToken: data.refreshToken
-		  };
-		  localStorage.setItem('user', JSON.stringify(updatedUserData));
-		} catch (e) {
-		  console.error("Failed to update user data with new tokens", e);
-		}
-	  }
-
-	  return { 
-		accessToken: data.accessToken, 
-		refreshToken: data.refreshToken 
-	  };
-	} catch (error) {
-	  console.error("Error refreshing token:", error);
-	  return null;
-	}
+	return await authUtils.refreshToken();
   }
 
   private clearStorage() {
