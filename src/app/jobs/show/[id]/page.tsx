@@ -95,6 +95,8 @@ export default function JobShow() {
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
+  // Use state to track if document has been fetched successfully
+  const [hasLoadedDocument, setHasLoadedDocument] = useState(false);
   
   // Use our centralized auth hook - this provides refreshToken and handleAuthError
   const { refreshToken, handleAuthError } = useAuth();
@@ -176,9 +178,31 @@ export default function JobShow() {
         if (success) {
           // Wait for identity to refresh with the new token
           await identityRefetch();
-          // Try again after token refresh (will be picked up by the useEffect)
-          console.log("Token refreshed successfully, will retry document fetch");
-          return;
+          
+          // Try the fetch again immediately with the new token
+          const newToken = localStorage.getItem('accessToken');
+          if (newToken) {
+            console.log("Token refreshed successfully, retrying document fetch with new token");
+            
+            const newResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${newToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (newResponse.ok) {
+              const data = await newResponse.json();
+              console.log("Document fetched successfully after token refresh:", data);
+              setProcessingDoc(data);
+              setErrorMessage(null);
+              setHasLoadedDocument(true);
+              return;
+            } else {
+              throw new Error(`Failed to fetch document after token refresh: ${newResponse.status}`);
+            }
+          }
         } else {
           setErrorMessage("Failed to refresh authentication. Please log in again.");
           return;
@@ -193,6 +217,7 @@ export default function JobShow() {
       console.log("Document fetched successfully:", data);
       setProcessingDoc(data);
       setErrorMessage(null);
+      setHasLoadedDocument(true);
     } catch (error) {
       console.error("Error fetching processing document:", error);
       setErrorMessage("Failed to load processing document: " + 
@@ -202,13 +227,19 @@ export default function JobShow() {
     }
   }, [processingDocId, identity?.token, refreshToken, identityRefetch]);
   
-  // Fetch processing document when processingDocId is available or identity/token changes
+  // Add a button to manually refetch when needed
+  const manualRefetch = () => {
+    setHasLoadedDocument(false);
+    getProcessingDocument();
+  };
+  
+  // Modified useEffect to prevent infinite fetch loops
   useEffect(() => {
-    if (processingDocId && identity?.token) {
-      console.log("ProcessingDocId or identity changed, fetching document");
+    if (processingDocId && identity?.token && !hasLoadedDocument) {
+      console.log("ProcessingDocId or identity changed and document not yet loaded, fetching document");
       getProcessingDocument();
     }
-  }, [processingDocId, identity, getProcessingDocument]);
+  }, [processingDocId, identity, hasLoadedDocument, getProcessingDocument]);
   
   // Also refetch data when localStorage token changes
   useEffect(() => {
@@ -472,7 +503,7 @@ export default function JobShow() {
                     Processed document data not available. {errorMessage && `Error: ${errorMessage}`}
                     <Button 
                       leftSection={<IconRefresh size={16} />} 
-                      onClick={() => getProcessingDocument()} 
+                      onClick={manualRefetch} 
                       mt="md"
                       styles={{
                         root: {
@@ -698,18 +729,3 @@ export default function JobShow() {
                     }}
                   >
                     <Text fw={500} c="white">
-                      No steps available
-                    </Text>
-                    <Text c="dimmed" size="sm">
-                      Processing information unavailable
-                    </Text>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
