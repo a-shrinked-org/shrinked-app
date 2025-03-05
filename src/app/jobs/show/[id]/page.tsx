@@ -219,9 +219,10 @@ const MyDocument = ({ data }: { data: ProcessingDocument['output'] }) => (
 );
 
 // Enhanced PDF Document Component
+// Enhanced PDF Document Component
 const EnhancedDocument = ({ data }: { data: ProcessingDocument['output'] }) => {
   // Helper function to chunk text into paragraphs
-  const createParagraphs = (text) => {
+  const createParagraphs = (text: string | undefined | null) => {
     if (!text) return [<PDFText key="no-content" style={styles.firstParagraph}>No content available.</PDFText>];
     
     // Split text by double newlines or periods followed by space to create paragraphs
