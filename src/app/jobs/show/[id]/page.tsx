@@ -20,11 +20,34 @@ import {
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
 import { useAuth } from "@/utils/authUtils";
+import { PDFViewer, Document, Page, Text as PDFText, View, StyleSheet } from '@react-pdf/renderer';
 
-// Configure react-pdf worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Define PDF styles
+const styles = StyleSheet.create({
+  page: {
+    padding: 30,
+    fontSize: 12,
+    fontFamily: 'Helvetica',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  text: {
+    fontSize: 12,
+    marginBottom: 5,
+    textAlign: 'justify',
+  },
+});
 
 interface Identity {
   token?: string;
@@ -67,22 +90,60 @@ interface Job {
     introduction?: string;
     conclusion?: string;
     passages?: string[];
-    references?: Array<any>;
-    pdfUrl?: string;
+    references?: Array<{ item: string }>;
+    chapters?: Array<{ title: string }>;
   };
 }
 
 interface ProcessingDocument {
   _id: string;
-  title?: string;
-  abstract?: string;
-  contributors?: string;
-  introduction?: string;
-  conclusion?: string;
-  passages?: string[];
-  references?: Array<any>;
-  pdfUrl?: string;
+  output: {
+    title?: string;
+    abstract?: string;
+    contributors?: string;
+    introduction?: string;
+    conclusion?: string;
+    passages?: string[];
+    references?: Array<{ item: string }>;
+    chapters?: Array<{ title: string }>;
+  };
 }
+
+// PDF Document Component
+const MyDocument = ({ data }: { data: ProcessingDocument['output'] }) => (
+  <Document>
+    <Page size="A4" style={styles.page}>
+      <PDFText style={styles.title}>{data.title || 'Untitled Document'}</PDFText>
+      
+      <PDFText style={styles.sectionTitle}>Abstract</PDFText>
+      <PDFText style={styles.text}>{data.abstract || 'No abstract available.'}</PDFText>
+
+      <PDFText style={styles.sectionTitle}>Introduction</PDFText>
+      <PDFText style={styles.text}>{data.introduction || 'No introduction available.'}</PDFText>
+
+      <PDFText style={styles.sectionTitle}>Chapters</PDFText>
+      {data.chapters?.map((chapter, index) => (
+        <PDFText key={index} style={styles.text}>{chapter.title}</PDFText>
+      )) || <PDFText style={styles.text}>No chapters available.</PDFText>}
+
+      <PDFText style={styles.sectionTitle}>Passages</PDFText>
+      {data.passages?.map((passage, index) => (
+        <PDFText key={index} style={styles.text}>{passage}</PDFText>
+      )) || <PDFText style={styles.text}>No passages available.</PDFText>}
+
+      <PDFText style={styles.sectionTitle}>Conclusion</PDFText>
+      <PDFText style={styles.text}>{data.conclusion || 'No conclusion available.'}</PDFText>
+
+      <PDFText style={styles.sectionTitle}>References</PDFText>
+      {data.references?.map((ref, index) => (
+        <PDFText key={index} style={styles.text}>{ref.item}</PDFText>
+      )) || <PDFText style={styles.text}>No references available.</PDFText>}
+
+      <PDFText style={styles.sectionTitle}>Contributors, Acknowledgements, Mentions</PDFText>
+      <PDFText style={styles.text}>{data.contributors || 'No contributors information available.'}</PDFText>
+    </Page>
+  </Document>
+);
 
 export default function JobShow() {
   const params = useParams();
@@ -137,7 +198,7 @@ export default function JobShow() {
     }
   });
 
-  // Memoize getProcessingDocument with stable dependencies
+  // Fetch processing document
   const getProcessingDocument = useCallback(async (attempt = 0) => {
     const MAX_ATTEMPTS = 3;
     if (attempt >= MAX_ATTEMPTS) {
@@ -145,18 +206,18 @@ export default function JobShow() {
       setErrorMessage(`Failed to load document after ${MAX_ATTEMPTS} attempts. Please try again.`);
       return;
     }
-  
+
     if (!processingDocId || !identity?.token) {
       console.log("Missing processingDocId or token, skipping fetch");
       setErrorMessage("Missing required data to fetch document");
       return;
     }
-  
+
     try {
       setIsLoadingDoc(true);
       const token = localStorage.getItem('accessToken') || identity?.token;
       console.log(`Fetching document attempt ${attempt + 1} with token prefix:`, token.substring(0, 20) + "...");
-  
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
         method: 'GET',
         headers: {
@@ -164,7 +225,7 @@ export default function JobShow() {
           'Content-Type': 'application/json',
         },
       });
-  
+
       if (response.status === 401 || response.status === 403) {
         console.log(`Attempt ${attempt + 1} failed with ${response.status}. Refreshing token...`);
         const success = await refreshToken();
@@ -173,16 +234,16 @@ export default function JobShow() {
           const newToken = localStorage.getItem('accessToken');
           if (newToken) {
             console.log("Token refreshed, retrying...");
-            return await getProcessingDocument(attempt + 1); // Recursive retry
+            return await getProcessingDocument(attempt + 1);
           }
         }
         throw new Error("Token refresh failed");
       }
-  
+
       if (!response.ok) {
         throw new Error(`Fetch failed with status: ${response.status} - ${response.statusText}`);
       }
-  
+
       const data = await response.json();
       console.log("Document fetched successfully:", data);
       setProcessingDoc(data);
@@ -191,14 +252,13 @@ export default function JobShow() {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`Attempt ${attempt + 1} failed:`, error);
       setErrorMessage(`Failed to load document: ${errorMessage}`);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second delay before retry
-      return await getProcessingDocument(attempt + 1); // Retry on failure
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return await getProcessingDocument(attempt + 1);
     } finally {
       setIsLoadingDoc(false);
     }
-  }, [processingDocId, refreshToken, identityRefetch]); // Stable dependencies
-  
-  // Fetch only when necessary
+  }, [processingDocId, identity?.token, refreshToken, identityRefetch]);
+
   useEffect(() => {
     if (processingDocId && identity?.token && !processingDoc && !isLoadingDoc) {
       console.log("New processingDocId detected, starting fetch:", processingDocId);
@@ -206,7 +266,6 @@ export default function JobShow() {
     }
   }, [processingDocId, identity?.token, processingDoc, isLoadingDoc, getProcessingDocument]);
 
-  // Manual retry function
   const manualRefetch = () => {
     console.log("Manual refetch triggered");
     getProcessingDocument(0);
@@ -292,21 +351,19 @@ export default function JobShow() {
   }
 
   const combinedData = {
-    title: processingDoc?.title || record?.output?.title || record?.jobName,
-    abstract: processingDoc?.abstract || record?.output?.abstract || "",
-    contributors: processingDoc?.contributors || record?.output?.contributors || "",
-    pdfUrl: processingDoc?.pdfUrl || record?.output?.pdfUrl || "",
-    introduction: processingDoc?.introduction || record?.output?.introduction || "",
-    conclusion: processingDoc?.conclusion || record?.output?.conclusion || "",
-    passages: processingDoc?.passages || record?.output?.passages || [],
-    references: processingDoc?.references || record?.output?.references || []
+    title: processingDoc?.output?.title || record?.output?.title || record?.jobName,
+    abstract: processingDoc?.output?.abstract || record?.output?.abstract || "",
+    contributors: processingDoc?.output?.contributors || record?.output?.contributors || "",
+    introduction: processingDoc?.output?.introduction || record?.output?.introduction || "",
+    conclusion: processingDoc?.output?.conclusion || record?.output?.conclusion || "",
+    passages: processingDoc?.output?.passages || record?.output?.passages || [],
+    references: processingDoc?.output?.references || record?.output?.references || [],
+    chapters: processingDoc?.output?.chapters || record?.output?.chapters || [],
   };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
-      {/* Main content area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
         <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Button 
             variant="outline" 
@@ -371,7 +428,6 @@ export default function JobShow() {
           </Group>
         </div>
 
-        {/* Document title */}
         <div style={{ padding: '24px' }}>
           <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
             {combinedData.title || 'Untitled Document'}
@@ -381,7 +437,6 @@ export default function JobShow() {
           </Text>
         </div>
 
-        {/* Tabs and content */}
         <div style={{ padding: '24px', flex: 1 }}>
           <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
             <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
@@ -471,56 +526,10 @@ export default function JobShow() {
                   </Text>
                 </Box>
               ) : (
-                <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
-                  <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
-                    {combinedData.pdfUrl ? (
-                      <Document file={combinedData.pdfUrl} loading={<Text>Loading PDF...</Text>}>
-                        <Page pageNumber={1} width={800} />
-                      </Document>
-                    ) : (
-                      <>
-                        <Text size="3xl" fw={700} style={{ fontFamily: 'serif', marginBottom: '1.5rem' }}>
-                          {combinedData.title || 'Untitled Document'}
-                        </Text>
-                        <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
-                          Origin
-                        </Text>
-                        <Text style={{ color: '#3b1b1b', marginBottom: '1rem' }}>
-                          <a href={record?.link} style={{ color: 'blue', textDecoration: 'underline', wordBreak: 'break-all' }}>
-                            {record?.link || 'No source link available'}
-                          </a>
-                        </Text>
-                        <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
-                          Abstract
-                        </Text>
-                        <Text mb="md" style={{ textAlign: 'justify' }}>
-                          {combinedData.abstract || 'No abstract available.'}
-                        </Text>
-                        <Text size="xl" fw={600} style={{ fontFamily: 'serif', marginBottom: '0.5rem' }}>
-                          Contributors, Acknowledgements, Mentions
-                        </Text>
-                        {combinedData.contributors ? (
-                          typeof combinedData.contributors === 'string' && combinedData.contributors.includes('<') ? (
-                            <div 
-                              style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}
-                              dangerouslySetInnerHTML={{ __html: combinedData.contributors }} 
-                            />
-                          ) : (
-                            <ul style={{ paddingLeft: '1.5rem', listStyle: 'disc' }}>
-                              {(typeof combinedData.contributors === 'string' ? 
-                                combinedData.contributors.split(',').map(contributor => contributor.trim()) : 
-                                [combinedData.contributors]
-                              ).map((contributor, idx) => (
-                                <li key={idx}>{contributor}</li>
-                              ))}
-                            </ul>
-                          )
-                        ) : (
-                          <Text>No contributors information available.</Text>
-                        )}
-                      </>
-                    )}
-                  </div>
+                <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: 8 }}>
+                  <PDFViewer style={{ width: '100%', height: '500px' }}>
+                    <MyDocument data={combinedData} />
+                  </PDFViewer>
                 </div>
               )}
             </Tabs.Panel>
@@ -542,7 +551,6 @@ export default function JobShow() {
         </div>
       </div>
 
-      {/* Right sidebar */}
       <div style={{ width: '384px', borderLeft: '1px solid #202020', padding: '1.5rem' }}>
         <div style={{ marginBottom: '2rem' }}>
           <Text c="dimmed" mb="xs">
