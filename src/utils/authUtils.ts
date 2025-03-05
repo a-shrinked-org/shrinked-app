@@ -95,7 +95,7 @@ export const authUtils = {
  * Custom hook that wraps the auth utilities with Refine hooks
  * Use this in components that need to handle auth and show notifications
  */
-export const useAuth = () => {
+export function useAuth() {
   const { data: identity, refetch: refetchIdentity } = useGetIdentity();
   const { open } = useNotification();
   const { list } = useNavigation();
@@ -152,6 +152,4 @@ export const useAuth = () => {
 	isRefreshing,
 	identity
   };
-};
-
-export default useAuth;
+}
