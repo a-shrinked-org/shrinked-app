@@ -4,27 +4,31 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance, AxiosError, AxiosResponse } from "axios";
+import axios, { AxiosInstance, AxiosError } from "axios";
 
 const axiosInstance = axios.create();
 
 axiosInstance.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response) => {
+	return response;
+  },
   (error: AxiosError) => {
 	const customError: HttpError = {
-	  message: (error.response?.data as any)?.message || "An unexpected error occurred",
-	  statusCode: error.response?.status || 500,
+	  ...error,
+	  message: error.response?.data?.message || "An unexpected error occurred",
+	  statusCode: error.response?.status,
 	};
 	return Promise.reject(customError);
   }
 );
 
-const generateFilters = (filters?: CrudFilters): { [key: string]: any } => {
+const generateFilters = (filters?: CrudFilters) => {
   const queryFilters: { [key: string]: any } = {};
 
   filters?.forEach((filter) => {
 	if ("field" in filter) {
 	  const { field, operator, value } = filter;
+
 	  if (operator === "eq") {
 		queryFilters[field] = value;
 	  }
@@ -34,12 +38,14 @@ const generateFilters = (filters?: CrudFilters): { [key: string]: any } => {
   return queryFilters;
 };
 
-const generateSort = (sorters?: CrudSorting): { sort?: string; order?: string } => {
+const generateSort = (sorters?: CrudSorting) => {
   if (sorters && sorters.length > 0) {
 	const sort = sorters[0].field;
 	const order = sorters[0].order;
+
 	return { sort, order };
   }
+
   return {};
 };
 
@@ -49,131 +55,113 @@ export const shrinkedDataProvider = (
 ): Partial<DataProvider> => ({
   getList: async ({ resource, pagination, filters, sorters, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs/key" ? "" : ""}`;
+
 	const { current = 1, pageSize = 10 } = pagination ?? {};
 
-	try {
-	  const { data } = await httpClient.get(url, {
-		params: {
-		  page: current,
-		  limit: pageSize,
-		  ...generateFilters(filters),
-		  ...generateSort(sorters),
-		},
-		headers: meta?.headers,
-	  });
+	const { data } = await httpClient.get(url, {
+	  params: {
+		page: current,
+		limit: pageSize,
+		...generateFilters(filters),
+		...generateSort(sorters),
+	  },
+	  headers: meta?.headers,
+	});
 
-	  return {
-		data: data.data || data,
-		total: data.total || (data.data || data).length,
-	  };
-	} catch (error) {
-	  // Explicitly type error as AxiosError or unknown, but let interceptor handle it
-	  throw error as AxiosError | HttpError;
-	}
+	return {
+	  data: data.data || data,
+	  total: data.total || (data.data || data).length,
+	};
   },
 
   getOne: async ({ resource, id, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
 
-	try {
-	  const { data } = await httpClient.get(url, {
-		headers: meta?.headers,
-	  });
+	const { data } = await httpClient.get(url, {
+	  headers: meta?.headers,
+	});
 
-	  return { data };
-	} catch (error) {
-	  throw error as AxiosError | HttpError;
-	}
+	return {
+	  data,
+	};
   },
 
   create: async ({ resource, variables, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
 
-	try {
-	  const { data } = await httpClient.post(url, variables, {
-		headers: meta?.headers,
-	  });
+	const { data } = await httpClient.post(url, variables, {
+	  headers: meta?.headers,
+	});
 
-	  return { data };
-	} catch (error) {
-	  throw error as AxiosError | HttpError;
-	}
+	return {
+	  data,
+	};
   },
 
   update: async ({ resource, id, variables, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
 
-	try {
-	  const { data } = await httpClient.patch(url, variables, {
-		headers: meta?.headers,
-	  });
+	const { data } = await httpClient.patch(url, variables, {
+	  headers: meta?.headers,
+	});
 
-	  return { data };
-	} catch (error) {
-	  throw error as AxiosError | HttpError;
-	}
+	return {
+	  data,
+	};
   },
 
   deleteOne: async ({ resource, id, variables, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
 
-	try {
-	  const { data } = await httpClient.delete(url, {
-		data: variables,
-		headers: meta?.headers,
-	  });
+	const { data } = await httpClient.delete(url, {
+	  data: variables,
+	  headers: meta?.headers,
+	});
 
-	  return { data };
-	} catch (error) {
-	  throw error as AxiosError | HttpError;
-	}
+	return {
+	  data,
+	};
   },
 
   getMany: async ({ resource, ids, meta }) => {
 	const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
 
-	try {
-	  const { data } = await httpClient.get(url, {
-		params: { ids: ids.join(",") },
-		headers: meta?.headers,
-	  });
+	const { data } = await httpClient.get(url, {
+	  params: { ids: ids.join(",") },
+	  headers: meta?.headers,
+	});
 
-	  return { data };
-	} catch (error) {
-	  throw error as AxiosError | HttpError;
-	}
+	return {
+	  data,
+	};
   },
 
   getApiUrl: () => apiUrl,
 
   custom: async ({ url, method, payload, query, headers }) => {
-	try {
-	  let axiosResponse: AxiosResponse;
-
-	  switch (method) {
-		case "put":
-		case "post":
-		case "patch":
-		  axiosResponse = await httpClient[method](url, payload, { headers });
-		  break;
-		case "delete":
-		  axiosResponse = await httpClient.delete(url, {
-			data: payload,
-			headers,
-		  });
-		  break;
-		default:
-		  axiosResponse = await httpClient.get(url, {
-			params: query,
-			headers,
-		  });
-		  break;
-	  }
-
-	  const { data } = axiosResponse;
-	  return { data };
-	} catch (error) {
-	  throw error as AxiosError | HttpError;
+	let axiosResponse;
+	
+	switch (method) {
+	  case "put":
+	  case "post":
+	  case "patch":
+		axiosResponse = await httpClient[method](url, payload, { headers });
+		break;
+	  case "delete":
+		axiosResponse = await httpClient.delete(url, {
+		  data: payload,
+		  headers: headers,
+		});
+		break;
+	  default:
+		axiosResponse = await httpClient.get(url, {
+		  params: query,
+		  headers,
+		});
+		break;
 	}
+
+	const { data } = axiosResponse;
+	return { data };
   },
 });
