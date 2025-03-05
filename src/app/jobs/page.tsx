@@ -231,9 +231,7 @@ export default function JobList() {
   const {
     getHeaderGroups,
     getRowModel,
-    refineCore: { 
-      tableQueryResult: { data: tableData, refetch }
-    },
+    refineCore: { tableQueryResult },
     getState,
     setPageIndex,
     getCanPreviousPage,
@@ -265,7 +263,7 @@ export default function JobList() {
             // Attempt to refresh token
             authUtils.refreshToken().then(success => {
               if (success) {
-                refetch(); // Retry the request if token refresh was successful
+                tableQueryResult.refetch(); // Retry the request if token refresh was successful
               }
             });
           } else {
@@ -280,6 +278,14 @@ export default function JobList() {
       }
     }
   });
+
+  // Extract data after we've handled the hooks setup
+  const tableData = tableQueryResult.data;
+
+  // Log table data for debugging
+  useEffect(() => {
+    console.log("Current table data:", tableData);
+  }, [tableData]);
 
   // Enhanced status check function with better error handling
   const checkStatus = useCallback(async () => {
@@ -307,36 +313,49 @@ export default function JobList() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        const [apiResponse, processingResponse] = await Promise.all([
-          fetch(`${API_CONFIG.API_URL}/status`, {
+        let apiResponse: Response;
+        let processingResponse: Response;
+        
+        try {
+          apiResponse = await fetch(`${API_CONFIG.API_URL}/status`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
             signal: controller.signal
-          }).catch(e => {
-            return { ok: false, status: e.name === 'AbortError' ? 'timeout' : 500 };
-          }),
-          
-          fetch(`${API_CONFIG.API_URL}/status`, {
+          });
+        } catch (e) {
+          console.error("API status request failed:", e);
+          apiResponse = new Response(JSON.stringify({ status: "Error" }), { 
+            status: e.name === 'AbortError' ? 408 : 500, 
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        try {
+          processingResponse = await fetch(`${API_CONFIG.API_URL}/status`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
             signal: controller.signal
-          }).catch(e => {
-            return { ok: false, status: e.name === 'AbortError' ? 'timeout' : 500 };
-          })
-        ]);
+          });
+        } catch (e) {
+          console.error("Processing status request failed:", e);
+          processingResponse = new Response(JSON.stringify({ status: "Error" }), { 
+            status: e.name === 'AbortError' ? 408 : 500, 
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
         
         clearTimeout(timeoutId);
         
         let combinedStatus = "";
         
         // Handle API status
-        if (apiResponse.status === 'timeout') {
+        if (apiResponse.status === 408) {
           combinedStatus += "API: Request timed out after 10 seconds.\n";
         } else if (apiResponse.status === 521 || apiResponse.status === 522 || apiResponse.status === 523) {
           combinedStatus += "API: The server is currently unreachable (Cloudflare error).\n";
@@ -350,7 +369,7 @@ export default function JobList() {
         }
         
         // Handle Processing status
-        if (processingResponse.status === 'timeout') {
+        if (processingResponse.status === 408) {
           combinedStatus += "Processing: Request timed out after 10 seconds.";
         } else if (processingResponse.status === 521 || processingResponse.status === 522 || processingResponse.status === 523) {
           combinedStatus += "Processing: The server is currently unreachable (Cloudflare error).";
@@ -376,11 +395,6 @@ export default function JobList() {
       setIsLoading(false);
     }
   }, [identity?.token]);
-
-  // Log table data for debugging
-  useEffect(() => {
-    console.log("Current table data:", tableData);
-  }, [tableData]);
 
   // Loading state
   if (!identity?.token) {
