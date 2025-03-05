@@ -97,7 +97,7 @@ export const authUtils = {
  */
 export function useAuth() {
   const { data: identity, refetch: refetchIdentity } = useGetIdentity();
-  const { open } = useNotification();
+  const notificationHook = useNotification();
   const { list } = useNavigation();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -110,29 +110,44 @@ export function useAuth() {
 	  
 	  if (success) {
 		// Refresh identity to update Refine's authentication state
-		await refetchIdentity();
-		open({
-		  type: "success",
-		  message: "Session refreshed",
-		  description: "Your authentication has been refreshed"
-		});
+		if (refetchIdentity) {
+		  await refetchIdentity();
+		}
+		
+		// Only show notification if the hook is available
+		if (notificationHook?.open) {
+		  notificationHook.open({
+			type: "success",
+			message: "Session refreshed",
+			description: "Your authentication has been refreshed"
+		  });
+		}
+		
 		return true;
 	  } else {
-		open({
-		  type: "error",
-		  message: "Authentication error",
-		  description: "Failed to refresh your session. Please log in again."
-		});
+		// Only show notification if the hook is available
+		if (notificationHook?.open) {
+		  notificationHook.open({
+			type: "error",
+			message: "Authentication error",
+			description: "Failed to refresh your session. Please log in again."
+		  });
+		}
+		
 		// Redirect to login on failure
 		list('/login');
 		return false;
 	  }
 	} catch (error) {
-	  open({
-		type: "error",
-		message: "Authentication error",
-		description: error instanceof Error ? error.message : "Unknown error"
-	  });
+	  // Only show notification if the hook is available
+	  if (notificationHook?.open) {
+		notificationHook.open({
+		  type: "error",
+		  message: "Authentication error",
+		  description: error instanceof Error ? error.message : "Unknown error"
+		});
+	  }
+	  
 	  return false;
 	} finally {
 	  setIsRefreshing(false);
