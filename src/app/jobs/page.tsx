@@ -231,7 +231,7 @@ export default function JobList() {
   const {
     getHeaderGroups,
     getRowModel,
-    refineCore: { tableQueryResult },
+    refineCore,
     getState,
     setPageIndex,
     getCanPreviousPage,
@@ -262,8 +262,8 @@ export default function JobList() {
             setError("Authentication error. Please log in again.");
             // Attempt to refresh token
             authUtils.refreshToken().then(success => {
-              if (success) {
-                tableQueryResult.refetch(); // Retry the request if token refresh was successful
+              if (success && refineCore.tableQueryResult?.refetch) {
+                refineCore.tableQueryResult.refetch(); // Retry the request if token refresh was successful
               }
             });
           } else {
@@ -280,121 +280,29 @@ export default function JobList() {
   });
 
   // Extract data after we've handled the hooks setup
-  const tableData = tableQueryResult.data;
+  const tableData = refineCore.tableQueryResult.data;
 
   // Log table data for debugging
   useEffect(() => {
     console.log("Current table data:", tableData);
   }, [tableData]);
 
-  // Enhanced status check function with better error handling
+  // Use centralized status check function
   const checkStatus = useCallback(async () => {
     setIsLoading(true);
     setStatusResult(null);
     setIsStatusModalOpen(true);
     
     try {
-      // Check if we're online
-      if (!navigator.onLine) {
-        setStatusResult("You appear to be offline. Please check your internet connection.");
-        return;
-      }
-      
-      // Use the centralized auth token
-      const token = authUtils.getAccessToken() || identity?.token;
-      
-      if (!token) {
-        setStatusResult("Authentication required to check server status.");
-        return;
-      }
-      
-      try {
-        // Make status check requests with timeouts
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-        
-        let apiResponse: Response;
-        let processingResponse: Response;
-        
-        try {
-          apiResponse = await fetch(`${API_CONFIG.API_URL}/status`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            signal: controller.signal
-          });
-        } catch (e) {
-          console.error("API status request failed:", e);
-          apiResponse = new Response(JSON.stringify({ status: "Error" }), { 
-            status: e.name === 'AbortError' ? 408 : 500, 
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        
-        try {
-          processingResponse = await fetch(`${API_CONFIG.API_URL}/status`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            signal: controller.signal
-          });
-        } catch (e) {
-          console.error("Processing status request failed:", e);
-          processingResponse = new Response(JSON.stringify({ status: "Error" }), { 
-            status: e.name === 'AbortError' ? 408 : 500, 
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        
-        clearTimeout(timeoutId);
-        
-        let combinedStatus = "";
-        
-        // Handle API status
-        if (apiResponse.status === 408) {
-          combinedStatus += "API: Request timed out after 10 seconds.\n";
-        } else if (apiResponse.status === 521 || apiResponse.status === 522 || apiResponse.status === 523) {
-          combinedStatus += "API: The server is currently unreachable (Cloudflare error).\n";
-        } else if (apiResponse.status === 502) {
-          combinedStatus += "API: Server is under maintenance.\n";
-        } else if (!apiResponse.ok) {
-          combinedStatus += `API: Error ${apiResponse.status}\n`;
-        } else {
-          const apiResult = await apiResponse.json();
-          combinedStatus += `API: ${apiResult.status || 'Ok'}\n`;
-        }
-        
-        // Handle Processing status
-        if (processingResponse.status === 408) {
-          combinedStatus += "Processing: Request timed out after 10 seconds.";
-        } else if (processingResponse.status === 521 || processingResponse.status === 522 || processingResponse.status === 523) {
-          combinedStatus += "Processing: The server is currently unreachable (Cloudflare error).";
-        } else if (processingResponse.status === 502) {
-          combinedStatus += "Processing: Server is under maintenance.";
-        } else if (!processingResponse.ok) {
-          combinedStatus += `Processing: Error ${processingResponse.status}`;
-        } else {
-          const processingResult = await processingResponse.json();
-          combinedStatus += `Processing: ${processingResult.status || 'Ok'}`;
-        }
-        
-        setStatusResult(combinedStatus);
-        
-      } catch (fetchError) {
-        console.error("Error fetching status:", fetchError);
-        setStatusResult(`Error checking status: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
-      }
+      const status = await authUtils.checkServiceStatus();
+      setStatusResult(status);
     } catch (error) {
-      console.error("Error in status check:", error);
-      setStatusResult(`Error checking status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error checking status:", error);
+      setStatusResult(error instanceof Error ? error.message : "Unknown error occurred");
     } finally {
       setIsLoading(false);
     }
-  }, [identity?.token]);
+  }, []);
 
   // Loading state
   if (!identity?.token) {
