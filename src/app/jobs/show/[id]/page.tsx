@@ -729,3 +729,18 @@ export default function JobShow() {
                     }}
                   >
                     <Text fw={500} c="white">
+                      No steps available
+                    </Text>
+                    <Text c="dimmed" size="sm">
+                      Processing information unavailable
+                    </Text>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
