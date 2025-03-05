@@ -629,7 +629,7 @@ export default function JobShow() {
         <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Button 
             variant="outline" 
-            leftSection={<IconArrowLeft size={16} />}
+            leftSection={<ArrowLeft size={16} />}
             onClick={() => list('jobs')}
             styles={{
               root: {
@@ -647,7 +647,7 @@ export default function JobShow() {
           <Group gap="xs">
             <Button 
               variant="outline"
-              leftSection={<IconShare size={16} />}
+              leftSection={<Share size={16} />}
               styles={{
                 root: {
                   backgroundColor: '#131313',
@@ -685,7 +685,7 @@ export default function JobShow() {
                 },
               }}
             >
-              <IconDotsVertical size={20} />
+              <DotsVertical size={20} />
             </ActionIcon>
           </Group>
         </div>
@@ -769,7 +769,7 @@ export default function JobShow() {
                   <Text>
                     Processed document data not available. {errorMessage && `Error: ${errorMessage}`}
                     <Button 
-                      leftSection={<IconRefresh size={16} />} 
+                      leftSection={<Refresh size={16} />} 
                       onClick={manualRefetch} 
                       mt="md"
                       styles={{
