@@ -21,7 +21,7 @@ import {
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-// Import the auth hook
+// Import both authUtils and useAuth
 import { authUtils, useAuth } from "@/utils/authUtils";
 
 // Configure react-pdf worker
@@ -89,13 +89,13 @@ export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
   const jobId = params.id as string;
-  const { data: identity } = useGetIdentity<Identity>();
+  const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
   const [activeTab, setActiveTab] = useState("preview");
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-  // Use our centralized auth hook
+  // Use our centralized auth hook - this provides refreshToken and handleAuthError
   const { refreshToken, handleAuthError } = useAuth();
 
   // Fetch job details
@@ -157,7 +157,14 @@ export default function JobShow() {
         if (error.status === 401) {
           console.log("Unauthorized - Attempting token refresh...");
           setErrorMessage("Authentication failed. Attempting to refresh token...");
-          handleTokenRefresh();
+          
+          // Use our centralized token refresh which will handle all token refresh logic
+          refreshToken().then(success => {
+            if (success) {
+              // Only refetch the processing document if token refresh was successful
+              refetchProcessing();
+            }
+          });
         } else {
           setErrorMessage("Failed to load processing document: " + (error.message || "Unknown error"));
         }
@@ -169,40 +176,6 @@ export default function JobShow() {
       } : undefined
     }
   });
-  
-  // Token refresh function
-  const handleTokenRefresh = async () => {
-    try {
-      // Simulate a token refresh call (replace with actual API call to /auth/refresh)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-        method: "POST",
-        headers: {
-          'Authorization': `Bearer ${identity?.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ refreshToken: identity?.token }) // Adjust to use actual refresh token if separate
-      });
-      
-      if (response.ok) {
-        const refreshedData = await response.json();
-        console.log("Token refresh successful:", refreshedData);
-        // Update identity with new token (this assumes Refine updates identity internally)
-        refetchIdentity();
-        setErrorMessage("Token refreshed successfully. Reloading data...");
-        // Refetch processing document with new token
-        refetchProcessing();
-      } else {
-        console.error("Token refresh failed:", response.status);
-        setErrorMessage("Failed to refresh token. Please log in again.");
-        // Optionally redirect to login
-        list('/login');
-      }
-    } catch (error: unknown) {
-      console.error("Token refresh error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      setErrorMessage("Error refreshing token: " + errorMessage);
-    }
-  };
 
   const formatDuration = (durationInMs?: number) => {
     if (!durationInMs) return "N/A";
