@@ -137,7 +137,7 @@ export default function JobShow() {
     }
   });
 
-  // Fetch processing document with retries
+  // Memoize getProcessingDocument with stable dependencies
   const getProcessingDocument = useCallback(async (attempt = 0) => {
     const MAX_ATTEMPTS = 3;
     if (attempt >= MAX_ATTEMPTS) {
@@ -145,18 +145,18 @@ export default function JobShow() {
       setErrorMessage(`Failed to load document after ${MAX_ATTEMPTS} attempts. Please try again.`);
       return;
     }
-
+  
     if (!processingDocId || !identity?.token) {
       console.log("Missing processingDocId or token, skipping fetch");
       setErrorMessage("Missing required data to fetch document");
       return;
     }
-
+  
     try {
       setIsLoadingDoc(true);
       const token = localStorage.getItem('accessToken') || identity?.token;
       console.log(`Fetching document attempt ${attempt + 1} with token prefix:`, token.substring(0, 20) + "...");
-
+  
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
         method: 'GET',
         headers: {
@@ -164,7 +164,7 @@ export default function JobShow() {
           'Content-Type': 'application/json',
         },
       });
-
+  
       if (response.status === 401 || response.status === 403) {
         console.log(`Attempt ${attempt + 1} failed with ${response.status}. Refreshing token...`);
         const success = await refreshToken();
@@ -178,11 +178,11 @@ export default function JobShow() {
         }
         throw new Error("Token refresh failed");
       }
-
+  
       if (!response.ok) {
         throw new Error(`Fetch failed with status: ${response.status} - ${response.statusText}`);
       }
-
+  
       const data = await response.json();
       console.log("Document fetched successfully:", data);
       setProcessingDoc(data);
@@ -196,15 +196,15 @@ export default function JobShow() {
     } finally {
       setIsLoadingDoc(false);
     }
-  }, [processingDocId, identity?.token, refreshToken, identityRefetch]);
-
-  // Trigger fetch when processingDocId or token changes
+  }, [processingDocId, refreshToken, identityRefetch]); // Stable dependencies
+  
+  // Fetch only when necessary
   useEffect(() => {
-    if (processingDocId && identity?.token) {
+    if (processingDocId && identity?.token && !processingDoc && !isLoadingDoc) {
       console.log("New processingDocId detected, starting fetch:", processingDocId);
       getProcessingDocument(0);
     }
-  }, [processingDocId, identity?.token, getProcessingDocument]);
+  }, [processingDocId, identity?.token, processingDoc, isLoadingDoc, getProcessingDocument]);
 
   // Manual retry function
   const manualRefetch = () => {
