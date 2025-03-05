@@ -19,9 +19,8 @@ import {
   IconRefresh
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-// Import both authUtils and useAuth
 import { authUtils, useAuth } from "@/utils/authUtils";
 
 // Configure react-pdf worker
@@ -96,14 +95,6 @@ export default function JobShow() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
   
-  // Track fetch attempts to prevent endless retries on failure
-  const [fetchAttempts, setFetchAttempts] = useState(0);
-  const MAX_FETCH_ATTEMPTS = 3;
-  
-  // Use a ref to track the current token for comparison
-  const currentTokenRef = useRef<string | null>(null);
-  
-  // Use our centralized auth hook - this provides refreshToken and handleAuthError
   const { refreshToken, handleAuthError } = useAuth();
 
   // Fetch job details
@@ -114,18 +105,13 @@ export default function JobShow() {
       enabled: !!jobId && !!identity?.token,
       onSuccess: (data) => {
         console.log("Show query success:", data);
-        
-        // Extract processing document ID from the PLATOGRAM_PROCESSING step
         const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
         if (processingStep) {
           console.log("Found PLATOGRAM_PROCESSING step:", processingStep);
-          // Use resultId from data, not the step _id
           const resultId = processingStep.data?.resultId;
           if (resultId) {
             console.log("Extracted processingDocId (resultId):", resultId);
             setProcessingDocId(resultId);
-            // Reset fetch attempts when we get a new processingDocId
-            setFetchAttempts(0);
           } else {
             console.log("No resultId found in PLATOGRAM_PROCESSING step data");
             setProcessingDocId(null);
@@ -141,8 +127,6 @@ export default function JobShow() {
       onError: (error) => {
         console.error("Show query error:", error);
         setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
-        
-        // Use our centralized auth error handler
         handleAuthError(error);
       }
     },
@@ -152,150 +136,89 @@ export default function JobShow() {
       }
     }
   });
-  
-  // Direct method to fetch processing document with better error handling
-  const getProcessingDocument = useCallback(async () => {
-    if (!processingDocId) {
-      console.log("No processingDocId available, skipping fetch");
+
+  // Fetch processing document with retries
+  const getProcessingDocument = useCallback(async (attempt = 0) => {
+    const MAX_ATTEMPTS = 3;
+    if (attempt >= MAX_ATTEMPTS) {
+      console.log(`Max fetch attempts (${MAX_ATTEMPTS}) reached`);
+      setErrorMessage(`Failed to load document after ${MAX_ATTEMPTS} attempts. Please try again.`);
       return;
     }
-    
-    // Update current token ref for comparison
-    const token = localStorage.getItem('accessToken') || identity?.token;
-    currentTokenRef.current = token || null;
-    
-    // Increment fetch attempt counter
-    setFetchAttempts(prev => prev + 1);
-    
+
+    if (!processingDocId || !identity?.token) {
+      console.log("Missing processingDocId or token, skipping fetch");
+      setErrorMessage("Missing required data to fetch document");
+      return;
+    }
+
     try {
       setIsLoadingDoc(true);
-      
-      if (!token) {
-        setErrorMessage("No authentication token available");
-        return;
-      }
-      
-      console.log(`Fetching document attempt ${fetchAttempts + 1} with token prefix:`, token.substring(0, 20) + "...");
-      
+      const token = localStorage.getItem('accessToken') || identity?.token;
+      console.log(`Fetching document attempt ${attempt + 1} with token prefix:`, token.substring(0, 20) + "...");
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
-      
+
       if (response.status === 401 || response.status === 403) {
-        console.log("Document fetch unauthorized (401/403) - Attempting token refresh...");
-        setErrorMessage("Authentication failed. Attempting to refresh token...");
-        
+        console.log(`Attempt ${attempt + 1} failed with ${response.status}. Refreshing token...`);
         const success = await refreshToken();
         if (success) {
-          // Wait for identity to refresh with the new token
           await identityRefetch();
-          
-          // Try the fetch again immediately with the new token
           const newToken = localStorage.getItem('accessToken');
           if (newToken) {
-            console.log("Token refreshed successfully, retrying document fetch with new token");
-            
-            const newResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${newToken}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (newResponse.ok) {
-              const data = await newResponse.json();
-              console.log("Document fetched successfully after token refresh:", data);
-              setProcessingDoc(data);
-              setErrorMessage(null);
-              // Reset fetch attempts on success
-              setFetchAttempts(0);
-              return;
-            } else {
-              throw new Error(`Failed to fetch document after token refresh: ${newResponse.status}`);
-            }
+            console.log("Token refreshed, retrying...");
+            return await getProcessingDocument(attempt + 1); // Recursive retry
           }
-        } else {
-          setErrorMessage("Failed to refresh authentication. Please log in again.");
-          return;
         }
+        throw new Error("Token refresh failed");
       }
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to fetch document: ${response.status}`);
+        throw new Error(`Fetch failed with status: ${response.status} - ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       console.log("Document fetched successfully:", data);
       setProcessingDoc(data);
       setErrorMessage(null);
-      // Reset fetch attempts on success
-      setFetchAttempts(0);
     } catch (error) {
-      console.error("Error fetching processing document:", error);
-      setErrorMessage("Failed to load processing document: " + 
-        (error instanceof Error ? error.message : "Unknown error"));
+      console.error(`Attempt ${attempt + 1} failed:`, error);
+      setErrorMessage(`Failed to load document: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second delay before retry
+      return await getProcessingDocument(attempt + 1); // Retry on failure
     } finally {
       setIsLoadingDoc(false);
     }
-  }, [processingDocId, identity?.token, refreshToken, identityRefetch, fetchAttempts]);
-  
-  // Add a button to manually refetch when needed
-  const manualRefetch = () => {
-    // Reset fetch attempts when manually retrying
-    setFetchAttempts(0);
-    getProcessingDocument();
-  };
-  
-  // Modified useEffect to fetch document with retries but prevent infinite loops
+  }, [processingDocId, identity?.token, refreshToken, identityRefetch]);
+
+  // Trigger fetch when processingDocId or token changes
   useEffect(() => {
-    if (processingDocId && identity?.token && fetchAttempts < MAX_FETCH_ATTEMPTS) {
-      console.log(`ProcessingDocId available, identity token available, and fetch attempts (${fetchAttempts}) < max (${MAX_FETCH_ATTEMPTS})`);
-      getProcessingDocument();
-    } else if (fetchAttempts >= MAX_FETCH_ATTEMPTS) {
-      console.log(`Max fetch attempts (${MAX_FETCH_ATTEMPTS}) reached. Use the retry button to try again.`);
-      setErrorMessage(`Failed to load processing document after ${MAX_FETCH_ATTEMPTS} attempts. Please try again.`);
+    if (processingDocId && identity?.token) {
+      console.log("New processingDocId detected, starting fetch:", processingDocId);
+      getProcessingDocument(0);
     }
-  }, [processingDocId, identity, getProcessingDocument, fetchAttempts]);
-  
-  // Monitor localStorage for token changes
-  useEffect(() => {
-    const checkTokenAndRefetch = () => {
-      if (processingDocId) {
-        const newToken = localStorage.getItem('accessToken');
-        
-        // Only refetch if token has actually changed
-        if (newToken && newToken !== currentTokenRef.current) {
-          console.log("Token changed, resetting fetch attempts and refetching");
-          currentTokenRef.current = newToken;
-          setFetchAttempts(0);
-          getProcessingDocument();
-        }
-      }
-    };
-    
-    // Listen for localStorage changes
-    window.addEventListener('storage', checkTokenAndRefetch);
-    
-    return () => {
-      window.removeEventListener('storage', checkTokenAndRefetch);
-    };
-  }, [processingDocId, getProcessingDocument]);
+  }, [processingDocId, identity?.token, getProcessingDocument]);
+
+  // Manual retry function
+  const manualRefetch = () => {
+    console.log("Manual refetch triggered");
+    getProcessingDocument(0);
+  };
 
   const formatDuration = (durationInMs?: number) => {
     if (!durationInMs) return "N/A";
-    
     const totalSeconds = Math.floor(durationInMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    
     return `${minutes}m ${seconds}s`;
   };
-  
+
   const formatText = (text: string) => {
     return text
       ?.toLowerCase()
@@ -303,18 +226,17 @@ export default function JobShow() {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ') || '';
   };
-  
+
   const getFilenameFromLink = (link?: string) => {
     if (!link) return "";
     const parts = link.split("/");
     return parts[parts.length - 1] || "";
   };
-  
+
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
   const isDocLoading = isLoading || isLoadingDoc;
 
-  // Log data to debug
   console.log("Fetched record:", record);
   console.log("Processing document:", processingDoc);
   console.log("Using token for processing document:", 
@@ -368,7 +290,6 @@ export default function JobShow() {
     );
   }
 
-  // Combine job record data with processing document data
   const combinedData = {
     title: processingDoc?.title || record?.output?.title || record?.jobName,
     abstract: processingDoc?.abstract || record?.output?.abstract || "",
