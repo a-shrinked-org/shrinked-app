@@ -232,8 +232,7 @@ export default function JobList() {
     getHeaderGroups,
     getRowModel,
     refineCore: { 
-      tableQueryResult: { data: tableData },
-      refetch 
+      tableQueryResult: { data: tableData, refetch }
     },
     getState,
     setPageIndex,
