@@ -1,5 +1,5 @@
 import { AuthProvider } from "@refinedev/core";
-import { authUtils } from "../utils/authUtils"; // Import the auth utilities
+import { authUtils } from "./utils/authUtils"; // Import the auth utilities
 
 interface UserData {
   id?: string;
