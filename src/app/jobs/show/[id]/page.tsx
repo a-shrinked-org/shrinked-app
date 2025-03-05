@@ -19,7 +19,7 @@ import {
   IconRefresh
 } from '@tabler/icons-react';
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 // Import both authUtils and useAuth
 import { authUtils, useAuth } from "@/utils/authUtils";
@@ -94,6 +94,7 @@ export default function JobShow() {
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
   
   // Use our centralized auth hook - this provides refreshToken and handleAuthError
   const { refreshToken, handleAuthError } = useAuth();
@@ -137,48 +138,94 @@ export default function JobShow() {
       }
     },
     meta: {
-      headers: identity?.token ? {
-        'Authorization': `Bearer ${identity.token}`
-      } : undefined
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('accessToken') || identity?.token || ''}`
+      }
     }
   });
   
-  // Fetch processing document data when processingDocId is available
-  const { data: processingData, isLoading: isProcessingLoading, refetch: refetchProcessing, isError: isProcessingError } = useCustom<ProcessingDocument>({
-    url: `${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`,
-    method: "get",
-    queryOptions: {
-      enabled: !!processingDocId && !!identity?.token,
-      onSuccess: (data) => {
-        console.log("Processing document loaded:", data);
-      },
-      onError: (error) => {
-        console.error("Processing document error:", error);
-        if (error.status === 401) {
-          console.log("Unauthorized - Attempting token refresh...");
-          setErrorMessage("Authentication failed. Attempting to refresh token...");
-          
-          // Use our centralized token refresh which will handle all token refresh logic
-          refreshToken().then(success => {
-            if (success) {
-              // First wait for identity to refresh to get the new token
-              identityRefetch().then(() => {
-                // Now refetch processing document with the new token
-                refetchProcessing();
-              });
-            }
-          });
+  // Direct method to fetch processing document with better error handling
+  const getProcessingDocument = useCallback(async () => {
+    if (!processingDocId) return;
+    
+    try {
+      setIsLoadingDoc(true);
+      // Always use the latest token from localStorage first, then fall back to identity
+      const token = localStorage.getItem('accessToken') || identity?.token;
+      
+      if (!token) {
+        setErrorMessage("No authentication token available");
+        return;
+      }
+      
+      console.log("Fetching document with token prefix:", token.substring(0, 20) + "...");
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/processing/${processingDocId}/document`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.status === 401 || response.status === 403) {
+        console.log("Document fetch unauthorized (401/403) - Attempting token refresh...");
+        setErrorMessage("Authentication failed. Attempting to refresh token...");
+        
+        const success = await refreshToken();
+        if (success) {
+          // Wait for identity to refresh with the new token
+          await identityRefetch();
+          // Try again after token refresh (will be picked up by the useEffect)
+          console.log("Token refreshed successfully, will retry document fetch");
+          return;
         } else {
-          setErrorMessage("Failed to load processing document: " + (error.message || "Unknown error"));
+          setErrorMessage("Failed to refresh authentication. Please log in again.");
+          return;
         }
       }
-    },
-    meta: {
-      headers: identity?.token ? {
-        'Authorization': `Bearer ${identity.token}`
-      } : undefined
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch document: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Document fetched successfully:", data);
+      setProcessingDoc(data);
+      setErrorMessage(null);
+    } catch (error) {
+      console.error("Error fetching processing document:", error);
+      setErrorMessage("Failed to load processing document: " + 
+        (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setIsLoadingDoc(false);
     }
-  });
+  }, [processingDocId, identity?.token, refreshToken, identityRefetch]);
+  
+  // Fetch processing document when processingDocId is available or identity/token changes
+  useEffect(() => {
+    if (processingDocId && identity?.token) {
+      console.log("ProcessingDocId or identity changed, fetching document");
+      getProcessingDocument();
+    }
+  }, [processingDocId, identity, getProcessingDocument]);
+  
+  // Also refetch data when localStorage token changes
+  useEffect(() => {
+    const checkTokenAndRefetch = () => {
+      if (processingDocId) {
+        console.log("Storage event detected, checking if token changed");
+        getProcessingDocument();
+      }
+    };
+    
+    // Listen for localStorage changes
+    window.addEventListener('storage', checkTokenAndRefetch);
+    
+    return () => {
+      window.removeEventListener('storage', checkTokenAndRefetch);
+    };
+  }, [processingDocId, getProcessingDocument]);
 
   const formatDuration = (durationInMs?: number) => {
     if (!durationInMs) return "N/A";
@@ -206,13 +253,13 @@ export default function JobShow() {
   
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
-  const processingDoc = processingData?.data;
-  const isDocLoading = isLoading || (!!processingDocId && isProcessingLoading);
+  const isDocLoading = isLoading || isLoadingDoc;
 
   // Log data to debug
   console.log("Fetched record:", record);
   console.log("Processing document:", processingDoc);
-  console.log("Using token for processing document:", identity?.token);
+  console.log("Using token for processing document:", 
+    localStorage.getItem('accessToken')?.substring(0, 20) || identity?.token?.substring(0, 20) || 'none');
 
   if (!identity?.token) {
     return (
@@ -419,13 +466,13 @@ export default function JobShow() {
                   <LoadingOverlay visible={true} />
                   <div style={{ height: '300px' }}></div>
                 </div>
-              ) : isProcessingError || !processingDoc ? (
+              ) : errorMessage || !processingDoc ? (
                 <Box p="lg" bg="white" c="black" style={{ borderRadius: 8 }}>
                   <Text>
                     Processed document data not available. {errorMessage && `Error: ${errorMessage}`}
                     <Button 
                       leftSection={<IconRefresh size={16} />} 
-                      onClick={() => refetchProcessing()} 
+                      onClick={() => getProcessingDocument()} 
                       mt="md"
                       styles={{
                         root: {
