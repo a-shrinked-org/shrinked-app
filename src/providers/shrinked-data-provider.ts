@@ -4,21 +4,48 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosInstance } from "axios";
+
+// Type guard function to check for axios error shape
+function isAxiosError(error: unknown): error is { 
+  response?: { 
+	data?: { message?: string },
+	status?: number 
+  } 
+} {
+  return (
+	typeof error === 'object' && 
+	error !== null && 
+	'response' in error
+  );
+}
 
 const axiosInstance = axios.create();
 
-// Type the error properly as AxiosError
 axiosInstance.interceptors.response.use(
   (response) => {
 	return response;
   },
-  (error: AxiosError) => {
+  (error: unknown) => {
+	// Create a safely typed error object
 	const customError: HttpError = {
-	  ...error as any,
-	  message: error.response?.data?.message || "Error occurred",
-	  statusCode: error.response?.status,
+	  message: "An unexpected error occurred",
+	  statusCode: 500,
 	};
+	
+	// Only access properties if they exist
+	if (isAxiosError(error)) {
+	  if (error.response?.data?.message) {
+		customError.message = error.response.data.message;
+	  }
+	  
+	  if (error.response?.status) {
+		customError.statusCode = error.response.status;
+	  }
+	  
+	  // Copy any other properties safely
+	  Object.assign(customError, error);
+	}
 
 	return Promise.reject(customError);
   }
