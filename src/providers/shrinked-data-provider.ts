@@ -14,6 +14,7 @@ axiosInstance.interceptors.response.use(
   },
   (error) => {
 	const customError: HttpError = {
+	  ...error as any,  // Keep this line to spread the original error properties
 	  message: error.response?.data?.message || "An unexpected error occurred",
 	  statusCode: error.response?.status,
 	};
