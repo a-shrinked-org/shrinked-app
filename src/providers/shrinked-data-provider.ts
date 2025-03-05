@@ -13,13 +13,20 @@ axiosInstance.interceptors.response.use(
 	return response;
   },
   (error: any) => {
-	// Explicitly type the error as any
-	const responseData = error.response?.data as any;
+	// Create a properly typed HttpError object
 	const customError: HttpError = {
-	  ...error,
-	  message: responseData?.message || "An unexpected error occurred",
-	  statusCode: error.response?.status,
+	  // These two properties are required by the HttpError type
+	  message: error.response?.data?.message || "An unexpected error occurred",
+	  statusCode: error.response?.status || 500,
+	  
+	  // Optionally include any additional properties from the original error
+	  // This is where you can include the errors property if it exists
+	  ...(error.response?.data?.errors ? { errors: error.response.data.errors } : {}),
+	  
+	  // Spread the rest of the error properties
+	  ...error
 	};
+	
 	return Promise.reject(customError);
   }
 );
