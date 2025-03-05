@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { Paper, Text, Group, Stack, Badge, Timeline, Box } from '@mantine/core';
-import { IconCircleCheck, IconClock, IconAlertCircle } from '@tabler/icons-react';
+// Replace Tabler icons with Lucide icons
+import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 interface SimpleFlowProps {
   jobScenario?: string;
@@ -43,13 +44,13 @@ export default function SimpleListView({ jobScenario = '', jobStatus = 'PENDING'
   const getTimelineContent = (stepStatus: string) => {
     switch (stepStatus) {
       case 'completed':
-        return { color: 'green', icon: <IconCircleCheck size={16} /> };
+        return { color: 'green', icon: <CheckCircle size={16} /> };
       case 'in-progress':
-        return { color: 'blue', icon: <IconClock size={16} /> };
+        return { color: 'blue', icon: <Clock size={16} /> };
       case 'failed':
-        return { color: 'red', icon: <IconAlertCircle size={16} /> };
+        return { color: 'red', icon: <AlertCircle size={16} /> };
       default:
-        return { color: 'gray', icon: <IconClock size={16} /> };
+        return { color: 'gray', icon: <Clock size={16} /> };
     }
   };
   

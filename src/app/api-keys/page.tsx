@@ -18,15 +18,18 @@ import {
   Alert,
   Code,
 } from "@mantine/core";
+// Replace Tabler icons with Lucide icons
 import {
-  IconTrash,
-  IconCopy,
-  IconCheck,
-  IconPlus,
-  IconKey,
-} from "@tabler/icons-react";
+  Trash,
+  Copy,
+  Check,
+  Plus,
+  Key,
+} from 'lucide-react';
 import { RegenerateApiKeyButton } from "@/components/RegenerateApiKeyButton";
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface Identity {
   token?: string;
@@ -52,11 +55,13 @@ export default function ApiKeysList() {
     if (identity?.userId) return identity.userId;
 
     if (typeof window !== "undefined") {
-      const userStr = localStorage.getItem("user");
+      const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
       if (userStr) {
         try {
           const userData = JSON.parse(userStr);
-          if (userData.id) return userData.id;
+          if (userData.id || userData.userId || userData._id) {
+            return userData.id || userData.userId || userData._id;
+          }
         } catch (e) {
           console.error("Error parsing user data from localStorage", e);
         }
@@ -78,7 +83,10 @@ export default function ApiKeysList() {
 
   useEffect(() => {
     const fetchApiKeys = async () => {
-      if (!identity?.token) {
+      // Use centralized token management
+      const token = authUtils.getAccessToken() || identity?.token;
+      
+      if (!token) {
         console.log("No token available, skipping API keys fetch");
         return;
       }
@@ -88,11 +96,30 @@ export default function ApiKeysList() {
 
       try {
         console.log("Fetching API keys...");
-        const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
+        const fetchedApiKeys = await ApiKeyService.getApiKeys(token);
         console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
         setApiKeys(fetchedApiKeys);
       } catch (error) {
         console.error("Error fetching API keys:", error);
+        
+        // Try token refresh on auth errors
+        if (error instanceof Error && error.message.includes("401") || error.message.includes("403")) {
+          const refreshSuccess = await authUtils.refreshToken();
+          if (refreshSuccess) {
+            // Retry with new token
+            const newToken = authUtils.getAccessToken();
+            if (newToken) {
+              try {
+                const fetchedApiKeys = await ApiKeyService.getApiKeys(newToken);
+                setApiKeys(fetchedApiKeys);
+                return;
+              } catch (retryError) {
+                console.error("Error fetching API keys after token refresh:", retryError);
+              }
+            }
+          }
+        }
+        
         setApiKeys([]);
         setError("Error fetching API keys. Please try again later.");
       } finally {
@@ -106,16 +133,38 @@ export default function ApiKeysList() {
   }, [identity?.token]);
 
   const refreshApiKeys = async () => {
-    if (!identity?.token) return;
+    // Use centralized token management
+    const token = authUtils.getAccessToken() || identity?.token;
+    
+    if (!token) return;
 
     setIsLoadingKeys(true);
     setError(null);
 
     try {
-      const fetchedApiKeys = await ApiKeyService.getApiKeys(identity.token);
+      const fetchedApiKeys = await ApiKeyService.getApiKeys(token);
       setApiKeys(fetchedApiKeys);
     } catch (error) {
       console.error("Error refreshing API keys:", error);
+      
+      // Try token refresh on auth errors
+      if (error instanceof Error && (error.message.includes("401") || error.message.includes("403"))) {
+        const refreshSuccess = await authUtils.refreshToken();
+        if (refreshSuccess) {
+          // Retry with new token
+          const newToken = authUtils.getAccessToken();
+          if (newToken) {
+            try {
+              const fetchedApiKeys = await ApiKeyService.getApiKeys(newToken);
+              setApiKeys(fetchedApiKeys);
+              return;
+            } catch (retryError) {
+              console.error("Error fetching API keys after token refresh:", retryError);
+            }
+          }
+        }
+      }
+      
       setApiKeys([]);
       setError("Error refreshing API keys. Please try again later.");
     } finally {
@@ -127,12 +176,14 @@ export default function ApiKeysList() {
     if (!keyName) return;
 
     const effectiveUserId = userId || identity?.userId;
+    // Use centralized token management
+    const token = authUtils.getAccessToken() || identity?.token;
 
-    if (!effectiveUserId || !identity?.token) {
+    if (!effectiveUserId || !token) {
       console.error("Missing required data for creating API key:", {
         keyName: !!keyName,
         userId: !!effectiveUserId,
-        token: !!identity?.token,
+        token: !!token,
       });
       setError("Cannot create API key: User ID is missing");
       return;
@@ -143,7 +194,7 @@ export default function ApiKeysList() {
 
     try {
       console.log(`Creating API key for userId: ${effectiveUserId}`);
-      const newKey = await ApiKeyService.createApiKey(identity.token, effectiveUserId, keyName);
+      const newKey = await ApiKeyService.createApiKey(token, effectiveUserId, keyName);
       console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
 
       setNewApiKey(newKey.key);
@@ -153,6 +204,28 @@ export default function ApiKeysList() {
       refreshApiKeys();
     } catch (error) {
       console.error("Error creating API key:", error);
+      
+      // Try token refresh on auth errors
+      if (error instanceof Error && (error.message.includes("401") || error.message.includes("403"))) {
+        const refreshSuccess = await authUtils.refreshToken();
+        if (refreshSuccess) {
+          // Retry with new token
+          try {
+            const newToken = authUtils.getAccessToken();
+            if (newToken && effectiveUserId) {
+              const newKey = await ApiKeyService.createApiKey(newToken, effectiveUserId, keyName);
+              setNewApiKey(newKey.key);
+              setIsCreateModalOpen(false);
+              setIsModalOpen(true);
+              refreshApiKeys();
+              return;
+            }
+          } catch (retryError) {
+            console.error("Error creating API key after token refresh:", retryError);
+          }
+        }
+      }
+      
       setError(`Error creating API key: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
@@ -160,13 +233,35 @@ export default function ApiKeysList() {
   };
 
   const handleDeleteApiKey = async (keyId: string) => {
-    if (!identity?.token) return;
+    // Use centralized token management
+    const token = authUtils.getAccessToken() || identity?.token;
+    
+    if (!token) return;
 
     try {
-      await ApiKeyService.deleteApiKey(identity.token, keyId);
+      await ApiKeyService.deleteApiKey(token, keyId);
       refreshApiKeys();
     } catch (error) {
       console.error("Error deleting API key:", error);
+      
+      // Try token refresh on auth errors
+      if (error instanceof Error && (error.message.includes("401") || error.message.includes("403"))) {
+        const refreshSuccess = await authUtils.refreshToken();
+        if (refreshSuccess) {
+          // Retry with new token
+          const newToken = authUtils.getAccessToken();
+          if (newToken) {
+            try {
+              await ApiKeyService.deleteApiKey(newToken, keyId);
+              refreshApiKeys();
+              return;
+            } catch (retryError) {
+              console.error("Error deleting API key after token refresh:", retryError);
+            }
+          }
+        }
+      }
+      
       setError(`Error deleting API key: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -186,7 +281,10 @@ export default function ApiKeysList() {
     );
   }
 
-  if (!identity?.token) {
+  // Use centralized token management
+  const token = authUtils.getAccessToken() || identity?.token;
+  
+  if (!token) {
     return (
       <Box p="md">
         <Alert color="red" title="Authentication Required">
@@ -200,7 +298,7 @@ export default function ApiKeysList() {
     <Stack gap="md" p="md">
       <Group justify="space-between">
         <Title order={2}>API Keys</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
+        <Button leftSection={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
           Create API Key
         </Button>
       </Group>
@@ -239,7 +337,7 @@ export default function ApiKeysList() {
                 <Table.Tr key={key.id}>
                   <Table.Td>
                     <Group>
-                      <IconKey size={16} />
+                      <Key size={16} />
                       <Text>{key.name}</Text>
                     </Group>
                   </Table.Td>
@@ -251,7 +349,7 @@ export default function ApiKeysList() {
                       <CopyButton value={key.key} timeout={2000}>
                         {({ copied, copy }) => (
                           <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
-                            {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                            {copied ? <Check size={16} /> : <Copy size={16} />}
                           </ActionIcon>
                         )}
                       </CopyButton>
@@ -270,7 +368,7 @@ export default function ApiKeysList() {
                           handleDeleteApiKey(key.id);
                         }}
                       >
-                        <IconTrash size={16} />
+                        <Trash size={16} />
                       </ActionIcon>
                     </Group>
                   </Table.Td>
@@ -328,7 +426,7 @@ export default function ApiKeysList() {
                   size="xs"
                   color={copied ? 'teal' : 'blue'} 
                   onClick={copy}
-                  leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                  leftSection={copied ? <Check size={16} /> : <Copy size={16} />}
                 >
                   {copied ? "Copied" : "Copy"}
                 </Button>

@@ -15,15 +15,18 @@ import {
 } from '@mantine/core';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from "next-auth/react";
+// Replace Tabler icons with Lucide icons
 import { 
-  IconLayoutDashboard, 
-  IconBriefcase, 
-  IconCategory, 
-  IconLogout,
-  IconFiles,
-  IconKey
-} from '@tabler/icons-react';
+  LayoutDashboard, 
+  Briefcase, 
+  FolderTree, 
+  LogOut,
+  Files,
+  Key
+} from 'lucide-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface Identity {
   id?: string;
@@ -66,6 +69,8 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
     if (session) {
       signOut();
     } else {
+      // Use centralized auth utilities to clear storage
+      authUtils.clearAuthStorage();
       logout();
     }
   };
@@ -73,31 +78,31 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   const menuItems = [
     { 
       label: 'Dashboard', 
-      icon: IconLayoutDashboard,
+      icon: LayoutDashboard,
       href: '/',
       resource: "dashboard" 
     },
     { 
       label: 'Jobs', 
-      icon: IconBriefcase,
+      icon: Briefcase,
       href: '/jobs',
       resource: "jobs" 
     },
     { 
-      label: 'Files', 
-      icon: IconFiles,
+      label: 'docStore', 
+      icon: Files,
       href: '/output',
       resource: "output" 
     },
     { 
       label: 'API Keys', 
-      icon: IconKey,
+      icon: Key,
       href: '/api-keys',
       resource: "api-keys" 
     },
     { 
       label: 'Categories', 
-      icon: IconCategory,
+      icon: FolderTree,
       href: '/categories',
       resource: "categories" 
     },
@@ -134,7 +139,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
               <CanAccess key={item.href} resource={item.resource} action="list">
                 <MantineNavLink
                   label={item.label}
-                  leftSection={<item.icon size="1.2rem" stroke={1.5} />}
+                  leftSection={<item.icon size="1.2rem" strokeWidth={1.5} />}
                   active={pathname === item.href || pathname?.startsWith(item.href + '/')}
                   onClick={() => router.push(item.href)}
                 />
@@ -169,7 +174,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
             
             <MantineNavLink
               label="Logout"
-              leftSection={<IconLogout size="1.2rem" stroke={1.5} />}
+              leftSection={<LogOut size="1.2rem" strokeWidth={1.5} />}
               onClick={handleLogout}
               color="red"
             />

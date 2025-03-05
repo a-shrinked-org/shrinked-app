@@ -12,7 +12,8 @@ import {
   ConnectionMode,
 } from '@xyflow/react';
 import { Paper, Loader, Center, Text, Group } from '@mantine/core';
-import { IconCheck, IconClock, IconHourglass, IconX } from '@tabler/icons-react';
+// Replace Tabler icons with Lucide icons
+import { CheckCircle, Clock, Hourglass, XCircle } from 'lucide-react';
 
 import '@xyflow/react/dist/style.css';
 
@@ -54,13 +55,13 @@ const getStatusIcon = (status: string) => {
   
   switch (normalizedStatus) {
     case 'completed':
-      return <IconCheck size={18} color="#52c41a" />;
+      return <CheckCircle size={18} color="#52c41a" />;
     case 'in_progress':
-      return <IconClock size={18} color="#1890ff" />;
+      return <Clock size={18} color="#1890ff" />;
     case 'failed':
-      return <IconX size={18} color="#ff4d4f" />;
+      return <XCircle size={18} color="#ff4d4f" />;
     default:
-      return <IconHourglass size={18} color="#8c8c8c" />;
+      return <Hourglass size={18} color="#8c8c8c" />;
   }
 };
 
@@ -127,68 +128,6 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
           status: getNodeStatus(jobStatus, 0),
           time: getTimeForNode(jobStatus, 0),
           statusIcon: getStatusIcon(getNodeStatus(jobStatus, 0))
-        },
-        style: {
-          width: 200,
-          padding: 12,
-          borderWidth: 1,
-          borderStyle: 'solid',
-          borderRadius: 8,
-          ...getNodeStyle(getNodeStatus(jobStatus, 0))
-        }
-      },
-      {
-        id: 'processing',
-        type: 'default',
-        position: { x: 25, y: 160 },
-        data: { 
-          label: 'AI Processing',
-          status: getNodeStatus(jobStatus, 1),
-          time: getTimeForNode(jobStatus, 1),
-          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 1))
-        },
-        style: {
-          width: 200,
-          padding: 12,
-          borderWidth: 1,
-          borderStyle: 'solid',
-          borderRadius: 8,
-          ...getNodeStyle(getNodeStatus(jobStatus, 1))
-        }
-      },
-      {
-        id: 'output',
-        type: 'default',
-        position: { x: 25, y: 270 },
-        data: { 
-          label: 'Result Output',
-          status: getNodeStatus(jobStatus, 2),
-          time: getTimeForNode(jobStatus, 2),
-          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 2))
-        },
-        style: {
-          width: 200,
-          padding: 12,
-          borderWidth: 1,
-          borderStyle: 'solid',
-          borderRadius: 8,
-          ...getNodeStyle(getNodeStatus(jobStatus, 2))
-        }
-      }
-    ];
-    
-    // Add document node specifically for PLATOGRAM_DOC scenario
-    const scenarioUpper = (jobScenario || '').toUpperCase();
-    if (scenarioUpper.includes('PLATOGRAM_DOC')) {
-      nodes.push({
-        id: 'document',
-        type: 'default',
-        position: { x: 25, y: 380 },
-        data: { 
-          label: 'Document Generation',
-          status: getNodeStatus(jobStatus, 3),
-          time: getTimeForNode(jobStatus, 3),
-          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 3))
         },
         style: {
           width: 200,
@@ -297,3 +236,65 @@ export default function SimpleJobProcessingFlow({ jobScenario = '', jobStatus = 
     </Paper>
   );
 }
+          width: 200,
+          padding: 12,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderRadius: 8,
+          ...getNodeStyle(getNodeStatus(jobStatus, 0))
+        }
+      },
+      {
+        id: 'processing',
+        type: 'default',
+        position: { x: 25, y: 160 },
+        data: { 
+          label: 'AI Processing',
+          status: getNodeStatus(jobStatus, 1),
+          time: getTimeForNode(jobStatus, 1),
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 1))
+        },
+        style: {
+          width: 200,
+          padding: 12,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderRadius: 8,
+          ...getNodeStyle(getNodeStatus(jobStatus, 1))
+        }
+      },
+      {
+        id: 'output',
+        type: 'default',
+        position: { x: 25, y: 270 },
+        data: { 
+          label: 'Result Output',
+          status: getNodeStatus(jobStatus, 2),
+          time: getTimeForNode(jobStatus, 2),
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 2))
+        },
+        style: {
+          width: 200,
+          padding: 12,
+          borderWidth: 1,
+          borderStyle: 'solid',
+          borderRadius: 8,
+          ...getNodeStyle(getNodeStatus(jobStatus, 2))
+        }
+      }
+    ];
+    
+    // Add document node specifically for PLATOGRAM_DOC scenario
+    const scenarioUpper = (jobScenario || '').toUpperCase();
+    if (scenarioUpper.includes('PLATOGRAM_DOC')) {
+      nodes.push({
+        id: 'document',
+        type: 'default',
+        position: { x: 25, y: 380 },
+        data: { 
+          label: 'Document Generation',
+          status: getNodeStatus(jobStatus, 3),
+          time: getTimeForNode(jobStatus, 3),
+          statusIcon: getStatusIcon(getNodeStatus(jobStatus, 3))
+        },
+        style: {

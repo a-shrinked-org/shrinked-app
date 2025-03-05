@@ -12,13 +12,19 @@ import {
   LoadingOverlay,
   Table,
   ActionIcon,
-  Tooltip
+  Tooltip,
+  Alert
 } from '@mantine/core';
+// Replace Tabler icons with Lucide icons
 import { 
-  IconEye, 
-  IconMail, 
-  IconTrash 
-} from '@tabler/icons-react';
+  Eye, 
+  Mail, 
+  Trash,
+  RefreshCw,
+  AlertCircle
+} from 'lucide-react';
+// Import centralized auth utilities
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface Identity {
   token?: string;
@@ -44,7 +50,7 @@ export default function ProcessingList() {
   const { show } = useNavigation();
   
   // Only fetch data when identity is available
-  const { data, isLoading, refetch } = useList<ProcessedDocument>({
+  const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
     queryOptions: {
       enabled: !!identity?.id, // Only run the query when identity.id exists
@@ -53,9 +59,10 @@ export default function ProcessingList() {
       pageSize: 100,
     },
     meta: {
-      headers: identity?.token ? {
-        'Authorization': `Bearer ${identity.token}`
-      } : undefined
+      headers: {
+        // Use centralized token management
+        'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
+      }
     }
   });
 
@@ -65,6 +72,24 @@ export default function ProcessingList() {
       console.log("Processing documents response:", data);
     }
   }, [data]);
+
+  // Log errors if they occur
+  useEffect(() => {
+    if (error) {
+      console.error("Error fetching documents:", error);
+      
+      // Try to refresh token on auth errors
+      if (error.status === 401 || error.status === 403) {
+        console.log("Authentication error, attempting to refresh token");
+        authUtils.refreshToken().then(success => {
+          if (success) {
+            console.log("Token refreshed successfully, retrying request");
+            refetch();
+          }
+        });
+      }
+    }
+  }, [error, refetch]);
 
   // This effect will refetch data when identity is loaded
   useEffect(() => {
@@ -106,6 +131,11 @@ export default function ProcessingList() {
     }
   };
 
+  const handleRefresh = () => {
+    console.log("Manually refreshing document list");
+    refetch();
+  };
+
   if (identityLoading || (isLoading && identity?.id)) {
     return (
       <Stack p="md" style={{ position: 'relative', minHeight: '200px' }}>
@@ -117,7 +147,13 @@ export default function ProcessingList() {
   if (!identity?.id) {
     return (
       <Stack p="md">
-        <Text>Authentication required</Text>
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          title="Authentication Required" 
+          color="red"
+        >
+          You must be logged in to view documents.
+        </Alert>
       </Stack>
     );
   }
@@ -126,8 +162,26 @@ export default function ProcessingList() {
     <Stack p="md">
       <Group justify="space-between">
         <Title order={2}>Doc Store</Title>
-        <Button onClick={() => refetch()}>Refresh</Button>
+        <Button 
+          onClick={handleRefresh} 
+          leftSection={<RefreshCw size={16} />}
+          loading={isLoading}
+        >
+          Refresh
+        </Button>
       </Group>
+
+      {error && (
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          title="Error" 
+          color="red" 
+          onClose={() => console.log("Error dismissed")}
+          withCloseButton
+        >
+          {error.message || "Failed to load documents. Please try again."}
+        </Alert>
+      )}
 
       <Card withBorder>
         <Stack>
@@ -159,7 +213,7 @@ export default function ProcessingList() {
                             color="blue"
                             onClick={(e) => handleViewDocument(doc, e)}
                           >
-                            <IconEye size={16} />
+                            <Eye size={16} />
                           </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Send to Email">
@@ -168,7 +222,7 @@ export default function ProcessingList() {
                             color="indigo"
                             onClick={(e) => handleSendEmail(doc._id, e)}
                           >
-                            <IconMail size={16} />
+                            <Mail size={16} />
                           </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Delete">
@@ -177,7 +231,7 @@ export default function ProcessingList() {
                             color="red"
                             onClick={(e) => handleDelete(doc._id, e)}
                           >
-                            <IconTrash size={16} />
+                            <Trash size={16} />
                           </ActionIcon>
                         </Tooltip>
                       </Group>
