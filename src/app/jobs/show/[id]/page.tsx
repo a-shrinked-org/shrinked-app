@@ -209,7 +209,7 @@ export default function JobShow() {
     } finally {
       setIsLoadingDoc(false);
     }
-  }, [processingDocId, fetchWithAuth, activeTab]);
+  }, [processingDocId, fetchWithAuth, activeTab, fetchMarkdownContent]);
 
   // Fetch markdown content from backend endpoint
   const fetchMarkdownContent = useCallback(async () => {
