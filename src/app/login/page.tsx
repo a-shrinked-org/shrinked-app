@@ -14,7 +14,7 @@ import {
   Group,
   Text,
 } from "@mantine/core";
-import { Google, Book, Code, Rocket, Mailbox } from "lucide-react";
+import { Chrome, Book, Code, Rocket, Mailbox } from "lucide-react";
 
 interface FormData {
   email: string;
@@ -207,7 +207,7 @@ export default function Login() {
           variant="filled"
           onClick={handleGoogleLogin}
           loading={isLoading}
-          leftSection={<Google size={20} />}
+          leftSection={<Chrome size={20} />}
           mb="md"
           style={{
             backgroundColor: "#4285F4",
