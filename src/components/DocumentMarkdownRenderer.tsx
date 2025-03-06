@@ -1,6 +1,7 @@
 // src/components/DocumentMarkdownRenderer.tsx
 import React, { useMemo } from 'react';
-import json2md from 'json2md';
+// For TypeScript compatibility, use require instead of import
+const json2md = require('json2md');
 import * as Markdoc from '@markdoc/markdoc';
 import { Box, Text, Divider, LoadingOverlay, Button } from '@mantine/core';
 import { RefreshCw } from 'lucide-react';
@@ -96,10 +97,15 @@ const DocumentMarkdownRenderer: React.FC<DocumentMarkdownRendererProps> = ({
   const renderedContent = useMemo(() => {
     if (!markdownContent) return null;
     
-    const ast = Markdoc.parse(markdownContent);
-    const content = Markdoc.transform(ast);
-    
-    return Markdoc.renderers.react(content, React);
+    try {
+      const ast = Markdoc.parse(markdownContent);
+      const content = Markdoc.transform(ast);
+      
+      return Markdoc.renderers.react(content, React);
+    } catch (error) {
+      console.error('Error rendering markdown:', error);
+      return <Text>Error rendering document content.</Text>;
+    }
   }, [markdownContent]);
 
   // Render loading state, error, or content
