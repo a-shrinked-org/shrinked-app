@@ -26,11 +26,10 @@ import {
   Plus,
   Key,
 } from 'lucide-react';
-import { RegenerateApiKeyButton } from "@/components/RegenerateApiKeyButton";
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 // Import centralized auth utilities
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-// Import IconWrapper if needed for SVG fixes
+// Import IconWrapper for SVG fixes
 import { IconWrapper } from "@/utils/ui-utils";
 
 interface Identity {
@@ -259,7 +258,7 @@ export default function ApiKeysList() {
                 <Table.Tr key={key.id}>
                   <Table.Td>
                     <Group>
-                      <Key size={16} />
+                      <IconWrapper icon={Key} size={16} />
                       <Text>{key.name}</Text>
                     </Group>
                   </Table.Td>
@@ -271,7 +270,7 @@ export default function ApiKeysList() {
                       <CopyButton value={key.key} timeout={2000}>
                         {({ copied, copy }) => (
                           <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
-                            {copied ? <Check size={16} /> : <Copy size={16} />}
+                            {copied ? <IconWrapper icon={Check} size={16} /> : <IconWrapper icon={Copy} size={16} />}
                           </ActionIcon>
                         )}
                       </CopyButton>
@@ -279,10 +278,6 @@ export default function ApiKeysList() {
                   </Table.Td>
                   <Table.Td>
                     <Group gap="xs">
-                      <RegenerateApiKeyButton
-                        apiKeyId={key.id}
-                        onSuccess={refreshApiKeys}
-                      />
                       <ActionIcon 
                         color="red" 
                         onClick={(e) => {
@@ -290,7 +285,7 @@ export default function ApiKeysList() {
                           handleDeleteApiKey(key.id);
                         }}
                       >
-                        <Trash size={16} />
+                        <IconWrapper icon={Trash} size={16} />
                       </ActionIcon>
                     </Group>
                   </Table.Td>
@@ -348,7 +343,7 @@ export default function ApiKeysList() {
                   size="xs"
                   color={copied ? 'teal' : 'blue'} 
                   onClick={copy}
-                  leftSection={copied ? <Check size={16} /> : <Copy size={16} />}
+                  leftSection={copied ? <IconWrapper icon={Check} size={16} /> : <IconWrapper icon={Copy} size={16} />}
                 >
                   {copied ? "Copied" : "Copy"}
                 </Button>
