@@ -64,7 +64,13 @@ export default function Login() {
               console.log("Unexpected success response structure:", response);
               
               // If response contains an error with RegistrationRequired name, handle registration flow
-              if (response && response.error && response.error.name === "RegistrationRequired") {
+              if (response && 
+                  typeof response === 'object' && 
+                  'error' in response && 
+                  typeof response.error === 'object' && 
+                  response.error !== null && 
+                  'name' in response.error && 
+                  response.error.name === "RegistrationRequired") {
                 handleRegistrationFlow();
               } else {
                 setError("Unable to verify email status. Please try again.");
@@ -79,17 +85,58 @@ export default function Login() {
             
             // Check if this is a "RegistrationRequired" error
             // The error structure might be nested differently than expected
-            const errorName = error?.name || (error?.error && error.error.name);
+            let errorName = '';
+            let errorMessage = '';
+            
+            if (typeof error === 'object' && error !== null) {
+              // Try to get name directly
+              if ('name' in error && typeof error.name === 'string') {
+                errorName = error.name;
+              }
+              
+              // Try to get message directly
+              if ('message' in error && typeof error.message === 'string') {
+                errorMessage = error.message;
+              }
+              
+              // Try to get from nested error object
+              if ('error' in error && typeof error.error === 'object' && error.error !== null) {
+                if ('name' in error.error && typeof error.error.name === 'string') {
+                  errorName = errorName || error.error.name;
+                }
+                if ('message' in error.error && typeof error.error.message === 'string') {
+                  errorMessage = errorMessage || error.error.message;
+                }
+              }
+            }
             
             if (errorName === "RegistrationRequired" || 
-                (error?.message && error.message.includes("not found")) ||
-                (error?.error && error.error.message && error.error.message.includes("not found"))) {
+                (errorMessage && errorMessage.includes("not found"))) {
               console.log("Email not found, initiating registration flow");
               handleRegistrationFlow();
             } else {
               // For any other errors
               console.error("Login error:", error);
-              setError(error?.message || (error?.error && error.error.message) || "An error occurred");
+              
+              if (typeof error === 'object' && error !== null) {
+                // Try to get the message directly
+                if ('message' in error && typeof error.message === 'string') {
+                  setError(error.message);
+                  return;
+                }
+                
+                // Try to get it from a nested error object
+                if ('error' in error && 
+                    typeof error.error === 'object' && 
+                    error.error !== null &&
+                    'message' in error.error && 
+                    typeof error.error.message === 'string') {
+                  setError(error.error.message);
+                  return;
+                }
+              }
+              
+              setError("An error occurred");
             }
           }
         }
@@ -115,7 +162,26 @@ export default function Login() {
           },
           onError: (error: any) => {
             console.error("Login error:", error);
-            setError(error?.message || (error?.error && error.error.message) || "Invalid email or password");
+            
+            if (typeof error === 'object' && error !== null) {
+              // Try to get the message directly
+              if ('message' in error && typeof error.message === 'string') {
+                setError(error.message);
+                return;
+              }
+              
+              // Try to get it from a nested error object
+              if ('error' in error && 
+                  typeof error.error === 'object' && 
+                  error.error !== null &&
+                  'message' in error.error && 
+                  typeof error.error.message === 'string') {
+                setError(error.error.message);
+                return;
+              }
+            }
+            
+            setError("Invalid email or password");
           }
         }
       );
@@ -137,12 +203,30 @@ export default function Login() {
             setStep("verification-sent");
           }
         },
-        onError: (regError) => {
-          console.error("Registration error:", regError);
-          setError(regError?.message || 
-                  (regError?.error && regError.error.message) || 
-                  "Failed to register with this email");
-        }
+                  onError: (regError) => {
+            console.error("Registration error:", regError);
+            // Handle various error object structures safely
+            if (typeof regError === 'object' && regError !== null) {
+              // First try to get the message directly
+              if ('message' in regError && typeof regError.message === 'string') {
+                setError(regError.message);
+                return;
+              }
+              
+              // Then try to get it from a nested error object
+              if ('error' in regError && 
+                  typeof regError.error === 'object' && 
+                  regError.error !== null &&
+                  'message' in regError.error && 
+                  typeof regError.error.message === 'string') {
+                setError(regError.error.message);
+                return;
+              }
+            }
+            
+            // Default error message if we couldn't extract one
+            setError("Failed to register with this email");
+          }
       }
     );
   };
