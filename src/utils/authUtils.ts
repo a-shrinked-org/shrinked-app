@@ -19,12 +19,10 @@ export const API_CONFIG = {
   }
 };
 
-// Prevent multiple simultaneous refresh attempts
-let isRefreshing = false;
+// Improved token refresh with single source of truth
 let refreshPromise: Promise<boolean> | null = null;
-// Track last refresh time to prevent rapid successive attempts
-let lastRefreshTime = 0;
-const MIN_REFRESH_INTERVAL = 10000; // 10 seconds
+const REFRESH_COOLDOWN = 30000; // 30 seconds between refresh attempts
+let lastSuccessfulRefreshTime = 0;
 
 export const authUtils = {
   // Get tokens with proper error handling
@@ -65,27 +63,26 @@ export const authUtils = {
 	}
   },
 
-  // Debounced token refresh with shared promise
+  // Improved token refresh with proper promise sharing and cooldown
   refreshToken: async (): Promise<boolean> => {
-	// Check if we've refreshed recently
 	const now = Date.now();
-	if (now - lastRefreshTime < MIN_REFRESH_INTERVAL) {
-	  console.log("Refresh attempt too soon, skipping");
-	  return false;
+	
+	// Don't refresh if we've successfully refreshed recently
+	if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
+	  return true; // Return success if we refreshed recently
 	}
-
+	
 	// If already refreshing, return the existing promise
-	if (isRefreshing && refreshPromise) {
-	  console.log("Refresh already in progress, reusing promise");
+	if (refreshPromise) {
 	  return refreshPromise;
 	}
-
-	// Start a new refresh process
-	isRefreshing = true;
+	
+	// Create new refresh promise and store it
 	refreshPromise = (async () => {
 	  try {
 		console.log("Starting token refresh");
 		const refreshToken = authUtils.getRefreshToken();
+		
 		if (!refreshToken) {
 		  console.log("No refresh token available");
 		  return false;
@@ -102,6 +99,7 @@ export const authUtils = {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ refreshToken }),
+		  credentials: 'include' // Add this to handle cookies if used
 		});
 
 		if (!response.ok) {
@@ -135,23 +133,22 @@ export const authUtils = {
 		}
 
 		console.log("Token refresh successful");
-		lastRefreshTime = Date.now();
+		lastSuccessfulRefreshTime = Date.now();
 		return true;
 	  } catch (error) {
 		console.error("Token refresh error:", error);
 		return false;
 	  } finally {
-		isRefreshing = false;
+		// Clear the promise to allow future refresh attempts
+		refreshPromise = null;
 	  }
 	})();
 
 	// Return the result of the refresh promise
-	const result = await refreshPromise;
-	refreshPromise = null;
-	return result;
+	return refreshPromise;
   },
 
-  // Centralized API request handler with automatic token refresh
+  // Centralized API request handler with improved error handling
   apiRequest: async (url: string, options: RequestInit = {}, retryCount = 0): Promise<Response> => {
 	const MAX_RETRIES = 1;
 	
@@ -166,10 +163,18 @@ export const authUtils = {
 	};
 	
 	try {
+	  // Add timeout to prevent hanging requests
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+	  
 	  const response = await fetch(url, {
 		...options,
 		headers,
+		credentials: 'include', // Add credentials mode to handle cookies
+		signal: options.signal || controller.signal
 	  });
+	  
+	  clearTimeout(timeoutId);
 	  
 	  // If unauthorized (401) or forbidden (403), try to refresh token and retry
 	  if ((response.status === 401 || response.status === 403) && retryCount < MAX_RETRIES) {
@@ -182,29 +187,45 @@ export const authUtils = {
 	  
 	  return response;
 	} catch (error) {
-	  console.error("API request error:", error);
+	  // Handle abort errors differently - they're often intentional
+	  if (error instanceof DOMException && error.name === 'AbortError') {
+		console.log("Request was aborted:", url);
+	  } else {
+		console.error("API request error:", error);
+	  }
 	  throw error;
 	}
   },
 
   // Helper method to check if user is authenticated
   isAuthenticated: (): boolean => {
-	return !!authUtils.getAccessToken() && !!authUtils.getRefreshToken();
+	// Only check if tokens exist, let the backend validate them
+	const accessToken = authUtils.getAccessToken();
+	const refreshToken = authUtils.getRefreshToken();
+	return !!accessToken && !!refreshToken;
   },
   
-  // Simple service status check
+  // Simple service status check with improved error handling
   checkServiceStatus: async (): Promise<string> => {
 	try {
 	  if (!navigator.onLine) {
 		return "You appear to be offline. Please check your internet connection.";
 	  }
 	  
+	  // Add timeout to prevent hanging request
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 5000);
+	  
 	  const response = await fetch(`${API_CONFIG.API_URL}/health`, {
 		method: 'GET',
 		headers: {
 		  'Content-Type': 'application/json',
 		},
+		credentials: 'include',
+		signal: controller.signal
 	  });
+	  
+	  clearTimeout(timeoutId);
 	  
 	  if (response.status >= 200 && response.status < 300) {
 		return "Service is online and operational.";
@@ -216,6 +237,9 @@ export const authUtils = {
 		return `Unexpected status code: ${response.status}`;
 	  }
 	} catch (error) {
+	  if (error instanceof DOMException && error.name === 'AbortError') {
+		return "Service status check timed out. The server may be under heavy load.";
+	  }
 	  return `Unable to connect to service: ${error instanceof Error ? error.message : 'Unknown error'}`;
 	}
   },
@@ -235,64 +259,9 @@ export const authUtils = {
 	  toast.error("Server currently unavailable. Please try again later.");
 	} else if (!navigator.onLine) {
 	  toast.error("You appear to be offline. Please check your connection.");
+	} else {
+	  // Generic error message for other cases
+	  toast.error("An error occurred. Please try again.");
 	}
   }
-};
-
-// Custom hook for auth operations
-import { useState, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-export const useAuth = () => {
-  const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Check auth status on mount
-  useEffect(() => {
-	const checkAuth = async () => {
-	  setIsLoading(true);
-	  const authenticated = authUtils.isAuthenticated();
-	  setIsAuthenticated(authenticated);
-	  setIsLoading(false);
-	};
-	
-	checkAuth();
-  }, []);
-  
-  // Token refresh with redirect handling
-  const refreshToken = useCallback(async () => {
-	const success = await authUtils.refreshToken();
-	if (!success) {
-	  // Only redirect if on a protected page
-	  const publicPaths = ['/login', '/register', '/forgot-password'];
-	  const currentPath = window.location.pathname;
-	  
-	  if (!publicPaths.some(path => currentPath.startsWith(path))) {
-		router.push('/login');
-	  }
-	}
-	return success;
-  }, [router]);
-  
-  // Consistent error handling
-  const handleAuthError = useCallback((error: any) => {
-	authUtils.handleAuthError(error);
-  }, []);
-  
-  return {
-	isAuthenticated,
-	isLoading,
-	refreshToken,
-	handleAuthError,
-	login: async (email: string, password: string) => {
-	  // Implementation would be moved from customAuthProvider
-	  // This gives components a simpler interface for auth operations
-	},
-	logout: async () => {
-	  await authUtils.clearAuthStorage();
-	  setIsAuthenticated(false);
-	  router.push('/login');
-	}
-  };
 };

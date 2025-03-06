@@ -27,11 +27,9 @@ interface ExtendedSession {
   error?: string;
 }
 
-// Keep track of auth check count to reduce excessive checking
-let authCheckCount = 0;
-const MAX_AUTH_CHECKS = 3; // Maximum number of auth checks per session
-let lastAuthCheckTime = 0;
-const AUTH_CHECK_DEBOUNCE = 2000; // 2 seconds
+// Simplified auth check timing
+const AUTH_CHECK_COOLDOWN = 60000; // 1 minute between full auth checks
+let lastFullAuthCheckTime = 0;
 
 const notificationProvider: NotificationProvider = {
   open: ({ message, description, type, key }) => {
@@ -78,39 +76,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
   // Track ongoing auth check to prevent duplicate checks
   const isCheckingAuthRef = useRef(false);
 
-  // Auth check effect with debouncing
+  // Simplified auth check effect
   useEffect(() => {
     const checkAuthentication = async () => {
-      // Skip check if already checking
-      if (isCheckingAuthRef.current) {
+      // Skip check if already checking or still loading session
+      if (isCheckingAuthRef.current || status === "loading") {
         return;
-      }
-
-      // Skip check if we're still loading session
-      if (status === "loading") {
-        return;
-      }
-
-      // Debounce auth checks
-      const now = Date.now();
-      if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
-        return;
-      }
-      lastAuthCheckTime = now;
-
-      // Limit number of auth checks per session
-      if (authCheckCount >= MAX_AUTH_CHECKS) {
-        // Only reset the counter if we've been authenticated for a while
-        const authenticatedForAWhile = authState.isAuthenticated && (now - lastAuthCheckTime > 30000);
-        if (authenticatedForAWhile) {
-          authCheckCount = 0;
-        } else {
-          return;
-        }
       }
 
       isCheckingAuthRef.current = true;
-      authCheckCount++;
 
       try {
         // If NextAuth session exists, use that
@@ -120,16 +94,14 @@ const App = (props: React.PropsWithChildren<{}>) => {
             isAuthenticated: true,
             initialized: true,
           });
-          isCheckingAuthRef.current = false;
           return;
         }
 
-        // Otherwise check custom auth provider
-        const result = await customAuthProvider.check();
-        
+        // Otherwise use local token presence as a fast check
+        const hasTokens = authUtils.isAuthenticated();
         setAuthState({
           isChecking: false,
-          isAuthenticated: result.authenticated,
+          isAuthenticated: hasTokens,
           initialized: true,
         });
       } catch (error) {
@@ -145,7 +117,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
     };
 
     checkAuthentication();
-  }, [status, session, authState.isAuthenticated]);
+  }, [status, session]); // Only run when these change
 
   const authProvider = {
     ...customAuthProvider,
@@ -169,8 +141,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
         const result = await customAuthProvider.login(params);
         
         if (result.success) {
-          // Reset auth check count on successful login
-          authCheckCount = 0;
+          // Reset auth validation time on successful login
+          lastFullAuthCheckTime = Date.now();
           
           setAuthState({
             isChecking: false,
@@ -224,32 +196,14 @@ const App = (props: React.PropsWithChildren<{}>) => {
           return { authenticated: false };
         }
 
-        // Debounce auth checks
-        const now = Date.now();
-        if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
-          // Just use current auth state for faster response
-          return { authenticated: authState.isAuthenticated };
-        }
-        lastAuthCheckTime = now;
-        
         // Check NextAuth session first
         if (status === "authenticated" && session) {
           return { authenticated: true };
         }
         
-        // Otherwise check if we're authenticated using a faster local check
-        if (authUtils.isAuthenticated()) {
-          // Only check with the server if we haven't checked too frequently
-          if (authCheckCount < MAX_AUTH_CHECKS) {
-            authCheckCount++;
-            const result = await customAuthProvider.check();
-            return { authenticated: result.authenticated };
-          }
-          return { authenticated: true };
-        }
-        
-        // If we're not authenticated and not on login page, redirect
-        if (to !== "/login") {
+        // Use fast local token check for most requests
+        const hasLocalTokens = authUtils.isAuthenticated();
+        if (!hasLocalTokens) {
           return {
             authenticated: false,
             error: new Error("Not authenticated"),
@@ -258,15 +212,52 @@ const App = (props: React.PropsWithChildren<{}>) => {
           };
         }
         
-        return { authenticated: false };
+        // Only do full backend validation occasionally
+        const now = Date.now();
+        if (now - lastFullAuthCheckTime >= AUTH_CHECK_COOLDOWN) {
+          lastFullAuthCheckTime = now;
+          
+          try {
+            // Verify token with backend
+            const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+              headers: {
+                'Authorization': `Bearer ${authUtils.getAccessToken()}`,
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include'
+            });
+            
+            if (!response.ok) {
+              // Try to refresh token once before failing
+              const refreshSuccess = await authUtils.refreshToken();
+              if (!refreshSuccess) {
+                return {
+                  authenticated: false,
+                  error: new Error("Invalid session"),
+                  logout: true,
+                  redirectTo: "/login"
+                };
+              }
+            }
+          } catch (error) {
+            console.error("Backend validation error:", error);
+            // Don't immediately log out for network errors
+            if (navigator.onLine) {
+              return {
+                authenticated: false,
+                error: new Error("Session validation failed"),
+                logout: true,
+                redirectTo: "/login"
+              };
+            }
+          }
+        }
+        
+        // Default to authenticated if we have tokens
+        return { authenticated: true };
       } catch (error) {
-        console.error("Auth check error in route guard:", error);
-        return {
-          authenticated: false,
-          error: new Error("Authentication check failed"),
-          logout: true,
-          redirectTo: "/login"
-        };
+        console.error("Auth check error:", error);
+        return { authenticated: false };
       }
     },
     getIdentity: async () => {
@@ -294,8 +285,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
       return null;
     },
     logout: async (params: any = {}) => {
-      // Reset auth check count on logout
-      authCheckCount = 0;
+      // Reset auth check time on logout
+      lastFullAuthCheckTime = 0;
       
       // Sign out from NextAuth if we're using it
       if (status === "authenticated") {
