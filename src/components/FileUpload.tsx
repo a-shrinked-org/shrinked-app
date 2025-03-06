@@ -7,7 +7,7 @@ import { authUtils, useAuth, API_CONFIG } from "@/utils/authUtils";
 
 // R2 Configuration - ideally move to environment variables in production
 const R2_CONFIG = {
-  bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'apptemp'
+  bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'jobs-uploads'
 };
 
 interface FileUploadProps {
@@ -146,20 +146,19 @@ export function FileUpload({ onFileUploaded }: FileUploadProps) {
           }}
           loading={uploading}
         >
-          {/* Fixed Group props - changed position to justify, removed spacing */}
           <Group justify="center" style={{ minHeight: rem(140), pointerEvents: 'none' }}>
             <Dropzone.Accept>
               <Upload
                 size={50}
                 strokeWidth={1.5}
-                color={theme.colors[theme.primaryColor][theme.colorScheme === 'dark' ? 4 : 6]}
+                color={theme.colors[theme.primaryColor][6]}
               />
             </Dropzone.Accept>
             <Dropzone.Reject>
               <X
                 size={50}
                 strokeWidth={1.5}
-                color={theme.colors.red[theme.colorScheme === 'dark' ? 4 : 6]}
+                color={theme.colors.red[6]}
               />
             </Dropzone.Reject>
             <Dropzone.Idle>
@@ -180,9 +179,7 @@ export function FileUpload({ onFileUploaded }: FileUploadProps) {
         <Box>
           {uploading ? (
             <Box>
-              {/* Fixed Group props */}
               <Group justify="space-between" mb={5}>
-                {/* Fixed Text props - changed weight to fw */}
                 <Text size="sm" fw={500}>
                   Uploading...
                 </Text>
@@ -193,11 +190,9 @@ export function FileUpload({ onFileUploaded }: FileUploadProps) {
               <Progress value={progress} size="xl" radius="xl" />
             </Box>
           ) : (
-            /* Fixed Group props - removed curly braces */
             <Group justify="space-between" p="md" style={{ border: `1px solid ${theme.colors.gray[3]}`, borderRadius: theme.radius.md }}>
               <Group>
                 <FileText size={24} />
-                {/* Fixed Text props - changed weight to fw */}
                 <Text size="sm" fw={500}>
                   {file?.name}
                 </Text>
