@@ -95,13 +95,14 @@ export const authUtils = {
 		  return false;
 		}
 
+		// Based on the Postman collection, refreshToken should be sent in the request body
 		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.REFRESH}`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ refreshToken }),
-		  credentials: 'include' // Add this to handle cookies if used
+		  // Remove credentials: 'include' as the API uses Bearer token authentication
 		});
 
 		if (!response.ok) {
@@ -172,7 +173,7 @@ export const authUtils = {
 	  const response = await fetch(url, {
 		...options,
 		headers,
-		credentials: 'include', // Add credentials mode to handle cookies
+		// Remove credentials: 'include' to avoid CORS issues
 		signal: options.signal || controller.signal
 	  });
 	  
@@ -223,7 +224,7 @@ export const authUtils = {
 		headers: {
 		  'Content-Type': 'application/json',
 		},
-		credentials: 'include',
+		// Remove credentials: 'include' 
 		signal: controller.signal
 	  });
 	  

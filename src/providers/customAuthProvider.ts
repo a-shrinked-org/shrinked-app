@@ -58,7 +58,7 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 
-	  // Use authUtils.apiRequest for login when it makes sense to implement it
+	  // Use fetch directly for login - based on Postman examples
 	  const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
 		method: 'POST',
 		headers: {
@@ -93,10 +93,17 @@ class AuthProviderClass implements AuthProvider {
 	  // Store tokens using centralized utilities
 	  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
 
-	  // Fetch user profile after successful login using our improved apiRequest
+	  // Fetch user profile after successful login
 	  try {
-		const profileResponse = await authUtils.apiRequest(
-		  `${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`
+		// Based on Postman collection, use Bearer token for profile fetch
+		const profileResponse = await fetch(
+		  `${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`,
+		  {
+			headers: {
+			  'Authorization': `Bearer ${loginData.accessToken}`,
+			  'Content-Type': 'application/json'
+			}
+		  }
 		);
 
 		if (!profileResponse.ok) {
@@ -205,7 +212,13 @@ class AuthProviderClass implements AuthProvider {
 	
 	try {
 	  // Validate token with backend only if enough time has passed
-	  const response = await authUtils.apiRequest(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`);
+	  const accessToken = authUtils.getAccessToken();
+	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+		headers: {
+		  'Authorization': `Bearer ${accessToken}`,
+		  'Content-Type': 'application/json'
+		}
+	  });
 	  
 	  if (response.ok) {
 		// Update user data in localStorage to ensure it's fresh
@@ -275,7 +288,13 @@ class AuthProviderClass implements AuthProvider {
 	  }
 	  
 	  // Only make API call if necessary
-	  const response = await authUtils.apiRequest(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`);
+	  const accessToken = authUtils.getAccessToken();
+	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
+		headers: {
+		  'Authorization': `Bearer ${accessToken}`,
+		  'Content-Type': 'application/json'
+		}
+	  });
 	  
 	  if (response.ok) {
 		const { roles } = await response.json();
@@ -299,10 +318,15 @@ class AuthProviderClass implements AuthProvider {
 
   async updatePassword(params: any) {
 	try {
-	  const response = await authUtils.apiRequest(
+	  const accessToken = authUtils.getAccessToken();
+	  const response = await fetch(
 		`${API_CONFIG.API_URL}/auth/update-password`,
 		{
 		  method: 'POST',
+		  headers: {
+			'Authorization': `Bearer ${accessToken}`,
+			'Content-Type': 'application/json'
+		  },
 		  body: JSON.stringify(params)
 		}
 	  );
@@ -374,6 +398,7 @@ class AuthProviderClass implements AuthProvider {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 3000);
 		
+		// Based on Postman collection, refreshToken should be in the request body
 		await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
 		  method: 'POST',
 		  headers: {

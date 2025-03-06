@@ -218,13 +218,14 @@ const App = (props: React.PropsWithChildren<{}>) => {
           lastFullAuthCheckTime = now;
           
           try {
-            // Verify token with backend
+            // Verify token with backend - based on Postman collection, use Bearer auth
+            const accessToken = authUtils.getAccessToken();
             const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
               headers: {
-                'Authorization': `Bearer ${authUtils.getAccessToken()}`,
+                'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json'
               },
-              credentials: 'include'
+              // Remove credentials: 'include' to avoid CORS issues
             });
             
             if (!response.ok) {
