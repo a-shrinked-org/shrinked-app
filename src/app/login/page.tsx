@@ -15,8 +15,7 @@ import {
   Text,
 } from "@mantine/core";
 import { IconBrandGoogle, IconBook, IconCode, IconRocket } from "@tabler/icons-react";
-// Import nanoid (non-secure version for simplicity in browser)
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure"; // Changed to non-secure for client-side simplicity
 
 interface FormData {
   email: string;
@@ -28,6 +27,7 @@ export default function Login() {
   const [error, setError] = useState<string>("");
   const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
+  const [step, setStep] = useState<"email" | "password">("email"); // Track form step
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -66,39 +66,59 @@ export default function Login() {
     setError("");
     setInfo("");
 
-    if (!formData.email || !formData.password) {
-      setError("Please enter your email and password");
+    if (!formData.email) {
+      setError("Please enter your email");
       return;
     }
 
-    login(
-      { email: formData.email, password: formData.password },
-      {
-        onSuccess: async (data) => {
-          if (data.redirectTo === "/verify-email") {
-            const token = nanoid(); // Generate unique token
-            try {
-              await sendVerificationEmail(formData.email, token);
-              setInfo("Account created! Please check your email for a verification link.");
-              // Store temp data locally (not secure for production)
-              localStorage.setItem(
-                "pendingUser",
-                JSON.stringify({ email: formData.email, token, password: formData.password })
-              );
-            } catch (err) {
-              setError("Failed to send verification email");
+    if (step === "email") {
+      login(
+        { email: formData.email, password: "" }, // Send empty password to check email existence
+        {
+          onSuccess: () => {
+            setStep("password"); // Email exists, move to password step
+          },
+          onError: async (error: any) => {
+            console.error("Email check error:", error);
+            if (error.name === "RegistrationRequired") {
+              const token = nanoid();
+              try {
+                await sendVerificationEmail(formData.email, token);
+                setInfo("Account created! Please check your email for a verification link.");
+                localStorage.setItem(
+                  "pendingUser",
+                  JSON.stringify({ email: formData.email, token, password: "" })
+                );
+              } catch (err) {
+                setError("Failed to send verification email");
+              }
+            } else {
+              setError(error?.message || "Failed to verify email");
             }
-          }
-        },
-        onError: (error: any) => {
-          console.error("Email login error:", error);
-          setError(error?.message || "Login failed");
-        },
+          },
+        }
+      );
+    } else if (step === "password") {
+      if (!formData.password) {
+        setError("Please enter your password");
+        return;
       }
-    );
+      login(
+        { email: formData.email, password: formData.password },
+        {
+          onSuccess: () => {
+            // Redirect to /jobs handled by auth provider
+          },
+          onError: (error: any) => {
+            console.error("Password login error:", error);
+            setError(error?.message || "Login failed");
+          },
+        }
+      );
+    }
   };
 
-  const isEmailButtonActive = !!formData.email.trim() && !!formData.password.trim();
+  const isButtonActive = step === "email" ? !!formData.email.trim() : !!formData.password.trim();
 
   return (
     <Container
@@ -156,39 +176,41 @@ export default function Login() {
             onChange={handleInputChange}
             required
             mb="md"
-            disabled={isLoading}
+            disabled={isLoading || step === "password"} // Disable email input after first step
             styles={{
               input: { backgroundColor: "#333333", color: "#FFFFFF" },
               label: { color: "#333333" },
             }}
           />
-          <TextInput
-            label="Password"
-            type="password"
-            placeholder="Enter your password"
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            required
-            mb="md"
-            disabled={isLoading}
-            styles={{
-              input: { backgroundColor: "#333333", color: "#FFFFFF" },
-              label: { color: "#333333" },
-            }}
-          />
+          {step === "password" && (
+            <TextInput
+              label="Password"
+              type="password"
+              placeholder="Enter your password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              required
+              mb="md"
+              disabled={isLoading}
+              styles={{
+                input: { backgroundColor: "#333333", color: "#FFFFFF" },
+                label: { color: "#333333" },
+              }}
+            />
+          )}
           <Button
             type="submit"
             fullWidth
             loading={isLoading}
-            disabled={!isEmailButtonActive}
+            disabled={!isButtonActive}
             style={{
-              backgroundColor: isEmailButtonActive ? "#D87A16" : "#666666",
+              backgroundColor: isButtonActive ? "#D87A16" : "#666666",
               color: "#FFFFFF",
-              opacity: isEmailButtonActive ? 1 : 0.6,
+              opacity: isButtonActive ? 1 : 0.6,
             }}
           >
-            Continue with email
+            {step === "email" ? "Continue" : "Sign In"}
           </Button>
         </form>
       </Card>
