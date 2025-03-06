@@ -8,6 +8,7 @@ const R2_CONFIG = {
   accessKeyId: process.env.R2_ACCESS_KEY_ID,
   secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   bucketName: process.env.R2_BUCKET_NAME || 'apptemp',
+  publicUrl: process.env.R2_PUBLIC_URL || 'https://store.shrinked.ai', // Public URL for file access
 };
 
 // Validate required environment variables
@@ -40,6 +41,16 @@ async function verifyAuth(request: NextRequest): Promise<boolean> {
 	console.error('Auth verification error:', error);
 	return false;
   }
+}
+
+/**
+ * Convert R2 development URL to public URL format
+ * From: https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com//apptemp/filename.ext
+ * To:   https://store.shrinked.ai/filename.ext
+ */
+function convertToPublicUrl(developmentUrl: string, fileName: string): string {
+  // Simply use the public base URL and append the file name
+  return `${R2_CONFIG.publicUrl}/${fileName}`;
 }
 
 /**
@@ -87,11 +98,15 @@ export async function POST(request: NextRequest) {
 	const command = new PutObjectCommand(uploadParams);
 	const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
-	// Correct file URL construction (no nested bucket names)
-	const fileUrl = `${R2_CONFIG.endpoint}/${targetBucket}/${fileName}`;
+	// Construct the development R2 URL (for logging/debugging)
+	const developmentUrl = `${R2_CONFIG.endpoint}/${targetBucket}/${fileName}`;
+	
+	// Generate the public-facing URL
+	const fileUrl = convertToPublicUrl(developmentUrl, fileName);
 
 	console.log('Generated Presigned URL:', presignedUrl);
-	console.log('File URL:', fileUrl);
+	console.log('Development URL:', developmentUrl);
+	console.log('Public File URL:', fileUrl);
 
 	return NextResponse.json({
 	  success: true,
