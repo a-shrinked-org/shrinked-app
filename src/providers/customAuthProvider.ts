@@ -134,7 +134,7 @@ class AuthProviderClass implements AuthProvider {
 	  }
 	  
 	  // Create the full verification URL
-	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify?token=${token}&email=${encodeURIComponent(email)}`;
 	  debug.log('sendValidationEmail', `Validation URL: ${validationUrl}`);
 	  
 	  // The payload to send to Loops - simplify to match expected format
