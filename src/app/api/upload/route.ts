@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
 
 // R2 configuration from environment variables
 const R2_CONFIG = {
@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
 	  Key: fileName,
 	  Body: fileBuffer,
 	  ContentType: contentType,
-	  // Make the file publicly accessible
-	  ACL: 'public-read'
+	  // Make the file publicly accessible - using the proper enum type
+	  ACL: ObjectCannedACL.PUBLIC_READ
 	};
 
 	// Upload the file to R2
