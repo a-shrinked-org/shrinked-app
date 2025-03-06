@@ -92,7 +92,7 @@ export default function AuthCallback() {
 	return (
 	  <Container size="xs" style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
 		<Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", width: "100%" }}>
-		  <Title order={2} ta="center" mb="md" color="red">
+		  <Title order={2} ta="center" mb="md" style={{ color: "red" }}>
 			Authentication Error
 		  </Title>
 		  <Text ta="center" mb="xl">
