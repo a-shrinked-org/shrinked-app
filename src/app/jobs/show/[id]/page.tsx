@@ -378,7 +378,7 @@ export default function JobShow() {
                 Preview
               </Tabs.Tab>
               <Tabs.Tab 
-                value="markdown"
+                value="json"
                 styles={{
                   tab: {
                     backgroundColor: 'transparent',
@@ -390,7 +390,7 @@ export default function JobShow() {
                   },
                 }}
               >
-                Markdown/JSON
+                JSON
               </Tabs.Tab>
               <Tabs.Tab 
                 value="question" 
@@ -417,18 +417,9 @@ export default function JobShow() {
                 Ask a question
               </Tabs.Tab>
             </Tabs.List>
-
-            <Tabs.Panel value="preview" pt="md">
-              {/* Using our new DocumentMarkdownRenderer component */}
-              <DocumentMarkdownRenderer 
-                data={processingDoc?.output || record?.output || null}
-                isLoading={isDocLoading}
-                errorMessage={errorMessage}
-                onRefresh={manualRefetch}
-              />
-            </Tabs.Panel>
-
-            <Tabs.Panel value="markdown" pt="md">
+            
+            // Fix the Tab.Panel value to match
+            <Tabs.Panel value="json" pt="md">
               <div style={{ 
                 backgroundColor: 'white', 
                 padding: '32px', 
@@ -449,7 +440,10 @@ export default function JobShow() {
                     fontFamily: 'monospace',
                     lineHeight: 1.5,
                     border: '1px solid #333',
-                    width: '100%'
+                    width: '100%',
+                    maxWidth: '100%',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap'
                   }}
                 >
                   {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}

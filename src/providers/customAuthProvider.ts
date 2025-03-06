@@ -44,7 +44,7 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async sendValidationEmail(email: string, token: string) {
-	const validationUrl = `${API_CONFIG.APP_URL}/verify?token=${token}`;
+	const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify?token=${token}`;
 	return this.callLoops("/transactional", "POST", {
 	  transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
 	  email,
