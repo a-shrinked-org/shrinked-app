@@ -752,8 +752,50 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
   
-	  debug.log('verifyEmail', `Email verification successful, storing verified user`);
-	  const verifiedUser = { email, password, isVerified: true };
+	  debug.log('verifyEmail', `Email verification successful, now registering user with API`);
+	  
+	  // Register the user with the Shrinked API
+	  debug.log('verifyEmail', `Making registration API request to: ${API_CONFIG.API_URL}/auth/register`);
+	  const registerResponse = await fetch(`${API_CONFIG.API_URL}/auth/register`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ 
+		  email, 
+		  password,
+		  username: pendingUser.username || email.split('@')[0]  // Use username if available, or generate from email
+		}),
+	  });
+  
+	  if (!registerResponse.ok) {
+		const registerData = await registerResponse.json();
+		debug.error('verifyEmail', `API registration failed:`, registerData);
+		return {
+		  success: false,
+		  error: { 
+			message: registerData.message || "Registration failed with API",
+			name: "RegistrationError" 
+		  },
+		};
+	  }
+  
+	  // Get tokens from successful registration
+	  const registerData = await registerResponse.json();
+	  debug.log('verifyEmail', `API registration successful, saving tokens`);
+	  
+	  // Save tokens - this now also stores token metadata
+	  authUtils.saveTokens(registerData.accessToken, registerData.refreshToken);
+	  
+	  // Set up the silent refresh timer
+	  authUtils.setupRefreshTimer(false);  // Use false to prevent immediate refresh after registration
+  
+	  // Store verified user data including tokens
+	  const verifiedUser = {
+		email,
+		password,  // Note: Consider if you need to store password in localStorage
+		isVerified: true,
+		accessToken: registerData.accessToken,
+		refreshToken: registerData.refreshToken
+	  };
 	  localStorage.setItem("verifiedUser", JSON.stringify(verifiedUser));
 	  localStorage.removeItem("pendingUser");
 	  
@@ -772,7 +814,7 @@ class AuthProviderClass implements AuthProvider {
 		// Don't throw here, as the critical steps are already completed
 	  }
   
-	  debug.log('verifyEmail', `Verification complete, redirecting to /jobs`);
+	  debug.log('verifyEmail', `Verification and API registration complete, redirecting to /jobs`);
 	  return { success: true, redirectTo: "/jobs" };
 	} catch (error) {
 	  debug.error('verifyEmail', `Verification failed:`, error);
@@ -785,7 +827,6 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
-}
 
 const authProviderInstance = new AuthProviderClass();
 
