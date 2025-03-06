@@ -76,15 +76,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
   // Track ongoing auth check to prevent duplicate checks
   const isCheckingAuthRef = useRef(false);
 
-  // Simplified auth check effect
+  // Initialize token refresh mechanism
   useEffect(() => {
     // Check if we have tokens and set up refresh mechanism
     if (authUtils.isAuthenticated()) {
-        console.log("[APP] Initializing token refresh mechanism");
-        authUtils.setupRefreshTimer(true); // true forces immediate check
-      }
-    }, []);
-    
+      console.log("[APP] Initializing token refresh mechanism");
+      authUtils.setupRefreshTimer(true); // true forces immediate check
+    }
+  }, []);
+  
+  // Simplified auth check effect
+  useEffect(() => {
     const checkAuthentication = async () => {
       // Skip check if already checking or still loading session
       if (isCheckingAuthRef.current || status === "loading") {
