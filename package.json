@@ -18,6 +18,7 @@
     "@mantine/core": "^7.16.0",
     "@mantine/form": "^7.16.0",
     "@mantine/hooks": "^7.16.0",
+    "@mantine/dropzone": "^6.x.x",
     "@reactflow/background": "^11.3.14",
     "@reactflow/controls": "^11.2.14",
     "@reactflow/core": "^11.11.4",
@@ -46,7 +47,8 @@
     "react-helmet-async": "^2.0.5",
     "nanoid": "^5.1.2",
     "json2md": "^2.0.2",
-    "@markdoc/markdoc": "^0.5.1"
+    "@markdoc/markdoc": "^0.5.1",
+    "@aws-sdk/client-s3": "^3.x.x"
   },
   "devDependencies": {
     "@types/node": "^18.16.2",

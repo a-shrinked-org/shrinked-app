@@ -12,13 +12,19 @@ import {
   Box, 
   Title,
   Paper,
-  Alert
+  Alert,
+  Divider,
+  Tabs,
+  Text,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 // Replaced Tabler icons with Lucide
-import { ArrowLeft, AlertCircle } from 'lucide-react';
-// Import centralized auth utilities
-import { authUtils, API_CONFIG } from "@/utils/authUtils";
+import { ArrowLeft, AlertCircle, Link as LinkIcon, Upload } from 'lucide-react';
+// Import centralized auth utilities with useAuth hook
+import { authUtils, useAuth, API_CONFIG } from "@/utils/authUtils";
+// Import the FileUpload component
+import { FileUpload } from '@/components/FileUpload';
+import { useState } from 'react';
 
 interface Identity {
   token?: string;
@@ -49,13 +55,19 @@ const languageOptions = [
 export default function JobCreate() {
   const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
+  const [activeTab, setActiveTab] = useState<'link' | 'upload'>('link');
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string>('');
+  
+  // Use the centralized auth hook
+  const { fetchWithAuth, handleAuthError } = useAuth();
 
   const form = useForm<JobCreateForm>({
     defaultValues: {
       isPublic: true,
       createPage: true,
       lang: 'en',
-      scenario: 'SINGLE_FILE_DEFAULT' // Default to SINGLE_FILE_DEFAULT
+      scenario: 'SINGLE_FILE_DEFAULT', // Default to SINGLE_FILE_DEFAULT
+      link: '',
     }
   });
 
@@ -64,8 +76,23 @@ export default function JobCreate() {
     handleSubmit, 
     formState: { errors },
     setValue,
+    watch,
     setError 
   } = form;
+  
+  // Watch the link value to update when file is uploaded
+  const linkValue = watch('link');
+
+  // Handle file upload success
+  const handleFileUploaded = (fileUrl: string) => {
+    setValue('link', fileUrl);
+    setUploadedFileUrl(fileUrl);
+    showNotification({
+      title: 'File Uploaded',
+      message: 'File URL has been added to the form',
+      color: 'green',
+    });
+  };
 
   const onSubmit = handleSubmit(async (data: JobCreateForm) => {
     try {
@@ -80,25 +107,18 @@ export default function JobCreate() {
         return;
       }
       
-      // Use token from centralized auth utilities
-      const token = authUtils.getAccessToken() || identity?.token;
-      
-      if (!token) {
-        showNotification({
-          title: 'Error',
-          message: 'Authentication required',
-          color: 'red',
-          icon: <AlertCircle size={16} />
+      // Check if we have a link, either entered manually or from file upload
+      if (!data.link) {
+        setError('link', { 
+          type: 'manual', 
+          message: 'Please provide a file link or upload a file' 
         });
         return;
       }
       
-      const response = await fetch(`${API_CONFIG.API_URL}/jobs`, {
+      // Use centralized fetchWithAuth for API calls
+      const response = await fetchWithAuth(`${API_CONFIG.API_URL}/jobs`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(data)
       });
 
@@ -128,6 +148,9 @@ export default function JobCreate() {
       list('jobs');
     } catch (error) {
       console.error("Create job error:", error);
+      
+      // Use centralized error handling
+      handleAuthError(error);
       
       showNotification({
         title: 'Error',
@@ -191,13 +214,49 @@ export default function JobCreate() {
                 onChange={(value) => setValue('lang', value || '')}
               />
 
-              <TextInput
-                label="Link"
-                placeholder="Enter file link"
-                required
-                error={errors?.link?.message}
-                {...register('link', { required: 'Link is required' })}
-              />
+              <Divider label="File Source" labelPosition="center" />
+
+              <Tabs value={activeTab} onChange={(value) => setActiveTab(value as 'link' | 'upload')}>
+                <Tabs.List>
+                  <Tabs.Tab value="link" leftSection={<LinkIcon size={16} />}>
+                    Provide Link
+                  </Tabs.Tab>
+                  <Tabs.Tab value="upload" leftSection={<Upload size={16} />}>
+                    Upload File
+                  </Tabs.Tab>
+                </Tabs.List>
+
+                <Tabs.Panel value="link" pt="md">
+                  <TextInput
+                    label="Link"
+                    placeholder="Enter file link"
+                    error={errors?.link?.message}
+                    {...register('link')}
+                  />
+                </Tabs.Panel>
+
+                <Tabs.Panel value="upload" pt="md">
+                  <Box mb="sm">
+                    <Text size="sm" weight={500} mb="xs">Upload File</Text>
+                    <FileUpload onFileUploaded={handleFileUploaded} />
+                    
+                    {uploadedFileUrl && (
+                      <Text size="sm" mt="sm" color="dimmed">
+                        File URL: {uploadedFileUrl}
+                      </Text>
+                    )}
+                  </Box>
+                </Tabs.Panel>
+              </Tabs>
+
+              {errors?.link && (
+                <Alert 
+                  color="red"
+                  icon={<AlertCircle size={16} />}
+                >
+                  {errors.link.message}
+                </Alert>
+              )}
 
               <Group>
                 <Switch
