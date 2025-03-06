@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { S3Client, PutObjectCommand, ObjectCannedACL } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // R2 configuration from environment variables
 const R2_CONFIG = {
@@ -50,15 +51,15 @@ function handleApiError(error: any): NextResponse {
   const statusCode = error instanceof Error && 'status' in error ? (error as any).status : 500;
   
   return NextResponse.json({ 
-	error: 'File upload failed', 
+	error: 'Failed to generate upload URL', 
 	details: errorMessage 
   }, { status: statusCode });
 }
 
-// Updated configuration for Next.js App Router
+// Set Next.js config for API route
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-// Set body size limit in a way that works with App Router
+
 export async function POST(request: NextRequest) {
   try {
 	// Verify authentication using your centralized auth utilities
@@ -68,61 +69,42 @@ export async function POST(request: NextRequest) {
 	}
 
 	// Parse the request body
-	const { fileName, contentType, base64Data, bucketName } = await request.json();
+	const { fileName, contentType, bucketName } = await request.json();
 
-	if (!fileName || !contentType || !base64Data) {
+	if (!fileName || !contentType) {
 	  return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
 	}
-
-	// Check for file size - rough estimation from base64 length
-	// Base64 is approx 4/3 larger than binary data
-	const estimatedSizeInBytes = (base64Data.length * 3) / 4;
-	const maxSizeInBytes = 100 * 1024 * 1024; // 100MB
-
-	if (estimatedSizeInBytes > maxSizeInBytes) {
-	  return NextResponse.json({ 
-		error: 'File too large', 
-		details: 'Maximum file size is 100MB' 
-	  }, { status: 413 });
-	}
-
-	// Convert base64 to Buffer
-	const fileBuffer = Buffer.from(base64Data, 'base64');
 
 	// Set up the S3 upload parameters
 	const uploadParams = {
 	  Bucket: bucketName || R2_CONFIG.bucketName,
 	  Key: fileName,
-	  Body: fileBuffer,
 	  ContentType: contentType,
-	  // Make the file publicly accessible - using the correct enum property
-	  ACL: ObjectCannedACL.public_read
 	};
 
-	// Upload the file to R2
+	// Generate presigned URL
 	const command = new PutObjectCommand(uploadParams);
-	await s3Client.send(command);
+	const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // URL expires in 1 hour
 
-	// Generate public URL for the uploaded file
+	// Generate the final file URL that will be used after upload
+	// Make sure to use the exact format that R2 expects for public access
 	const fileUrl = `${R2_CONFIG.endpoint}/${uploadParams.Bucket}/${uploadParams.Key}`;
 
+	// Log the generated URL for debugging
+	console.log('Generated presigned URL:', presignedUrl);
+	console.log('File URL after upload will be:', fileUrl);
+
+	// Return both URLs to the client
 	return NextResponse.json({ 
-	  success: true, 
+	  success: true,
+	  presignedUrl,
 	  fileUrl,
-	  message: 'File uploaded successfully',
-	  size: estimatedSizeInBytes,
-	  formattedSize: formatFileSize(estimatedSizeInBytes)
+	  bucketName: uploadParams.Bucket,
+	  objectKey: uploadParams.Key,
+	  message: 'Upload URL generated successfully'
 	});
 
   } catch (error) {
 	return handleApiError(error);
   }
-}
-
-// Helper function to format file size for human-readable output
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} bytes`;
-  else if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  else if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  else return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
