@@ -39,6 +39,7 @@ export default function Login() {
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
+  // In page.tsx - handleEmailSubmit function
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -59,15 +60,18 @@ export default function Login() {
             setStep("password"); // Email exists in Loops
           },
           onError: (error: any) => {
-            console.error("Email check error:", error);
+            console.log("Email check result:", error);
+            
+            // If registration is required (email not found), start registration
             if (error.name === "RegistrationRequired") {
-              console.log("Email not found, initiating registration");
-              // Here we need to call register function, not login again
+              console.log("Email not found, initiating registration flow");
+              // Don't show error message - this is expected flow for new users
+              // Instead directly call registration
               login(
                 { 
                   email: formData.email,
-                  password: "",
-                  providerName: "register" // Add this flag to indicate registration
+                  password: "",  // No password yet
+                  providerName: "register" // Flag to indicate registration
                 },
                 {
                   onSuccess: (data) => {
@@ -77,16 +81,17 @@ export default function Login() {
                       setStep("verification-sent");
                     }
                   },
-                  onError: (err) => {
-                    console.error("Registration error:", err);
-                    setError(err?.message || "Failed to initiate registration");
-                  },
+                  onError: (regError) => {
+                    console.error("Registration error:", regError);
+                    setError(regError?.message || "Failed to register with this email");
+                  }
                 }
               );
             } else {
+              // For other errors, show the error message
               setError(error?.message || "Failed to verify email");
             }
-          },
+          }
         }
       );
     } else if (step === "password") {
@@ -94,23 +99,23 @@ export default function Login() {
         setError("Please enter your password");
         return;
       }
-      // No need to recheck email existence, just attempt login with credentials
+      // Login with password
       console.log("Attempting login with password");
       login(
         { 
           email: formData.email, 
           password: formData.password,
-          skipEmailCheck: true // Add this flag to skip email check
+          skipEmailCheck: true // Skip email check on login with password
         },
         {
           onSuccess: () => {
             console.log("Login successful");
-            // Redirect to /jobs handled by auth provider
+            // Redirect handled by auth provider
           },
           onError: (error: any) => {
             console.error("Login error:", error);
-            setError(error?.message || "Login failed");
-          },
+            setError(error?.message || "Invalid email or password");
+          }
         }
       );
     }
