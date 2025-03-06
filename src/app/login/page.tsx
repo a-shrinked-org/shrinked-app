@@ -15,6 +15,8 @@ import {
   Text,
 } from "@mantine/core";
 import { IconBrandGoogle, IconBook, IconCode, IconRocket } from "@tabler/icons-react";
+// Import nanoid (non-secure version for simplicity in browser)
+import { nanoid } from "https://unpkg.com/nanoid/non-secure/index.browser.js";
 
 interface FormData {
   email: string;
@@ -24,7 +26,7 @@ interface FormData {
 export default function Login() {
   const { mutate: login, isLoading } = useLogin();
   const [error, setError] = useState<string>("");
-  const [info, setInfo] = useState<string>(""); // For success/info messages
+  const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -36,6 +38,27 @@ export default function Login() {
 
   const handleGoogleLogin = () => {
     window.location.href = "https://api.shrinked.ai/auth/google";
+  };
+
+  const sendVerificationEmail = async (email: string, token: string) => {
+    const verificationUrl = `${window.location.origin}/verify?token=${token}`;
+    try {
+      const response = await fetch("https://app.loops.so/api/v1/transactional", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_LOOPS_API_KEY}`, // Public key in Vercel env
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
+          email,
+          dataVariables: { verificationUrl },
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to send verification email");
+    } catch (err) {
+      throw err;
+    }
   };
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -51,21 +74,25 @@ export default function Login() {
     login(
       { email: formData.email, password: formData.password },
       {
-        onSuccess: (data) => {
-          // Check if redirected to /verify-email due to new user registration
+        onSuccess: async (data) => {
           if (data.redirectTo === "/verify-email") {
-            setInfo("Account created! Please check your email for a verification link.");
+            const token = nanoid(); // Generate unique token
+            try {
+              await sendVerificationEmail(formData.email, token);
+              setInfo("Account created! Please check your email for a verification link.");
+              // Store temp data locally (not secure for production)
+              localStorage.setItem(
+                "pendingUser",
+                JSON.stringify({ email: formData.email, token, password: formData.password })
+              );
+            } catch (err) {
+              setError("Failed to send verification email");
+            }
           }
-          // Otherwise, redirect to /jobs is handled by auth provider
         },
         onError: (error: any) => {
           console.error("Email login error:", error);
-          if (error.name === "RegistrationRequired") {
-            // This case is handled by auth provider, which registers and redirects
-            setInfo("Creating your account... Check your email for verification.");
-          } else {
-            setError(error?.message || "Login failed");
-          }
+          setError(error?.message || "Login failed");
         },
       }
     );
@@ -110,7 +137,7 @@ export default function Login() {
           leftSection={<IconBrandGoogle size={20} />}
           mb="md"
           style={{
-            backgroundColor: "#4285F4", // Google blue
+            backgroundColor: "#4285F4",
             color: "#FFFFFF",
             borderColor: "transparent",
           }}
