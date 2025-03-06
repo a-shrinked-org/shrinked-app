@@ -14,7 +14,7 @@ import {
   Group,
   Text,
 } from "@mantine/core";
-import { IconBrandGoogle, IconBook, IconCode, IconRocket, IconMailbox } from "lucide-react";
+import { Google, Book, Code, Rocket, Mailbox } from "lucide-react";
 
 interface FormData {
   email: string;
@@ -120,7 +120,7 @@ export default function Login() {
       >
         <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
           <Group justify="center" mb="md">
-            <IconMailbox size={64} color="#D87A16" />
+            <Mailbox size={64} color="#D87A16" />
           </Group>
           
           <Title order={2} ta="center" mb="md">
@@ -152,19 +152,19 @@ export default function Login() {
         <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
-              <IconBook size={24} color="#333333" />
+              <Book size={24} color="#333333" />
               <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
             </Group>
           </Card>
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
-              <IconCode size={24} color="#333333" />
+              <Code size={24} color="#333333" />
               <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
             </Group>
           </Card>
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
-              <IconRocket size={24} color="#333333" />
+              <Rocket size={24} color="#333333" />
               <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
             </Group>
           </Card>
@@ -207,7 +207,7 @@ export default function Login() {
           variant="filled"
           onClick={handleGoogleLogin}
           loading={isLoading}
-          leftSection={<IconBrandGoogle size={20} />}
+          leftSection={<Google size={20} />}
           mb="md"
           style={{
             backgroundColor: "#4285F4",
@@ -271,19 +271,19 @@ export default function Login() {
       <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
         <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
           <Group justify="center">
-            <IconBook size={24} color="#333333" />
+            <Book size={24} color="#333333" />
             <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
           </Group>
         </Card>
         <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
           <Group justify="center">
-            <IconCode size={24} color="#333333" />
+            <Code size={24} color="#333333" />
             <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
           </Group>
         </Card>
         <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
           <Group justify="center">
-            <IconRocket size={24} color="#333333" />
+            <Rocket size={24} color="#333333" />
             <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
           </Group>
         </Card>
