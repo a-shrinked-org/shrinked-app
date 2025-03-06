@@ -137,17 +137,12 @@ class AuthProviderClass implements AuthProvider {
 	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 	  debug.log('sendValidationEmail', `Validation URL: ${validationUrl}`);
 	  
-	  // The payload to send to Loops
+	  // The payload to send to Loops - simplify to match expected format
 	  const payload = {
 		transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
 		email,
 		dataVariables: { 
-		  // Use 'verify-url' as your dynamic variable name in the template
-		  "verify-url": validationUrl,
-		  // Keep these for backward compatibility
-		  validationUrl,
-		  email, 
-		  token
+		  "verify-url": validationUrl
 		}
 	  };
 	  
@@ -301,7 +296,6 @@ class AuthProviderClass implements AuthProvider {
 		  debug.log('login', `Email not found in Loops, registration required`);
 		  return {
 			success: false,
-			error: { message: "Email not found. Please register.", name: "RegistrationRequired" },
 		  };
 		}
 	  }
