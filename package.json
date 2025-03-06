@@ -42,7 +42,8 @@
     "react-dom": "^18.0.0",
     "react-toastify": "^11.0.3",
     "zustand": "^4.5.2",
-    "@react-pdf/renderer": "^4.3.0"
+    "@react-pdf/renderer": "^4.3.0",
+    "react-helmet-async": "^2.0.5"
   },
   "devDependencies": {
     "@types/node": "^18.16.2",

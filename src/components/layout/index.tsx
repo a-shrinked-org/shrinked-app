@@ -15,7 +15,6 @@ import {
 } from '@mantine/core';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from "next-auth/react";
-// Replace Tabler icons with Lucide icons
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -25,13 +24,9 @@ import {
   Key
 } from 'lucide-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
-// Import centralized auth utilities
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-
-// Fix SVG rendering by creating a styled wrapper component
-const IconWrapper = ({ icon: Icon, size = 16 }) => (
-  <Icon size={size} style={{ width: `${size}px`, height: `${size}px` }} />
-);
+// Import IconWrapper from layout
+import { IconWrapper } from '../app/layout';
 
 interface Identity {
   id?: string;
