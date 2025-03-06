@@ -13,7 +13,6 @@ import {
   Alert,
   Code
 } from '@mantine/core';
-// Replace Tabler icons with Lucide
 import { 
   ArrowLeft, 
   Share,
@@ -23,9 +22,7 @@ import {
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-// Import centralized auth utilities
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
-// Import our new DocumentMarkdownRenderer component
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 
 interface Identity {
@@ -54,6 +51,10 @@ interface Job {
     totalDuration?: number;
     data?: {
       resultId?: string;
+      link?: string;
+      output?: {
+        link?: string;
+      };
       [key: string]: any;
     };
     _id?: string;
@@ -98,11 +99,10 @@ export default function JobShow() {
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
+  const [uploadFileLink, setUploadFileLink] = useState<string | null>(null);
 
-  // Use enhanced useAuth hook with all required methods
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth } = useAuth();
 
-  // Fetch job details with simplified auth handling
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
@@ -110,12 +110,34 @@ export default function JobShow() {
       enabled: !!jobId && !!identity?.token,
       onSuccess: (data) => {
         console.log("Show query success:", data);
-        // Extract processingDocId only once when data is loaded
+        
+        // Extract processingDocId from PLATOGRAM_PROCESSING step
         const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
         if (processingStep?.data?.resultId) {
+          console.log("Found processing resultId:", processingStep.data.resultId);
           setProcessingDocId(processingStep.data.resultId);
         } else {
+          console.log("No resultId found in processing step");
           setErrorMessage("No processing document ID found in job steps.");
+        }
+        
+        // Extract link from UPLOAD_FILE or similar step
+        const uploadStep = data.data?.steps?.find(step => 
+          step.name === "UPLOAD_FILE" || 
+          step.name === "FILE_UPLOAD" || 
+          step.name === "CONVERT_FILE" ||
+          step.name === "AUDIO_TRANSCRIPTION"
+        );
+        
+        const foundLink = uploadStep?.data?.output?.link || 
+                         uploadStep?.data?.link || 
+                         data.data?.link;
+                        
+        if (foundLink) {
+          console.log("Found upload file link:", foundLink);
+          setUploadFileLink(foundLink);
+        } else {
+          console.log("No upload file link found in steps or record");
         }
       },
       onError: (error) => {
@@ -131,7 +153,6 @@ export default function JobShow() {
     }
   });
 
-  // Improve the processing document fetch function
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) {
       setErrorMessage("Missing required data to fetch document");
@@ -147,7 +168,6 @@ export default function JobShow() {
       setIsLoadingDoc(true);
       setErrorMessage(null);
       
-      // Use fetchWithAuth to handle token management automatically
       const response = await fetchWithAuth(
         `${API_CONFIG.API_URL}/processing/${processingDocId}/document`
       );
@@ -158,11 +178,8 @@ export default function JobShow() {
 
       const data = await response.json();
       
-      // Handle numeric overflow issue (if this is the source of the error)
-      // This ensures safe handling of very large numbers in the JSON data
       const sanitizedData = JSON.parse(
         JSON.stringify(data, (key, value) => {
-          // Convert extremely large numbers to strings to prevent overflow
           if (typeof value === 'number' && !Number.isSafeInteger(value)) {
             return value.toString();
           }
@@ -179,18 +196,15 @@ export default function JobShow() {
     }
   }, [processingDocId, fetchWithAuth]);
 
-  // Simplify the useEffect with clearer conditions
   useEffect(() => {
-    // Only fetch if we have an ID and no document yet (or need to refresh)
     if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId)) {
       getProcessingDocument();
     }
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
-  // Add a simpler manual refetch function that just clears the doc
   const manualRefetch = () => {
     setErrorMessage(null);
-    setProcessingDoc(null); // This will trigger the useEffect to fetch again
+    setProcessingDoc(null);
   };
 
   const formatDuration = (durationInMs?: number) => {
@@ -211,8 +225,16 @@ export default function JobShow() {
 
   const getFilenameFromLink = (link?: string) => {
     if (!link) return "";
-    const parts = link.split("/");
-    return parts[parts.length - 1] || "";
+    
+    try {
+      const url = new URL(link);
+      const pathname = url.pathname;
+      const parts = pathname.split('/');
+      return parts[parts.length - 1] || "";
+    } catch (e) {
+      const parts = link.split("/");
+      return parts[parts.length - 1] || "";
+    }
   };
 
   const { data, isLoading, isError } = queryResult;
@@ -420,9 +442,16 @@ export default function JobShow() {
               </Tabs.Tab>
             </Tabs.List>
             
-            // Fix the Tab.Panel value to match
+            <Tabs.Panel value="preview" pt="md">
+              <DocumentMarkdownRenderer 
+                data={processingDoc?.output || record?.output || null}
+                isLoading={isDocLoading}
+                errorMessage={errorMessage}
+                onRefresh={manualRefetch}
+              />
+            </Tabs.Panel>
+
             <Tabs.Panel value="json" pt="md">
-              {/* Container for the JSON content */}
               <div style={{ 
                 backgroundColor: 'white', 
                 padding: '32px', 
