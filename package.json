@@ -44,7 +44,9 @@
     "zustand": "^4.5.2",
     "@react-pdf/renderer": "^4.3.0",
     "react-helmet-async": "^2.0.5",
-    "nanoid": "^5.1.2"
+    "nanoid": "^5.1.2",
+    "json2md": "^2.0.2",
+    "@markdoc/markdoc": "^0.5.1",
   },
   "devDependencies": {
     "@types/node": "^18.16.2",

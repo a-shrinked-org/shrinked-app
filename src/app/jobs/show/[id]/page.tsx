@@ -25,6 +25,8 @@ import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 // Import centralized auth utilities
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
+// Import our new DocumentMarkdownRenderer component
+import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 
 interface Identity {
   token?: string;
@@ -417,48 +419,13 @@ export default function JobShow() {
             </Tabs.List>
 
             <Tabs.Panel value="preview" pt="md">
-              {isDocLoading ? (
-                <div style={{ backgroundColor: 'white', color: 'black', padding: '32px', borderRadius: 8 }}>
-                  <LoadingOverlay visible={true} />
-                  <div style={{ height: '300px' }}></div>
-                </div>
-              ) : errorMessage || !processingDoc ? (
-                <Box p="lg" bg="white" c="black" style={{ borderRadius: 8 }}>
-                  <Text>
-                    Processed document data not available. {errorMessage && `Error: ${errorMessage}`}
-                    <Button 
-                      leftSection={<RefreshCw size={16} />} 
-                      onClick={manualRefetch} 
-                      mt="md"
-                      styles={{
-                        root: {
-                          backgroundColor: '#131313',
-                          borderColor: '#202020',
-                          color: '#ffffff',
-                          '&:hover': {
-                            backgroundColor: '#202020',
-                          },
-                        },
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  </Text>
-                </Box>
-              ) : (
-                <div style={{ 
-                  backgroundColor: 'white', 
-                  padding: '32px', 
-                  borderRadius: 8,
-                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                  height: '700px'
-                }}>
-                  {/* Placeholder for PDF view */}
-                  <div style={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text size="xl" c="gray.6">Document preview removed temporarily</Text>
-                  </div>
-                </div>
-              )}
+              {/* Using our new DocumentMarkdownRenderer component */}
+              <DocumentMarkdownRenderer 
+                data={processingDoc?.output || record?.output || null}
+                isLoading={isDocLoading}
+                errorMessage={errorMessage}
+                onRefresh={manualRefetch}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="markdown" pt="md">

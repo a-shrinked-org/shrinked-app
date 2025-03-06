@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
-import { useAuthProvider } from "@refinedev/core";
 import { Card, Title, TextInput, Button, Container, Alert, Text } from "@mantine/core";
 
 export default function VerifyEmail() {
-  const { verifyEmail } = useAuthProvider();
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<{ token: string; email: string; password: string }>({
@@ -42,31 +40,23 @@ export default function VerifyEmail() {
     // Client-side validation (not secure, for demo only)
     const pendingUser = localStorage.getItem("pendingUser");
     if (pendingUser) {
-      const { token: storedToken, email: storedEmail, password: storedPassword } = JSON.parse(pendingUser);
+      const { token: storedToken, email: storedEmail } = JSON.parse(pendingUser);
       if (storedToken === formData.token && storedEmail === formData.email) {
+        // Store verified user data
         localStorage.setItem(
           "verifiedUser",
           JSON.stringify({ email: formData.email, password: formData.password })
         );
         localStorage.removeItem("pendingUser");
         window.location.href = "/jobs"; // Simulate login
-        return;
+      } else {
+        setError("Invalid token or email");
+        setIsLoading(false);
       }
+    } else {
+      setError("No pending verification found");
+      setIsLoading(false);
     }
-
-    // Fallback to auth provider if backend is used later
-    verifyEmail(
-      { token: formData.token, email: formData.email, password: formData.password },
-      {
-        onSuccess: () => {
-          // Redirect to /jobs handled by auth provider
-        },
-        onError: (error: any) => {
-          setError(error?.message || "Verification failed");
-          setIsLoading(false);
-        },
-      }
-    );
   };
 
   return (
