@@ -237,7 +237,8 @@ export default function JobCreate() {
 
                 <Tabs.Panel value="upload" pt="md">
                   <Box mb="sm">
-                    <Text size="sm" weight={500} mb="xs">Upload File</Text>
+                    {/* Fixed: Removed 'weight' prop and used 'fw' instead */}
+                    <Text size="sm" fw={500} mb="xs">Upload File</Text>
                     <FileUpload onFileUploaded={handleFileUploaded} />
                     
                     {uploadedFileUrl && (
