@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Group, Text, useMantineTheme, rem, Box, Button, Progress } from '@mantine/core';
+import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
-import { Upload, X, FileText } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 import { showNotification } from '@mantine/notifications';
 import { authUtils, useAuth, API_CONFIG } from "@/utils/authUtils";
 
@@ -26,6 +26,8 @@ export function FileUpload({
   const [file, setFile] = useState<FileWithPath | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  
   // Using the centralized auth hook
   const { fetchWithAuth, handleAuthError } = useAuth();
 
@@ -43,11 +45,19 @@ export function FileUpload({
     'video/webm': ['.webm']
   };
 
+  // Direct upload to R2 using presigned URL
   const uploadFile = async (file: File) => {
+    // Clear any previous errors
+    setError(null);
     setUploading(true);
     setProgress(0);
 
     try {
+      // Check file size before proceeding
+      if (file.size > maxSizeMB * 1024 * 1024) {
+        throw new Error(`File size exceeds the maximum limit of ${maxSizeMB}MB`);
+      }
+
       // Check if online before making request
       if (!navigator.onLine) {
         throw new Error('You appear to be offline. Please check your internet connection.');
@@ -58,19 +68,8 @@ export function FileUpload({
       const randomString = Math.random().toString(36).substring(2, 10);
       const fileName = `${timestamp}-${randomString}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       
-      // Convert file to base64
-      const base64String = await file2Base64(file);
-      
-      // Create a simulated progress update
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = prev + 5;
-          return newProgress < 90 ? newProgress : prev;
-        });
-      }, 200);
-      
-      // Upload to your backend using centralized fetchWithAuth
-      const response = await fetchWithAuth('/api/upload', {
+      // Step 1: Get a presigned URL from our backend
+      const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,35 +77,47 @@ export function FileUpload({
         body: JSON.stringify({
           fileName,
           contentType: file.type,
-          base64Data: base64String,
           bucketName: R2_CONFIG.bucketName
         })
       });
       
-      clearInterval(progressInterval);
-      
-      if (!response.ok) {
-        // Handle specific status codes
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('Authentication required. Please login again.');
-        } else if (response.status >= 500) {
-          throw new Error('Server error. Please try again later.');
-        } else {
-          // Try to parse error message from response
-          try {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to upload file');
-          } catch {
-            throw new Error(`Upload failed with status: ${response.status}`);
-          }
-        }
+      if (!presignedResponse.ok) {
+        const errorData = await presignedResponse.json();
+        throw new Error(errorData.error || `Failed to get upload URL: ${presignedResponse.status}`);
       }
       
-      const data = await response.json();
+      const { presignedUrl, fileUrl } = await presignedResponse.json();
+      
+      // Progress simulation
+      setProgress(10);
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          const increment = Math.floor(Math.random() * 10) + 5; // Random increment between 5-15
+          const newProgress = prev + increment;
+          return newProgress < 90 ? newProgress : prev;
+        });
+      }, 500);
+      
+      // Step 2: Upload directly to R2 using the presigned URL
+      const uploadResponse = await fetch(presignedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file // Send raw file, not base64
+      });
+      
+      clearInterval(progressInterval);
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
+      }
+      
+      // Set progress to 100% when complete
       setProgress(100);
       
-      // Provide the URL to the parent component
-      onFileUploaded(data.fileUrl);
+      // Provide the permanent URL to the parent component
+      onFileUploaded(fileUrl);
       
       showNotification({
         title: 'Success',
@@ -116,6 +127,9 @@ export function FileUpload({
     } catch (error) {
       console.error('Upload error:', error);
       
+      // Set error message
+      setError(error instanceof Error ? error.message : 'Failed to upload file');
+      
       // Use centralized error handling
       handleAuthError(error);
       
@@ -124,24 +138,12 @@ export function FileUpload({
         message: error instanceof Error ? error.message : 'Failed to upload file',
         color: 'red'
       });
+      
+      // Reset file selection on error
+      setFile(null);
     } finally {
       setUploading(false);
     }
-  };
-
-  // Convert file to base64
-  const file2Base64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Remove the data:mime/type;base64, prefix
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = error => reject(error);
-    });
   };
 
   const handleDrop = (files: FileWithPath[]) => {
@@ -161,6 +163,19 @@ export function FileUpload({
 
   return (
     <Box>
+      {error && (
+        <Alert 
+          icon={<AlertCircle size={16} />} 
+          color="red" 
+          mb="md" 
+          title="Upload Error"
+          withCloseButton
+          onClose={() => setError(null)}
+        >
+          {error}
+        </Alert>
+      )}
+      
       {!file && !uploading ? (
         <Dropzone
           onDrop={handleDrop}
