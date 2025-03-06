@@ -110,55 +110,27 @@ export default function JobShow() {
 
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth } = useAuth();
 
-  const { queryResult } = useShow<Job>({
-    resource: "jobs",
-    id: jobId,
-    queryOptions: {
-      enabled: !!jobId && !!identity?.token,
-      onSuccess: (data) => {
-        console.log("Show query success:", data);
-        
-        // Extract processingDocId from PLATOGRAM_PROCESSING step
-        const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
-        if (processingStep?.data?.resultId) {
-          console.log("Found processing resultId:", processingStep.data.resultId);
-          setProcessingDocId(processingStep.data.resultId);
-        } else {
-          console.log("No resultId found in processing step");
-          setErrorMessage("No processing document ID found in job steps.");
-        }
-        
-        // Extract link from UPLOAD_FILE or similar step
-        const uploadStep = data.data?.steps?.find(step => 
-          step.name === "UPLOAD_FILE" || 
-          step.name === "FILE_UPLOAD" || 
-          step.name === "CONVERT_FILE" ||
-          step.name === "AUDIO_TRANSCRIPTION"
-        );
-        
-        const foundLink = uploadStep?.data?.output?.link || 
-                         uploadStep?.data?.link || 
-                         data.data?.link;
-                        
-        if (foundLink) {
-          console.log("Found upload file link:", foundLink);
-          setUploadFileLink(foundLink);
-        } else {
-          console.log("No upload file link found in steps or record");
-        }
-      },
-      onError: (error) => {
-        console.error("Show query error:", error);
-        handleAuthError(error);
-        setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
+  // Fetch markdown content from backend endpoint
+  const fetchMarkdownContent = useCallback(async () => {
+    if (!processingDocId) return;
+
+    try {
+      const response = await fetchWithAuth(
+        `${API_CONFIG.API_URL}/markdown/${processingDocId}/json?includeReferences=true`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Markdown fetch failed with status: ${response.status}`);
       }
-    },
-    meta: {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}`
-      }
+
+      // The response should be the markdown text directly
+      const markdown = await response.text();
+      setMarkdownContent(markdown);
+    } catch (error) {
+      console.error("Failed to fetch markdown:", error);
+      setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
     }
-  });
+  }, [processingDocId, fetchWithAuth]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
@@ -211,28 +183,6 @@ export default function JobShow() {
     }
   }, [processingDocId, fetchWithAuth, activeTab, fetchMarkdownContent]);
 
-  // Fetch markdown content from backend endpoint
-  const fetchMarkdownContent = useCallback(async () => {
-    if (!processingDocId) return;
-
-    try {
-      const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/markdown/${processingDocId}/json?includeReferences=true`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Markdown fetch failed with status: ${response.status}`);
-      }
-
-      // The response should be the markdown text directly
-      const markdown = await response.text();
-      setMarkdownContent(markdown);
-    } catch (error) {
-      console.error("Failed to fetch markdown:", error);
-      setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }, [processingDocId, fetchWithAuth]);
-
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
     if (!processingDocId) return;
@@ -262,6 +212,56 @@ export default function JobShow() {
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [processingDocId, fetchWithAuth]);
+
+  const { queryResult } = useShow<Job>({
+    resource: "jobs",
+    id: jobId,
+    queryOptions: {
+      enabled: !!jobId && !!identity?.token,
+      onSuccess: (data) => {
+        console.log("Show query success:", data);
+        
+        // Extract processingDocId from PLATOGRAM_PROCESSING step
+        const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
+        if (processingStep?.data?.resultId) {
+          console.log("Found processing resultId:", processingStep.data.resultId);
+          setProcessingDocId(processingStep.data.resultId);
+        } else {
+          console.log("No resultId found in processing step");
+          setErrorMessage("No processing document ID found in job steps.");
+        }
+        
+        // Extract link from UPLOAD_FILE or similar step
+        const uploadStep = data.data?.steps?.find(step => 
+          step.name === "UPLOAD_FILE" || 
+          step.name === "FILE_UPLOAD" || 
+          step.name === "CONVERT_FILE" ||
+          step.name === "AUDIO_TRANSCRIPTION"
+        );
+        
+        const foundLink = uploadStep?.data?.output?.link || 
+                         uploadStep?.data?.link || 
+                         data.data?.link;
+                        
+        if (foundLink) {
+          console.log("Found upload file link:", foundLink);
+          setUploadFileLink(foundLink);
+        } else {
+          console.log("No upload file link found in steps or record");
+        }
+      },
+      onError: (error) => {
+        console.error("Show query error:", error);
+        handleAuthError(error);
+        setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
+      }
+    },
+    meta: {
+      headers: {
+        'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}`
+      }
+    }
+  });
 
   // Effect to load document data when ID changes or tab changes
   useEffect(() => {
