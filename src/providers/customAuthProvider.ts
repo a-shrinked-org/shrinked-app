@@ -193,55 +193,49 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async check() {
-	// Add debouncing for auth checks to prevent excessive API calls
 	const now = Date.now();
 	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
 	  const authenticated = authUtils.isAuthenticated();
 	  return { authenticated };
 	}
 	lastAuthCheckTime = now;
-	
-	// Use centralized authentication check
+
 	const authenticated = authUtils.isAuthenticated();
 	if (!authenticated) {
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	}
-	
+
 	try {
-	  // Validate token with backend only if enough time has passed
 	  const accessToken = authUtils.getAccessToken();
 	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
 		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
-		  'Content-Type': 'application/json'
-		}
+		  Authorization: `Bearer ${accessToken}`,
+		  "Content-Type": "application/json",
+		},
 	  });
-	  
+
 	  if (response.ok) {
-		// Update user data in localStorage to ensure it's fresh
 		const userData = await response.json();
 		const accessToken = authUtils.getAccessToken();
 		const refreshToken = authUtils.getRefreshToken();
-		
+
 		if (accessToken && refreshToken) {
 		  const updatedUserData = {
 			...userData,
 			accessToken,
-			refreshToken
+			refreshToken,
 		  };
 		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
 		}
 		return { authenticated: true };
 	  }
-	  
-	  // If we got here, token validation failed even after potential refresh
+
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	} catch (error) {
 	  console.error("Auth check error:", error);
-	  // Only clear storage for certain errors
-	  if (error instanceof Error && 'status' in error && (error as any).status === 401) {
+	  if (error instanceof Error && "status" in error && (error as any).status === 401) {
 		authUtils.clearAuthStorage();
 	  }
 	  return { authenticated: false };
@@ -253,19 +247,19 @@ class AuthProviderClass implements AuthProvider {
 	if (!userStr) {
 	  return null;
 	}
-	
+
 	try {
 	  const userData: UserData = JSON.parse(userStr);
 	  return {
 		id: userData.userId || userData._id || userData.id,
 		name: userData.username || userData.email,
 		email: userData.email,
-		avatar: userData.avatar || '',
+		avatar: userData.avatar || "",
 		roles: userData.roles || [],
 		token: userData.accessToken || authUtils.getAccessToken(),
 		subscriptionPlan: userData.subscriptionPlan,
 		apiKeys: userData.apiKeys || [],
-		userId: userData.userId || userData._id || userData.id
+		userId: userData.userId || userData._id || userData.id,
 	  };
 	} catch (error) {
 	  console.error("Error parsing user data:", error);
@@ -274,37 +268,31 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async getPermissions() {
-	// Use memory cache for permissions to reduce API calls
 	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	if (!userStr) return null;
 
 	try {
 	  const userData: UserData = JSON.parse(userStr);
-	  // If roles exist in userData, use those without making API call
 	  if (userData.roles && Array.isArray(userData.roles) && userData.roles.length > 0) {
 		return userData.roles;
 	  }
-	  
-	  // Only make API call if necessary
+
 	  const accessToken = authUtils.getAccessToken();
 	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
 		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
-		  'Content-Type': 'application/json'
-		}
+		  Authorization: `Bearer ${accessToken}`,
+		  "Content-Type": "application/json",
+		},
 	  });
-	  
+
 	  if (response.ok) {
 		const { roles } = await response.json();
-		
-		// Update roles in local storage for future use
 		try {
 		  userData.roles = roles;
 		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
 		} catch (e) {
 		  console.error("Error updating roles in localStorage:", e);
 		}
-		
 		return roles;
 	  }
 	  return null;
@@ -317,17 +305,14 @@ class AuthProviderClass implements AuthProvider {
   async updatePassword(params: any) {
 	try {
 	  const accessToken = authUtils.getAccessToken();
-	  const response = await fetch(
-		`${API_CONFIG.API_URL}/auth/update-password`,
-		{
-		  method: 'POST',
-		  headers: {
-			'Authorization': `Bearer ${accessToken}`,
-			'Content-Type': 'application/json'
-		  },
-		  body: JSON.stringify(params)
-		}
-	  );
+	  const response = await fetch(`${API_CONFIG.API_URL}/auth/update-password`, {
+		method: "POST",
+		headers: {
+		  Authorization: `Bearer ${accessToken}`,
+		  "Content-Type": "application/json",
+		},
+		body: JSON.stringify(params),
+	  });
 
 	  if (!response.ok) {
 		const errorData = await response.json();
@@ -335,8 +320,8 @@ class AuthProviderClass implements AuthProvider {
 		  success: false,
 		  error: {
 			message: errorData.message || "Invalid password",
-			name: "Update password failed"
-		  }
+			name: "Update password failed",
+		  },
 		};
 	  }
 
@@ -346,8 +331,8 @@ class AuthProviderClass implements AuthProvider {
 		success: false,
 		error: {
 		  message: "Update failed",
-		  name: "Update password failed"
-		}
+		  name: "Update password failed",
+		},
 	  };
 	}
   }
@@ -355,9 +340,9 @@ class AuthProviderClass implements AuthProvider {
   async forgotPassword(params: any) {
 	try {
 	  const response = await fetch(`${API_CONFIG.API_URL}/auth/forgot-password`, {
-		method: 'POST',
+		method: "POST",
 		headers: {
-		  'Content-Type': 'application/json',
+		  "Content-Type": "application/json",
 		},
 		body: JSON.stringify(params),
 	  });
@@ -368,42 +353,37 @@ class AuthProviderClass implements AuthProvider {
 		  success: false,
 		  error: {
 			message: errorData.message || "Invalid email",
-			name: "Forgot password failed"
-		  }
+			name: "Forgot password failed",
+		  },
 		};
 	  }
 
-	  return {
-		success: true
-	  };
+	  return { success: true };
 	} catch (error) {
 	  return {
 		success: false,
 		error: {
 		  message: "Request failed",
-		  name: "Forgot password failed"
-		}
+		  name: "Forgot password failed",
+		},
 	  };
 	}
   }
 
   async logout() {
-	// Attempt to invalidate refresh token on server if available
 	try {
 	  const refreshToken = authUtils.getRefreshToken();
 	  if (refreshToken) {
-		// Use a fetch with timeout to avoid hanging on server issues
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 3000);
-		
-		// Based on Postman collection, refreshToken should be in the request body
+
 		await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
-		  method: 'POST',
+		  method: "POST",
 		  headers: {
-			'Content-Type': 'application/json',
+			"Content-Type": "application/json",
 		  },
 		  body: JSON.stringify({ refreshToken }),
-		  signal: controller.signal
+		  signal: controller.signal,
 		}).catch(() => {
 		  // Ignore server errors during logout
 		}).finally(() => {
@@ -413,10 +393,9 @@ class AuthProviderClass implements AuthProvider {
 	} catch (error) {
 	  // Continue with logout even if server request fails
 	}
-	
-	// Use centralized method to clear storage
+
 	authUtils.clearAuthStorage();
-	
+
 	return {
 	  success: true,
 	  redirectTo: "/login",
@@ -425,41 +404,34 @@ class AuthProviderClass implements AuthProvider {
 
   async onError(error: any) {
 	console.error("Auth error:", error);
-	
-	// Let the centralized error handler take care of it
+
 	authUtils.handleAuthError(error);
-	
+
 	const status = error?.response?.status || error?.statusCode || error?.status;
-	
-	// Only fully log out for 401/403 that fail a token refresh
+
 	if (status === 401 || status === 403) {
-	  // Try refresh token, but don't create circular logic
 	  const errorContext = error?.context;
 	  const isFromRefresh = errorContext && errorContext.isRefreshAttempt;
-	  
+
 	  if (!isFromRefresh) {
 		const refreshSuccess = await authUtils.refreshToken();
 		if (refreshSuccess) {
-		  // Successfully refreshed, don't log out
 		  return { error };
 		}
 	  }
-	  
-	  // If refresh failed or this is already from a refresh, log out
+
 	  authUtils.clearAuthStorage();
 	  return {
 		logout: true,
 		redirectTo: "/login",
-		error
+		error,
 	  };
 	}
-	
-	// For other errors, just pass through
+
 	return { error };
   }
-}
 
-async verifyEmail(params: { token: string; email: string; password: string }) {
+  async verifyEmail(params: { token: string; email: string; password: string }) {
 	const { token, email, password } = params;
 	try {
 	  const pendingUserStr = localStorage.getItem("pendingUser");
