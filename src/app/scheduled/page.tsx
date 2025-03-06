@@ -30,7 +30,7 @@ export default function ScheduledJobs() {
           <Title order={3}>Coming Soon</Title>
           
           <Text size="lg" c="dimmed" maw={600} mx="auto">
-            The scheduled jobs feature is currently in development. Soon you'll be able to schedule 
+            The scheduled jobs feature is currently in development. Soon you&apos;ll be able to schedule 
             your processing tasks to run automatically at specified times.
           </Text>
           
