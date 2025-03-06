@@ -1,7 +1,7 @@
 // src/providers/customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-import { v4 as uuidv4 } from 'uuid'; // Consider adding this package for secure tokens
+import { nanoid } from 'nanoid'; // Add nanoid import for secure token generation
 
 interface UserData {
   id?: string;
@@ -403,8 +403,8 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 	  
-	  // Step 2: Generate a secure token
-	  const token = nanoid(21);
+	  // Step 2: Generate a secure token using nanoid
+	  const token = nanoid(21); // Generate a 21-character random string
 	  debug.log('register', `Generated token: ${token.substring(0, 5)}...`);
 	  
 	  // Step 3: Create the contact in Loops with all necessary properties
@@ -429,7 +429,7 @@ class AuthProviderClass implements AuthProvider {
 		debug.error('register', `Failed to send validation email:`, emailError);
 		throw new Error(`Failed to send validation email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
 	  }
-  
+	
 	  // Step 5: Store temporary user data
 	  const tempUserData = { email, username, isVerified: false };
 	  debug.log('register', `Storing pending user data in localStorage`);
@@ -449,7 +449,6 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  // In customAuthProvider.ts - check method
   async check() {
 	const now = Date.now();
 	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
@@ -785,6 +784,7 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
+}
 
 const authProviderInstance = new AuthProviderClass();
 
