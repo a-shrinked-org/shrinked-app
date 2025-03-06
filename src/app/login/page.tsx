@@ -15,7 +15,6 @@ import {
   Text,
 } from "@mantine/core";
 import { IconBrandGoogle, IconBook, IconCode, IconRocket } from "@tabler/icons-react";
-import { nanoid } from "nanoid/non-secure"; // Changed to non-secure for client-side simplicity
 
 interface FormData {
   email: string;
@@ -27,7 +26,7 @@ export default function Login() {
   const [error, setError] = useState<string>("");
   const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
-  const [step, setStep] = useState<"email" | "password">("email"); // Track form step
+  const [step, setStep] = useState<"email" | "password">("email");
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -38,27 +37,6 @@ export default function Login() {
 
   const handleGoogleLogin = () => {
     window.location.href = "https://api.shrinked.ai/auth/google";
-  };
-
-  const sendVerificationEmail = async (email: string, token: string) => {
-    const verificationUrl = `${window.location.origin}/verify?token=${token}`;
-    try {
-      const response = await fetch("https://app.loops.so/api/v1/transactional", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_LOOPS_API_KEY}`, // Public key in Vercel env
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
-          email,
-          dataVariables: { verificationUrl },
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to send verification email");
-    } catch (err) {
-      throw err;
-    }
   };
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -73,25 +51,28 @@ export default function Login() {
 
     if (step === "email") {
       login(
-        { email: formData.email, password: "" }, // Send empty password to check email existence
+        { email: formData.email, password: "" }, // Empty password for email check
         {
           onSuccess: () => {
-            setStep("password"); // Email exists, move to password step
+            setStep("password"); // Email exists in Loops, prompt for password
           },
-          onError: async (error: any) => {
+          onError: (error: any) => {
             console.error("Email check error:", error);
             if (error.name === "RegistrationRequired") {
-              const token = nanoid();
-              try {
-                await sendVerificationEmail(formData.email, token);
-                setInfo("Account created! Please check your email for a verification link.");
-                localStorage.setItem(
-                  "pendingUser",
-                  JSON.stringify({ email: formData.email, token, password: "" })
-                );
-              } catch (err) {
-                setError("Failed to send verification email");
-              }
+              // Trigger registration via auth provider
+              login(
+                { email: formData.email, password: "" }, // Trigger register flow
+                {
+                  onSuccess: (data) => {
+                    if (data.redirectTo === "/verify-email") {
+                      setInfo("Account created! Please check your email for a verification link.");
+                    }
+                  },
+                  onError: (err) => {
+                    setError(err?.message || "Failed to initiate registration");
+                  },
+                }
+              );
             } else {
               setError(error?.message || "Failed to verify email");
             }
@@ -176,7 +157,7 @@ export default function Login() {
             onChange={handleInputChange}
             required
             mb="md"
-            disabled={isLoading || step === "password"} // Disable email input after first step
+            disabled={isLoading || step === "password"}
             styles={{
               input: { backgroundColor: "#333333", color: "#FFFFFF" },
               label: { color: "#333333" },

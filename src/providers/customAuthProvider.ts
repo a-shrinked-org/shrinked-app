@@ -16,104 +16,115 @@ interface UserData {
   avatar?: string | null;
   accessToken?: string;
   refreshToken?: string;
+  isVerified?: boolean;
 }
 
-// Track login/check attempts to prevent excessive requests
 let lastAuthCheckTime = 0;
 const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
+const LOOPS_API_URL = "https://app.loops.so/api/v1";
+const LOOPS_API_KEY = process.env.LOOPS_API_KEY; // From Vercel env
 
 class AuthProviderClass implements AuthProvider {
+  async callLoops(endpoint: string, method: string, body?: any) {
+	const response = await fetch(`${LOOPS_API_URL}${endpoint}`, {
+	  method,
+	  headers: {
+		"Authorization": `Bearer ${LOOPS_API_KEY}`,
+		"Content-Type": "application/json",
+	  },
+	  body: body ? JSON.stringify(body) : undefined,
+	});
+	return response.json();
+  }
+
+  async checkEmailInLoops(email: string) {
+	const encodedEmail = encodeURIComponent(email);
+	const data = await this.callLoops(`/contacts/find?email=${encodedEmail}`, "GET");
+	return data.length > 0 ? data[0] : null; // Return contact if found, null if not
+  }
+
+  async sendValidationEmail(email: string, token: string) {
+	const validationUrl = `${API_CONFIG.APP_URL}/verify?token=${token}`;
+	return this.callLoops("/transactional", "POST", {
+	  transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
+	  email,
+	  dataVariables: { validationUrl },
+	});
+  }
+
   async login(params: any) {
 	const { providerName, email, password } = params;
 
-	// Handle different OAuth providers
 	if (providerName === "auth0" || providerName === "google" || providerName === "github") {
-	  const redirectUrl = providerName === "auth0" 
-		? undefined // Auth0 uses NextAuth
-		: `${API_CONFIG.API_URL}/auth/${providerName}`;
-	  
+	  const redirectUrl =
+		providerName === "auth0"
+		  ? undefined
+		  : `${API_CONFIG.API_URL}/auth/${providerName}`;
 	  if (redirectUrl) {
 		window.location.href = redirectUrl;
 	  }
-	  
 	  return {
 		success: false,
-		error: {
-		  message: `Redirecting to ${providerName}...`,
-		  name: providerName
-		}
+		error: { message: `Redirecting to ${providerName}...`, name: providerName },
 	  };
 	}
 
-	// Handle email/password login
 	try {
-	  // Check for internet connection
 	  if (!navigator.onLine) {
 		return {
 		  success: false,
-		  error: {
-			message: 'Network error: You appear to be offline',
-			name: 'Connection Error'
-		  }
+		  error: { message: "Network error: You appear to be offline", name: "Connection Error" },
 		};
 	  }
 
-	  // Use fetch directly for login - based on Postman examples
-	  const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({ email, password }),
-	  });
+	  const loopsContact = await this.checkEmailInLoops(email);
 
-	  // Handle Cloudflare errors
-	  if (loginResponse.status === 521 || loginResponse.status === 522 || loginResponse.status === 523) {
-		return {
-		  success: false,
-		  error: {
-			message: 'The server is currently unreachable. Please try again later.',
-			name: 'Connection Error'
-		  }
-		};
+	  if (!password) {
+		// Email-only check
+		if (loopsContact) {
+		  return { success: true }; // Email exists in Loops, prompt for password
+		} else {
+		  return {
+			success: false,
+			error: { message: "Email not found. Please register.", name: "RegistrationRequired" },
+		  };
+		}
 	  }
 
-	  const loginData = await loginResponse.json();
+	  // Full login with password
+	  if (loopsContact) {
+		const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
+		  method: "POST",
+		  headers: { "Content-Type": "application/json" },
+		  body: JSON.stringify({ email, password }),
+		});
 
-	  if (!loginResponse.ok) {
-		return {
-		  success: false,
-		  error: {
-			message: loginData.message || 'Login failed',
-			name: 'Invalid email or password'
-		  }
-		};
-	  }
+		if (!loginResponse.ok) {
+		  const loginData = await loginResponse.json();
+		  return {
+			success: false,
+			error: {
+			  message: loginData.message || "Login failed",
+			  name: "Invalid email or password",
+			},
+		  };
+		}
 
-	  // Store tokens using centralized utilities
-	  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
+		const loginData = await loginResponse.json();
+		authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
 
-	  // Fetch user profile after successful login
-	  try {
-		// Based on Postman collection, use Bearer token for profile fetch
-		const profileResponse = await fetch(
-		  `${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`,
-		  {
-			headers: {
-			  'Authorization': `Bearer ${loginData.accessToken}`,
-			  'Content-Type': 'application/json'
-			}
-		  }
-		);
+		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+		  headers: {
+			Authorization: `Bearer ${loginData.accessToken}`,
+			"Content-Type": "application/json",
+		  },
+		});
 
 		if (!profileResponse.ok) {
 		  authUtils.clearAuthStorage();
 		  return {
 			success: false,
-			error: {
-			  message: 'Could not verify user profile',
-			  name: 'Login Error'
-			}
+			error: { message: "Could not verify user profile", name: "Login Error" },
 		  };
 		}
 
@@ -121,25 +132,19 @@ class AuthProviderClass implements AuthProvider {
 		const userDataWithTokens = {
 		  ...userData,
 		  accessToken: loginData.accessToken,
-		  refreshToken: loginData.refreshToken
+		  refreshToken: loginData.refreshToken,
 		};
-		
 		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userDataWithTokens));
 
 		return {
 		  success: true,
 		  redirectTo: "/jobs",
-		  user: userDataWithTokens
+		  user: userDataWithTokens,
 		};
-	  } catch (profileError) {
-		console.error("Error fetching user profile:", profileError);
-		authUtils.clearAuthStorage();
+	  } else {
 		return {
 		  success: false,
-		  error: {
-			message: 'Could not verify user profile',
-			name: 'Login Error'
-		  }
+		  error: { message: "Email not found. Please register.", name: "RegistrationRequired" },
 		};
 	  }
 	} catch (error) {
@@ -147,9 +152,9 @@ class AuthProviderClass implements AuthProvider {
 	  return {
 		success: false,
 		error: {
-		  message: error instanceof Error ? error.message : 'Login failed',
-		  name: 'Login Error'
-		}
+		  message: error instanceof Error ? error.message : "Login failed",
+		  name: "Login Error",
+		},
 	  };
 	}
   }
@@ -157,39 +162,32 @@ class AuthProviderClass implements AuthProvider {
   async register(params: any) {
 	const { email, password, username } = params;
 	try {
-	  const registerResponse = await fetch(`${API_CONFIG.API_URL}/auth/register`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		},
-		body: JSON.stringify({
-		  email,
-		  password,
-		  username,
-		  subscriptionPlan: 'FREE'
-		}),
-	  });
-
-	  const registerData = await registerResponse.json();
-
-	  if (!registerResponse.ok) {
+	  const loopsContact = await this.checkEmailInLoops(email);
+	  if (loopsContact) {
 		return {
 		  success: false,
-		  error: {
-			message: registerData.message || 'Registration failed',
-			name: registerData.error || 'Registration Error'
-		  }
+		  error: { message: "Email already registered", name: "EmailExists" },
 		};
 	  }
 
-	  return this.login({ email, password });
+	  const token = Math.random().toString(36).substring(2); // Simple token, replace with secure method
+	  await this.sendValidationEmail(email, token);
+
+	  await this.callLoops("/contacts", "POST", {
+		email,
+		contactProperties: { validationEmailSent: true },
+	  });
+
+	  const tempUserData = { email, username, isVerified: false };
+	  localStorage.setItem("pendingUser", JSON.stringify({ ...tempUserData, token, password }));
+	  return { success: true, redirectTo: "/verify-email" };
 	} catch (error) {
 	  return {
 		success: false,
 		error: {
-		  message: error instanceof Error ? error.message : 'Registration failed',
-		  name: 'Registration Error'
-		}
+		  message: error instanceof Error ? error.message : "Registration failed",
+		  name: "Registration Error",
+		},
 	  };
 	}
   }
@@ -461,6 +459,37 @@ class AuthProviderClass implements AuthProvider {
   }
 }
 
+async verifyEmail(params: { token: string; email: string; password: string }) {
+	const { token, email, password } = params;
+	try {
+	  const pendingUserStr = localStorage.getItem("pendingUser");
+	  if (!pendingUserStr) throw new Error("No pending user found");
+
+	  const pendingUser = JSON.parse(pendingUserStr);
+	  if (pendingUser.token !== token || pendingUser.email !== email) {
+		return {
+		  success: false,
+		  error: { message: "Invalid token or email", name: "VerificationError" },
+		};
+	  }
+
+	  const verifiedUser = { email, password, isVerified: true };
+	  localStorage.setItem("verifiedUser", JSON.stringify(verifiedUser));
+	  localStorage.removeItem("pendingUser");
+
+	  return { success: true, redirectTo: "/jobs" };
+	} catch (error) {
+	  return {
+		success: false,
+		error: {
+		  message: error instanceof Error ? error.message : "Verification failed",
+		  name: "VerificationError",
+		},
+	  };
+	}
+  }
+}
+
 const authProviderInstance = new AuthProviderClass();
 
 type CustomAuthProvider = Required<AuthProvider> & {
@@ -468,6 +497,7 @@ type CustomAuthProvider = Required<AuthProvider> & {
   forgotPassword?: (params: any) => Promise<any>;
   updatePassword?: (params: any) => Promise<any>;
   getPermissions?: (params?: any) => Promise<any>;
+  verifyEmail?: (params: { token: string; email: string; password: string }) => Promise<any>;
 };
 
 export const customAuthProvider: CustomAuthProvider = {
@@ -480,4 +510,5 @@ export const customAuthProvider: CustomAuthProvider = {
   forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
   updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
   getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
+  verifyEmail: authProviderInstance.verifyEmail.bind(authProviderInstance),
 } as const;
