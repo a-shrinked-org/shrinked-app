@@ -509,7 +509,27 @@ const manualRefetch = () => {
   getProcessingDocument(0);
 };
 
-// [All formatting helper functions remain unchanged]
+const formatDuration = (durationInMs?: number) => {
+if (!durationInMs) return "N/A";
+const totalSeconds = Math.floor(durationInMs / 1000);
+const minutes = Math.floor(totalSeconds / 60);
+const seconds = totalSeconds % 60;
+return `${minutes}m ${seconds}s`;
+};
+
+const formatText = (text: string) => {
+return text
+  ?.toLowerCase()
+  .split('_')
+  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+  .join(' ') || '';
+};
+
+const getFilenameFromLink = (link?: string) => {
+if (!link) return "";
+const parts = link.split("/");
+return parts[parts.length - 1] || "";
+};
 
 const { data, isLoading, isError } = queryResult;
 const record = data?.data;
