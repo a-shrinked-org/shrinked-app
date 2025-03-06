@@ -6,11 +6,7 @@ import { MantineProvider, createTheme, ColorSchemeScript, Text, Button, Stack, G
 import '@mantine/core/styles.css';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
-
-// Fix SVG rendering by creating a styled wrapper component
-export const IconWrapper = ({ icon: Icon, size = 16 }) => (
-  <Icon size={size} style={{ width: `${size}px`, height: `${size}px` }} />
-);
+import { IconWrapper } from '@/utils/ui-utils';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
@@ -57,7 +53,7 @@ class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNod
           marginTop: 40
         }}>
           <Group align="flex-start">
-            <IconWrapper icon={AlertCircle} size={24} />
+            <IconWrapper icon={AlertCircle} size={24} color="#fa5252" />
             <Text size="xl" fw={600} color="white">Something went wrong</Text>
           </Group>
           
@@ -227,6 +223,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Use a HelmetProvider to manage metadata
+  const helmetContext = {};
+
   return (
     <html lang="en" data-mantine-color-scheme="dark">
       <head>
@@ -266,7 +265,7 @@ export default function RootLayout({
         padding: 0,
         minHeight: '100vh'
       }}>
-        <HelmetProvider>
+        <HelmetProvider context={helmetContext}>
           {/* Define metadata using Helmet */}
           <Helmet>
             <title>&lt;Shrinked Logo Placeholder&gt;</title>

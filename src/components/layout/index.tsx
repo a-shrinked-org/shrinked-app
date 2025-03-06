@@ -25,8 +25,8 @@ import {
 } from 'lucide-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-// Import IconWrapper from layout
-import { IconWrapper } from '../app/layout';
+// Import IconWrapper from the utils file
+import { IconWrapper } from '@/utils/ui-utils';
 
 interface Identity {
   id?: string;
