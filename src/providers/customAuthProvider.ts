@@ -435,8 +435,9 @@ class AuthProviderClass implements AuthProvider {
 	  debug.log('register', `Storing pending user data in localStorage`);
 	  localStorage.setItem("pendingUser", JSON.stringify({ ...tempUserData, token, password }));
 	  
-	  debug.log('register', `Registration successful, redirecting to verification page`);
-	  return { success: true, redirectTo: "/verify-email" };
+	  debug.log('register', `Registration successful, staying on verification page`);
+	  // Change: return success without redirectTo to prevent automatic redirection
+	  return { success: true };
 	} catch (error) {
 	  debug.error('register', `Registration failed:`, error);
 	  return {

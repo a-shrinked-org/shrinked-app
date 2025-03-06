@@ -193,6 +193,7 @@ export default function Login() {
   };
 
   // Separate function to handle the registration flow
+  // In page.tsx, update the handleRegistrationFlow function:
   const handleRegistrationFlow = () => {
     login(
       { 
@@ -203,34 +204,33 @@ export default function Login() {
       {
         onSuccess: (data) => {
           console.log("Registration initiated successfully", data);
-          if (data.redirectTo === "/verify-email") {
-            setStep("verification-sent");
-          }
+          // Don't rely on redirectTo, just update the step
+          setStep("verification-sent");
         },
-                  onError: (regError) => {
-            console.error("Registration error:", regError);
-            // Handle various error object structures safely
-            if (typeof regError === 'object' && regError !== null) {
-              // First try to get the message directly
-              if ('message' in regError && typeof regError.message === 'string') {
-                setError(regError.message);
-                return;
-              }
-              
-              // Then try to get it from a nested error object
-              if ('error' in regError && 
-                  typeof regError.error === 'object' && 
-                  regError.error !== null &&
-                  'message' in regError.error && 
-                  typeof regError.error.message === 'string') {
-                setError(regError.error.message);
-                return;
-              }
+        onError: (regError) => {
+          console.error("Registration error:", regError);
+          // Handle various error object structures safely
+          if (typeof regError === 'object' && regError !== null) {
+            // First try to get the message directly
+            if ('message' in regError && typeof regError.message === 'string') {
+              setError(regError.message);
+              return;
             }
             
-            // Default error message if we couldn't extract one
-            setError("Failed to register with this email");
+            // Then try to get it from a nested error object
+            if ('error' in regError && 
+                typeof regError.error === 'object' && 
+                regError.error !== null &&
+                'message' in regError.error && 
+                typeof regError.error.message === 'string') {
+              setError(regError.error.message);
+              return;
+            }
           }
+          
+          // Default error message if we couldn't extract one
+          setError("Failed to register with this email");
+        }
       }
     );
   };
