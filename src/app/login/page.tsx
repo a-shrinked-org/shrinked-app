@@ -43,34 +43,31 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setInfo("");
-
+  
     if (!formData.email) {
       setError("Please enter your email");
       return;
     }
-
+  
     if (step === "email") {
       login(
-        { email: formData.email, password: "" }, // Empty password for email check
+        { email: formData.email, password: "" },
         {
           onSuccess: () => {
-            setStep("password"); // Email exists in Loops, prompt for password
+            setStep("password"); // Email exists in Loops
           },
           onError: (error: any) => {
             console.error("Email check error:", error);
             if (error.name === "RegistrationRequired") {
-              // Trigger registration via auth provider
               login(
-                { email: formData.email, password: "" }, // Trigger register flow
+                { email: formData.email, password: "" }, // Trigger register
                 {
                   onSuccess: (data) => {
                     if (data.redirectTo === "/verify-email") {
                       setInfo("Account created! Please check your email for a verification link.");
                     }
                   },
-                  onError: (err) => {
-                    setError(err?.message || "Failed to initiate registration");
-                  },
+                  onError: (err) => setError(err?.message || "Failed to initiate registration"),
                 }
               );
             } else {
@@ -90,10 +87,7 @@ export default function Login() {
           onSuccess: () => {
             // Redirect to /jobs handled by auth provider
           },
-          onError: (error: any) => {
-            console.error("Password login error:", error);
-            setError(error?.message || "Login failed");
-          },
+          onError: (error: any) => setError(error?.message || "Login failed"),
         }
       );
     }
