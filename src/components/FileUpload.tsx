@@ -20,7 +20,7 @@ interface FileUploadProps {
 
 export function FileUpload({
   onFileUploaded,
-  maxSizeMB = 100, // Default to 100MB
+  maxSizeMB = 100,
   acceptedFileTypes,
 }: FileUploadProps) {
   const theme = useMantineTheme();
@@ -60,7 +60,11 @@ export function FileUpload({
       const randomString = Math.random().toString(36).substring(2, 10);
       const fileName = `${timestamp}-${randomString}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
-      console.log('Requesting presigned URL for:', { fileName, contentType: file.type, bucketName: R2_CONFIG.bucketName });
+      console.log('Requesting presigned URL for:', {
+        fileName,
+        contentType: file.type,
+        bucketName: R2_CONFIG.bucketName,
+      });
 
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',

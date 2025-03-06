@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// R2 configuration from environment variables
+// R2 configuration from environment variables (no hardcoded fallbacks except bucket)
 const R2_CONFIG = {
-  endpoint: process.env.R2_ENDPOINT, // e.g., https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com
+  endpoint: process.env.R2_ENDPOINT, // Should be https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com
   accessKeyId: process.env.R2_ACCESS_KEY_ID,
   secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  bucketName: process.env.R2_BUCKET_NAME || 'apptemp', // Fallback only for bucket name
+  bucketName: process.env.R2_BUCKET_NAME || 'apptemp',
 };
 
 // Validate required environment variables
@@ -35,7 +35,7 @@ async function verifyAuth(request: NextRequest): Promise<boolean> {
 	  return false;
 	}
 	const token = authHeader.split(' ')[1];
-	return !!token; // In production, add proper token verification
+	return !!token; // Add proper token verification in production
   } catch (error) {
 	console.error('Auth verification error:', error);
 	return false;
@@ -56,53 +56,49 @@ function handleApiError(error: any): NextResponse {
   );
 }
 
-// Set Next.js config for API route
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-	// Verify authentication
 	const isAuthenticated = await verifyAuth(request);
 	if (!isAuthenticated) {
 	  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	// Parse the request body
 	const { fileName, contentType, bucketName } = await request.json();
 
 	if (!fileName || !contentType) {
 	  return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
 	}
 
-	// Use provided bucketName or default to R2_CONFIG.bucketName
 	const targetBucket = bucketName || R2_CONFIG.bucketName;
 
-	// Set up the S3 upload parameters
 	const uploadParams = {
 	  Bucket: targetBucket,
 	  Key: fileName,
 	  ContentType: contentType,
 	};
 
-	// Log for debugging
 	console.log('R2 Endpoint:', R2_CONFIG.endpoint);
-	console.log('Bucket Name:', uploadParams.Bucket);
+	console.log('Target Bucket:', targetBucket);
 	console.log('File Key:', fileName);
 
-	// Generate presigned URL
 	const command = new PutObjectCommand(uploadParams);
-	const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // URL expires in 1 hour
-	console.log('Generated Presigned URL:', presignedUrl);
+	const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
-	// Generate the final file URL
-	const fileUrl = `${R2_CONFIG.endpoint}/${uploadParams.Bucket}/${uploadParams.Key}`;
-	console.log('Final File URL:', fileUrl);
+	// Correct file URL construction (no nested bucket names)
+	const fileUrl = `${R2_CONFIG.endpoint}/${targetBucket}/${fileName}`;
+
+	console.log('Generated Presigned URL:', presignedUrl);
+	console.log('File URL:', fileUrl);
 
 	return NextResponse.json({
 	  success: true,
 	  presignedUrl,
 	  fileUrl,
+	  bucketName: targetBucket,
+	  objectKey: fileName,
 	  message: 'Upload URL generated successfully',
 	});
   } catch (error) {
