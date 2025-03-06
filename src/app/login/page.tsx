@@ -55,41 +55,41 @@ export default function Login() {
         { email: formData.email, password: "" },
         {
           onSuccess: (response) => {
-            // If login is successful with just email, it means email exists
-            console.log("Email exists, showing password field", response);
-            setStep("password"); // Email exists, show password field
+            // Only move to password step if the response clearly indicates success
+            if (response && response.success === true) {
+              console.log("Email exists, showing password field", response);
+              setStep("password"); // Email exists, show password field
+            } else {
+              // If response has an unexpected structure, log it for debugging
+              console.log("Unexpected success response structure:", response);
+              
+              // If response contains an error with RegistrationRequired name, handle registration flow
+              if (response && response.error && response.error.name === "RegistrationRequired") {
+                handleRegistrationFlow();
+              } else {
+                setError("Unable to verify email status. Please try again.");
+              }
+            }
           },
           onError: (error: any) => {
             console.log("Email check result:", error);
             
+            // Log the full error structure to debug
+            console.log("Error object structure:", JSON.stringify(error, null, 2));
+            
             // Check if this is a "RegistrationRequired" error
-            if (error?.name === "RegistrationRequired") {
+            // The error structure might be nested differently than expected
+            const errorName = error?.name || (error?.error && error.error.name);
+            
+            if (errorName === "RegistrationRequired" || 
+                (error?.message && error.message.includes("not found")) ||
+                (error?.error && error.error.message && error.error.message.includes("not found"))) {
               console.log("Email not found, initiating registration flow");
-              
-              // Start registration process
-              login(
-                { 
-                  email: formData.email,
-                  password: "",
-                  providerName: "register"
-                },
-                {
-                  onSuccess: (data) => {
-                    console.log("Registration initiated successfully", data);
-                    if (data.redirectTo === "/verify-email") {
-                      setStep("verification-sent");
-                    }
-                  },
-                  onError: (regError) => {
-                    console.error("Registration error:", regError);
-                    setError(regError?.message || "Failed to register with this email");
-                  }
-                }
-              );
+              handleRegistrationFlow();
             } else {
               // For any other errors
               console.error("Login error:", error);
-              setError(error?.message || "An error occurred");
+              setError(error?.message || (error?.error && error.error.message) || "An error occurred");
             }
           }
         }
@@ -115,11 +115,36 @@ export default function Login() {
           },
           onError: (error: any) => {
             console.error("Login error:", error);
-            setError(error?.message || "Invalid email or password");
+            setError(error?.message || (error?.error && error.error.message) || "Invalid email or password");
           }
         }
       );
     }
+  };
+
+  // Separate function to handle the registration flow
+  const handleRegistrationFlow = () => {
+    login(
+      { 
+        email: formData.email,
+        password: "",
+        providerName: "register"
+      },
+      {
+        onSuccess: (data) => {
+          console.log("Registration initiated successfully", data);
+          if (data.redirectTo === "/verify-email") {
+            setStep("verification-sent");
+          }
+        },
+        onError: (regError) => {
+          console.error("Registration error:", regError);
+          setError(regError?.message || 
+                  (regError?.error && regError.error.message) || 
+                  "Failed to register with this email");
+        }
+      }
+    );
   };
 
   const isButtonActive = step === "email" ? !!formData.email.trim() : !!formData.password.trim();
