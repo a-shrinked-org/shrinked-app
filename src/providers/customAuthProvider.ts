@@ -827,6 +827,7 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
+}
 
 const authProviderInstance = new AuthProviderClass();
 
