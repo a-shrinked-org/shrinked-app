@@ -73,7 +73,9 @@ interface Job {
     passages?: string[];
     references?: Array<{ item: string }>;
     chapters?: Array<{ title: string }>;
+    resultId?: string;
   };
+  resultId?: string;
 }
 
 interface ProcessingDocument {
@@ -90,7 +92,9 @@ interface ProcessingDocument {
     passages?: string[];
     references?: Array<{ item: string }>;
     chapters?: Array<{ title: string }>;
+    resultId?: string;
   };
+  resultId?: string;
 }
 
 export default function JobShow() {
