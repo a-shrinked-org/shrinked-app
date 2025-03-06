@@ -230,6 +230,7 @@ export const authUtils = {
   },
 
   // Silent refresh timer setup
+  // In authUtils.ts, modify the setupRefreshTimer function:
   setupRefreshTimer: (forceCheck: boolean = false): void => {
 	// Clear any existing timer
 	if (window._refreshTimerId) {
@@ -255,8 +256,12 @@ export const authUtils = {
 	  // Calculate time until access token expires (with 1-minute buffer)
 	  const timeUntilExpiry = metadata.accessExpiry - now - (1 * 60 * 1000);
 	  
-	  // If access token is already expired or will expire soon, refresh now
-	  if (timeUntilExpiry <= 0 || forceCheck) {
+	  // Only refresh if token is actually expired or close to expiring
+	  // Add a check for minimum time threshold (e.g., 5 minutes)
+	  const minimumRefreshThreshold = 5 * 60 * 1000; // 5 minutes
+	  
+	  // If access token will expire soon or forceCheck is true and it expires within the minimum threshold
+	  if (timeUntilExpiry <= 0 || (forceCheck && timeUntilExpiry < minimumRefreshThreshold)) {
 		console.log("[AUTH] Access token expiring soon, refreshing now");
 		authUtils.refreshToken()
 		  .then(success => {
