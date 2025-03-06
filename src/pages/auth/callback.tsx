@@ -15,7 +15,7 @@ export default function AuthCallback() {
   useEffect(() => {
 	// Simple progress animation
 	const progressInterval = setInterval(() => {
-	  setProgress(prev => (prev + 5) % 110);
+	  setProgress(prev => (prev + 10) % 110);
 	}, 150);
 
 	return () => clearInterval(progressInterval);
@@ -99,7 +99,7 @@ export default function AuthCallback() {
 		display: 'flex', 
 		justifyContent: 'center', 
 		alignItems: 'center', 
-		height: '100vh', 
+		height: '100vh',
 		fontFamily: 'system-ui, sans-serif'
 	  }}>
 		<div style={{ textAlign: 'center' }}>
@@ -118,37 +118,31 @@ export default function AuthCallback() {
 	);
   }
 
+  // Just the bar and nothing else
   return (
 	<div style={{ 
 	  display: 'flex', 
 	  justifyContent: 'center', 
 	  alignItems: 'center', 
 	  height: '100vh',
-	  fontFamily: 'system-ui, sans-serif',
 	  background: 'white'
 	}}>
-	  <div style={{ width: '300px', textAlign: 'center' }}>
+	  <div style={{ 
+		width: '300px',
+		height: '4px',
+		background: 'var(--theme-border-subdued, #e0e0e0)',
+		whiteSpace: 'nowrap',
+		textAlign: 'left',
+		verticalAlign: 'bottom',
+		overflow: 'hidden',
+		position: 'relative'
+	  }}>
 		<div style={{ 
-		  width: '100%', 
-		  height: '4px', 
-		  backgroundColor: '#f0f0f0', 
-		  borderRadius: '2px', 
-		  overflow: 'hidden',
-		  marginBottom: '20px' 
-		}}>
-		  <div style={{ 
-			height: '100%', 
-			width: `${Math.min(progress, 100)}%`, 
-			backgroundColor: '#D87A16', 
-			transition: 'width 0.2s ease-in-out' 
-		  }} />
-		</div>
-		<p style={{ 
-		  color: '#666', 
-		  fontSize: '14px'
-		}}>
-		  Authenticating...
-		</p>
+		  height: '100%',
+		  width: `${Math.min(progress, 100)}%`,
+		  background: '#D87A16',
+		  transition: 'width 0.2s ease-in-out'
+		}}></div>
 	  </div>
 	</div>
   );
