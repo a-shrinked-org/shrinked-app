@@ -24,7 +24,7 @@ const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
 
 class AuthProviderClass implements AuthProvider {
   async callLoops(endpoint: string, method: string, body?: any) {
-	const response = await fetch(`/api/auth/loops?loops=${encodeURIComponent(endpoint)}`, {
+	const response = await fetch(`/api/loops?loops=${encodeURIComponent(endpoint)}`, {
 	  method,
 	  headers: {
 		"Content-Type": "application/json",
