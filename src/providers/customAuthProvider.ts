@@ -21,7 +21,7 @@ interface UserData {
 }
 
 let lastAuthCheckTime = 0;
-const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
+const AUTH_CHECK_COOLDOWN = 10000; // 10 secs
 
 // Debug helper function
 const debug = {
@@ -452,21 +452,26 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
+  // In customAuthProvider.ts - check method
   async check() {
 	const now = Date.now();
 	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
 	  const authenticated = authUtils.isAuthenticated();
+	  console.log(`[AUTH:check] Using cached auth status: ${authenticated} (cooldown active)`);
 	  return { authenticated };
 	}
 	lastAuthCheckTime = now;
-
+  
+	console.log("[AUTH:check] Performing full auth check");
 	const authenticated = authUtils.isAuthenticated();
 	if (!authenticated) {
+	  console.log("[AUTH:check] No local tokens found, clearing auth storage");
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	}
-
+  
 	try {
+	  console.log("[AUTH:check] Validating token with server");
 	  const accessToken = authUtils.getAccessToken();
 	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
 		headers: {
@@ -474,12 +479,13 @@ class AuthProviderClass implements AuthProvider {
 		  "Content-Type": "application/json",
 		},
 	  });
-
+  
 	  if (response.ok) {
+		console.log("[AUTH:check] Token validation successful");
 		const userData = await response.json();
 		const accessToken = authUtils.getAccessToken();
 		const refreshToken = authUtils.getRefreshToken();
-
+  
 		if (accessToken && refreshToken) {
 		  const updatedUserData = {
 			...userData,
@@ -490,12 +496,30 @@ class AuthProviderClass implements AuthProvider {
 		}
 		return { authenticated: true };
 	  }
-
+  
+	  console.log(`[AUTH:check] Token validation failed with status: ${response.status}`);
+	  if (response.status === 401 || response.status === 403) {
+		// Try to refresh token before giving up
+		console.log("[AUTH:check] Attempting token refresh during check");
+		const refreshSuccess = await authUtils.refreshToken();
+		if (refreshSuccess) {
+		  console.log("[AUTH:check] Token refresh successful during check");
+		  return { authenticated: true };
+		}
+	  }
+  
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	} catch (error) {
-	  debug.error('check', `Auth check error:`, error);
-	  if (error instanceof Error && "status" in error && (error as any).status === 401) {
+	  console.error('[AUTH:check] Auth check error:', error);
+	  if (error instanceof Error && "status" in error && ((error as any).status === 401 || (error as any).status === 403)) {
+		// Try to refresh token before giving up
+		console.log("[AUTH:check] Attempting token refresh after error");
+		const refreshSuccess = await authUtils.refreshToken();
+		if (refreshSuccess) {
+		  console.log("[AUTH:check] Token refresh successful after error");
+		  return { authenticated: true };
+		}
 		authUtils.clearAuthStorage();
 	  }
 	  return { authenticated: false };

@@ -10,7 +10,7 @@ export const API_CONFIG = {
 	LOGIN: "/auth/login",
 	REGISTER: "/auth/register",
 	PROFILE: "/users/profile",
-	REFRESH: "/auth/refresh-token",
+	REFRESH: "/auth/refresh",
 	LOGOUT: "/auth/logout",
 	PERMISSIONS: "/auth/permissions",
   },
@@ -66,6 +66,7 @@ export const authUtils = {
   },
 
   // Improved token refresh with proper promise sharing and cooldown
+  // In authUtils.ts - refreshToken function
   refreshToken: async (): Promise<boolean> => {
 	const now = Date.now();
 	
@@ -89,12 +90,7 @@ export const authUtils = {
 		  console.log("No refresh token available");
 		  return false;
 		}
-
-		if (!navigator.onLine) {
-		  console.log("Offline, can't refresh token");
-		  return false;
-		}
-
+  
 		// Based on the Postman collection, refreshToken should be sent in the request body
 		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.REFRESH}`, {
 		  method: 'POST',
@@ -103,18 +99,18 @@ export const authUtils = {
 		  },
 		  body: JSON.stringify({ refreshToken }),
 		});
-
+  
 		if (!response.ok) {
 		  console.error("Token refresh failed:", response.status);
 		  return false;
 		}
-
+  
 		const data = await response.json();
 		if (!data.accessToken || !data.refreshToken) {
 		  console.error("Invalid token refresh response");
 		  return false;
 		}
-
+  
 		// Update tokens in storage
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
 		
@@ -133,7 +129,7 @@ export const authUtils = {
 		} catch (e) {
 		  console.error("Error updating user data after refresh:", e);
 		}
-
+  
 		console.log("Token refresh successful");
 		lastSuccessfulRefreshTime = Date.now();
 		return true;
@@ -145,12 +141,13 @@ export const authUtils = {
 		refreshPromise = null;
 	  }
 	})();
-
+  
 	// Return the result of the refresh promise
 	return refreshPromise;
-  },
+  }
 
   // Centralized API request handler with improved error handling
+  // In authUtils.ts - apiRequest function
   apiRequest: async (url: string, options: RequestInit = {}, retryCount = 0): Promise<Response> => {
 	const MAX_RETRIES = 1;
 	
@@ -196,7 +193,7 @@ export const authUtils = {
 	  }
 	  throw error;
 	}
-  },
+  }
 
   // Helper method to check if user is authenticated
   isAuthenticated: (): boolean => {
