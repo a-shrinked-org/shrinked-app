@@ -16,7 +16,7 @@ import {
 } from "@mantine/core";
 import { IconBrandGoogle, IconBook, IconCode, IconRocket } from "@tabler/icons-react";
 // Import nanoid (non-secure version for simplicity in browser)
-import { nanoid } from "https://unpkg.com/nanoid/non-secure/index.browser.js";
+import { nanoid } from "nanoid";
 
 interface FormData {
   email: string;

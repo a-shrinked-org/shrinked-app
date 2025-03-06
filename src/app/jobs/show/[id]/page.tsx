@@ -350,10 +350,10 @@ export default function JobShow() {
 
         <div style={{ padding: '24px' }}>
           <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
-            {combinedData.title || 'Untitled Document'}
+            {record?.jobName || 'Untitled Job'}
           </Text>
           <Text c="dimmed" mt="xs">
-            {getFilenameFromLink(record?.link) || 'No source file'}
+            {record?.link ? getFilenameFromLink(record.link) : 'No source file'}
           </Text>
         </div>
 
@@ -463,11 +463,11 @@ export default function JobShow() {
 
             <Tabs.Panel value="markdown" pt="md">
               <div style={{ 
-                padding: '16px', 
-                color: '#e0e0e0', 
+                backgroundColor: 'white', 
+                padding: '32px', 
                 borderRadius: 8,
-                backgroundColor: '#121212',
-                border: '1px solid #303030'
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                width: '100%'
               }}>
                 <Code
                   block
@@ -481,7 +481,8 @@ export default function JobShow() {
                     fontSize: '0.9rem',
                     fontFamily: 'monospace',
                     lineHeight: 1.5,
-                    border: '1px solid #333'
+                    border: '1px solid #333',
+                    width: '100%'
                   }}
                 >
                   {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}
