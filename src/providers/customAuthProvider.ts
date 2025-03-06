@@ -106,12 +106,15 @@ class AuthProviderClass implements AuthProvider {
 	debug.log('createContact', `Creating contact for email: ${email}`);
 	
 	try {
+	  // Construct payload according to Loops API documentation
 	  const payload = {
 		email,
-		contactProperties: properties
+		// Pass contact properties as individual fields rather than in a contactProperties object
+		...properties
 	  };
 	  
-	  const response = await this.callLoops("contacts", "POST", payload);
+	  // Use the correct endpoint with /create suffix
+	  const response = await this.callLoops("contacts/create", "POST", payload);
 	  debug.log('createContact', `Contact created successfully:`, response);
 	  return response;
 	} catch (error) {

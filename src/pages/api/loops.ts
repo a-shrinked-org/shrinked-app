@@ -7,6 +7,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	console.log("API Route Called: /api/loops");
 	console.log("Query parameters:", req.query);
 	console.log("Method:", req.method);
+	console.log("Request body:", req.body);
 	
 	// Check for API key
 	if (!process.env.LOOPS_API_KEY) {
@@ -23,13 +24,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	const method = req.method || "GET";
 	const body = req.method === "POST" ? req.body : undefined;
 	
+	// Remove the leading slash if it exists
+	const cleanedEndpoint = loops.startsWith('/') ? loops.substring(1) : loops;
+	
 	// Log what we're about to request
-	console.log(`Making request to Loops API: ${method} https://app.loops.so/api/v1/${loops}`);
+	console.log(`Making request to Loops API: ${method} https://app.loops.so/api/v1/${cleanedEndpoint}`);
+	if (body) {
+	  console.log("Request body:", JSON.stringify(body));
+	}
 	
 	try {
-	  // Remove the leading slash if it exists
-	  const cleanedEndpoint = loops.startsWith('/') ? loops.substring(1) : loops;
-	  
 	  const response = await fetch(`https://app.loops.so/api/v1/${cleanedEndpoint}`, {
 		method,
 		headers: {
@@ -42,9 +46,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	  // Log response status
 	  console.log(`Loops API response status: ${response.status}`);
 	  
-	  const data = await response.json();
-	  console.log("Loops API response data:", JSON.stringify(data).substring(0, 200) + "...");
-
+	  // Get response text first to debug potential JSON issues
+	  const responseText = await response.text();
+	  console.log(`Loops API raw response: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`);
+	  
+	  // Try to parse JSON, with fallback if it fails
+	  let data;
+	  try {
+		data = responseText ? JSON.parse(responseText) : {};
+	  } catch (parseError) {
+		console.error("Error parsing Loops API response as JSON:", parseError);
+		return res.status(500).json({ 
+		  message: "Error parsing Loops API response", 
+		  error: (parseError as Error).message,
+		  rawResponse: responseText
+		});
+	  }
+	  
 	  if (!response.ok) {
 		console.error("Loops API error response:", data);
 		return res.status(response.status).json(data);
