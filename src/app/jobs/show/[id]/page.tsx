@@ -18,7 +18,8 @@ import {
   Share,
   MoreVertical,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
@@ -77,7 +78,10 @@ interface Job {
 
 interface ProcessingDocument {
   _id: string;
-  output: {
+  title?: string;
+  status?: string;
+  createdAt?: string;
+  output?: {
     title?: string;
     abstract?: string;
     contributors?: string;
@@ -102,6 +106,7 @@ export default function JobShow() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
   const [uploadFileLink, setUploadFileLink] = useState<string | null>(null);
+  const [markdownContent, setMarkdownContent] = useState<string | null>(null);
 
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth } = useAuth();
 
@@ -155,6 +160,7 @@ export default function JobShow() {
     }
   });
 
+  // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) {
       setErrorMessage("Missing required data to fetch document");
@@ -170,8 +176,10 @@ export default function JobShow() {
       setIsLoadingDoc(true);
       setErrorMessage(null);
       
+      // Using fields parameter to only request necessary fields
+      const fields = '_id,title,status,createdAt,output';
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/processing/${processingDocId}/document`
+        `${API_CONFIG.API_URL}/processing/${processingDocId}?fields=${fields}`
       );
 
       if (!response.ok) {
@@ -190,23 +198,90 @@ export default function JobShow() {
       );
       
       setProcessingDoc(sanitizedData);
+
+      // If we're in preview tab, also fetch the markdown content
+      if (activeTab === "preview") {
+        fetchMarkdownContent();
+      }
     } catch (error) {
       console.error("Failed to fetch document:", error);
       setErrorMessage(`Error loading document: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoadingDoc(false);
     }
+  }, [processingDocId, fetchWithAuth, activeTab]);
+
+  // Fetch markdown content from backend endpoint
+  const fetchMarkdownContent = useCallback(async () => {
+    if (!processingDocId) return;
+
+    try {
+      const response = await fetchWithAuth(
+        `${API_CONFIG.API_URL}/markdown/${processingDocId}/json?includeReferences=true`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Markdown fetch failed with status: ${response.status}`);
+      }
+
+      // The response should be the markdown text directly
+      const markdown = await response.text();
+      setMarkdownContent(markdown);
+    } catch (error) {
+      console.error("Failed to fetch markdown:", error);
+      setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }, [processingDocId, fetchWithAuth]);
 
+  // Download PDF handler
+  const handleDownloadPDF = useCallback(async () => {
+    if (!processingDocId) return;
+
+    try {
+      const response = await fetchWithAuth(
+        `${API_CONFIG.API_URL}/pdf/${processingDocId}/json?includeReferences=true`,
+        { method: 'GET', responseType: 'blob' }
+      );
+
+      if (!response.ok) {
+        throw new Error(`PDF download failed with status: ${response.status}`);
+      }
+      
+      // Convert response to blob and create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `document-${processingDocId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [processingDocId, fetchWithAuth]);
+
+  // Effect to load document data when ID changes or tab changes
   useEffect(() => {
     if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId)) {
       getProcessingDocument();
     }
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
+  // Effect to load markdown content when tab changes to preview
+  useEffect(() => {
+    if (activeTab === "preview" && processingDocId && !markdownContent) {
+      fetchMarkdownContent();
+    }
+  }, [activeTab, processingDocId, markdownContent, fetchMarkdownContent]);
+
   const manualRefetch = () => {
     setErrorMessage(null);
     setProcessingDoc(null);
+    setMarkdownContent(null);
+    getProcessingDocument();
   };
 
   const formatDuration = (durationInMs?: number) => {
@@ -245,6 +320,7 @@ export default function JobShow() {
 
   console.log("Fetched record:", record);
   console.log("Processing document:", processingDoc);
+  console.log("Markdown content length:", markdownContent?.length || 0);
   console.log("Using token for processing document:", 
     getAccessToken()?.substring(0, 20) || identity?.token?.substring(0, 20) || 'none');
 
@@ -296,16 +372,8 @@ export default function JobShow() {
     );
   }
 
-  const combinedData = {
-    title: processingDoc?.output?.title || record?.output?.title || record?.jobName,
-    abstract: processingDoc?.output?.abstract || record?.output?.abstract || "",
-    contributors: processingDoc?.output?.contributors || record?.output?.contributors || "",
-    introduction: processingDoc?.output?.introduction || record?.output?.introduction || "",
-    conclusion: processingDoc?.output?.conclusion || record?.output?.conclusion || "",
-    passages: processingDoc?.output?.passages || record?.output?.passages || [],
-    references: processingDoc?.output?.references || record?.output?.references || [],
-    chapters: processingDoc?.output?.chapters || record?.output?.chapters || [],
-  };
+  // Use data from processingDoc when available, otherwise fall back to record
+  const combinedData = processingDoc?.output || record?.output || {};
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
@@ -346,6 +414,23 @@ export default function JobShow() {
               Share
             </Button>
             <Button 
+              variant="outline"
+              leftSection={<Download size={16} />}
+              onClick={handleDownloadPDF}
+              styles={{
+                root: {
+                  backgroundColor: '#131313',
+                  borderColor: '#202020',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#202020',
+                  },
+                },
+              }}
+            >
+              Download PDF
+            </Button>
+            <Button 
               styles={{
                 root: {
                   backgroundColor: '#ffffff',
@@ -376,7 +461,7 @@ export default function JobShow() {
 
         <div style={{ padding: '24px' }}>
           <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
-            {record?.jobName || 'Untitled Job'}
+            {processingDoc?.title || record?.jobName || 'Untitled Job'}
           </Text>
           <Text c="dimmed" mt="xs">
             {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
@@ -445,12 +530,69 @@ export default function JobShow() {
             </Tabs.List>
             
             <Tabs.Panel value="preview" pt="md">
-              <DocumentMarkdownRenderer 
-                data={processingDoc?.output || record?.output || null}
-                isLoading={isDocLoading}
-                errorMessage={errorMessage}
-                onRefresh={manualRefetch}
-              />
+              {isDocLoading ? (
+                <Box style={{ position: 'relative', minHeight: '300px' }}>
+                  <LoadingOverlay visible={true} />
+                </Box>
+              ) : errorMessage ? (
+                <Alert 
+                  icon={<AlertCircle size={16} />}
+                  color="red"
+                  title="Error"
+                  mb="md"
+                >
+                  {errorMessage}
+                  <Button 
+                    leftSection={<RefreshCw size={16} />}
+                    mt="sm"
+                    onClick={manualRefetch}
+                    variant="light"
+                    size="sm"
+                  >
+                    Try again
+                  </Button>
+                </Alert>
+              ) : markdownContent ? (
+                // Pass the markdown content directly to the renderer
+                <DocumentMarkdownRenderer 
+                  markdown={markdownContent}
+                  isLoading={false}
+                  errorMessage={null}
+                  onRefresh={manualRefetch}
+                  processingStatus={processingDoc?.status || record?.status}
+                />
+              ) : processingDoc?.status?.toLowerCase() === 'processing' || 
+                 processingDoc?.status?.toLowerCase() === 'in_progress' || 
+                 processingDoc?.status?.toLowerCase() === 'pending' || 
+                 record?.status?.toLowerCase() === 'processing' || 
+                 record?.status?.toLowerCase() === 'in_progress' || 
+                 record?.status?.toLowerCase() === 'pending' ? (
+                // Show the processing state UI
+                <DocumentMarkdownRenderer 
+                  isLoading={false}
+                  errorMessage={null}
+                  onRefresh={manualRefetch}
+                  processingStatus="processing"
+                />
+              ) : (
+                <Alert 
+                  icon={<AlertCircle size={16} />}
+                  color="yellow"
+                  title="No Content"
+                  mb="md"
+                >
+                  No content available to display.
+                  <Button 
+                    leftSection={<RefreshCw size={16} />}
+                    mt="sm"
+                    onClick={manualRefetch}
+                    variant="light"
+                    size="sm"
+                  >
+                    Refresh
+                  </Button>
+                </Alert>
+              )}
             </Tabs.Panel>
 
             <Tabs.Panel value="json" pt="md">
@@ -500,6 +642,11 @@ export default function JobShow() {
             Created
           </Text>
           <Text>{identity?.name || 'Unknown User'}</Text>
+          {processingDoc?.createdAt && (
+            <Text size="sm" c="dimmed" mt="4px">
+              {new Date(processingDoc.createdAt).toLocaleString()}
+            </Text>
+          )}
         </div>
 
         <div style={{ marginBottom: '2rem' }}>
@@ -513,7 +660,13 @@ export default function JobShow() {
           <Text c="dimmed" mb="xs">
             Status
           </Text>
-          <Text>{record?.status ? formatText(record.status) : 'Unknown'}</Text>
+          <Text>
+            {processingDoc?.status 
+              ? formatText(processingDoc.status) 
+              : record?.status 
+                ? formatText(record.status) 
+                : 'Unknown'}
+          </Text>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>

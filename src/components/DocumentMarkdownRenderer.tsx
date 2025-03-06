@@ -1,188 +1,222 @@
-// src/components/DocumentMarkdownRenderer.tsx
-import React, { useMemo } from 'react';
-// For TypeScript compatibility, use require instead of import
-// And add type assertion to avoid TypeScript errors
-const json2md = require('json2md') as (input: any[], options?: any) => string;
-import * as Markdoc from '@markdoc/markdoc';
-import { Box, Text, LoadingOverlay, Button } from '@mantine/core';
-import { RefreshCw } from 'lucide-react';
+import React from 'react';
+import { Box, Text, Paper, Loader, Alert, Button, Progress } from '@mantine/core';
+import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
-// Define props interface for our document data
-interface DocumentData {
-  title?: string;
-  abstract?: string;
-  contributors?: string;
-  introduction?: string;
-  conclusion?: string;
-  passages?: string[];
-  references?: Array<{ item: string }>;
-  chapters?: Array<{ title: string }>;
-}
-
+// Define component props interface
 interface DocumentMarkdownRendererProps {
-  data: DocumentData | null;
-  isLoading?: boolean;
-  errorMessage?: string | null;
-  onRefresh?: () => void;
+  data?: {
+    title?: string;
+    abstract?: string;
+    contributors?: string;
+    introduction?: string;
+    conclusion?: string;
+    passages?: string[];
+    references?: Array<{ item: string }>;
+    chapters?: Array<{ title: string }>;
+  } | null;
+  markdown?: string | null;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRefresh: () => void;
+  processingStatus?: string;
 }
 
-// Define a type for the markdown array items
-type MarkdownItem = 
-  | { h1: string } 
-  | { h2: string } 
-  | { p: string } 
-  | { ul: string[] }; // Add this to fix the typing error
-
-const DocumentMarkdownRenderer: React.FC<DocumentMarkdownRendererProps> = ({
+function DocumentMarkdownRenderer({
   data,
-  isLoading = false,
-  errorMessage = null,
-  onRefresh
-}) => {
-  // Convert document data to markdown format
-  const markdownContent = useMemo(() => {
-    if (!data) return '';
-    
-    // Use proper type for markdownArray
-    const markdownArray: MarkdownItem[] = [
-      { h1: data.title || 'Untitled Document' },
-      
-      // Abstract section
-      { h2: 'Abstract' },
-      { p: data.abstract || 'No abstract available.' },
-      
-      // Introduction section
-      { h2: '1. Introduction' },
-      { p: data.introduction || 'No introduction available.' }
-    ];
-
-    // Add chapters
-    if (data.chapters && data.chapters.length > 0) {
-      data.chapters.forEach((chapter, index) => {
-        markdownArray.push({ h2: `${index + 2}. ${chapter.title}` });
-        if (data.passages && data.passages[index]) {
-          // Split passages into paragraphs if they contain double line breaks
-          const paragraphs = data.passages[index].split(/\n\n+/);
-          if (paragraphs.length > 1) {
-            paragraphs.forEach(paragraph => {
-              if (paragraph.trim()) {
-                markdownArray.push({ p: paragraph.trim() });
-              }
-            });
-          } else {
-            markdownArray.push({ p: data.passages[index] });
-          }
-        } else {
-          markdownArray.push({ p: 'No content available for this chapter.' });
-        }
-      });
-    }
-
-    // Add conclusion
-    markdownArray.push({ h2: `${(data.chapters?.length || 0) + 2}. Conclusion` });
-    markdownArray.push({ p: data.conclusion || 'No conclusion available.' });
-
-    // Add references
-    markdownArray.push({ h2: `${(data.chapters?.length || 0) + 3}. References` });
-    if (data.references && data.references.length > 0) {
-      const referenceItems = data.references.map((ref, index) => 
-        `[${index + 1}] ${ref.item}`
-      );
-      // This is now properly typed
-      markdownArray.push({ ul: referenceItems });
-    } else {
-      markdownArray.push({ p: 'No references available.' });
-    }
-
-    // Add contributors/acknowledgements if available
-    if (data.contributors) {
-      markdownArray.push({ h2: `${(data.chapters?.length || 0) + 4}. Acknowledgements` });
-      markdownArray.push({ p: data.contributors });
-    }
-
-    // Pass the proper type to json2md
-    return json2md(markdownArray);
-  }, [data]);
-
-  // Parse the markdown with Markdoc
-  const renderedContent = useMemo(() => {
-    if (!markdownContent) return null;
-    
-    try {
-      const ast = Markdoc.parse(markdownContent);
-      const content = Markdoc.transform(ast);
-      
-      return Markdoc.renderers.react(content, React);
-    } catch (error) {
-      console.error('Error rendering markdown:', error);
-      return <Text>Error rendering document content.</Text>;
-    }
-  }, [markdownContent]);
-
-  // Render loading state, error, or content
+  markdown,
+  isLoading,
+  errorMessage,
+  onRefresh,
+  processingStatus
+}: DocumentMarkdownRendererProps) {
+  
+  // Check if the document is still processing
+  const isProcessing = processingStatus && 
+    (processingStatus.toLowerCase() === 'processing' || 
+     processingStatus.toLowerCase() === 'in_progress' ||
+     processingStatus.toLowerCase() === 'pending');
+  
+  // If we're in processing state, show a nicer waiting UI
+  if (isProcessing) {
+    return (
+      <Paper p="xl" style={{ 
+        backgroundColor: '#1a1a1a', 
+        color: '#ffffff', 
+        borderRadius: '8px',
+        position: 'relative',
+        textAlign: 'center',
+        padding: '50px 20px'
+      }}>
+        <Box style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <Clock size={48} style={{ opacity: 0.7, margin: '0 auto 20px' }} />
+          <Text size="xl" fw={600} mb="md">Your document is being processed</Text>
+          <Text size="sm" c="dimmed" mb="lg">
+            We're analyzing your content and generating a comprehensive document. 
+            This may take a few minutes depending on the file size and complexity.
+          </Text>
+          <Progress 
+            size="sm"
+            radius="xl"
+            value={75}
+            animate
+            style={{ maxWidth: '300px', margin: '0 auto 20px' }}
+          />
+          <Button 
+            variant="light" 
+            size="sm"
+            leftSection={<RefreshCw size={16} />}
+            onClick={onRefresh}
+          >
+            Check Status
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
+  
+  // If markdown content is directly provided, render it instead of generating
+  if (markdown) {
+    return (
+      <Paper p="xl" style={{ 
+        backgroundColor: '#ffffff', 
+        color: '#000000', 
+        borderRadius: '8px',
+        position: 'relative'
+      }}>
+        <Box className="markdown-content" style={{ fontSize: '16px', lineHeight: 1.7 }}>
+          <ReactMarkdown>{markdown}</ReactMarkdown>
+        </Box>
+      </Paper>
+    );
+  }
+  
+  // If we're loading, show loader
   if (isLoading) {
     return (
-      <Box style={{ 
-        backgroundColor: 'white', 
-        color: 'black', 
-        padding: '32px', 
-        borderRadius: 8,
-        position: 'relative',
-        minHeight: '300px'
-      }}>
-        <LoadingOverlay visible={true} />
+      <Box style={{ display: 'flex', justifyContent: 'center', padding: '50px' }}>
+        <Loader size="lg" />
       </Box>
     );
   }
 
-  if (errorMessage || !data) {
+  // If there's an error, show error message
+  if (errorMessage) {
     return (
-      <Box p="lg" bg="white" c="black" style={{ borderRadius: 8 }}>
-        <Text>
-          Document data not available. {errorMessage && `Error: ${errorMessage}`}
-        </Text>
-        {onRefresh && (
-          <Button 
-            leftSection={<RefreshCw size={16} />} 
-            onClick={onRefresh} 
-            mt="md"
-            styles={{
-              root: {
-                backgroundColor: '#131313',
-                borderColor: '#202020',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#202020',
-                },
-              },
-            }}
-          >
-            Retry
-          </Button>
-        )}
-      </Box>
+      <Alert 
+        color="red" 
+        title="Error loading document" 
+        icon={<AlertCircle size={16} />}
+      >
+        {errorMessage}
+        <Button 
+          variant="light" 
+          size="sm" 
+          mt="md" 
+          leftSection={<RefreshCw size={16} />}
+          onClick={onRefresh}
+        >
+          Try again
+        </Button>
+      </Alert>
     );
   }
 
+  // If no data available, show empty message
+  if (!data) {
+    return (
+      <Alert 
+        color="gray" 
+        title="No content" 
+        icon={<AlertCircle size={16} />}
+      >
+        No document content is available.
+        <Button 
+          variant="light" 
+          size="sm" 
+          mt="md" 
+          leftSection={<RefreshCw size={16} />}
+          onClick={onRefresh}
+        >
+          Refresh
+        </Button>
+      </Alert>
+    );
+  }
+
+  // Generate markdown from data (fallback if direct markdown isn't available)
+  const generateMarkdown = () => {
+    let md = '';
+
+    // Title
+    if (data.title) {
+      md += `# ${data.title}\n\n`;
+    }
+    
+    // Abstract
+    if (data.abstract) {
+      md += `## Abstract\n\n${data.abstract}\n\n`;
+    }
+    
+    // Contributors
+    if (data.contributors) {
+      md += `## Contributors\n\n${data.contributors}\n\n`;
+    }
+    
+    // Introduction
+    if (data.introduction) {
+      md += `## Introduction\n\n${data.introduction}\n\n`;
+    }
+    
+    // Chapters and passages
+    if (data.chapters && data.chapters.length > 0) {
+      data.chapters.forEach((chapter, index) => {
+        md += `## ${chapter.title || `Chapter ${index + 1}`}\n\n`;
+        
+        // If passages match chapters, add the passage content
+        if (data.passages && data.passages[index]) {
+          md += `${data.passages[index]}\n\n`;
+        }
+      });
+    } else if (data.passages && data.passages.length > 0) {
+      // If no chapters but passages exist
+      data.passages.forEach((passage, index) => {
+        md += `## Section ${index + 1}\n\n${passage}\n\n`;
+      });
+    }
+    
+    // Conclusion
+    if (data.conclusion) {
+      md += `## Conclusion\n\n${data.conclusion}\n\n`;
+    }
+    
+    // References
+    if (data.references && data.references.length > 0) {
+      md += `## References\n\n`;
+      data.references.forEach((ref, index) => {
+        md += `${index + 1}. ${ref.item}\n`;
+      });
+      md += '\n';
+    }
+    
+    return md;
+  };
+
+  // Render the generated markdown
+  const markdownContent = generateMarkdown();
+  
   return (
-    <Box style={{ 
-      backgroundColor: 'white', 
-      color: 'black', 
-      padding: '32px', 
-      borderRadius: 8,
-      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+    <Paper p="xl" style={{ 
+      backgroundColor: '#ffffff', 
+      color: '#000000', 
+      borderRadius: '8px',
+      position: 'relative'
     }}>
-      <div className="markdown-content" style={{ 
-        fontFamily: 'serif',
-        fontSize: '16px',
-        lineHeight: 1.6,
-        maxWidth: '100%',
-        overflowX: 'auto'
-      }}>
-        {renderedContent}
-      </div>
-    </Box>
+      <Box className="markdown-content" style={{ fontSize: '16px', lineHeight: 1.7 }}>
+        <ReactMarkdown>{markdownContent}</ReactMarkdown>
+      </Box>
+    </Paper>
   );
-};
+}
 
 export default DocumentMarkdownRenderer;
