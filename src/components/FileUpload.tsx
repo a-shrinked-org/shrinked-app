@@ -12,15 +12,36 @@ const R2_CONFIG = {
 
 interface FileUploadProps {
   onFileUploaded: (fileUrl: string) => void;
+  // Optional props for customization
+  maxSizeMB?: number;
+  acceptedFileTypes?: Record<string, string[]>;
 }
 
-export function FileUpload({ onFileUploaded }: FileUploadProps) {
+export function FileUpload({ 
+  onFileUploaded,
+  maxSizeMB = 100, // Default to 100MB
+  acceptedFileTypes
+}: FileUploadProps) {
   const theme = useMantineTheme();
   const [file, setFile] = useState<FileWithPath | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   // Using the centralized auth hook
   const { fetchWithAuth, handleAuthError } = useAuth();
+
+  // Default accepted file types if not provided
+  const defaultAcceptedTypes = {
+    // Audio
+    'audio/mpeg': ['.mp3'],
+    'audio/wav': ['.wav'],
+    'audio/ogg': ['.ogg'],
+    'audio/aac': ['.aac'],
+    // Video
+    'video/mp4': ['.mp4'],
+    'video/quicktime': ['.mov'],
+    'video/x-msvideo': ['.avi'],
+    'video/webm': ['.webm']
+  };
 
   const uploadFile = async (file: File) => {
     setUploading(true);
@@ -130,20 +151,21 @@ export function FileUpload({ onFileUploaded }: FileUploadProps) {
     }
   };
 
+  // Calculate file size for display
+  const formatFileSize = (size: number): string => {
+    if (size < 1024) return `${size} bytes`;
+    else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    else if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
   return (
     <Box>
       {!file && !uploading ? (
         <Dropzone
           onDrop={handleDrop}
-          maxSize={5 * 1024 * 1024} // 5MB
-          accept={{
-            'application/pdf': ['.pdf'],
-            'application/msword': ['.doc'],
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-            'text/plain': ['.txt'],
-            'image/png': ['.png'],
-            'image/jpeg': ['.jpg', '.jpeg']
-          }}
+          maxSize={maxSizeMB * 1024 * 1024}
+          accept={acceptedFileTypes || defaultAcceptedTypes}
           loading={uploading}
         >
           <Group justify="center" style={{ minHeight: rem(140), pointerEvents: 'none' }}>
@@ -170,7 +192,7 @@ export function FileUpload({ onFileUploaded }: FileUploadProps) {
                 Drag file here or click to select
               </Text>
               <Text size="sm" color="dimmed" inline mt={7}>
-                Files should not exceed 5MB
+                Max file size: {maxSizeMB} MB
               </Text>
             </div>
           </Group>
@@ -193,9 +215,16 @@ export function FileUpload({ onFileUploaded }: FileUploadProps) {
             <Group justify="space-between" p="md" style={{ border: `1px solid ${theme.colors.gray[3]}`, borderRadius: theme.radius.md }}>
               <Group>
                 <FileText size={24} />
-                <Text size="sm" fw={500}>
-                  {file?.name}
-                </Text>
+                <Box>
+                  <Text size="sm" fw={500}>
+                    {file?.name}
+                  </Text>
+                  {file && (
+                    <Text size="xs" color="dimmed">
+                      {formatFileSize(file.size)}
+                    </Text>
+                  )}
+                </Box>
               </Group>
               <Button 
                 variant="light" 

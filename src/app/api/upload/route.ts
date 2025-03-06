@@ -55,6 +55,15 @@ function handleApiError(error: any): NextResponse {
   }, { status: statusCode });
 }
 
+// Updated configuration for Next.js to handle larger file uploads
+export const config = {
+  api: {
+	bodyParser: {
+	  sizeLimit: '100mb',
+	},
+  },
+};
+
 export async function POST(request: NextRequest) {
   try {
 	// Verify authentication using your centralized auth utilities
@@ -68,6 +77,18 @@ export async function POST(request: NextRequest) {
 
 	if (!fileName || !contentType || !base64Data) {
 	  return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+	}
+
+	// Check for file size - rough estimation from base64 length
+	// Base64 is approx 4/3 larger than binary data
+	const estimatedSizeInBytes = (base64Data.length * 3) / 4;
+	const maxSizeInBytes = 100 * 1024 * 1024; // 100MB
+
+	if (estimatedSizeInBytes > maxSizeInBytes) {
+	  return NextResponse.json({ 
+		error: 'File too large', 
+		details: 'Maximum file size is 100MB' 
+	  }, { status: 413 });
 	}
 
 	// Convert base64 to Buffer
@@ -93,10 +114,20 @@ export async function POST(request: NextRequest) {
 	return NextResponse.json({ 
 	  success: true, 
 	  fileUrl,
-	  message: 'File uploaded successfully' 
+	  message: 'File uploaded successfully',
+	  size: estimatedSizeInBytes,
+	  formattedSize: formatFileSize(estimatedSizeInBytes)
 	});
 
   } catch (error) {
 	return handleApiError(error);
   }
+}
+
+// Helper function to format file size for human-readable output
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bytes`;
+  else if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  else if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  else return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
