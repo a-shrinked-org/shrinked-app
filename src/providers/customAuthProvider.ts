@@ -155,14 +155,16 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async login(params: any) {
+	const { providerName, email, password, skipEmailCheck } = params;
+	
 	debug.log('login', `Login attempt with params:`, { 
-	  email: params.email, 
-	  hasPassword: !!params.password,
-	  providerName: params.providerName 
+	  email, 
+	  hasPassword: !!password,
+	  providerName,
+	  skipEmailCheck
 	});
-
-	const { providerName, email, password } = params;
-
+  
+	// Handle social logins
 	if (providerName === "auth0" || providerName === "google" || providerName === "github") {
 	  debug.log('login', `Social login with provider: ${providerName}`);
 	  
@@ -181,7 +183,13 @@ class AuthProviderClass implements AuthProvider {
 		error: { message: `Redirecting to ${providerName}...`, name: providerName },
 	  };
 	}
-
+  
+	// Handle registration request
+	if (providerName === "register") {
+	  debug.log('login', `Registration requested for email: ${email}`);
+	  return this.register({ email, password });
+	}
+  
 	try {
 	  if (!navigator.onLine) {
 		debug.error('login', `Network connection unavailable`);
@@ -190,10 +198,85 @@ class AuthProviderClass implements AuthProvider {
 		  error: { message: "Network error: You appear to be offline", name: "Connection Error" },
 		};
 	  }
-
+  
+	  // Skip email check for password step
+	  if (skipEmailCheck && password) {
+		debug.log('login', `Skipping email check and proceeding with full login`);
+		
+		try {
+		  debug.log('login', `Making login API request to: ${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`);
+		  const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ email, password }),
+		  });
+  
+		  if (!loginResponse.ok) {
+			const loginData = await loginResponse.json();
+			debug.error('login', `Login failed:`, loginData);
+			return {
+			  success: false,
+			  error: {
+				message: loginData.message || "Login failed",
+				name: "Invalid email or password",
+			  },
+			};
+		  }
+  
+		  const loginData = await loginResponse.json();
+		  debug.log('login', `Login successful, saving tokens`);
+		  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
+  
+		  debug.log('login', `Fetching user profile`);
+		  const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+			headers: {
+			  Authorization: `Bearer ${loginData.accessToken}`,
+			  "Content-Type": "application/json",
+			},
+		  });
+  
+		  if (!profileResponse.ok) {
+			debug.error('login', `Could not fetch user profile`);
+			authUtils.clearAuthStorage();
+			return {
+			  success: false,
+			  error: { message: "Could not verify user profile", name: "Login Error" },
+			};
+		  }
+  
+		  const userData: UserData = await profileResponse.json();
+		  const userDataWithTokens = {
+			...userData,
+			accessToken: loginData.accessToken,
+			refreshToken: loginData.refreshToken,
+		  };
+		  
+		  debug.log('login', `Saving user data to localStorage`);
+		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userDataWithTokens));
+  
+		  debug.log('login', `Login complete, redirecting to /jobs`);
+		  return {
+			success: true,
+			redirectTo: "/jobs",
+			user: userDataWithTokens,
+		  };
+		} catch (error) {
+		  debug.error('login', `Error during login:`, error);
+		  authUtils.clearAuthStorage();
+		  return {
+			success: false,
+			error: {
+			  message: error instanceof Error ? error.message : "Login failed",
+			  name: "Login Error",
+			},
+		  };
+		}
+	  }
+  
+	  // Regular email check flow
 	  debug.log('login', `Checking if email exists in Loops: ${email}`);
 	  const loopsContact = await this.checkEmailInLoops(email);
-
+  
 	  if (!password) {
 		// Email-only check
 		debug.log('login', `Email-only check for: ${email}`);
@@ -209,8 +292,8 @@ class AuthProviderClass implements AuthProvider {
 		  };
 		}
 	  }
-
-	  // Full login with password
+  
+	  // Full login with password (after email check)
 	  if (loopsContact) {
 		debug.log('login', `Attempting full login for: ${email}`);
 		
@@ -220,7 +303,7 @@ class AuthProviderClass implements AuthProvider {
 		  headers: { "Content-Type": "application/json" },
 		  body: JSON.stringify({ email, password }),
 		});
-
+  
 		if (!loginResponse.ok) {
 		  const loginData = await loginResponse.json();
 		  debug.error('login', `Login failed:`, loginData);
@@ -232,11 +315,11 @@ class AuthProviderClass implements AuthProvider {
 			},
 		  };
 		}
-
+  
 		const loginData = await loginResponse.json();
 		debug.log('login', `Login successful, saving tokens`);
 		authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
-
+  
 		debug.log('login', `Fetching user profile`);
 		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
 		  headers: {
@@ -244,7 +327,7 @@ class AuthProviderClass implements AuthProvider {
 			"Content-Type": "application/json",
 		  },
 		});
-
+  
 		if (!profileResponse.ok) {
 		  debug.error('login', `Could not fetch user profile`);
 		  authUtils.clearAuthStorage();
@@ -253,7 +336,7 @@ class AuthProviderClass implements AuthProvider {
 			error: { message: "Could not verify user profile", name: "Login Error" },
 		  };
 		}
-
+  
 		const userData: UserData = await profileResponse.json();
 		const userDataWithTokens = {
 		  ...userData,
@@ -263,7 +346,7 @@ class AuthProviderClass implements AuthProvider {
 		
 		debug.log('login', `Saving user data to localStorage`);
 		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userDataWithTokens));
-
+  
 		debug.log('login', `Login complete, redirecting to /jobs`);
 		return {
 		  success: true,

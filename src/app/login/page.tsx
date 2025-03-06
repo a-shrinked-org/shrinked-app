@@ -62,8 +62,13 @@ export default function Login() {
             console.error("Email check error:", error);
             if (error.name === "RegistrationRequired") {
               console.log("Email not found, initiating registration");
+              // Here we need to call register function, not login again
               login(
-                { email: formData.email, password: "" }, // Trigger register
+                { 
+                  email: formData.email,
+                  password: "",
+                  providerName: "register" // Add this flag to indicate registration
+                },
                 {
                   onSuccess: (data) => {
                     console.log("Registration initiated successfully", data);
@@ -89,13 +94,23 @@ export default function Login() {
         setError("Please enter your password");
         return;
       }
+      // No need to recheck email existence, just attempt login with credentials
+      console.log("Attempting login with password");
       login(
-        { email: formData.email, password: formData.password },
+        { 
+          email: formData.email, 
+          password: formData.password,
+          skipEmailCheck: true // Add this flag to skip email check
+        },
         {
           onSuccess: () => {
+            console.log("Login successful");
             // Redirect to /jobs handled by auth provider
           },
-          onError: (error: any) => setError(error?.message || "Login failed"),
+          onError: (error: any) => {
+            console.error("Login error:", error);
+            setError(error?.message || "Login failed");
+          },
         }
       );
     }
