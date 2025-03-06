@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import React from "react";
+import React, { Component, ErrorInfo, ReactNode } from "react";
 import { RefineContext } from './_refine_context';
-import { MantineProvider, createTheme, ColorSchemeScript } from '@mantine/core';
+import { MantineProvider, createTheme, ColorSchemeScript, Text, Button, Stack, Group } from '@mantine/core';
 import '@mantine/core/styles.css';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: "<Shrinked Logo Placeholder>",
@@ -11,6 +12,102 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
   },
 };
+
+// Error Boundary Component
+class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
+  constructor(props: { children: ReactNode, fallback?: ReactNode }) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null
+    };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error, errorInfo: null };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    this.setState({ error, errorInfo });
+  }
+
+  handleReload = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+    window.location.reload();
+  };
+
+  handleGoBack = () => {
+    window.history.back();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+      
+      return (
+        <Stack spacing="md" p="xl" style={{ 
+          maxWidth: 600, 
+          margin: '0 auto', 
+          background: '#1a1a1a', 
+          borderRadius: 8, 
+          padding: 24,
+          marginTop: 40
+        }}>
+          <Group align="flex-start">
+            <AlertCircle size={24} color="#fa5252" />
+            <Text size="xl" fw={600} color="white">Something went wrong</Text>
+          </Group>
+          
+          <Text c="gray.4">
+            We encountered an error while rendering this page. This could be due to a temporary issue or a bug in our application.
+          </Text>
+          
+          {process.env.NODE_ENV !== 'production' && this.state.error && (
+            <div style={{ 
+              background: '#101010', 
+              padding: 16, 
+              borderRadius: 4, 
+              overflow: 'auto',
+              maxHeight: 300
+            }}>
+              <Text c="red.4" size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+                {this.state.error.toString()}
+              </Text>
+              {this.state.errorInfo && (
+                <Text c="gray.6" size="xs" style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>
+                  {this.state.errorInfo.componentStack}
+                </Text>
+              )}
+            </div>
+          )}
+          
+          <Group>
+            <Button 
+              leftSection={<RefreshCw size={16} />}
+              onClick={this.handleReload}
+              style={{ background: '#228be6' }}
+            >
+              Reload page
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={this.handleGoBack}
+              style={{ borderColor: 'gray', color: 'white' }}
+            >
+              Go back
+            </Button>
+          </Group>
+        </Stack>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -136,6 +233,32 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript forceColorScheme="dark" />
         <meta name="color-scheme" content="dark" />
+        {/* Fix for SVG width/height "rem" attributes */}
+        <style dangerouslySetInnerHTML={{ 
+          __html: `
+            /* Fix SVG width/height rem values */
+            svg[width$="rem"], svg[height$="rem"] {
+              width: 1em;
+              height: 1em;
+            }
+            
+            /* Scale based on common rem values */
+            svg[width="1.2rem"], svg[height="1.2rem"] {
+              width: 1.2em;
+              height: 1.2em;
+            }
+            
+            svg[width="1.5rem"], svg[height="1.5rem"] {
+              width: 1.5em;
+              height: 1.5em;
+            }
+            
+            svg[width="2rem"], svg[height="2rem"] {
+              width: 2em;
+              height: 2em;
+            }
+          `
+        }} />
       </head>
       <body style={{ 
         backgroundColor: 'var(--mantine-color-dark-9)', 
@@ -148,7 +271,9 @@ export default function RootLayout({
           theme={theme} 
           forceColorScheme="dark"
         >
-          <RefineContext>{children}</RefineContext>
+          <ErrorBoundary>
+            <RefineContext>{children}</RefineContext>
+          </ErrorBoundary>
         </MantineProvider>
       </body>
     </html>

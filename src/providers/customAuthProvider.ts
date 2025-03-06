@@ -1,3 +1,4 @@
+// src/providers/customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
@@ -17,44 +18,30 @@ interface UserData {
   refreshToken?: string;
 }
 
-class AuthProviderClass implements AuthProvider {
-  constructor() {
-	this.login = this.login.bind(this);
-	this.register = this.register.bind(this);
-	this.check = this.check.bind(this);
-	this.logout = this.logout.bind(this);
-	this.onError = this.onError.bind(this);
-	this.getIdentity = this.getIdentity.bind(this);
-	this.forgotPassword = this.forgotPassword.bind(this);
-	this.updatePassword = this.updatePassword.bind(this);
-	this.getPermissions = this.getPermissions.bind(this);
-  }
+// Track login/check attempts to prevent excessive requests
+let lastAuthCheckTime = 0;
+const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
 
+class AuthProviderClass implements AuthProvider {
   async login(params: any) {
 	const { providerName, email, password } = params;
 
 	// Handle different OAuth providers
-	if (providerName === "auth0") {
+	if (providerName === "auth0" || providerName === "google" || providerName === "github") {
+	  const redirectUrl = providerName === "auth0" 
+		? undefined // Auth0 uses NextAuth
+		: `${API_CONFIG.API_URL}/auth/${providerName}`;
+	  
+	  if (redirectUrl) {
+		window.location.href = redirectUrl;
+	  }
+	  
 	  return {
 		success: false,
 		error: {
-		  message: "Redirecting to Auth0...",
-		  name: "Auth0"
+		  message: `Redirecting to ${providerName}...`,
+		  name: providerName
 		}
-	  };
-	}
-
-	if (providerName === "google") {
-	  window.location.href = `${API_CONFIG.API_URL}/auth/google`;
-	  return {
-		success: true
-	  };
-	}
-
-	if (providerName === "github") {
-	  window.location.href = `${API_CONFIG.API_URL}/auth/github`;
-	  return {
-		success: true
 	  };
 	}
 
@@ -71,6 +58,7 @@ class AuthProviderClass implements AuthProvider {
 		};
 	  }
 
+	  // Use authUtils.apiRequest for login when it makes sense to implement it
 	  const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
 		method: 'POST',
 		headers: {
@@ -103,17 +91,13 @@ class AuthProviderClass implements AuthProvider {
 	  }
 
 	  // Store tokens using centralized utilities
-	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, loginData.accessToken);
-	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, loginData.refreshToken);
+	  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
 
-	  // Fetch user profile after successful login
+	  // Fetch user profile after successful login using our improved apiRequest
 	  try {
-		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
-		  method: 'GET',
-		  headers: {
-			'Authorization': `Bearer ${loginData.accessToken}`,
-		  },
-		});
+		const profileResponse = await authUtils.apiRequest(
+		  `${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`
+		);
 
 		if (!profileResponse.ok) {
 		  authUtils.clearAuthStorage();
@@ -204,48 +188,51 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async check() {
-	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
-	const accessToken = authUtils.getAccessToken();
-	const refreshToken = authUtils.getRefreshToken();
-  
-	if (!accessToken || !refreshToken || !userStr) {
-	  console.log("No tokens or user data found");
+	// Add debouncing for auth checks to prevent excessive API calls
+	const now = Date.now();
+	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
+	  const authenticated = authUtils.isAuthenticated();
+	  return { authenticated };
+	}
+	lastAuthCheckTime = now;
+	
+	// Use centralized authentication check
+	const authenticated = authUtils.isAuthenticated();
+	if (!authenticated) {
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	}
-  
+	
 	try {
-	  // Try to validate the current token
-	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
-		method: 'GET',
-		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
-		},
-	  });
-  
+	  // Validate token with backend only if enough time has passed
+	  const response = await authUtils.apiRequest(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`);
+	  
 	  if (response.ok) {
 		// Update user data in localStorage to ensure it's fresh
 		const userData = await response.json();
-		const updatedUserData = {
-		  ...userData,
-		  accessToken,
-		  refreshToken
-		};
-		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+		const accessToken = authUtils.getAccessToken();
+		const refreshToken = authUtils.getRefreshToken();
+		
+		if (accessToken && refreshToken) {
+		  const updatedUserData = {
+			...userData,
+			accessToken,
+			refreshToken
+		  };
+		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+		}
 		return { authenticated: true };
 	  }
-  
-	  // If token is invalid, try refresh using our centralized utility
-	  if (response.status === 401 || response.status === 403) {
-		const refreshSuccess = await authUtils.refreshToken(); // Use centralized refresh
-		return { authenticated: refreshSuccess };
-	  }
-  
+	  
+	  // If we got here, token validation failed even after potential refresh
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	} catch (error) {
 	  console.error("Auth check error:", error);
-	  authUtils.clearAuthStorage();
+	  // Only clear storage for certain errors
+	  if (error instanceof Error && 'status' in error && (error as any).status === 401) {
+		authUtils.clearAuthStorage();
+	  }
 	  return { authenticated: false };
 	}
   }
@@ -264,7 +251,7 @@ class AuthProviderClass implements AuthProvider {
 		email: userData.email,
 		avatar: userData.avatar || '',
 		roles: userData.roles || [],
-		token: userData.accessToken,
+		token: userData.accessToken || authUtils.getAccessToken(),
 		subscriptionPlan: userData.subscriptionPlan,
 		apiKeys: userData.apiKeys || [],
 		userId: userData.userId || userData._id || userData.id
@@ -276,138 +263,49 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async getPermissions() {
+	// Use memory cache for permissions to reduce API calls
 	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	if (!userStr) return null;
 
 	try {
 	  const userData: UserData = JSON.parse(userStr);
-	  const accessToken = userData.accessToken || authUtils.getAccessToken();
-	  
-	  if (!accessToken) return null;
-	  
-	  // Try to get permissions with current token
-	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
-		headers: {
-		  'Authorization': `Bearer ${accessToken}`,
-		},
-	  });
-
-	  // If token invalid, try to refresh using our centralized utility
-	  if (response.status === 401 || response.status === 403) {
-		const refreshSuccess = await authUtils.refreshToken(); // Use centralized refresh
-		if (!refreshSuccess) return null;
-		
-		// Get fresh token after refresh
-		const newAccessToken = authUtils.getAccessToken();
-		if (!newAccessToken) return null;
-		
-		// Retry with new token
-		const newResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
-		  headers: {
-			'Authorization': `Bearer ${newAccessToken}`,
-		  },
-		});
-		
-		if (newResponse.ok) {
-		  const { roles } = await newResponse.json();
-		  return roles;
-		}
-		return null;
+	  // If roles exist in userData, use those without making API call
+	  if (userData.roles && Array.isArray(userData.roles) && userData.roles.length > 0) {
+		return userData.roles;
 	  }
-
+	  
+	  // Only make API call if necessary
+	  const response = await authUtils.apiRequest(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`);
+	  
 	  if (response.ok) {
 		const { roles } = await response.json();
+		
+		// Update roles in local storage for future use
+		try {
+		  userData.roles = roles;
+		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+		} catch (e) {
+		  console.error("Error updating roles in localStorage:", e);
+		}
+		
 		return roles;
 	  }
 	  return null;
 	} catch (error) {
+	  console.error("Error getting permissions:", error);
 	  return null;
 	}
   }
 
   async updatePassword(params: any) {
-	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
-	if (!userStr) {
-	  return {
-		success: false,
-		error: {
-		  message: "Not authenticated",
-		  name: "Update password failed"
-		}
-	  };
-	}
-
 	try {
-	  const userData: UserData = JSON.parse(userStr);
-	  const accessToken = userData.accessToken || authUtils.getAccessToken();
-	  
-	  if (!accessToken) {
-		return {
-		  success: false,
-		  error: {
-			message: "Not authenticated",
-			name: "Update password failed"
-		  }
-		};
-	  }
-	  
-	  const response = await fetch(`${API_CONFIG.API_URL}/auth/update-password`, {
-		method: 'POST',
-		headers: {
-		  'Content-Type': 'application/json',
-		  'Authorization': `Bearer ${accessToken}`,
-		},
-		body: JSON.stringify(params),
-	  });
-
-	  // If token invalid, try to refresh using our centralized utility
-	  if (response.status === 401 || response.status === 403) {
-		const refreshSuccess = await authUtils.refreshToken(); // Use centralized refresh
-		if (!refreshSuccess) {
-		  return {
-			success: false,
-			error: {
-			  message: "Session expired",
-			  name: "Update password failed"
-			}
-		  };
-		}
-		
-		// Get fresh token after refresh
-		const newAccessToken = authUtils.getAccessToken();
-		if (!newAccessToken) {
-		  return {
-			success: false,
-			error: {
-			  message: "Authentication failed",
-			  name: "Update password failed"
-			}
-		  };
-		}
-		
-		// Retry with new token
-		const newResponse = await fetch(`${API_CONFIG.API_URL}/auth/update-password`, {
+	  const response = await authUtils.apiRequest(
+		`${API_CONFIG.API_URL}/auth/update-password`,
+		{
 		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${newAccessToken}`,
-		  },
-		  body: JSON.stringify(params),
-		});
-		
-		if (!newResponse.ok) {
-		  const errorData = await newResponse.json();
-		  return {
-			success: false,
-			error: {
-			  message: errorData.message || "Invalid password",
-			  name: "Update password failed"
-			}
-		  };
+		  body: JSON.stringify(params)
 		}
-		
-		return { success: true };
-	  }
+	  );
 
 	  if (!response.ok) {
 		const errorData = await response.json();
@@ -472,14 +370,21 @@ class AuthProviderClass implements AuthProvider {
 	try {
 	  const refreshToken = authUtils.getRefreshToken();
 	  if (refreshToken) {
+		// Use a fetch with timeout to avoid hanging on server issues
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 3000);
+		
 		await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ refreshToken }),
+		  signal: controller.signal
 		}).catch(() => {
 		  // Ignore server errors during logout
+		}).finally(() => {
+		  clearTimeout(timeoutId);
 		});
 	  }
 	} catch (error) {
@@ -497,18 +402,27 @@ class AuthProviderClass implements AuthProvider {
 
   async onError(error: any) {
 	console.error("Auth error:", error);
+	
+	// Let the centralized error handler take care of it
+	authUtils.handleAuthError(error);
+	
 	const status = error?.response?.status || error?.statusCode || error?.status;
 	
-	// Handle authentication errors using our centralized utility
+	// Only fully log out for 401/403 that fail a token refresh
 	if (status === 401 || status === 403) {
-	  // Try to refresh token using the centralized utility
-	  const refreshSuccess = await authUtils.refreshToken();
-	  if (refreshSuccess) {
-		// Successfully refreshed, don't log out
-		return { error };
+	  // Try refresh token, but don't create circular logic
+	  const errorContext = error?.context;
+	  const isFromRefresh = errorContext && errorContext.isRefreshAttempt;
+	  
+	  if (!isFromRefresh) {
+		const refreshSuccess = await authUtils.refreshToken();
+		if (refreshSuccess) {
+		  // Successfully refreshed, don't log out
+		  return { error };
+		}
 	  }
 	  
-	  // If refresh failed, log out
+	  // If refresh failed or this is already from a refresh, log out
 	  authUtils.clearAuthStorage();
 	  return {
 		logout: true,

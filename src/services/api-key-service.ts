@@ -10,30 +10,14 @@ export interface ApiKey {
 }
 
 export const ApiKeyService = {
-  async getApiKeys(token: string): Promise<ApiKey[]> {
+  async getApiKeys(): Promise<ApiKey[]> {
 	try {
-	  // Instead of using a dedicated API keys endpoint, fetch from the profile
-	  // since the API keys are included in the profile data
-	  const response = await fetch(`${API_CONFIG.API_URL}/users/profile`, {
-		method: 'GET',
-		headers: {
-		  'Authorization': `Bearer ${token}`,
-		  'Content-Type': 'application/json'
-		}
-	  });
+	  // Use centralized API request that handles auth seamlessly
+	  const response = await authUtils.apiRequest(
+		`${API_CONFIG.API_URL}/users/profile`
+	  );
 
 	  if (!response.ok) {
-		// Try token refresh if unauthorized
-		if (response.status === 401 || response.status === 403) {
-		  const refreshSuccess = await authUtils.refreshToken();
-		  if (refreshSuccess) {
-			const newToken = authUtils.getAccessToken();
-			if (newToken) {
-			  return this.getApiKeys(newToken);
-			}
-		  }
-		}
-		
 		if (response.status === 404) {
 		  return [];
 		}
@@ -66,29 +50,18 @@ export const ApiKeyService = {
 	}
   },
 
-  async createApiKey(token: string, userId: string, name: string): Promise<ApiKey> {
+  async createApiKey(userId: string, name: string): Promise<ApiKey> {
 	try {
-	  // Using the correct endpoint from Postman collection
-	  const response = await fetch(`${API_CONFIG.API_URL}/users/${userId}/api-key`, {
-		method: 'POST',
-		headers: {
-		  'Authorization': `Bearer ${token}`,
-		  'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ name })
-	  });
+	  // Use centralized API request
+	  const response = await authUtils.apiRequest(
+		`${API_CONFIG.API_URL}/users/${userId}/api-key`, 
+		{
+		  method: 'POST',
+		  body: JSON.stringify({ name })
+		}
+	  );
 
 	  if (!response.ok) {
-		// Try token refresh if unauthorized
-		if (response.status === 401 || response.status === 403) {
-		  const refreshSuccess = await authUtils.refreshToken();
-		  if (refreshSuccess) {
-			const newToken = authUtils.getAccessToken();
-			if (newToken) {
-			  return this.createApiKey(newToken, userId, name);
-			}
-		  }
-		}
 		throw new Error(`Error creating API key: ${response.status}`);
 	  }
 
@@ -106,28 +79,17 @@ export const ApiKeyService = {
 	}
   },
 
-  async deleteApiKey(token: string, keyId: string): Promise<void> {
+  async deleteApiKey(keyId: string): Promise<void> {
 	try {
-	  // Using the correct endpoint from Postman collection
-	  const response = await fetch(`${API_CONFIG.API_URL}/users/api-key/${keyId}`, {
-		method: 'DELETE',
-		headers: {
-		  'Authorization': `Bearer ${token}`,
-		  'Content-Type': 'application/json'
+	  // Use centralized API request
+	  const response = await authUtils.apiRequest(
+		`${API_CONFIG.API_URL}/users/api-key/${keyId}`,
+		{
+		  method: 'DELETE'
 		}
-	  });
+	  );
 
 	  if (!response.ok) {
-		// Try token refresh if unauthorized
-		if (response.status === 401 || response.status === 403) {
-		  const refreshSuccess = await authUtils.refreshToken();
-		  if (refreshSuccess) {
-			const newToken = authUtils.getAccessToken();
-			if (newToken) {
-			  return this.deleteApiKey(newToken, keyId);
-			}
-		  }
-		}
 		throw new Error(`Error deleting API key: ${response.status}`);
 	  }
 	} catch (error) {
@@ -136,28 +98,17 @@ export const ApiKeyService = {
 	}
   },
 
-  async regenerateApiKey(token: string, keyId: string): Promise<ApiKey> {
+  async regenerateApiKey(keyId: string): Promise<ApiKey> {
 	try {
-	  // Using the correct endpoint from Postman collection
-	  const response = await fetch(`${API_CONFIG.API_URL}/users/api-key/${keyId}/regenerate`, {
-		method: 'POST',
-		headers: {
-		  'Authorization': `Bearer ${token}`,
-		  'Content-Type': 'application/json'
+	  // Use centralized API request
+	  const response = await authUtils.apiRequest(
+		`${API_CONFIG.API_URL}/users/api-key/${keyId}/regenerate`,
+		{
+		  method: 'POST'
 		}
-	  });
+	  );
 
 	  if (!response.ok) {
-		// Try token refresh if unauthorized
-		if (response.status === 401 || response.status === 403) {
-		  const refreshSuccess = await authUtils.refreshToken();
-		  if (refreshSuccess) {
-			const newToken = authUtils.getAccessToken();
-			if (newToken) {
-			  return this.regenerateApiKey(newToken, keyId);
-			}
-		  }
-		}
 		throw new Error(`Error regenerating API key: ${response.status}`);
 	  }
 

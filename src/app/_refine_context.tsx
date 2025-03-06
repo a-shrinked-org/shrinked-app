@@ -4,13 +4,14 @@ import { Refine, useNavigation, NotificationProvider } from "@refinedev/core";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 import { SessionProvider, signIn, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
+import { authUtils } from "@/utils/authUtils";
 
 interface RefineContextProps {}
 
@@ -25,6 +26,12 @@ interface ExtendedSession {
   accessToken?: string;
   error?: string;
 }
+
+// Keep track of auth check count to reduce excessive checking
+let authCheckCount = 0;
+const MAX_AUTH_CHECKS = 3; // Maximum number of auth checks per session
+let lastAuthCheckTime = 0;
+const AUTH_CHECK_DEBOUNCE = 2000; // 2 seconds
 
 const notificationProvider: NotificationProvider = {
   open: ({ message, description, type, key }) => {
@@ -68,10 +75,42 @@ const App = (props: React.PropsWithChildren<{}>) => {
     initialized: false,
   });
 
-  // Auth check effect
+  // Track ongoing auth check to prevent duplicate checks
+  const isCheckingAuthRef = useRef(false);
+
+  // Auth check effect with debouncing
   useEffect(() => {
     const checkAuthentication = async () => {
-      if (status === "loading") return;
+      // Skip check if already checking
+      if (isCheckingAuthRef.current) {
+        return;
+      }
+
+      // Skip check if we're still loading session
+      if (status === "loading") {
+        return;
+      }
+
+      // Debounce auth checks
+      const now = Date.now();
+      if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
+        return;
+      }
+      lastAuthCheckTime = now;
+
+      // Limit number of auth checks per session
+      if (authCheckCount >= MAX_AUTH_CHECKS) {
+        // Only reset the counter if we've been authenticated for a while
+        const authenticatedForAWhile = authState.isAuthenticated && (now - lastAuthCheckTime > 30000);
+        if (authenticatedForAWhile) {
+          authCheckCount = 0;
+        } else {
+          return;
+        }
+      }
+
+      isCheckingAuthRef.current = true;
+      authCheckCount++;
 
       try {
         // If NextAuth session exists, use that
@@ -81,6 +120,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
             isAuthenticated: true,
             initialized: true,
           });
+          isCheckingAuthRef.current = false;
           return;
         }
 
@@ -99,40 +139,28 @@ const App = (props: React.PropsWithChildren<{}>) => {
           isAuthenticated: false,
           initialized: true,
         });
+      } finally {
+        isCheckingAuthRef.current = false;
       }
     };
 
     checkAuthentication();
-  }, [status, session]);
+  }, [status, session, authState.isAuthenticated]);
 
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
       // Handle OAuth providers with NextAuth
-      if (params.providerName === "auth0") {
-        signIn("auth0", {
+      if (params.providerName === "auth0" || params.providerName === "google") {
+        signIn(params.providerName, {
           callbackUrl: "/jobs",
           redirect: true,
         });
         return {
           success: false,
           error: {
-            message: "Redirecting to Auth0...",
-            name: "Auth0"
-          }
-        };
-      }
-      
-      if (params.providerName === "google") {
-        signIn("google", {
-          callbackUrl: "/jobs",
-          redirect: true,
-        });
-        return {
-          success: false,
-          error: {
-            message: "Redirecting to Google Auth...",
-            name: "Google"
+            message: `Redirecting to ${params.providerName}...`,
+            name: params.providerName
           }
         };
       }
@@ -141,6 +169,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
         const result = await customAuthProvider.login(params);
         
         if (result.success) {
+          // Reset auth check count on successful login
+          authCheckCount = 0;
+          
           setAuthState({
             isChecking: false,
             isAuthenticated: true,
@@ -188,21 +219,37 @@ const App = (props: React.PropsWithChildren<{}>) => {
     },
     check: async () => {
       try {
-        // If we're already on the login page, no need to check auth
+        // Skip check if we're on login page
         if (to === "/login") {
           return { authenticated: false };
         }
+
+        // Debounce auth checks
+        const now = Date.now();
+        if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
+          // Just use current auth state for faster response
+          return { authenticated: authState.isAuthenticated };
+        }
+        lastAuthCheckTime = now;
         
         // Check NextAuth session first
         if (status === "authenticated" && session) {
           return { authenticated: true };
         }
         
-        // Then check custom auth
-        const result = await customAuthProvider.check();
+        // Otherwise check if we're authenticated using a faster local check
+        if (authUtils.isAuthenticated()) {
+          // Only check with the server if we haven't checked too frequently
+          if (authCheckCount < MAX_AUTH_CHECKS) {
+            authCheckCount++;
+            const result = await customAuthProvider.check();
+            return { authenticated: result.authenticated };
+          }
+          return { authenticated: true };
+        }
         
-        // Only redirect to login if not authenticated AND not already on login page
-        if (!result.authenticated && to !== "/login") {
+        // If we're not authenticated and not on login page, redirect
+        if (to !== "/login") {
           return {
             authenticated: false,
             error: new Error("Not authenticated"),
@@ -211,18 +258,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
           };
         }
         
-        // If authenticated and on login page, redirect to jobs
-        if (result.authenticated && to === "/login") {
-          return {
-            authenticated: true,
-            redirectTo: "/jobs"
-          };
-        }
-        
-        return {
-          authenticated: result.authenticated
-        };
+        return { authenticated: false };
       } catch (error) {
+        console.error("Auth check error in route guard:", error);
         return {
           authenticated: false,
           error: new Error("Authentication check failed"),
@@ -242,17 +280,23 @@ const App = (props: React.PropsWithChildren<{}>) => {
         };
       }
       
-      // If no session, try custom auth
-      const identity = await customAuthProvider.getIdentity();
-      if (identity) {
-        console.log("Custom auth identity:", identity);
-        return identity;
+      // If no session, try custom auth - use cached identity when possible
+      try {
+        const identity = await customAuthProvider.getIdentity();
+        if (identity) {
+          return identity;
+        }
+      } catch (error) {
+        console.error("Error getting identity:", error);
       }
       
       // If both fail, return null
       return null;
     },
     logout: async (params: any = {}) => {
+      // Reset auth check count on logout
+      authCheckCount = 0;
+      
       // Sign out from NextAuth if we're using it
       if (status === "authenticated") {
         await signIn("logout");

@@ -28,6 +28,11 @@ import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 // Import centralized auth utilities
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
+// Fix SVG rendering by creating a styled wrapper component
+const IconWrapper = ({ icon: Icon, size = 16 }) => (
+  <Icon size={size} style={{ width: `${size}px`, height: `${size}px` }} />
+);
+
 interface Identity {
   id?: string;
   name?: string;
@@ -139,7 +144,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
               <CanAccess key={item.href} resource={item.resource} action="list">
                 <MantineNavLink
                   label={item.label}
-                  leftSection={<item.icon size="1.2rem" strokeWidth={1.5} />}
+                  leftSection={<IconWrapper icon={item.icon} size={19} />}
                   active={pathname === item.href || pathname?.startsWith(item.href + '/')}
                   onClick={() => router.push(item.href)}
                 />
@@ -174,7 +179,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
             
             <MantineNavLink
               label="Logout"
-              leftSection={<LogOut size="1.2rem" strokeWidth={1.5} />}
+              leftSection={<IconWrapper icon={LogOut} size={19} />}
               onClick={handleLogout}
               color="red"
             />
