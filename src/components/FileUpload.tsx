@@ -7,7 +7,7 @@ import { authUtils, useAuth, API_CONFIG } from "@/utils/authUtils";
 
 // R2 Configuration - ideally move to environment variables in production
 const R2_CONFIG = {
-  bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'jobs-uploads'
+  bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'apptemp'
 };
 
 interface FileUploadProps {
