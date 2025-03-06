@@ -1,74 +1,67 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
 import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 import { showNotification } from '@mantine/notifications';
-import { authUtils, useAuth, API_CONFIG } from "@/utils/authUtils";
+import { authUtils, useAuth } from "@/utils/authUtils";
 
-// R2 Configuration - ideally move to environment variables in production
+// R2 Configuration from environment variables
 const R2_CONFIG = {
-  bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'apptemp'
+  bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'apptemp',
 };
 
 interface FileUploadProps {
   onFileUploaded: (fileUrl: string) => void;
-  // Optional props for customization
   maxSizeMB?: number;
   acceptedFileTypes?: Record<string, string[]>;
 }
 
-export function FileUpload({ 
+export function FileUpload({
   onFileUploaded,
   maxSizeMB = 100, // Default to 100MB
-  acceptedFileTypes
+  acceptedFileTypes,
 }: FileUploadProps) {
   const theme = useMantineTheme();
   const [file, setFile] = useState<FileWithPath | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  
-  // Using the centralized auth hook
+
   const { fetchWithAuth, handleAuthError } = useAuth();
 
-  // Default accepted file types if not provided
   const defaultAcceptedTypes = {
-    // Audio
     'audio/mpeg': ['.mp3'],
     'audio/wav': ['.wav'],
     'audio/ogg': ['.ogg'],
     'audio/aac': ['.aac'],
-    // Video
     'video/mp4': ['.mp4'],
     'video/quicktime': ['.mov'],
     'video/x-msvideo': ['.avi'],
-    'video/webm': ['.webm']
+    'video/webm': ['.webm'],
   };
 
-  // Direct upload to R2 using presigned URL
   const uploadFile = async (file: File) => {
-    // Clear any previous errors
     setError(null);
     setUploading(true);
     setProgress(0);
 
     try {
-      // Check file size before proceeding
       if (file.size > maxSizeMB * 1024 * 1024) {
         throw new Error(`File size exceeds the maximum limit of ${maxSizeMB}MB`);
       }
 
-      // Check if online before making request
       if (!navigator.onLine) {
         throw new Error('You appear to be offline. Please check your internet connection.');
       }
-      
-      // Generate a unique file name to avoid collisions
+
       const timestamp = new Date().getTime();
       const randomString = Math.random().toString(36).substring(2, 10);
       const fileName = `${timestamp}-${randomString}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      
-      // Step 1: Get a presigned URL from our backend
+
+      console.log('Requesting presigned URL for:', { fileName, contentType: file.type, bucketName: R2_CONFIG.bucketName });
+
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
         headers: {
@@ -77,69 +70,61 @@ export function FileUpload({
         body: JSON.stringify({
           fileName,
           contentType: file.type,
-          bucketName: R2_CONFIG.bucketName
-        })
+          bucketName: R2_CONFIG.bucketName,
+        }),
       });
-      
+
       if (!presignedResponse.ok) {
         const errorData = await presignedResponse.json();
         throw new Error(errorData.error || `Failed to get upload URL: ${presignedResponse.status}`);
       }
-      
+
       const { presignedUrl, fileUrl } = await presignedResponse.json();
-      
-      // Progress simulation
+      console.log('Received Presigned URL:', presignedUrl);
+      console.log('Expected File URL:', fileUrl);
+
       setProgress(10);
       const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          const increment = Math.floor(Math.random() * 10) + 5; // Random increment between 5-15
+        setProgress((prev) => {
+          const increment = Math.floor(Math.random() * 10) + 5;
           const newProgress = prev + increment;
           return newProgress < 90 ? newProgress : prev;
         });
       }, 500);
-      
-      // Step 2: Upload directly to R2 using the presigned URL
+
       const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': file.type,
         },
-        body: file // Send raw file, not base64
+        body: file,
       });
-      
+
       clearInterval(progressInterval);
-      
+
       if (!uploadResponse.ok) {
         throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
       }
-      
-      // Set progress to 100% when complete
+
       setProgress(100);
-      
-      // Provide the permanent URL to the parent component
       onFileUploaded(fileUrl);
-      
+
       showNotification({
         title: 'Success',
         message: 'File uploaded successfully',
-        color: 'green'
+        color: 'green',
       });
     } catch (error) {
       console.error('Upload error:', error);
-      
-      // Set error message
-      setError(error instanceof Error ? error.message : 'Failed to upload file');
-      
-      // Use centralized error handling
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
+      setError(errorMessage);
       handleAuthError(error);
-      
+
       showNotification({
         title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to upload file',
-        color: 'red'
+        message: errorMessage,
+        color: 'red',
       });
-      
-      // Reset file selection on error
       setFile(null);
     } finally {
       setUploading(false);
@@ -153,7 +138,6 @@ export function FileUpload({
     }
   };
 
-  // Calculate file size for display
   const formatFileSize = (size: number): string => {
     if (size < 1024) return `${size} bytes`;
     else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
@@ -164,10 +148,10 @@ export function FileUpload({
   return (
     <Box>
       {error && (
-        <Alert 
-          icon={<AlertCircle size={16} />} 
-          color="red" 
-          mb="md" 
+        <Alert
+          icon={<AlertCircle size={16} />}
+          color="red"
+          mb="md"
           title="Upload Error"
           withCloseButton
           onClose={() => setError(null)}
@@ -175,7 +159,7 @@ export function FileUpload({
           {error}
         </Alert>
       )}
-      
+
       {!file && !uploading ? (
         <Dropzone
           onDrop={handleDrop}
@@ -185,18 +169,10 @@ export function FileUpload({
         >
           <Group justify="center" style={{ minHeight: rem(140), pointerEvents: 'none' }}>
             <Dropzone.Accept>
-              <Upload
-                size={50}
-                strokeWidth={1.5}
-                color={theme.colors[theme.primaryColor][6]}
-              />
+              <Upload size={50} strokeWidth={1.5} color={theme.colors[theme.primaryColor][6]} />
             </Dropzone.Accept>
             <Dropzone.Reject>
-              <X
-                size={50}
-                strokeWidth={1.5}
-                color={theme.colors.red[6]}
-              />
+              <X size={50} strokeWidth={1.5} color={theme.colors.red[6]} />
             </Dropzone.Reject>
             <Dropzone.Idle>
               <Upload size={50} strokeWidth={1.5} />
@@ -227,7 +203,11 @@ export function FileUpload({
               <Progress value={progress} size="xl" radius="xl" />
             </Box>
           ) : (
-            <Group justify="space-between" p="md" style={{ border: `1px solid ${theme.colors.gray[3]}`, borderRadius: theme.radius.md }}>
+            <Group
+              justify="space-between"
+              p="md"
+              style={{ border: `1px solid ${theme.colors.gray[3]}`, borderRadius: theme.radius.md }}
+            >
               <Group>
                 <FileText size={24} />
                 <Box>
@@ -241,12 +221,7 @@ export function FileUpload({
                   )}
                 </Box>
               </Group>
-              <Button 
-                variant="light" 
-                color="red" 
-                size="xs" 
-                onClick={() => setFile(null)}
-              >
+              <Button variant="light" color="red" size="xs" onClick={() => setFile(null)}>
                 Remove
               </Button>
             </Group>

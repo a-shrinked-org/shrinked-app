@@ -4,11 +4,16 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // R2 configuration from environment variables
 const R2_CONFIG = {
-  endpoint: process.env.R2_ENDPOINT || 'https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com',
-  accessKeyId: process.env.R2_ACCESS_KEY_ID || '1463f3eb288ddbc7b99234acf179d748',
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || 'ef8e82002282e5cf88e7831c7d95880671c85c8ebb17b34297674427d130fc2d',
-  bucketName: process.env.R2_BUCKET_NAME || 'apptemp'
+  endpoint: process.env.R2_ENDPOINT, // e.g., https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com
+  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  bucketName: process.env.R2_BUCKET_NAME || 'apptemp', // Fallback only for bucket name
 };
+
+// Validate required environment variables
+if (!R2_CONFIG.endpoint || !R2_CONFIG.accessKeyId || !R2_CONFIG.secretAccessKey) {
+  throw new Error('Missing required R2 configuration in environment variables');
+}
 
 // Create S3 client for Cloudflare R2
 const s3Client = new S3Client({
@@ -29,11 +34,8 @@ async function verifyAuth(request: NextRequest): Promise<boolean> {
 	if (!authHeader || !authHeader.startsWith('Bearer ')) {
 	  return false;
 	}
-	
-	// In a more robust implementation, you would verify the token
-	// For now, we'll just check that it exists
 	const token = authHeader.split(' ')[1];
-	return !!token;
+	return !!token; // In production, add proper token verification
   } catch (error) {
 	console.error('Auth verification error:', error);
 	return false;
@@ -45,15 +47,13 @@ async function verifyAuth(request: NextRequest): Promise<boolean> {
  */
 function handleApiError(error: any): NextResponse {
   console.error('API error:', error);
-  
-  // Format the error response
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
   const statusCode = error instanceof Error && 'status' in error ? (error as any).status : 500;
-  
-  return NextResponse.json({ 
-	error: 'Failed to generate upload URL', 
-	details: errorMessage 
-  }, { status: statusCode });
+
+  return NextResponse.json(
+	{ error: 'Failed to generate upload URL', details: errorMessage },
+	{ status: statusCode }
+  );
 }
 
 // Set Next.js config for API route
@@ -62,7 +62,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-	// Verify authentication using your centralized auth utilities
+	// Verify authentication
 	const isAuthenticated = await verifyAuth(request);
 	if (!isAuthenticated) {
 	  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -75,27 +75,36 @@ export async function POST(request: NextRequest) {
 	  return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
 	}
 
+	// Use provided bucketName or default to R2_CONFIG.bucketName
+	const targetBucket = bucketName || R2_CONFIG.bucketName;
+
 	// Set up the S3 upload parameters
 	const uploadParams = {
-	  Bucket: bucketName || R2_CONFIG.bucketName,
+	  Bucket: targetBucket,
 	  Key: fileName,
 	  ContentType: contentType,
 	};
 
+	// Log for debugging
+	console.log('R2 Endpoint:', R2_CONFIG.endpoint);
+	console.log('Bucket Name:', uploadParams.Bucket);
+	console.log('File Key:', fileName);
+
 	// Generate presigned URL
 	const command = new PutObjectCommand(uploadParams);
 	const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // URL expires in 1 hour
+	console.log('Generated Presigned URL:', presignedUrl);
 
-	// Generate the final file URL that will be used after upload
+	// Generate the final file URL
 	const fileUrl = `${R2_CONFIG.endpoint}/${uploadParams.Bucket}/${uploadParams.Key}`;
+	console.log('Final File URL:', fileUrl);
 
-	return NextResponse.json({ 
+	return NextResponse.json({
 	  success: true,
 	  presignedUrl,
 	  fileUrl,
-	  message: 'Upload URL generated successfully'
+	  message: 'Upload URL generated successfully',
 	});
-
   } catch (error) {
 	return handleApiError(error);
   }
