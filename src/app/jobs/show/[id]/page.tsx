@@ -92,7 +92,9 @@ interface ProcessingDocument {
 export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
-  const jobId = params.id as string;
+  // Fix for params possibly being null
+  const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
+  
   const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
   const [activeTab, setActiveTab] = useState("preview");
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
