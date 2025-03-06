@@ -50,34 +50,38 @@ export default function Login() {
     }
   
     if (step === "email") {
-      console.log("Checking email:", formData.email);
-      login(
-        { email: formData.email, password: "" },
-        {
-          onSuccess: (response) => {
-            // Only move to password step if the response clearly indicates success
-            if (response && response.success === true) {
-              console.log("Email exists, showing password field", response);
-              setStep("password"); // Email exists, show password field
-            } else {
-              // If response has an unexpected structure, log it for debugging
-              console.log("Unexpected success response structure:", response);
-              
-              // If response contains an error with RegistrationRequired name, handle registration flow
-              if (response && 
-                  typeof response === 'object' && 
-                  'error' in response && 
-                  typeof response.error === 'object' && 
-                  response.error !== null && 
-                  'name' in response.error && 
-                  response.error.name === "RegistrationRequired") {
-                handleRegistrationFlow();
-              } else {
-                setError("Unable to verify email status. Please try again.");
-              }
-            }
-          },
-          onError: (error: any) => {
+    console.log("Checking email:", formData.email);
+    login(
+      { email: formData.email, password: "" },
+      {
+        onSuccess: (response) => {
+          // Only move to password step if the response clearly indicates success
+          console.log("Email check response:", response);
+          
+          if (response && response.success === true) {
+            // Ignore any redirectTo property at this stage
+            console.log("Email exists, showing password field");
+            setStep("password"); // Email exists, show password field
+            return; // Early return to prevent redirection
+          } 
+          
+          // If response has an unexpected structure, log it for debugging
+          console.log("Unexpected success response structure:", response);
+          
+          // If response contains an error with RegistrationRequired name, handle registration flow
+          if (response && 
+              typeof response === 'object' && 
+              'error' in response && 
+              typeof response.error === 'object' && 
+              response.error !== null && 
+              'name' in response.error && 
+              response.error.name === "RegistrationRequired") {
+            handleRegistrationFlow();
+          } else {
+            setError("Unable to verify email status. Please try again.");
+          }
+        },
+        onError: (error: any) => {
             console.log("Email check result:", error);
             
             // Log the full error structure to debug
