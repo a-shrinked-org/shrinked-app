@@ -5,6 +5,14 @@ import { RefreshCw, Check, Copy } from 'lucide-react';
 import { useGetIdentity } from '@refinedev/core';
 import { authUtils } from '@/utils/authUtils';
 
+// Define the identity interface to match your system
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+  userId?: string;
+}
+
 interface RegenerateApiKeyButtonProps {
   apiKeyId: string;
   onSuccess?: () => void;
@@ -20,7 +28,8 @@ export const RegenerateApiKeyButton: React.FC<RegenerateApiKeyButtonProps> = ({
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: identity } = useGetIdentity();
+  // Properly type the identity data
+  const { data: identity } = useGetIdentity<Identity>();
 
   const handleRegenerateApiKey = async () => {
     // Use centralized token management
@@ -43,33 +52,8 @@ export const RegenerateApiKeyButton: React.FC<RegenerateApiKeyButtonProps> = ({
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error regenerating API key:", error);
-      
-      // Try token refresh on auth errors
-      if (error instanceof Error && (error.message.includes("401") || error.message.includes("403"))) {
-        const refreshSuccess = await authUtils.refreshToken();
-        if (refreshSuccess) {
-          // Retry with new token
-          try {
-            const newToken = authUtils.getAccessToken();
-            if (newToken) {
-              const regeneratedKey = await ApiKeyService.regenerateApiKey(newToken, apiKeyId);
-              setNewApiKey(regeneratedKey.key);
-              setIsConfirmModalOpen(false);
-              setIsModalOpen(true);
-              
-              if (onSuccess) {
-                onSuccess();
-              }
-              return;
-            }
-          } catch (retryError) {
-            console.error("Error regenerating API key after token refresh:", retryError);
-          }
-        }
-      }
-      
       setError(`Error regenerating API key: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
