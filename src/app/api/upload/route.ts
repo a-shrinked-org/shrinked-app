@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
 	  Key: fileName,
 	  Body: fileBuffer,
 	  ContentType: contentType,
-	  // Make the file publicly accessible - using the proper enum type
-	  ACL: ObjectCannedACL.PUBLIC_READ
+	  // Make the file publicly accessible - using the correct enum property
+	  ACL: ObjectCannedACL.public_read
 	};
 
 	// Upload the file to R2
