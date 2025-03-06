@@ -24,20 +24,45 @@ const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
 
 class AuthProviderClass implements AuthProvider {
   async callLoops(endpoint: string, method: string, body?: any) {
-	const response = await fetch(`/api/loops?loops=${encodeURIComponent(endpoint)}`, {
+	// Ensure endpoint doesn't have duplicated leading slashes
+	const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+	
+	const response = await fetch(`/api/loops?loops=${encodeURIComponent(cleanEndpoint)}`, {
 	  method,
 	  headers: {
 		"Content-Type": "application/json",
 	  },
 	  body: body ? JSON.stringify(body) : undefined,
 	});
+	
+	if (!response.ok) {
+	  const errorData = await response.json();
+	  console.error("Loops API error:", errorData);
+	  throw new Error(errorData.message || "Loops API request failed");
+	}
+	
 	return response.json();
   }
 
   async checkEmailInLoops(email: string) {
-	const encodedEmail = encodeURIComponent(email);
-	const data = await this.callLoops(`/contacts/find?email=${encodedEmail}`, "GET");
-	return data.length > 0 ? data[0] : null; // Return contact if found, null if not
+	try {
+	  const encodedEmail = encodeURIComponent(email);
+	  const data = await this.callLoops(`contacts/find?email=${encodedEmail}`, "GET");
+	  
+	  console.log("Loops contact data:", data); // Add logging for debugging
+	  
+	  // Check if the response is an array and has content
+	  if (Array.isArray(data) && data.length > 0) {
+		return data[0]; // Return contact if found
+	  }
+	  
+	  // If we get here, no contact was found
+	  return null;
+	} catch (error) {
+	  console.error("Error checking email in Loops:", error);
+	  // Don't throw the error, just return null to indicate no contact found
+	  return null;
+	}
   }
 
   async sendValidationEmail(email: string, token: string) {
