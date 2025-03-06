@@ -355,7 +355,9 @@ export default function JobShow() {
             {record?.jobName || 'Untitled Job'}
           </Text>
           <Text c="dimmed" mt="xs">
-            {record?.link ? getFilenameFromLink(record.link) : 'No source file'}
+            {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
+             record?.link ? getFilenameFromLink(record.link) : 
+             'No source file'}
           </Text>
         </div>
 
@@ -420,6 +422,7 @@ export default function JobShow() {
             
             // Fix the Tab.Panel value to match
             <Tabs.Panel value="json" pt="md">
+              {/* Container for the JSON content */}
               <div style={{ 
                 backgroundColor: 'white', 
                 padding: '32px', 
