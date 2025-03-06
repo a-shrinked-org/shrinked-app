@@ -184,15 +184,16 @@ export default function JobShow() {
   }, [processingDocId, fetchWithAuth, activeTab, fetchMarkdownContent]);
 
   // Download PDF handler
+  // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
     if (!processingDocId) return;
-
+  
     try {
       const response = await fetchWithAuth(
         `${API_CONFIG.API_URL}/pdf/${processingDocId}/json?includeReferences=true`,
-        { method: 'GET', responseType: 'blob' }
+        { method: 'GET' }
       );
-
+  
       if (!response.ok) {
         throw new Error(`PDF download failed with status: ${response.status}`);
       }
