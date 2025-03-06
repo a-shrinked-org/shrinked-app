@@ -3,7 +3,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, Container, Text, Loader, Title } from '@mantine/core';
 import { API_CONFIG, authUtils } from "@/utils/authUtils";
 
 export default function AuthCallback() {
@@ -87,33 +86,78 @@ export default function AuthCallback() {
 	exchangeCodeForTokens();
   }, [searchParams, router]);
 
-  // Rest of your component remains the same
+  // Simple styling without Mantine
+  const styles = {
+	container: {
+	  minHeight: "100vh",
+	  display: "flex",
+	  alignItems: "center",
+	  justifyContent: "center",
+	  fontFamily: "sans-serif",
+	  padding: "20px"
+	},
+	card: {
+	  border: "1px solid #e0e0e0",
+	  borderRadius: "8px",
+	  padding: "24px",
+	  backgroundColor: "#F5F5F5",
+	  width: "100%",
+	  maxWidth: "400px",
+	  textAlign: "center" as const,
+	  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)"
+	},
+	title: {
+	  color: "red",
+	  fontSize: "20px",
+	  marginBottom: "16px"
+	},
+	text: {
+	  textAlign: "center" as const,
+	  marginBottom: "24px"
+	},
+	link: {
+	  color: "#D87A16",
+	  textDecoration: "none"
+	},
+	loader: {
+	  border: "4px solid #f3f3f3",
+	  borderTop: "4px solid #D87A16",
+	  borderRadius: "50%",
+	  width: "30px",
+	  height: "30px",
+	  animation: "spin 2s linear infinite",
+	  margin: "0 auto 16px auto"
+	}
+  };
+
   if (error) {
 	return (
-	  <Container size="xs" style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
-		<Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", width: "100%" }}>
-		  <Title order={2} ta="center" mb="md" style={{ color: "red" }}>
-			Authentication Error
-		  </Title>
-		  <Text ta="center" mb="xl">
-			{error}
-		  </Text>
-		  <Text ta="center">
-			<a href="/login" style={{ color: "#D87A16" }}>Return to login</a>
-		  </Text>
-		</Card>
-	  </Container>
+	  <div style={styles.container}>
+		<div style={styles.card}>
+		  <h2 style={styles.title}>Authentication Error</h2>
+		  <p style={styles.text}>{error}</p>
+		  <p>
+			<a href="/login" style={styles.link}>Return to login</a>
+		  </p>
+		</div>
+	  </div>
 	);
   }
 
   return (
-	<Container size="xs" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-	  <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", width: "100%", textAlign: "center" }}>
-		<Loader size="md" color="#D87A16" style={{ margin: "0 auto", display: "block" }} />
-		<Text ta="center" mt="md">
+	<div style={styles.container}>
+	  <div style={styles.card}>
+		<div style={styles.loader}></div>
+		<style jsx global>{`
+		  @keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		  }
+		`}</style>
+		<p style={styles.text}>
 		  Completing authentication, please wait...
-		</Text>
-	  </Card>
-	</Container>
+		</p>
+	  </div>
+	</div>
   );
 }
