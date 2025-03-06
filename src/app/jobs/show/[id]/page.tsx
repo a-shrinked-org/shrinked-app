@@ -113,19 +113,21 @@ export default function JobShow() {
   // Fetch markdown content from backend endpoint
   const fetchMarkdownContent = useCallback(async () => {
     if (!processingDocId) return;
-
+  
     try {
+      // Use processingDocId (resultId) instead of jobId for the markdown endpoint
       const response = await fetchWithAuth(
         `${API_CONFIG.API_URL}/markdown/${processingDocId}/json?includeReferences=true`
       );
-
+  
       if (!response.ok) {
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
       }
-
+  
       // The response should be the markdown text directly
       const markdown = await response.text();
       setMarkdownContent(markdown);
+      console.log('Fetched markdown content using processingDocId:', processingDocId);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
       setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
@@ -184,11 +186,11 @@ export default function JobShow() {
   }, [processingDocId, fetchWithAuth, activeTab, fetchMarkdownContent]);
 
   // Download PDF handler
-  // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
     if (!processingDocId) return;
   
     try {
+      // Use processingDocId (resultId) instead of jobId for the PDF endpoint
       const response = await fetchWithAuth(
         `${API_CONFIG.API_URL}/pdf/${processingDocId}/json?includeReferences=true`,
         { method: 'GET' }
@@ -208,6 +210,7 @@ export default function JobShow() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      console.log('Downloaded PDF using processingDocId:', processingDocId);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
@@ -223,13 +226,32 @@ export default function JobShow() {
         console.log("Show query success:", data);
         
         // Extract processingDocId from PLATOGRAM_PROCESSING step
-        const processingStep = data.data?.steps?.find(step => step.name === "PLATOGRAM_PROCESSING");
+        const processingStep = data.data?.steps?.find(step => 
+          step.name === "PLATOGRAM_PROCESSING" || 
+          step.name === "TEXT_PROCESSING"
+        );
+        
         if (processingStep?.data?.resultId) {
           console.log("Found processing resultId:", processingStep.data.resultId);
           setProcessingDocId(processingStep.data.resultId);
         } else {
-          console.log("No resultId found in processing step");
-          setErrorMessage("No processing document ID found in job steps.");
+          // Try alternative locations where resultId might be stored
+          const alternativeLocations = [
+            data.data?.output?.resultId,
+            data.data?.resultId,
+            // If we have steps with data fields, check all of them for resultId
+            ...(data.data?.steps?.map(step => step.data?.resultId).filter(Boolean) || [])
+          ];
+          
+          const foundResultId = alternativeLocations.find(id => id);
+          
+          if (foundResultId) {
+            console.log("Found resultId in alternative location:", foundResultId);
+            setProcessingDocId(foundResultId);
+          } else {
+            console.log("No resultId found in any location");
+            setErrorMessage("No processing document ID found in job data.");
+          }
         }
         
         // Extract link from UPLOAD_FILE or similar step
