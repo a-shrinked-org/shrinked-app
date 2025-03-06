@@ -1,9 +1,10 @@
 // src/components/DocumentMarkdownRenderer.tsx
 import React, { useMemo } from 'react';
 // For TypeScript compatibility, use require instead of import
-const json2md = require('json2md');
+// And add type assertion to avoid TypeScript errors
+const json2md = require('json2md') as (input: any[], options?: any) => string;
 import * as Markdoc from '@markdoc/markdoc';
-import { Box, Text, Divider, LoadingOverlay, Button } from '@mantine/core';
+import { Box, Text, LoadingOverlay, Button } from '@mantine/core';
 import { RefreshCw } from 'lucide-react';
 
 // Define props interface for our document data
@@ -25,6 +26,13 @@ interface DocumentMarkdownRendererProps {
   onRefresh?: () => void;
 }
 
+// Define a type for the markdown array items
+type MarkdownItem = 
+  | { h1: string } 
+  | { h2: string } 
+  | { p: string } 
+  | { ul: string[] }; // Add this to fix the typing error
+
 const DocumentMarkdownRenderer: React.FC<DocumentMarkdownRendererProps> = ({
   data,
   isLoading = false,
@@ -35,7 +43,8 @@ const DocumentMarkdownRenderer: React.FC<DocumentMarkdownRendererProps> = ({
   const markdownContent = useMemo(() => {
     if (!data) return '';
     
-    const markdownArray = [
+    // Use proper type for markdownArray
+    const markdownArray: MarkdownItem[] = [
       { h1: data.title || 'Untitled Document' },
       
       // Abstract section
@@ -79,6 +88,7 @@ const DocumentMarkdownRenderer: React.FC<DocumentMarkdownRendererProps> = ({
       const referenceItems = data.references.map((ref, index) => 
         `[${index + 1}] ${ref.item}`
       );
+      // This is now properly typed
       markdownArray.push({ ul: referenceItems });
     } else {
       markdownArray.push({ p: 'No references available.' });
@@ -90,6 +100,7 @@ const DocumentMarkdownRenderer: React.FC<DocumentMarkdownRendererProps> = ({
       markdownArray.push({ p: data.contributors });
     }
 
+    // Pass the proper type to json2md
     return json2md(markdownArray);
   }, [data]);
 
