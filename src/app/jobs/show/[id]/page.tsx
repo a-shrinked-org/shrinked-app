@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/utils/authUtils";
 // Import centralized auth utilities
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import { PDFViewer, Document, Page, Text as PDFText, View, StyleSheet } from '@react-pdf/renderer';
