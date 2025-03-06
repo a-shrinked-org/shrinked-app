@@ -102,7 +102,6 @@ export const authUtils = {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ refreshToken }),
-		  // Remove credentials: 'include' as the API uses Bearer token authentication
 		});
 
 		if (!response.ok) {
@@ -173,7 +172,6 @@ export const authUtils = {
 	  const response = await fetch(url, {
 		...options,
 		headers,
-		// Remove credentials: 'include' to avoid CORS issues
 		signal: options.signal || controller.signal
 	  });
 	  
@@ -224,7 +222,6 @@ export const authUtils = {
 		headers: {
 		  'Content-Type': 'application/json',
 		},
-		// Remove credentials: 'include' 
 		signal: controller.signal
 	  });
 	  
@@ -256,8 +253,11 @@ export const authUtils = {
 	
 	// Handle different error cases
 	if (status === 401 || status === 403) {
-	  // Will attempt refresh on next request through apiRequest method
 	  toast.error("Session expired. Please log in again if this persists.");
+	  // Try token refresh if not already refreshing
+	  authUtils.refreshToken().catch(() => {
+		// Token refresh failed, display additional message only if critical
+	  });
 	} else if (status === 521 || status === 522 || status === 523) {
 	  toast.error("Server currently unavailable. Please try again later.");
 	} else if (!navigator.onLine) {
@@ -266,10 +266,56 @@ export const authUtils = {
 	  // Generic error message for other cases
 	  toast.error("An error occurred. Please try again.");
 	}
+  },
+
+  // Get auth headers for requests (convenience method)
+  getAuthHeaders: (extraHeaders = {}): HeadersInit => {
+	const accessToken = authUtils.getAccessToken();
+	return {
+	  ...extraHeaders,
+	  ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+	  'Content-Type': 'application/json',
+	};
+  },
+
+  // Fetch with auth (convenience method)
+  fetchWithAuth: async (url: string, options: RequestInit = {}): Promise<Response> => {
+	return authUtils.apiRequest(url, options);
+  },
+
+  // Get user data from localStorage
+  getUserData: () => {
+	try {
+	  const userDataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	  if (userDataStr) {
+		return JSON.parse(userDataStr);
+	  }
+	  return null;
+	} catch (e) {
+	  console.error("Error getting user data:", e);
+	  return null;
+	}
+  },
+
+  // Update user data in localStorage
+  updateUserData: (data: any) => {
+	try {
+	  const userDataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	  if (userDataStr) {
+		const userData = JSON.parse(userDataStr);
+		const updatedUserData = { ...userData, ...data };
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+		return true;
+	  }
+	  return false;
+	} catch (e) {
+	  console.error("Error updating user data:", e);
+	  return false;
+	}
   }
 };
 
-// Custom hook for auth operations - exported separately
+// Enhanced hook for auth operations with all necessary methods
 export const useAuth = () => {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -287,6 +333,16 @@ export const useAuth = () => {
 	checkAuth();
   }, []);
   
+  // Get access token (convenience method)
+  const getAccessToken = useCallback(() => {
+	return authUtils.getAccessToken();
+  }, []);
+  
+  // Get auth headers (convenience method)
+  const getAuthHeaders = useCallback((extraHeaders = {}) => {
+	return authUtils.getAuthHeaders(extraHeaders);
+  }, []);
+  
   // Token refresh with redirect handling
   const refreshToken = useCallback(async () => {
 	const success = await authUtils.refreshToken();
@@ -302,16 +358,42 @@ export const useAuth = () => {
 	return success;
   }, [router]);
   
-  // Consistent error handling
+  // Consistent error handling that automatically tries to refresh tokens
   const handleAuthError = useCallback((error: any) => {
+	// Use centralized error handling
 	authUtils.handleAuthError(error);
-  }, []);
+	
+	// Check if error requires token refresh
+	const status = error?.status || error?.statusCode || 
+				  (error?.response ? error?.response.status : null);
+	
+	if (status === 401 || status === 403) {
+	  // Token is likely invalid, try to refresh
+	  refreshToken().catch(() => {
+		// Silent catch - the error is already handled by authUtils.handleAuthError
+	  });
+	}
+  }, [refreshToken]);
+  
+  // Fetch with authentication
+  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
+	try {
+	  const response = await authUtils.fetchWithAuth(url, options);
+	  return response;
+	} catch (error) {
+	  handleAuthError(error);
+	  throw error;
+	}
+  }, [handleAuthError]);
   
   return {
 	isAuthenticated,
 	isLoading,
 	refreshToken,
 	handleAuthError,
+	getAccessToken,
+	getAuthHeaders,
+	fetchWithAuth,
 	login: async (email: string, password: string) => {
 	  // Implementation would be moved from customAuthProvider
 	  // This gives components a simpler interface for auth operations
