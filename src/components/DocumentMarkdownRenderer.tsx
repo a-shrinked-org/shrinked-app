@@ -59,7 +59,7 @@ function DocumentMarkdownRenderer({
             size="sm"
             radius="xl"
             value={75}
-            animate
+            animated
             style={{ maxWidth: '300px', margin: '0 auto 20px' }}
           />
           <Button 
