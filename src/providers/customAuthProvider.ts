@@ -22,7 +22,7 @@ interface UserData {
 let lastAuthCheckTime = 0;
 const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
 const LOOPS_API_URL = "https://app.loops.so/api/v1";
-const LOOPS_API_KEY = process.env.LOOPS_API_KEY; // From Vercel env
+const LOOPS_API_KEY = process.env.NEXT_PUBLIC_LOOPS_API_KEY; // From Vercel env
 
 class AuthProviderClass implements AuthProvider {
   async callLoops(endpoint: string, method: string, body?: any) {
