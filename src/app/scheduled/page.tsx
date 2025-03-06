@@ -21,7 +21,7 @@ export default function ScheduledJobs() {
       </Group>
       
       <Card withBorder p="xl" style={{ textAlign: 'center' }}>
-        <Stack spacing="lg" align="center">
+        <Stack gap="lg" align="center">
           <Group>
             <IconWrapper icon={Calendar} size={42} color="#228be6" />
             <IconWrapper icon={Clock} size={42} color="#228be6" />
