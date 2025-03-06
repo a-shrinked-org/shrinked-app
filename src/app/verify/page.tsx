@@ -2,20 +2,27 @@
 
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { Card, Title, TextInput, Button, Container, Alert, Text, Group, ThemeIcon } from "@mantine/core";
-import { IconCheckCircle, IconAlertCircle } from "@tabler/icons-react";
+import { CheckCircle, AlertCircle } from "lucide-react";
 
 export default function VerifyEmail() {
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [formData, setFormData] = useState<{ token: string; email: string; password: string }>({
-    token: new URLSearchParams(window.location.search).get("token") || "",
+    token: "",
     email: "",
     password: "",
   });
 
   useEffect(() => {
-    console.log("VerifyEmail: Component mounted, checking for token in URL:", formData.token);
+    // Get token from URL if available
+    const urlToken = new URLSearchParams(window.location.search).get("token") || "";
+    
+    console.log("VerifyEmail: Component mounted, checking for token in URL:", urlToken ? "Token found" : "No token");
+    
+    // Update form data with token from URL
+    setFormData(prev => ({ ...prev, token: urlToken }));
+    
     const pendingUser = localStorage.getItem("pendingUser");
     if (pendingUser) {
       try {
@@ -104,14 +111,14 @@ export default function VerifyEmail() {
         <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", width: "100%" }}>
           <Group justify="center" mb="md">
             <ThemeIcon size={80} radius={100} color="green">
-              <IconCheckCircle size={50} />
+              <CheckCircle size={50} />
             </ThemeIcon>
           </Group>
           <Title order={2} ta="center" mb="md">
             Email Verified Successfully!
           </Title>
           <Text ta="center" mb="xl">
-            Your account has been verified and you'll be redirected to the dashboard momentarily.
+            Your account has been verified and you&apos;ll be redirected to the dashboard momentarily.
           </Text>
         </Card>
       </Container>
@@ -128,7 +135,7 @@ export default function VerifyEmail() {
           A verification link has been sent to your email. Enter the details below to complete signup.
         </Text>
         {error && (
-          <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md" title="Error">
+          <Alert icon={<AlertCircle size={16} />} color="red" mb="md" title="Error">
             {error}
           </Alert>
         )}

@@ -14,7 +14,7 @@ import {
   Group,
   Text,
 } from "@mantine/core";
-import { IconBrandGoogle, IconBook, IconCode, IconRocket, IconMailbox } from "@tabler/icons-react";
+import { IconBrandGoogle, IconBook, IconCode, IconRocket, IconMailbox } from "lucide-react";
 
 interface FormData {
   email: string;
@@ -128,11 +128,11 @@ export default function Login() {
           </Title>
           
           <Text ta="center" mb="xl">
-            We've sent a verification link to <b>{formData.email}</b>. Please check your inbox and click the link to complete your registration.
+            We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and click the link to complete your registration.
           </Text>
           
           <Text size="sm" ta="center" mb="md" c="dimmed">
-            Didn't receive the email? Check your spam folder or try again in a few minutes.
+            Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
           </Text>
           
           <Button
@@ -152,19 +152,19 @@ export default function Login() {
         <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
-              <IconBook size={24} style={{ color: "#333333" }} />
+              <IconBook size={24} color="#333333" />
               <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
             </Group>
           </Card>
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
-              <IconCode size={24} style={{ color: "#333333" }} />
+              <IconCode size={24} color="#333333" />
               <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
             </Group>
           </Card>
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
-              <IconRocket size={24} style={{ color: "#333333" }} />
+              <IconRocket size={24} color="#333333" />
               <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
             </Group>
           </Card>
@@ -271,19 +271,19 @@ export default function Login() {
       <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
         <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
           <Group justify="center">
-            <IconBook size={24} style={{ color: "#333333" }} />
+            <IconBook size={24} color="#333333" />
             <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
           </Group>
         </Card>
         <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
           <Group justify="center">
-            <IconCode size={24} style={{ color: "#333333" }} />
+            <IconCode size={24} color="#333333" />
             <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
           </Group>
         </Card>
         <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
           <Group justify="center">
-            <IconRocket size={24} style={{ color: "#333333" }} />
+            <IconRocket size={24} color="#333333" />
             <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
           </Group>
         </Card>
