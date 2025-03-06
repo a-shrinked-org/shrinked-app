@@ -11,7 +11,7 @@ import { customAuthProvider } from "@providers/customAuthProvider";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
-import { authUtils } from "@/utils/authUtils";
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 interface RefineContextProps {}
 

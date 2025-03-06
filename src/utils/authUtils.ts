@@ -1,5 +1,7 @@
 // src/utils/authUtils.ts
 import { toast } from "react-toastify";
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 // Configuration constants
 export const API_CONFIG = {
@@ -264,4 +266,59 @@ export const authUtils = {
 	  toast.error("An error occurred. Please try again.");
 	}
   }
+};
+
+// Custom hook for auth operations - exported separately
+export const useAuth = () => {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Check auth status on mount
+  useEffect(() => {
+	const checkAuth = async () => {
+	  setIsLoading(true);
+	  const authenticated = authUtils.isAuthenticated();
+	  setIsAuthenticated(authenticated);
+	  setIsLoading(false);
+	};
+	
+	checkAuth();
+  }, []);
+  
+  // Token refresh with redirect handling
+  const refreshToken = useCallback(async () => {
+	const success = await authUtils.refreshToken();
+	if (!success) {
+	  // Only redirect if on a protected page
+	  const publicPaths = ['/login', '/register', '/forgot-password'];
+	  const currentPath = window.location.pathname;
+	  
+	  if (!publicPaths.some(path => currentPath.startsWith(path))) {
+		router.push('/login');
+	  }
+	}
+	return success;
+  }, [router]);
+  
+  // Consistent error handling
+  const handleAuthError = useCallback((error: any) => {
+	authUtils.handleAuthError(error);
+  }, []);
+  
+  return {
+	isAuthenticated,
+	isLoading,
+	refreshToken,
+	handleAuthError,
+	login: async (email: string, password: string) => {
+	  // Implementation would be moved from customAuthProvider
+	  // This gives components a simpler interface for auth operations
+	},
+	logout: async () => {
+	  await authUtils.clearAuthStorage();
+	  setIsAuthenticated(false);
+	  router.push('/login');
+	}
+  };
 };
