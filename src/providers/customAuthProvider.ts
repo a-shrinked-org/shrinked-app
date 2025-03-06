@@ -296,6 +296,7 @@ class AuthProviderClass implements AuthProvider {
 		  debug.log('login', `Email not found in Loops, registration required`);
 		  return {
 			success: false,
+			error: { message: "Email not found. Please register.", name: "RegistrationRequired" }
 		  };
 		}
 	  }
