@@ -39,7 +39,6 @@ export default function Login() {
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
-  // In page.tsx - handleEmailSubmit function
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -55,29 +54,29 @@ export default function Login() {
       login(
         { email: formData.email, password: "" },
         {
-          onSuccess: () => {
-            console.log("Email exists, showing password field");
-            setStep("password"); // Email exists in Loops
+          onSuccess: (response) => {
+            // If login is successful with just email, it means email exists
+            console.log("Email exists, showing password field", response);
+            setStep("password"); // Email exists, show password field
           },
           onError: (error: any) => {
             console.log("Email check result:", error);
             
-            // If registration is required (email not found), start registration
-            if (error.name === "RegistrationRequired") {
+            // Check if this is a "RegistrationRequired" error
+            if (error?.name === "RegistrationRequired") {
               console.log("Email not found, initiating registration flow");
-              // Don't show error message - this is expected flow for new users
-              // Instead directly call registration
+              
+              // Start registration process
               login(
                 { 
                   email: formData.email,
-                  password: "",  // No password yet
-                  providerName: "register" // Flag to indicate registration
+                  password: "",
+                  providerName: "register"
                 },
                 {
                   onSuccess: (data) => {
                     console.log("Registration initiated successfully", data);
                     if (data.redirectTo === "/verify-email") {
-                      console.log("Showing verification sent message");
                       setStep("verification-sent");
                     }
                   },
@@ -88,8 +87,9 @@ export default function Login() {
                 }
               );
             } else {
-              // For other errors, show the error message
-              setError(error?.message || "Failed to verify email");
+              // For any other errors
+              console.error("Login error:", error);
+              setError(error?.message || "An error occurred");
             }
           }
         }
@@ -99,6 +99,7 @@ export default function Login() {
         setError("Please enter your password");
         return;
       }
+      
       // Login with password
       console.log("Attempting login with password");
       login(
