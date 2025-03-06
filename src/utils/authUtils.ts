@@ -3,6 +3,20 @@ import { toast } from "react-toastify";
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Global type definitions
+declare global {
+  interface Window {
+	_refreshTimerId: ReturnType<typeof setTimeout> | undefined;
+  }
+}
+
+// Interface for token metadata
+interface TokenMetadata {
+  accessExpiry: number;  // timestamp in milliseconds
+  refreshExpiry: number; // timestamp in milliseconds
+  lastRefresh: number;   // timestamp of last refresh
+}
+
 // Configuration constants
 export const API_CONFIG = {
   API_URL: process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai",
@@ -18,6 +32,7 @@ export const API_CONFIG = {
 	ACCESS_TOKEN: "access_token",
 	REFRESH_TOKEN: "refresh_token",
 	USER_DATA: "user_data",
+	TOKEN_METADATA: "token_metadata"
   }
 };
 
@@ -25,6 +40,24 @@ export const API_CONFIG = {
 let refreshPromise: Promise<boolean> | null = null;
 const REFRESH_COOLDOWN = 30000; // 30 seconds between refresh attempts
 let lastSuccessfulRefreshTime = 0;
+
+// Function to decode JWT and extract expiration
+const parseJwt = (token: string): any => {
+  try {
+	// Split the token and get the payload part
+	const base64Url = token.split('.')[1];
+	const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+	const jsonPayload = decodeURIComponent(
+	  atob(base64).split('').map(function(c) {
+		return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+	  }).join('')
+	);
+	return JSON.parse(jsonPayload);
+  } catch (e) {
+	console.error("Error parsing JWT:", e);
+	return null;
+  }
+};
 
 export const authUtils = {
   // Get tokens with proper error handling
@@ -46,10 +79,50 @@ export const authUtils = {
 	}
   },
 
+  storeTokenMetadata: (accessToken: string, refreshToken: string): void => {
+	try {
+	  // Parse tokens to get expiry
+	  const accessData = parseJwt(accessToken);
+	  const refreshData = parseJwt(refreshToken);
+	  
+	  if (!accessData || !refreshData) {
+		return;
+	  }
+	  
+	  // JWT exp is in seconds, convert to milliseconds
+	  const accessExpiry = accessData.exp * 1000;
+	  const refreshExpiry = refreshData.exp * 1000;
+	  
+	  const metadata: TokenMetadata = {
+		accessExpiry,
+		refreshExpiry,
+		lastRefresh: Date.now()
+	  };
+	  
+	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA, JSON.stringify(metadata));
+	  console.log(`[AUTH] Token metadata stored. Access expires in ${Math.round((accessExpiry - Date.now())/60000)} minutes`);
+	} catch (e) {
+	  console.error("Error storing token metadata:", e);
+	}
+  },
+
+  getTokenMetadata: (): TokenMetadata | null => {
+	try {
+	  const metadataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
+	  if (!metadataStr) return null;
+	  
+	  return JSON.parse(metadataStr) as TokenMetadata;
+	} catch (e) {
+	  console.error("Error getting token metadata:", e);
+	  return null;
+	}
+  },
+
   saveTokens: (accessToken: string, refreshToken: string): void => {
 	try {
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+	  authUtils.storeTokenMetadata(accessToken, refreshToken);
 	} catch (e) {
 	  console.error("Error saving tokens to localStorage:", e);
 	}
@@ -60,13 +133,19 @@ export const authUtils = {
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
+	  
+	  // Clear any refresh timer
+	  if (window._refreshTimerId) {
+		clearTimeout(window._refreshTimerId);
+		window._refreshTimerId = undefined;
+	  }
 	} catch (e) {
 	  console.error("Error clearing auth storage:", e);
 	}
   },
 
   // Improved token refresh with proper promise sharing and cooldown
-  // In authUtils.ts - refreshToken function
   refreshToken: async (): Promise<boolean> => {
 	const now = Date.now();
 	
@@ -90,7 +169,7 @@ export const authUtils = {
 		  console.log("No refresh token available");
 		  return false;
 		}
-  
+
 		// Based on the Postman collection, refreshToken should be sent in the request body
 		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.REFRESH}`, {
 		  method: 'POST',
@@ -99,19 +178,19 @@ export const authUtils = {
 		  },
 		  body: JSON.stringify({ refreshToken }),
 		});
-  
+
 		if (!response.ok) {
 		  console.error("Token refresh failed:", response.status);
 		  return false;
 		}
-  
+
 		const data = await response.json();
 		if (!data.accessToken || !data.refreshToken) {
 		  console.error("Invalid token refresh response");
 		  return false;
 		}
-  
-		// Update tokens in storage
+
+		// Update tokens in storage - this will also update token metadata
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
 		
 		// Update user data if available
@@ -129,9 +208,13 @@ export const authUtils = {
 		} catch (e) {
 		  console.error("Error updating user data after refresh:", e);
 		}
-  
+
 		console.log("Token refresh successful");
 		lastSuccessfulRefreshTime = Date.now();
+		
+		// Reset the refresh timer after successful refresh
+		authUtils.setupRefreshTimer();
+		
 		return true;
 	  } catch (error) {
 		console.error("Token refresh error:", error);
@@ -141,13 +224,86 @@ export const authUtils = {
 		refreshPromise = null;
 	  }
 	})();
-  
+
 	// Return the result of the refresh promise
 	return refreshPromise;
-  }
+  },
+
+  // Silent refresh timer setup
+  setupRefreshTimer: (forceCheck: boolean = false): void => {
+	// Clear any existing timer
+	if (window._refreshTimerId) {
+	  clearTimeout(window._refreshTimerId);
+	}
+	
+	try {
+	  const metadata = authUtils.getTokenMetadata();
+	  if (!metadata) {
+		console.log("[AUTH] No token metadata found, skip timer setup");
+		return;
+	  }
+	  
+	  const now = Date.now();
+	  
+	  // Check if refresh token is expired
+	  if (metadata.refreshExpiry <= now) {
+		console.log("[AUTH] Refresh token expired, clearing auth storage");
+		authUtils.clearAuthStorage();
+		return;
+	  }
+	  
+	  // Calculate time until access token expires (with 1-minute buffer)
+	  const timeUntilExpiry = metadata.accessExpiry - now - (1 * 60 * 1000);
+	  
+	  // If access token is already expired or will expire soon, refresh now
+	  if (timeUntilExpiry <= 0 || forceCheck) {
+		console.log("[AUTH] Access token expiring soon, refreshing now");
+		authUtils.refreshToken()
+		  .then(success => {
+			if (success) {
+			  console.log("[AUTH] Token refreshed successfully");
+			  // Token is refreshed, set up next refresh cycle
+			  authUtils.setupRefreshTimer();
+			} else {
+			  console.log("[AUTH] Token refresh failed");
+			}
+		  })
+		  .catch(error => {
+			console.error("[AUTH] Error refreshing token:", error);
+		  });
+		return;
+	  }
+	  
+	  // Schedule the next refresh 1 minute before token expires
+	  const refreshOffset = Math.min(timeUntilExpiry, 14 * 60 * 1000); // Max 14 minutes (for 15-min tokens)
+	  const nextRefreshIn = timeUntilExpiry - refreshOffset;
+	  
+	  console.log(`[AUTH] Scheduling token refresh in ${Math.round(nextRefreshIn/60000)} minutes`);
+	  
+	  // Set timer for next refresh
+	  window._refreshTimerId = setTimeout(() => {
+		console.log("[AUTH] Silent refresh timer triggered");
+		authUtils.refreshToken()
+		  .then(success => {
+			if (success) {
+			  console.log("[AUTH] Token refreshed successfully by timer");
+			} else {
+			  console.log("[AUTH] Timer-triggered token refresh failed");
+			}
+			// Always set up next cycle
+			authUtils.setupRefreshTimer();
+		  })
+		  .catch(error => {
+			console.error("[AUTH] Error in timed token refresh:", error);
+			authUtils.setupRefreshTimer();
+		  });
+	  }, nextRefreshIn);
+	} catch (e) {
+	  console.error("[AUTH] Error in refresh scheduler:", e);
+	}
+  },
 
   // Centralized API request handler with improved error handling
-  // In authUtils.ts - apiRequest function
   apiRequest: async (url: string, options: RequestInit = {}, retryCount = 0): Promise<Response> => {
 	const MAX_RETRIES = 1;
 	
@@ -193,7 +349,7 @@ export const authUtils = {
 	  }
 	  throw error;
 	}
-  }
+  },
 
   // Helper method to check if user is authenticated
   isAuthenticated: (): boolean => {
@@ -318,16 +474,31 @@ export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Check auth status on mount
+  // Initialize token refresh on component mount
   useEffect(() => {
-	const checkAuth = async () => {
+	const initializeAuth = async () => {
 	  setIsLoading(true);
+	  
+	  // Check if we have valid tokens
 	  const authenticated = authUtils.isAuthenticated();
 	  setIsAuthenticated(authenticated);
+	  
+	  if (authenticated) {
+		// Set up the silent refresh mechanism
+		authUtils.setupRefreshTimer(true); // true to force an immediate check
+	  }
+	  
 	  setIsLoading(false);
 	};
 	
-	checkAuth();
+	initializeAuth();
+	
+	// Cleanup function to clear timer on unmount
+	return () => {
+	  if (window._refreshTimerId) {
+		clearTimeout(window._refreshTimerId);
+	  }
+	};
   }, []);
   
   // Get access token (convenience method)

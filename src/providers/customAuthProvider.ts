@@ -225,7 +225,12 @@ class AuthProviderClass implements AuthProvider {
   
 		  const loginData = await loginResponse.json();
 		  debug.log('login', `Login successful, saving tokens`);
+		  
+		  // Save tokens - this now also stores token metadata
 		  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
+		  
+		  // Set up the silent refresh timer immediately after successful login
+		  authUtils.setupRefreshTimer(true);
   
 		  debug.log('login', `Fetching user profile`);
 		  const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
@@ -318,7 +323,12 @@ class AuthProviderClass implements AuthProvider {
   
 		const loginData = await loginResponse.json();
 		debug.log('login', `Login successful, saving tokens`);
+		
+		// Save tokens - this now also stores token metadata
 		authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
+		
+		// Set up the silent refresh timer immediately after successful login
+		authUtils.setupRefreshTimer(true);
   
 		debug.log('login', `Fetching user profile`);
 		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
@@ -659,6 +669,12 @@ class AuthProviderClass implements AuthProvider {
   async logout() {
 	debug.log('logout', `Logging out user`);
 	
+	// Clear refresh timer as early as possible
+	if (window._refreshTimerId) {
+	  clearTimeout(window._refreshTimerId);
+	  window._refreshTimerId = undefined;
+	}
+	
 	try {
 	  const refreshToken = authUtils.getRefreshToken();
 	  if (refreshToken) {
@@ -666,7 +682,7 @@ class AuthProviderClass implements AuthProvider {
 		
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 3000);
-
+  
 		await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
 		  method: "POST",
 		  headers: {
@@ -685,10 +701,10 @@ class AuthProviderClass implements AuthProvider {
 	  debug.warn('logout', `Error during logout, continuing with client logout:`, error);
 	  // Continue with logout even if server request fails
 	}
-
+  
 	debug.log('logout', `Clearing auth storage and redirecting to login`);
-	authUtils.clearAuthStorage();
-
+	authUtils.clearAuthStorage(); // This will clear tokens, metadata, and timer
+  
 	return {
 	  success: true,
 	  redirectTo: "/login",

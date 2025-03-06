@@ -78,6 +78,13 @@ const App = (props: React.PropsWithChildren<{}>) => {
 
   // Simplified auth check effect
   useEffect(() => {
+    // Check if we have tokens and set up refresh mechanism
+    if (authUtils.isAuthenticated()) {
+        console.log("[APP] Initializing token refresh mechanism");
+        authUtils.setupRefreshTimer(true); // true forces immediate check
+      }
+    }, []);
+    
     const checkAuthentication = async () => {
       // Skip check if already checking or still loading session
       if (isCheckingAuthRef.current || status === "loading") {
@@ -143,6 +150,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
         if (result.success) {
           // Reset auth validation time on successful login
           lastFullAuthCheckTime = Date.now();
+          
+          // Set up the token refresh timer
+          authUtils.setupRefreshTimer(true);
           
           setAuthState({
             isChecking: false,
@@ -292,6 +302,12 @@ const App = (props: React.PropsWithChildren<{}>) => {
       // Sign out from NextAuth if we're using it
       if (status === "authenticated") {
         await signIn("logout");
+      }
+      
+      // Clear any refresh timers
+      if (window._refreshTimerId) {
+        clearTimeout(window._refreshTimerId);
+        window._refreshTimerId = undefined;
       }
       
       // Then normal logout
