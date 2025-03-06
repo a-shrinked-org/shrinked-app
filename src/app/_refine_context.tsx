@@ -149,7 +149,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
       try {
         const result = await customAuthProvider.login(params);
         
-        if (result.success) {
+        // Only process successful logins with password
+        if (result.success && params.password) {
           // Reset auth validation time on successful login
           lastFullAuthCheckTime = Date.now();
           
@@ -168,18 +169,22 @@ const App = (props: React.PropsWithChildren<{}>) => {
             key: "login-success"
           });
           
+          // Only add redirectTo for successful password logins
           return {
             ...result,
             redirectTo: "/jobs"
           };
         }
         
-        notificationProvider.open({
-          message: "Login Failed",
-          description: result.error?.message || "Invalid credentials",
-          type: "error",
-          key: "login-error"
-        });
+        // For other cases (like email check or failures), return the original result
+        if (!result.success) {
+          notificationProvider.open({
+            message: "Login Failed",
+            description: result.error?.message || "Invalid credentials",
+            type: "error",
+            key: "login-error"
+          });
+        }
         
         return result;
       } catch (error) {
