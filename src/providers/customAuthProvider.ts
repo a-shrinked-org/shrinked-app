@@ -1,6 +1,7 @@
 // src/providers/customAuthProvider.ts
 import { AuthProvider } from "@refinedev/core";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
+import { v4 as uuidv4 } from 'uuid'; // Consider adding this package for secure tokens
 
 interface UserData {
   id?: string;
@@ -22,69 +23,159 @@ interface UserData {
 let lastAuthCheckTime = 0;
 const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds
 
+// Debug helper function
+const debug = {
+  log: (area: string, message: string, data?: any) => {
+	console.log(`[AUTH:${area}] ${message}`, data || '');
+  },
+  error: (area: string, message: string, error?: any) => {
+	console.error(`[AUTH:${area}] ERROR: ${message}`, error || '');
+  },
+  warn: (area: string, message: string, data?: any) => {
+	console.warn(`[AUTH:${area}] WARNING: ${message}`, data || '');
+  }
+};
+
 class AuthProviderClass implements AuthProvider {
   async callLoops(endpoint: string, method: string, body?: any) {
+	debug.log('callLoops', `Calling Loops API: ${method} ${endpoint}`);
+	
 	// Ensure endpoint doesn't have duplicated leading slashes
-	const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+	const cleanEndpoint = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
 	
-	const response = await fetch(`/api/loops?loops=${encodeURIComponent(cleanEndpoint)}`, {
-	  method,
-	  headers: {
-		"Content-Type": "application/json",
-	  },
-	  body: body ? JSON.stringify(body) : undefined,
-	});
-	
-	if (!response.ok) {
-	  const errorData = await response.json();
-	  console.error("Loops API error:", errorData);
-	  throw new Error(errorData.message || "Loops API request failed");
+	try {
+	  const apiUrl = `/api/loops?loops=${encodeURIComponent(cleanEndpoint)}`;
+	  debug.log('callLoops', `Making request to: ${apiUrl}`);
+	  
+	  if (body) {
+		debug.log('callLoops', 'Request body:', body);
+	  }
+	  
+	  const response = await fetch(apiUrl, {
+		method,
+		headers: {
+		  "Content-Type": "application/json",
+		},
+		body: body ? JSON.stringify(body) : undefined,
+	  });
+	  
+	  debug.log('callLoops', `Response status: ${response.status}`);
+	  
+	  const data = await response.json();
+	  
+	  if (!response.ok) {
+		debug.error('callLoops', `Error response from Loops API:`, data);
+		throw new Error(data.message || `Loops API request failed with status ${response.status}`);
+	  }
+	  
+	  debug.log('callLoops', 'Response data:', data);
+	  return data;
+	} catch (error) {
+	  debug.error('callLoops', `Error calling Loops API ${endpoint}:`, error);
+	  throw error;
 	}
-	
-	return response.json();
   }
 
   async checkEmailInLoops(email: string) {
+	debug.log('checkEmailInLoops', `Checking if email exists: ${email}`);
+	
 	try {
 	  const encodedEmail = encodeURIComponent(email);
+	  debug.log('checkEmailInLoops', `Encoded email: ${encodedEmail}`);
+	  
 	  const data = await this.callLoops(`contacts/find?email=${encodedEmail}`, "GET");
 	  
-	  console.log("Loops contact data:", data); // Add logging for debugging
+	  debug.log('checkEmailInLoops', `Loops contact data:`, data);
 	  
 	  // Check if the response is an array and has content
 	  if (Array.isArray(data) && data.length > 0) {
+		debug.log('checkEmailInLoops', `Contact found for email: ${email}`);
 		return data[0]; // Return contact if found
 	  }
 	  
-	  // If we get here, no contact was found
+	  debug.log('checkEmailInLoops', `No contact found for email: ${email}`);
 	  return null;
 	} catch (error) {
-	  console.error("Error checking email in Loops:", error);
+	  debug.error('checkEmailInLoops', `Error checking email in Loops:`, error);
 	  // Don't throw the error, just return null to indicate no contact found
 	  return null;
 	}
   }
 
+  async createContact(email: string, properties = {}) {
+	debug.log('createContact', `Creating contact for email: ${email}`);
+	
+	try {
+	  const payload = {
+		email,
+		contactProperties: properties
+	  };
+	  
+	  const response = await this.callLoops("contacts", "POST", payload);
+	  debug.log('createContact', `Contact created successfully:`, response);
+	  return response;
+	} catch (error) {
+	  debug.error('createContact', `Error creating contact:`, error);
+	  throw error;
+	}
+  }
+
   async sendValidationEmail(email: string, token: string) {
-	const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify?token=${token}`;
-	return this.callLoops("/transactional", "POST", {
-	  transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
-	  email,
-	  dataVariables: { validationUrl },
-	});
+	debug.log('sendValidationEmail', `Sending validation email to: ${email}`);
+	
+	try {
+	  // Check if environment variable is set
+	  if (!process.env.NEXT_PUBLIC_APP_URL) {
+		debug.error('sendValidationEmail', "NEXT_PUBLIC_APP_URL environment variable is not set!");
+		throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
+	  }
+	  
+	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`;
+	  debug.log('sendValidationEmail', `Validation URL: ${validationUrl}`);
+	  
+	  const payload = {
+		transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
+		email,
+		dataVariables: { 
+		  validationUrl,
+		  email, // Add the email as another variable that might be needed in the template
+		  token  // Add the token directly in case your template needs it
+		}
+	  };
+	  
+	  debug.log('sendValidationEmail', `Sending with payload:`, payload);
+	  
+	  const response = await this.callLoops("transactional", "POST", payload);
+	  debug.log('sendValidationEmail', `Validation email sent successfully:`, response);
+	  return response;
+	} catch (error) {
+	  debug.error('sendValidationEmail', `Error sending validation email:`, error);
+	  throw error;
+	}
   }
 
   async login(params: any) {
+	debug.log('login', `Login attempt with params:`, { 
+	  email: params.email, 
+	  hasPassword: !!params.password,
+	  providerName: params.providerName 
+	});
+
 	const { providerName, email, password } = params;
 
 	if (providerName === "auth0" || providerName === "google" || providerName === "github") {
+	  debug.log('login', `Social login with provider: ${providerName}`);
+	  
 	  const redirectUrl =
 		providerName === "auth0"
 		  ? undefined
 		  : `${API_CONFIG.API_URL}/auth/${providerName}`;
+		  
 	  if (redirectUrl) {
+		debug.log('login', `Redirecting to: ${redirectUrl}`);
 		window.location.href = redirectUrl;
 	  }
+	  
 	  return {
 		success: false,
 		error: { message: `Redirecting to ${providerName}...`, name: providerName },
@@ -93,19 +184,25 @@ class AuthProviderClass implements AuthProvider {
 
 	try {
 	  if (!navigator.onLine) {
+		debug.error('login', `Network connection unavailable`);
 		return {
 		  success: false,
 		  error: { message: "Network error: You appear to be offline", name: "Connection Error" },
 		};
 	  }
 
+	  debug.log('login', `Checking if email exists in Loops: ${email}`);
 	  const loopsContact = await this.checkEmailInLoops(email);
 
 	  if (!password) {
 		// Email-only check
+		debug.log('login', `Email-only check for: ${email}`);
+		
 		if (loopsContact) {
+		  debug.log('login', `Email exists in Loops, prompting for password`);
 		  return { success: true }; // Email exists in Loops, prompt for password
 		} else {
+		  debug.log('login', `Email not found in Loops, registration required`);
 		  return {
 			success: false,
 			error: { message: "Email not found. Please register.", name: "RegistrationRequired" },
@@ -115,6 +212,9 @@ class AuthProviderClass implements AuthProvider {
 
 	  // Full login with password
 	  if (loopsContact) {
+		debug.log('login', `Attempting full login for: ${email}`);
+		
+		debug.log('login', `Making login API request to: ${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`);
 		const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
 		  method: "POST",
 		  headers: { "Content-Type": "application/json" },
@@ -123,6 +223,7 @@ class AuthProviderClass implements AuthProvider {
 
 		if (!loginResponse.ok) {
 		  const loginData = await loginResponse.json();
+		  debug.error('login', `Login failed:`, loginData);
 		  return {
 			success: false,
 			error: {
@@ -133,8 +234,10 @@ class AuthProviderClass implements AuthProvider {
 		}
 
 		const loginData = await loginResponse.json();
+		debug.log('login', `Login successful, saving tokens`);
 		authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
 
+		debug.log('login', `Fetching user profile`);
 		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
 		  headers: {
 			Authorization: `Bearer ${loginData.accessToken}`,
@@ -143,6 +246,7 @@ class AuthProviderClass implements AuthProvider {
 		});
 
 		if (!profileResponse.ok) {
+		  debug.error('login', `Could not fetch user profile`);
 		  authUtils.clearAuthStorage();
 		  return {
 			success: false,
@@ -156,20 +260,25 @@ class AuthProviderClass implements AuthProvider {
 		  accessToken: loginData.accessToken,
 		  refreshToken: loginData.refreshToken,
 		};
+		
+		debug.log('login', `Saving user data to localStorage`);
 		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userDataWithTokens));
 
+		debug.log('login', `Login complete, redirecting to /jobs`);
 		return {
 		  success: true,
 		  redirectTo: "/jobs",
 		  user: userDataWithTokens,
 		};
 	  } else {
+		debug.log('login', `Email not found in Loops during full login`);
 		return {
 		  success: false,
 		  error: { message: "Email not found. Please register.", name: "RegistrationRequired" },
 		};
 	  }
 	} catch (error) {
+	  debug.error('login', `Login error:`, error);
 	  authUtils.clearAuthStorage();
 	  return {
 		success: false,
@@ -182,28 +291,74 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async register(params: any) {
+	debug.log('register', `Registration attempt for email: ${params.email}`);
 	const { email, password, username } = params;
+	
 	try {
+	  // Step 1: Check if email already exists
+	  debug.log('register', `Checking if email already exists in Loops`);
 	  const loopsContact = await this.checkEmailInLoops(email);
+	  
 	  if (loopsContact) {
+		debug.log('register', `Email already registered: ${email}`);
 		return {
 		  success: false,
 		  error: { message: "Email already registered", name: "EmailExists" },
 		};
 	  }
+	  
+	  // Step 2: Generate a secure token
+	  // Consider using a more secure method than Math.random()
+	  // If you add uuid package: const token = uuidv4();
+	  const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+	  debug.log('register', `Generated token: ${token.substring(0, 5)}...`);
+	  
+	  // Step 3: Create the contact in Loops first
+	  debug.log('register', `Creating contact in Loops for: ${email}`);
+	  try {
+		const contactResult = await this.createContact(email, { 
+		  registrationPending: true
+		});
+		debug.log('register', `Contact created in Loops:`, contactResult);
+	  } catch (contactError) {
+		debug.error('register', `Failed to create contact in Loops:`, contactError);
+		throw new Error(`Failed to create contact: ${contactError instanceof Error ? contactError.message : 'Unknown error'}`);
+	  }
+	  
+	  // Step 4: Send validation email
+	  debug.log('register', `Sending validation email to: ${email}`);
+	  try {
+		const emailResult = await this.sendValidationEmail(email, token);
+		debug.log('register', `Validation email sent:`, emailResult);
+	  } catch (emailError) {
+		debug.error('register', `Failed to send validation email:`, emailError);
+		throw new Error(`Failed to send validation email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
+	  }
+	  
+	  // Step 5: Update contact to indicate email was sent
+	  debug.log('register', `Updating contact to indicate email sent`);
+	  try {
+		await this.callLoops("contacts", "POST", {
+		  email,
+		  contactProperties: { 
+			validationEmailSent: true,
+			registrationPending: true
+		  },
+		});
+	  } catch (updateError) {
+		debug.warn('register', `Failed to update contact, but registration can continue:`, updateError);
+		// Don't throw here, as the critical steps are already completed
+	  }
 
-	  const token = Math.random().toString(36).substring(2); // Simple token, replace with secure method
-	  await this.sendValidationEmail(email, token);
-
-	  await this.callLoops("/contacts", "POST", {
-		email,
-		contactProperties: { validationEmailSent: true },
-	  });
-
+	  // Step 6: Store temporary user data
 	  const tempUserData = { email, username, isVerified: false };
+	  debug.log('register', `Storing pending user data in localStorage`);
 	  localStorage.setItem("pendingUser", JSON.stringify({ ...tempUserData, token, password }));
+	  
+	  debug.log('register', `Registration successful, redirecting to verification page`);
 	  return { success: true, redirectTo: "/verify-email" };
 	} catch (error) {
+	  debug.error('register', `Registration failed:`, error);
 	  return {
 		success: false,
 		error: {
@@ -256,7 +411,7 @@ class AuthProviderClass implements AuthProvider {
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	} catch (error) {
-	  console.error("Auth check error:", error);
+	  debug.error('check', `Auth check error:`, error);
 	  if (error instanceof Error && "status" in error && (error as any).status === 401) {
 		authUtils.clearAuthStorage();
 	  }
@@ -284,7 +439,7 @@ class AuthProviderClass implements AuthProvider {
 		userId: userData.userId || userData._id || userData.id,
 	  };
 	} catch (error) {
-	  console.error("Error parsing user data:", error);
+	  debug.error('getIdentity', `Error parsing user data:`, error);
 	  return null;
 	}
   }
@@ -313,13 +468,13 @@ class AuthProviderClass implements AuthProvider {
 		  userData.roles = roles;
 		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
 		} catch (e) {
-		  console.error("Error updating roles in localStorage:", e);
+		  debug.error('getPermissions', `Error updating roles in localStorage:`, e);
 		}
 		return roles;
 	  }
 	  return null;
 	} catch (error) {
-	  console.error("Error getting permissions:", error);
+	  debug.error('getPermissions', `Error getting permissions:`, error);
 	  return null;
 	}
   }
@@ -349,6 +504,7 @@ class AuthProviderClass implements AuthProvider {
 
 	  return { success: true };
 	} catch (error) {
+	  debug.error('updatePassword', `Update password failed:`, error);
 	  return {
 		success: false,
 		error: {
@@ -382,6 +538,7 @@ class AuthProviderClass implements AuthProvider {
 
 	  return { success: true };
 	} catch (error) {
+	  debug.error('forgotPassword', `Forgot password request failed:`, error);
 	  return {
 		success: false,
 		error: {
@@ -393,9 +550,13 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async logout() {
+	debug.log('logout', `Logging out user`);
+	
 	try {
 	  const refreshToken = authUtils.getRefreshToken();
 	  if (refreshToken) {
+		debug.log('logout', `Sending logout request to server`);
+		
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 3000);
 
@@ -406,16 +567,19 @@ class AuthProviderClass implements AuthProvider {
 		  },
 		  body: JSON.stringify({ refreshToken }),
 		  signal: controller.signal,
-		}).catch(() => {
+		}).catch((err) => {
+		  debug.warn('logout', `Server logout request failed, continuing with client logout:`, err);
 		  // Ignore server errors during logout
 		}).finally(() => {
 		  clearTimeout(timeoutId);
 		});
 	  }
 	} catch (error) {
+	  debug.warn('logout', `Error during logout, continuing with client logout:`, error);
 	  // Continue with logout even if server request fails
 	}
 
+	debug.log('logout', `Clearing auth storage and redirecting to login`);
 	authUtils.clearAuthStorage();
 
 	return {
@@ -425,7 +589,7 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async onError(error: any) {
-	console.error("Auth error:", error);
+	debug.error('onError', `Auth error:`, error);
 
 	authUtils.handleAuthError(error);
 
@@ -436,12 +600,15 @@ class AuthProviderClass implements AuthProvider {
 	  const isFromRefresh = errorContext && errorContext.isRefreshAttempt;
 
 	  if (!isFromRefresh) {
+		debug.log('onError', `Attempting token refresh due to 401/403 error`);
 		const refreshSuccess = await authUtils.refreshToken();
 		if (refreshSuccess) {
+		  debug.log('onError', `Token refresh successful, returning original error`);
 		  return { error };
 		}
 	  }
 
+	  debug.log('onError', `Auth error requires logout, clearing storage`);
 	  authUtils.clearAuthStorage();
 	  return {
 		logout: true,
@@ -454,25 +621,53 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async verifyEmail(params: { token: string; email: string; password: string }) {
+	debug.log('verifyEmail', `Verifying email for: ${params.email}`);
+	
 	const { token, email, password } = params;
 	try {
 	  const pendingUserStr = localStorage.getItem("pendingUser");
-	  if (!pendingUserStr) throw new Error("No pending user found");
+	  if (!pendingUserStr) {
+		debug.error('verifyEmail', `No pending user found in localStorage`);
+		throw new Error("No pending user found");
+	  }
 
 	  const pendingUser = JSON.parse(pendingUserStr);
+	  debug.log('verifyEmail', `Comparing tokens: ${token.substring(0, 3)}... with ${pendingUser.token.substring(0, 3)}...`);
+	  
 	  if (pendingUser.token !== token || pendingUser.email !== email) {
+		debug.error('verifyEmail', `Token or email mismatch`);
 		return {
 		  success: false,
 		  error: { message: "Invalid token or email", name: "VerificationError" },
 		};
 	  }
 
+	  debug.log('verifyEmail', `Email verification successful, storing verified user`);
 	  const verifiedUser = { email, password, isVerified: true };
 	  localStorage.setItem("verifiedUser", JSON.stringify(verifiedUser));
 	  localStorage.removeItem("pendingUser");
+	  
+	  // Update the contact in Loops to indicate verification
+	  try {
+		debug.log('verifyEmail', `Updating contact in Loops to indicate verification`);
+		await this.callLoops("contacts", "POST", {
+		  email,
+		  contactProperties: { 
+			validationEmailSent: true,
+			emailVerified: true,
+			registrationPending: false,
+			registrationComplete: true
+		  },
+		});
+	  } catch (updateError) {
+		debug.warn('verifyEmail', `Failed to update contact, but verification can continue:`, updateError);
+		// Don't throw here, as the critical steps are already completed
+	  }
 
+	  debug.log('verifyEmail', `Verification complete, redirecting to /jobs`);
 	  return { success: true, redirectTo: "/jobs" };
 	} catch (error) {
+	  debug.error('verifyEmail', `Verification failed:`, error);
 	  return {
 		success: false,
 		error: {

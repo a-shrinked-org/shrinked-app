@@ -14,7 +14,7 @@ import {
   Group,
   Text,
 } from "@mantine/core";
-import { IconBrandGoogle, IconBook, IconCode, IconRocket } from "@tabler/icons-react";
+import { IconBrandGoogle, IconBook, IconCode, IconRocket, IconMailbox } from "@tabler/icons-react";
 
 interface FormData {
   email: string;
@@ -26,7 +26,7 @@ export default function Login() {
   const [error, setError] = useState<string>("");
   const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
-  const [step, setStep] = useState<"email" | "password">("email");
+  const [step, setStep] = useState<"email" | "password" | "verification-sent">("email");
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -50,24 +50,32 @@ export default function Login() {
     }
   
     if (step === "email") {
+      console.log("Checking email:", formData.email);
       login(
         { email: formData.email, password: "" },
         {
           onSuccess: () => {
+            console.log("Email exists, showing password field");
             setStep("password"); // Email exists in Loops
           },
           onError: (error: any) => {
             console.error("Email check error:", error);
             if (error.name === "RegistrationRequired") {
+              console.log("Email not found, initiating registration");
               login(
                 { email: formData.email, password: "" }, // Trigger register
                 {
                   onSuccess: (data) => {
+                    console.log("Registration initiated successfully", data);
                     if (data.redirectTo === "/verify-email") {
-                      setInfo("Account created! Please check your email for a verification link.");
+                      console.log("Showing verification sent message");
+                      setStep("verification-sent");
                     }
                   },
-                  onError: (err) => setError(err?.message || "Failed to initiate registration"),
+                  onError: (err) => {
+                    console.error("Registration error:", err);
+                    setError(err?.message || "Failed to initiate registration");
+                  },
                 }
               );
             } else {
@@ -94,6 +102,76 @@ export default function Login() {
   };
 
   const isButtonActive = step === "email" ? !!formData.email.trim() : !!formData.password.trim();
+
+  // Render verification sent UI when in verification-sent step
+  if (step === "verification-sent") {
+    return (
+      <Container
+        size="xs"
+        px={{ base: "sm", md: "xl" }}
+        style={{
+          backgroundColor: "transparent",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
+          <Group justify="center" mb="md">
+            <IconMailbox size={64} color="#D87A16" />
+          </Group>
+          
+          <Title order={2} ta="center" mb="md">
+            Check your email
+          </Title>
+          
+          <Text ta="center" mb="xl">
+            We've sent a verification link to <b>{formData.email}</b>. Please check your inbox and click the link to complete your registration.
+          </Text>
+          
+          <Text size="sm" ta="center" mb="md" c="dimmed">
+            Didn't receive the email? Check your spam folder or try again in a few minutes.
+          </Text>
+          
+          <Button
+            variant="subtle"
+            fullWidth
+            onClick={() => {
+              setStep("email");
+              setInfo("");
+              setError("");
+            }}
+            style={{ color: "#D87A16" }}
+          >
+            Back to login
+          </Button>
+        </Card>
+        
+        <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
+          <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
+            <Group justify="center">
+              <IconBook size={24} style={{ color: "#333333" }} />
+              <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
+            </Group>
+          </Card>
+          <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
+            <Group justify="center">
+              <IconCode size={24} style={{ color: "#333333" }} />
+              <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
+            </Group>
+          </Card>
+          <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
+            <Group justify="center">
+              <IconRocket size={24} style={{ color: "#333333" }} />
+              <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
+            </Group>
+          </Card>
+        </SimpleGrid>
+      </Container>
+    );
+  }
 
   return (
     <Container
