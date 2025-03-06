@@ -55,15 +55,10 @@ function handleApiError(error: any): NextResponse {
   }, { status: statusCode });
 }
 
-// Updated configuration for Next.js to handle larger file uploads
-export const config = {
-  api: {
-	bodyParser: {
-	  sizeLimit: '100mb',
-	},
-  },
-};
-
+// Updated configuration for Next.js App Router
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+// Set body size limit in a way that works with App Router
 export async function POST(request: NextRequest) {
   try {
 	// Verify authentication using your centralized auth utilities
