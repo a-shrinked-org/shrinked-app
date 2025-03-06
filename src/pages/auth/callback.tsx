@@ -10,11 +10,20 @@ export default function AuthCallback() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(true);
+  const [progress, setProgress] = useState<number>(0);
+
+  useEffect(() => {
+	// Simple progress animation
+	const progressInterval = setInterval(() => {
+	  setProgress(prev => (prev + 5) % 110);
+	}, 150);
+
+	return () => clearInterval(progressInterval);
+  }, []);
 
   useEffect(() => {
 	const exchangeCodeForTokens = async () => {
 	  try {
-		// Handle the case where searchParams might be null
 		if (!searchParams) {
 		  setError('Navigation parameters not available');
 		  setIsProcessing(false);
@@ -22,7 +31,6 @@ export default function AuthCallback() {
 		}
 
 		const code = searchParams.get('code');
-		console.log("Auth callback received code:", code);
 		
 		if (!code) {
 		  setError('No authentication code found in URL');
@@ -45,7 +53,6 @@ export default function AuthCallback() {
 		}
 
 		const data = await response.json();
-		console.log("Successfully exchanged code for tokens");
 
 		// Save tokens
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
@@ -86,76 +93,61 @@ export default function AuthCallback() {
 	exchangeCodeForTokens();
   }, [searchParams, router]);
 
-  // Simple styling without Mantine
-  const styles = {
-	container: {
-	  minHeight: "100vh",
-	  display: "flex",
-	  alignItems: "center",
-	  justifyContent: "center",
-	  fontFamily: "sans-serif",
-	  padding: "20px"
-	},
-	card: {
-	  border: "1px solid #e0e0e0",
-	  borderRadius: "8px",
-	  padding: "24px",
-	  backgroundColor: "#F5F5F5",
-	  width: "100%",
-	  maxWidth: "400px",
-	  textAlign: "center" as const,
-	  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)"
-	},
-	title: {
-	  color: "red",
-	  fontSize: "20px",
-	  marginBottom: "16px"
-	},
-	text: {
-	  textAlign: "center" as const,
-	  marginBottom: "24px"
-	},
-	link: {
-	  color: "#D87A16",
-	  textDecoration: "none"
-	},
-	loader: {
-	  border: "4px solid #f3f3f3",
-	  borderTop: "4px solid #D87A16",
-	  borderRadius: "50%",
-	  width: "30px",
-	  height: "30px",
-	  animation: "spin 2s linear infinite",
-	  margin: "0 auto 16px auto"
-	}
-  };
-
   if (error) {
 	return (
-	  <div style={styles.container}>
-		<div style={styles.card}>
-		  <h2 style={styles.title}>Authentication Error</h2>
-		  <p style={styles.text}>{error}</p>
-		  <p>
-			<a href="/login" style={styles.link}>Return to login</a>
+	  <div style={{ 
+		display: 'flex', 
+		justifyContent: 'center', 
+		alignItems: 'center', 
+		height: '100vh', 
+		fontFamily: 'system-ui, sans-serif'
+	  }}>
+		<div style={{ textAlign: 'center' }}>
+		  <p style={{ color: 'red', fontSize: '16px', marginBottom: '12px' }}>
+			{error}
 		  </p>
+		  <a href="/login" style={{ 
+			color: '#D87A16', 
+			textDecoration: 'none', 
+			fontSize: '14px' 
+		  }}>
+			Return to login
+		  </a>
 		</div>
 	  </div>
 	);
   }
 
   return (
-	<div style={styles.container}>
-	  <div style={styles.card}>
-		<div style={styles.loader}></div>
-		<style jsx global>{`
-		  @keyframes spin {
-			0% { transform: rotate(0deg); }
-			100% { transform: rotate(360deg); }
-		  }
-		`}</style>
-		<p style={styles.text}>
-		  Completing authentication, please wait...
+	<div style={{ 
+	  display: 'flex', 
+	  justifyContent: 'center', 
+	  alignItems: 'center', 
+	  height: '100vh',
+	  fontFamily: 'system-ui, sans-serif',
+	  background: 'white'
+	}}>
+	  <div style={{ width: '300px', textAlign: 'center' }}>
+		<div style={{ 
+		  width: '100%', 
+		  height: '4px', 
+		  backgroundColor: '#f0f0f0', 
+		  borderRadius: '2px', 
+		  overflow: 'hidden',
+		  marginBottom: '20px' 
+		}}>
+		  <div style={{ 
+			height: '100%', 
+			width: `${Math.min(progress, 100)}%`, 
+			backgroundColor: '#D87A16', 
+			transition: 'width 0.2s ease-in-out' 
+		  }} />
+		</div>
+		<p style={{ 
+		  color: '#666', 
+		  fontSize: '14px'
+		}}>
+		  Authenticating...
 		</p>
 	  </div>
 	</div>
