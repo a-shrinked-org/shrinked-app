@@ -109,11 +109,11 @@ class AuthProviderClass implements AuthProvider {
 	  // Construct payload according to Loops API documentation
 	  const payload = {
 		email,
-		// Pass contact properties as individual fields rather than in a contactProperties object
+		// Include properties directly at the top level as per Loops API docs
 		...properties
 	  };
 	  
-	  // Use the correct endpoint with /create suffix
+	  // Use the correct endpoint for contact creation
 	  const response = await this.callLoops("contacts/create", "POST", payload);
 	  debug.log('createContact', `Contact created successfully:`, response);
 	  return response;
@@ -404,16 +404,15 @@ class AuthProviderClass implements AuthProvider {
 	  }
 	  
 	  // Step 2: Generate a secure token
-	  // Consider using a more secure method than Math.random()
-	  // If you add uuid package: const token = uuidv4();
-	  const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+	  const token = nanoid(21);
 	  debug.log('register', `Generated token: ${token.substring(0, 5)}...`);
 	  
-	  // Step 3: Create the contact in Loops first
+	  // Step 3: Create the contact in Loops with all necessary properties
 	  debug.log('register', `Creating contact in Loops for: ${email}`);
 	  try {
 		const contactResult = await this.createContact(email, { 
-		  registrationPending: true
+		  registrationPending: true,
+		  validationEmailSent: true
 		});
 		debug.log('register', `Contact created in Loops:`, contactResult);
 	  } catch (contactError) {
@@ -430,23 +429,8 @@ class AuthProviderClass implements AuthProvider {
 		debug.error('register', `Failed to send validation email:`, emailError);
 		throw new Error(`Failed to send validation email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}`);
 	  }
-	  
-	  // Step 5: Update contact to indicate email was sent
-	  debug.log('register', `Updating contact to indicate email sent`);
-	  try {
-		await this.callLoops("contacts", "POST", {
-		  email,
-		  contactProperties: { 
-			validationEmailSent: true,
-			registrationPending: true
-		  },
-		});
-	  } catch (updateError) {
-		debug.warn('register', `Failed to update contact, but registration can continue:`, updateError);
-		// Don't throw here, as the critical steps are already completed
-	  }
-
-	  // Step 6: Store temporary user data
+  
+	  // Step 5: Store temporary user data
 	  const tempUserData = { email, username, isVerified: false };
 	  debug.log('register', `Storing pending user data in localStorage`);
 	  localStorage.setItem("pendingUser", JSON.stringify({ ...tempUserData, token, password }));
@@ -756,7 +740,7 @@ class AuthProviderClass implements AuthProvider {
 		debug.error('verifyEmail', `No pending user found in localStorage`);
 		throw new Error("No pending user found");
 	  }
-
+  
 	  const pendingUser = JSON.parse(pendingUserStr);
 	  debug.log('verifyEmail', `Comparing tokens: ${token.substring(0, 3)}... with ${pendingUser.token.substring(0, 3)}...`);
 	  
@@ -767,7 +751,7 @@ class AuthProviderClass implements AuthProvider {
 		  error: { message: "Invalid token or email", name: "VerificationError" },
 		};
 	  }
-
+  
 	  debug.log('verifyEmail', `Email verification successful, storing verified user`);
 	  const verifiedUser = { email, password, isVerified: true };
 	  localStorage.setItem("verifiedUser", JSON.stringify(verifiedUser));
@@ -776,20 +760,18 @@ class AuthProviderClass implements AuthProvider {
 	  // Update the contact in Loops to indicate verification
 	  try {
 		debug.log('verifyEmail', `Updating contact in Loops to indicate verification`);
-		await this.callLoops("contacts", "POST", {
+		await this.callLoops("contacts/update", "POST", {
 		  email,
-		  contactProperties: { 
-			validationEmailSent: true,
-			emailVerified: true,
-			registrationPending: false,
-			registrationComplete: true
-		  },
+		  // Send properties at top level as required by Loops API
+		  emailVerified: true,
+		  registrationPending: false,
+		  registrationComplete: true
 		});
 	  } catch (updateError) {
 		debug.warn('verifyEmail', `Failed to update contact, but verification can continue:`, updateError);
 		// Don't throw here, as the critical steps are already completed
 	  }
-
+  
 	  debug.log('verifyEmail', `Verification complete, redirecting to /jobs`);
 	  return { success: true, redirectTo: "/jobs" };
 	} catch (error) {
@@ -803,7 +785,6 @@ class AuthProviderClass implements AuthProvider {
 	  };
 	}
   }
-}
 
 const authProviderInstance = new AuthProviderClass();
 
