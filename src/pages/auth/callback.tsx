@@ -1,4 +1,4 @@
-// pages/auth/callback.tsx or app/auth/callback/page.tsx
+// pages/auth/callback.tsx
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -15,6 +15,13 @@ export default function AuthCallback() {
   useEffect(() => {
 	const exchangeCodeForTokens = async () => {
 	  try {
+		// Handle the case where searchParams might be null
+		if (!searchParams) {
+		  setError('Navigation parameters not available');
+		  setIsProcessing(false);
+		  return;
+		}
+
 		const code = searchParams.get('code');
 		console.log("Auth callback received code:", code);
 		
@@ -80,6 +87,7 @@ export default function AuthCallback() {
 	exchangeCodeForTokens();
   }, [searchParams, router]);
 
+  // Rest of your component remains the same
   if (error) {
 	return (
 	  <Container size="xs" style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
