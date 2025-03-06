@@ -44,7 +44,7 @@ class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNod
       }
       
       return (
-        <Stack spacing="md" p="xl" style={{ 
+        <Stack gap="md" p="xl" style={{ 
           maxWidth: 600, 
           margin: '0 auto', 
           background: '#1a1a1a', 
