@@ -340,11 +340,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
               },
             },
             {
-              name: "categories",
-              list: "/categories",
-              create: "/categories/create",
-              edit: "/categories/edit/:id",
-              show: "/categories/show/:id",
+              name: "scheduled",
+              list: "/scheduled",
+              create: "/scheduled/create",
+              edit: "/scheduled/edit/:id",
+              show: "/scheduled/show/:id",
               meta: {
                 canDelete: true,
               },

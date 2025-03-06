@@ -17,11 +17,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from "next-auth/react";
 import { 
   LayoutDashboard, 
-  Briefcase, 
-  FolderTree, 
+  Briefcase,
   LogOut,
   Files,
-  Key
+  Key,
+  Calendar
 } from 'lucide-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
@@ -101,10 +101,10 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       resource: "api-keys" 
     },
     { 
-      label: 'Categories', 
-      icon: FolderTree,
-      href: '/categories',
-      resource: "categories" 
+      label: 'Scheduled', 
+      icon: Calendar,
+      href: '/scheduled',
+      resource: "scheduled" 
     },
   ];
 
