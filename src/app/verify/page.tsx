@@ -15,26 +15,39 @@ export default function VerifyEmail() {
   });
 
   useEffect(() => {
-    // Get token from URL if available
-    const urlToken = new URLSearchParams(window.location.search).get("token") || "";
+    // Get token and email from URL if available
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token") || "";
+    const urlEmail = urlParams.get("email") || "";
     
     console.log("VerifyEmail: Component mounted, checking for token in URL:", urlToken ? "Token found" : "No token");
+    console.log("VerifyEmail: Email from URL:", urlEmail);
     
-    // Update form data with token from URL
-    setFormData(prev => ({ ...prev, token: urlToken }));
+    // Use email from URL, fallback to pending user's email
+    const initialEmail = urlEmail || "";
     
-    const pendingUser = localStorage.getItem("pendingUser");
-    if (pendingUser) {
-      try {
-        const parsedUser = JSON.parse(pendingUser);
-        console.log("VerifyEmail: Found pending user with email:", parsedUser.email);
-        setFormData((prev) => ({ ...prev, email: parsedUser.email }));
-      } catch (err) {
-        console.error("VerifyEmail: Error parsing pending user data:", err);
-        setError("Error loading user data. Please try logging in again.");
+    // Update form data with token and email from URL
+    setFormData(prev => ({ 
+      ...prev, 
+      token: urlToken,
+      email: initialEmail
+    }));
+    
+    // If we don't have an email from the URL, try to get it from localStorage
+    if (!urlEmail) {
+      const pendingUser = localStorage.getItem("pendingUser");
+      if (pendingUser) {
+        try {
+          const parsedUser = JSON.parse(pendingUser);
+          console.log("VerifyEmail: Found pending user with email:", parsedUser.email);
+          setFormData((prev) => ({ ...prev, email: parsedUser.email }));
+        } catch (err) {
+          console.error("VerifyEmail: Error parsing pending user data:", err);
+          setError("Error loading user data. Please try logging in again.");
+        }
+      } else {
+        console.warn("VerifyEmail: No pending user found in localStorage");
       }
-    } else {
-      console.warn("VerifyEmail: No pending user found in localStorage");
     }
   }, []);
 
@@ -147,14 +160,20 @@ export default function VerifyEmail() {
             onChange={handleInputChange}
             required
             mb="md"
+            readOnly={!!formData.email} // Make read-only if pre-filled
             disabled={isLoading}
             styles={{
-              input: { backgroundColor: "#333333", color: "#FFFFFF" },
+              input: { 
+                backgroundColor: "#333333", 
+                color: "#FFFFFF",
+                // Add subtle styling to indicate it's read-only
+                opacity: formData.email ? 0.8 : 1
+              },
               label: { color: "#333333" },
             }}
           />
           <TextInput
-            label="Password"
+            label="Create a password"
             type="password"
             name="password"
             value={formData.password}
@@ -174,9 +193,15 @@ export default function VerifyEmail() {
             onChange={handleInputChange}
             required
             mb="md"
-            disabled={!!formData.token} // Only disable if token is present from URL
+            readOnly={!!formData.token} // Make read-only if pre-filled
+            disabled={isLoading}
             styles={{
-              input: { backgroundColor: "#333333", color: "#FFFFFF" },
+              input: { 
+                backgroundColor: "#333333", 
+                color: "#FFFFFF",
+                // Add subtle styling to indicate it's read-only
+                opacity: formData.token ? 0.8 : 1
+              },
               label: { color: "#333333" },
             }}
           />

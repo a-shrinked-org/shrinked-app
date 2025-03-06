@@ -133,16 +133,21 @@ class AuthProviderClass implements AuthProvider {
 		throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set");
 	  }
 	  
-	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}`;
+	  // Create the full verification URL
+	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 	  debug.log('sendValidationEmail', `Validation URL: ${validationUrl}`);
 	  
+	  // The payload to send to Loops
 	  const payload = {
 		transactionalId: "cm7wuis1m08624etab0lrimzz", // Your Loops transactional ID
 		email,
 		dataVariables: { 
+		  // Use 'verify-url' as your dynamic variable name in the template
+		  "verify-url": validationUrl,
+		  // Keep these for backward compatibility
 		  validationUrl,
-		  email, // Add the email as another variable that might be needed in the template
-		  token  // Add the token directly in case your template needs it
+		  email, 
+		  token
 		}
 	  };
 	  
