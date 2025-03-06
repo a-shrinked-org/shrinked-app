@@ -12,7 +12,7 @@ export interface ApiKey {
 export const ApiKeyService = {
   async getApiKeys(): Promise<ApiKey[]> {
 	try {
-	  // Use centralized API request that handles auth seamlessly
+	  // The API keys are part of the user profile according to your implementation
 	  const response = await authUtils.apiRequest(
 		`${API_CONFIG.API_URL}/users/profile`
 	  );
@@ -52,7 +52,7 @@ export const ApiKeyService = {
 
   async createApiKey(userId: string, name: string): Promise<ApiKey> {
 	try {
-	  // Use centralized API request
+	  // This matches the Postman collection endpoint: POST /users/:userId/api-key
 	  const response = await authUtils.apiRequest(
 		`${API_CONFIG.API_URL}/users/${userId}/api-key`, 
 		{
@@ -81,7 +81,7 @@ export const ApiKeyService = {
 
   async deleteApiKey(keyId: string): Promise<void> {
 	try {
-	  // Use centralized API request
+	  // This matches the Postman collection endpoint: DELETE /users/api-key/:keyId
 	  const response = await authUtils.apiRequest(
 		`${API_CONFIG.API_URL}/users/api-key/${keyId}`,
 		{
@@ -100,7 +100,7 @@ export const ApiKeyService = {
 
   async regenerateApiKey(keyId: string): Promise<ApiKey> {
 	try {
-	  // Use centralized API request
+	  // This matches the Postman collection endpoint: POST /users/api-key/:keyId/regenerate
 	  const response = await authUtils.apiRequest(
 		`${API_CONFIG.API_URL}/users/api-key/${keyId}/regenerate`,
 		{

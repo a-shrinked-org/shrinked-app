@@ -30,6 +30,8 @@ import { RegenerateApiKeyButton } from "@/components/RegenerateApiKeyButton";
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 // Import centralized auth utilities
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
+// Import IconWrapper if needed for SVG fixes
+import { IconWrapper } from "@/utils/ui-utils";
 
 interface Identity {
   token?: string;
@@ -81,12 +83,11 @@ export default function ApiKeysList() {
     }
   }, [identity, userId]);
 
-  // Simplified fetchApiKeys function - let service handle token refresh
+  // Updated fetchApiKeys function - remove token parameter
   useEffect(() => {
     const fetchApiKeys = async () => {
-      const token = authUtils.getAccessToken() || identity?.token;
-      
-      if (!token) {
+      // Check if token is available through authUtils
+      if (!authUtils.getAccessToken() && !identity?.token) {
         console.log("No token available, skipping API keys fetch");
         return;
       }
@@ -96,7 +97,8 @@ export default function ApiKeysList() {
 
       try {
         console.log("Fetching API keys...");
-        const fetchedApiKeys = await ApiKeyService.getApiKeys(token);
+        // Call getApiKeys without passing a token parameter
+        const fetchedApiKeys = await ApiKeyService.getApiKeys();
         console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
         setApiKeys(fetchedApiKeys);
       } catch (error: unknown) {
@@ -108,22 +110,22 @@ export default function ApiKeysList() {
       }
     };
 
-    if (identity?.token) {
+    // Only fetch if we're authenticated
+    if (authUtils.isAuthenticated()) {
       fetchApiKeys();
     }
   }, [identity?.token]);
 
-  // Simplified refreshApiKeys function
+  // Simplified refreshApiKeys function - remove token parameter
   const refreshApiKeys = async () => {
-    const token = authUtils.getAccessToken() || identity?.token;
-    
-    if (!token) return;
+    if (!authUtils.isAuthenticated()) return;
 
     setIsLoadingKeys(true);
     setError(null);
 
     try {
-      const fetchedApiKeys = await ApiKeyService.getApiKeys(token);
+      // Call getApiKeys without passing a token parameter
+      const fetchedApiKeys = await ApiKeyService.getApiKeys();
       setApiKeys(fetchedApiKeys);
     } catch (error: unknown) {
       console.error("Error refreshing API keys:", error);
@@ -134,20 +136,21 @@ export default function ApiKeysList() {
     }
   };
 
-  // Simplified handleCreateApiKey function
+  // Update handleCreateApiKey function - remove token parameter
   const handleCreateApiKey = async () => {
     if (!keyName) return;
 
     const effectiveUserId = userId || identity?.userId;
-    const token = authUtils.getAccessToken() || identity?.token;
 
-    if (!effectiveUserId || !token) {
-      console.error("Missing required data for creating API key:", {
-        keyName: !!keyName,
-        userId: !!effectiveUserId,
-        token: !!token,
-      });
+    if (!effectiveUserId) {
+      console.error("Missing user ID for creating API key");
       setError("Cannot create API key: User ID is missing");
+      return;
+    }
+
+    if (!authUtils.isAuthenticated()) {
+      console.error("User is not authenticated");
+      setError("Cannot create API key: Not authenticated");
       return;
     }
 
@@ -156,7 +159,8 @@ export default function ApiKeysList() {
 
     try {
       console.log(`Creating API key for userId: ${effectiveUserId}`);
-      const newKey = await ApiKeyService.createApiKey(token, effectiveUserId, keyName);
+      // Pass only userId and name, not token
+      const newKey = await ApiKeyService.createApiKey(effectiveUserId, keyName);
       console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
 
       setNewApiKey(newKey.key);
@@ -172,14 +176,13 @@ export default function ApiKeysList() {
     }
   };
 
-  // Simplified handleDeleteApiKey function
+  // Update handleDeleteApiKey function - remove token parameter
   const handleDeleteApiKey = async (keyId: string) => {
-    const token = authUtils.getAccessToken() || identity?.token;
-    
-    if (!token) return;
+    if (!authUtils.isAuthenticated()) return;
 
     try {
-      await ApiKeyService.deleteApiKey(token, keyId);
+      // Call deleteApiKey without passing a token parameter
+      await ApiKeyService.deleteApiKey(keyId);
       refreshApiKeys();
     } catch (error: unknown) {
       console.error("Error deleting API key:", error);
@@ -203,9 +206,7 @@ export default function ApiKeysList() {
   }
 
   // Use centralized token management
-  const token = authUtils.getAccessToken() || identity?.token;
-  
-  if (!token) {
+  if (!authUtils.isAuthenticated()) {
     return (
       <Box p="md">
         <Alert color="red" title="Authentication Required">

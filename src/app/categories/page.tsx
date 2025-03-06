@@ -51,7 +51,7 @@ export default function CategoryList() {
         },
       },
     ],
-    []
+    [edit, show]
   );
 
   const { edit, show, create } = useNavigation();
