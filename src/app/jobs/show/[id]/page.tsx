@@ -116,27 +116,53 @@ export default function JobShow() {
 
   // Fetch markdown content from backend endpoint
   const fetchMarkdownContent = useCallback(async () => {
-    if (!processingDocId) return;
+    // First check if we have a processingDocId
+    if (!processingDocId && !jobId) return;
   
     try {
-      // Use processingDocId (resultId) instead of jobId for the markdown endpoint
+      // Try using processingDocId first if available, otherwise fall back to jobId
+      const idToUse = processingDocId || jobId;
+      console.log('Attempting to fetch markdown with ID:', idToUse);
+      
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/markdown/${processingDocId}/json?includeReferences=true`
+        `${API_CONFIG.API_URL}/markdown/${idToUse}/json?includeReferences=true`
       );
   
       if (!response.ok) {
+        // If that fails, try the alternative id
+        console.log(`Markdown fetch failed with ${idToUse}, trying alternative approach...`);
+        
+        // If first attempt used processingDocId, now try with jobId
+        const alternativeId = processingDocId === idToUse ? jobId : processingDocId;
+        
+        if (alternativeId) {
+          console.log('Attempting alternative fetch with ID:', alternativeId);
+          const alternativeResponse = await fetchWithAuth(
+            `${API_CONFIG.API_URL}/markdown/${alternativeId}/json?includeReferences=true`
+          );
+          
+          if (!alternativeResponse.ok) {
+            throw new Error(`Markdown fetch failed with both IDs. Status: ${alternativeResponse.status}`);
+          }
+          
+          const markdown = await alternativeResponse.text();
+          setMarkdownContent(markdown);
+          console.log('Fetched markdown content using alternative ID:', alternativeId);
+          return;
+        }
+        
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
       }
   
       // The response should be the markdown text directly
       const markdown = await response.text();
       setMarkdownContent(markdown);
-      console.log('Fetched markdown content using processingDocId:', processingDocId);
+      console.log('Fetched markdown content successfully using ID:', idToUse);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
       setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [processingDocId, fetchWithAuth]);
+  }, [processingDocId, jobId, fetchWithAuth]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
@@ -191,16 +217,49 @@ export default function JobShow() {
 
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
-    if (!processingDocId) return;
+    if (!processingDocId && !jobId) return;
   
     try {
-      // Use processingDocId (resultId) instead of jobId for the PDF endpoint
+      // Try using processingDocId first if available, otherwise fall back to jobId
+      const idToUse = processingDocId || jobId;
+      console.log('Attempting to download PDF with ID:', idToUse);
+      
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${processingDocId}/json?includeReferences=true`,
+        `${API_CONFIG.API_URL}/pdf/${idToUse}/json?includeReferences=true`,
         { method: 'GET' }
       );
   
       if (!response.ok) {
+        // If that fails, try the alternative id
+        console.log(`PDF download failed with ${idToUse}, trying alternative approach...`);
+        
+        // If first attempt used processingDocId, now try with jobId
+        const alternativeId = processingDocId === idToUse ? jobId : processingDocId;
+        
+        if (alternativeId) {
+          console.log('Attempting alternative PDF download with ID:', alternativeId);
+          const alternativeResponse = await fetchWithAuth(
+            `${API_CONFIG.API_URL}/pdf/${alternativeId}/json?includeReferences=true`,
+            { method: 'GET' }
+          );
+          
+          if (!alternativeResponse.ok) {
+            throw new Error(`PDF download failed with both IDs. Status: ${alternativeResponse.status}`);
+          }
+          
+          const blob = await alternativeResponse.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `document-${alternativeId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+          console.log('Downloaded PDF using alternative ID:', alternativeId);
+          return;
+        }
+        
         throw new Error(`PDF download failed with status: ${response.status}`);
       }
       
@@ -209,17 +268,17 @@ export default function JobShow() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `document-${processingDocId}.pdf`;
+      link.download = `document-${idToUse}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      console.log('Downloaded PDF using processingDocId:', processingDocId);
+      console.log('Downloaded PDF successfully using ID:', idToUse);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [processingDocId, fetchWithAuth]);
+  }, [processingDocId, jobId, fetchWithAuth]);
 
   const { queryResult } = useShow<Job>({
     resource: "jobs",
