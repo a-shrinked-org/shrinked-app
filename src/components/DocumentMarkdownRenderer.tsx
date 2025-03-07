@@ -1,7 +1,8 @@
 import React from 'react';
 import { Box, Text, Paper, Loader, Alert, Button, Progress } from '@mantine/core';
 import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import Markdoc from '@markdoc/markdoc';
+import { renderers } from '@markdoc/markdoc';
 
 // Define component props interface
 interface DocumentMarkdownRendererProps {
@@ -36,6 +37,13 @@ function DocumentMarkdownRenderer({
     (processingStatus.toLowerCase() === 'processing' || 
      processingStatus.toLowerCase() === 'in_progress' ||
      processingStatus.toLowerCase() === 'pending');
+  
+  // Function to render markdown using Markdoc
+  const renderMarkdown = (markdownContent: string) => {
+    const ast = Markdoc.parse(markdownContent);
+    const content = Markdoc.transform(ast);
+    return Markdoc.renderers.react(content, React);
+  };
   
   // If we're in processing state, show a nicer waiting UI
   if (isProcessing) {
@@ -78,14 +86,31 @@ function DocumentMarkdownRenderer({
   // If markdown content is directly provided, render it instead of generating
   if (markdown) {
     return (
-      <Paper p="xl" style={{ 
-        backgroundColor: '#ffffff', 
-        color: '#000000', 
-        borderRadius: '8px',
-        position: 'relative'
-      }}>
-        <Box className="markdown-content" style={{ fontSize: '16px', lineHeight: 1.7 }}>
-          <ReactMarkdown>{markdown}</ReactMarkdown>
+      <Paper
+        p="xl" 
+        bg="white"
+        c="black" 
+        radius="md"
+        style={{ 
+          position: 'relative',
+          color: '#000000',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px'
+        }}
+        className="markdown-container"
+        sx={{
+          // Additional styles to ensure text is visible
+          '& p, & h1, & h2, & h3, & h4, & h5, & h6, & li, & a, & span, & div': {
+            color: '#000000'
+          }
+        }}
+      >
+        <Box className="markdown-content" style={{ 
+          fontSize: '16px', 
+          lineHeight: 1.7, 
+          color: '#000000' 
+        }}>
+          {renderMarkdown(markdown)}
         </Box>
       </Paper>
     );
@@ -206,14 +231,31 @@ function DocumentMarkdownRenderer({
   const markdownContent = generateMarkdown();
   
   return (
-    <Paper p="xl" style={{ 
-      backgroundColor: '#ffffff', 
-      color: '#000000', 
-      borderRadius: '8px',
-      position: 'relative'
-    }}>
-      <Box className="markdown-content" style={{ fontSize: '16px', lineHeight: 1.7 }}>
-        <ReactMarkdown>{markdownContent}</ReactMarkdown>
+    <Paper
+      p="xl"
+      bg="white"
+      c="black"
+      radius="md"
+      style={{ 
+        position: 'relative',
+        color: '#000000',
+        backgroundColor: '#ffffff',
+        borderRadius: '8px'
+      }}
+      className="markdown-container"
+      sx={{
+        // Additional styles to ensure text is visible
+        '& p, & h1, & h2, & h3, & h4, & h5, & h6, & li, & a, & span, & div': {
+          color: '#000000'
+        }
+      }}
+    >
+      <Box className="markdown-content" style={{ 
+        fontSize: '16px', 
+        lineHeight: 1.7, 
+        color: '#000000' 
+      }}>
+        {renderMarkdown(markdownContent)}
       </Box>
     </Paper>
   );

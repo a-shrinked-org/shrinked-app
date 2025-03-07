@@ -194,14 +194,16 @@ export default function JobShow() {
 
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
-    if (!jobId) return;
+    // Use processingDocId when available, not jobId
+    if (!processingDocId && !jobId) return;
   
     try {
-      console.log('Attempting to download PDF with job ID:', jobId);
+      // Try using processingDocId first if available, otherwise fall back to jobId
+      const idToUse = processingDocId || jobId;
+      console.log('Attempting to download PDF with ID:', idToUse);
       
-      // This endpoint seems to be correct based on your Postman collection
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${jobId}/json?includeReferences=true`,
+        `${API_CONFIG.API_URL}/pdf/${idToUse}/json?includeReferences=true`,
         { method: 'GET' }
       );
   
@@ -214,23 +216,24 @@ export default function JobShow() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `document-${jobId}.pdf`;
+      link.download = `document-${idToUse}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      console.log('Downloaded PDF successfully using job ID:', jobId);
+      console.log('Downloaded PDF successfully using ID:', idToUse);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [jobId, fetchWithAuth]);
+  }, [processingDocId, jobId, fetchWithAuth]);
 
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
     queryOptions: {
-      enabled: !!jobId && !!identity?.token,
+      enabled: !!jobId && !!identity?.token, // Only run when both jobId and token exist
+      staleTime: 30000, // Cache results for 30 seconds to prevent frequent refetching
       onSuccess: (data) => {
         console.log("Show query success:", data);
         
@@ -312,15 +315,19 @@ export default function JobShow() {
 
   const manualRefetch = () => {
     setErrorMessage(null);
+    
+    // Clear content states
     setProcessingDoc(null);
     setMarkdownContent(null);
     
     if (processingDocId) {
+      console.log("Manual refresh: fetching processing document");
       getProcessingDocument();
     }
     
-    // Always fetch markdown using jobId if in preview tab
-    if (activeTab === "preview" && jobId) {
+    // Always fetch markdown when in preview tab and we have at least one ID
+    if (activeTab === "preview" && (processingDocId || jobId)) {
+      console.log("Manual refresh: fetching markdown content");
       fetchMarkdownContent();
     }
   };
