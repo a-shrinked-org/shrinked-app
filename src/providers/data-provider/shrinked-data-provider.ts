@@ -136,7 +136,7 @@ export const documentOperations = {
 	  return { success: true, data: response.data };
 	} catch (error) {
 	  console.error("Error sending document email:", error);
-	  return { success: false, error };
+	  return { success: false, error: error as HttpError }; // Type error as HttpError
 	}
   },
 
@@ -150,7 +150,7 @@ export const documentOperations = {
 	  return { success: true, data: response.data };
 	} catch (error) {
 	  console.error("Error deleting document:", error);
-	  return { success: false, error };
+	  return { success: false, error: error as HttpError }; // Type error as HttpError
 	}
   }
 };
@@ -271,6 +271,6 @@ export const shrinkedDataProvider = (
 // Export types for document operations
 export interface DocumentOperations {
   fetchJobIdsForDocs: (documents: ProcessedDocument[], apiUrl: string) => Promise<Record<string, string>>;
-  sendDocumentEmail: (docId: string, apiUrl: string, email?: string) => Promise<{ success: boolean; data?: any; error?: any }>;
-  deleteDocument: (docId: string, apiUrl: string) => Promise<{ success: boolean; data?: any; error?: any }>;
+  sendDocumentEmail: (docId: string, apiUrl: string, email?: string) => Promise<{ success: boolean; data?: any; error?: HttpError }>;
+  deleteDocument: (docId: string, apiUrl: string) => Promise<{ success: boolean; data?: any; error?: HttpError }>;
 }
