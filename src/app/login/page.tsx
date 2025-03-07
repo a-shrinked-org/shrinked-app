@@ -22,11 +22,15 @@ interface FormData {
 }
 
 export default function Login() {
-  const { mutate: login, isLoading } = useLogin();
+  const { mutate: login } = useLogin();
   const [error, setError] = useState<string>("");
   const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
   const [step, setStep] = useState<"email" | "password" | "verification-sent">("email");
+  
+  // Separate loading states for different actions
+  const [emailPasswordLoading, setEmailPasswordLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -36,6 +40,9 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
+    setGoogleLoading(true);
+    // Set a timeout to restore the button if the redirect fails
+    setTimeout(() => setGoogleLoading(false), 5000);
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
@@ -43,45 +50,49 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setInfo("");
+    setEmailPasswordLoading(true);
   
     if (!formData.email) {
       setError("Please enter your email");
+      setEmailPasswordLoading(false);
       return;
     }
   
     if (step === "email") {
-    console.log("Checking email:", formData.email);
-    login(
-      { email: formData.email, password: "" },
-      {
-        onSuccess: (response) => {
-          // Only move to password step if the response clearly indicates success
-          console.log("Email check response:", response);
-          
-          if (response && response.success === true) {
-            // Ignore any redirectTo property at this stage
-            console.log("Email exists, showing password field");
-            setStep("password"); // Email exists, show password field
-            return; // Early return to prevent redirection
-          } 
-          
-          // If response has an unexpected structure, log it for debugging
-          console.log("Unexpected success response structure:", response);
-          
-          // If response contains an error with RegistrationRequired name, handle registration flow
-          if (response && 
-              typeof response === 'object' && 
-              'error' in response && 
-              typeof response.error === 'object' && 
-              response.error !== null && 
-              'name' in response.error && 
-              response.error.name === "RegistrationRequired") {
-            handleRegistrationFlow();
-          } else {
-            setError("Unable to verify email status. Please try again.");
-          }
-        },
-        onError: (error: any) => {
+      console.log("Checking email:", formData.email);
+      login(
+        { email: formData.email, password: "" },
+        {
+          onSuccess: (response) => {
+            // Only move to password step if the response clearly indicates success
+            console.log("Email check response:", response);
+            
+            if (response && response.success === true) {
+              // Ignore any redirectTo property at this stage
+              console.log("Email exists, showing password field");
+              setStep("password"); // Email exists, show password field
+              setEmailPasswordLoading(false);
+              return; // Early return to prevent redirection
+            } 
+            
+            // If response has an unexpected structure, log it for debugging
+            console.log("Unexpected success response structure:", response);
+            
+            // If response contains an error with RegistrationRequired name, handle registration flow
+            if (response && 
+                typeof response === 'object' && 
+                'error' in response && 
+                typeof response.error === 'object' && 
+                response.error !== null && 
+                'name' in response.error && 
+                response.error.name === "RegistrationRequired") {
+              handleRegistrationFlow();
+            } else {
+              setError("Unable to verify email status. Please try again.");
+              setEmailPasswordLoading(false);
+            }
+          },
+          onError: (error: any) => {
             console.log("Email check result:", error);
             
             // Log the full error structure to debug
@@ -126,6 +137,7 @@ export default function Login() {
                 // Try to get the message directly
                 if ('message' in error && typeof error.message === 'string') {
                   setError(error.message);
+                  setEmailPasswordLoading(false);
                   return;
                 }
                 
@@ -136,11 +148,13 @@ export default function Login() {
                     'message' in error.error && 
                     typeof error.error.message === 'string') {
                   setError(error.error.message);
+                  setEmailPasswordLoading(false);
                   return;
                 }
               }
               
               setError("An error occurred");
+              setEmailPasswordLoading(false);
             }
           }
         }
@@ -148,6 +162,7 @@ export default function Login() {
     } else if (step === "password") {
       if (!formData.password) {
         setError("Please enter your password");
+        setEmailPasswordLoading(false);
         return;
       }
       
@@ -163,6 +178,7 @@ export default function Login() {
           onSuccess: () => {
             console.log("Login successful");
             // Redirect handled by auth provider
+            // Keep loading state on success as we're redirecting
           },
           onError: (error: any) => {
             console.error("Login error:", error);
@@ -171,6 +187,7 @@ export default function Login() {
               // Try to get the message directly
               if ('message' in error && typeof error.message === 'string') {
                 setError(error.message);
+                setEmailPasswordLoading(false);
                 return;
               }
               
@@ -181,11 +198,13 @@ export default function Login() {
                   'message' in error.error && 
                   typeof error.error.message === 'string') {
                 setError(error.error.message);
+                setEmailPasswordLoading(false);
                 return;
               }
             }
             
             setError("Invalid email or password");
+            setEmailPasswordLoading(false);
           }
         }
       );
@@ -193,7 +212,6 @@ export default function Login() {
   };
 
   // Separate function to handle the registration flow
-  // In page.tsx, update the handleRegistrationFlow function:
   const handleRegistrationFlow = () => {
     login(
       { 
@@ -206,6 +224,7 @@ export default function Login() {
           console.log("Registration initiated successfully", data);
           // Don't rely on redirectTo, just update the step
           setStep("verification-sent");
+          setEmailPasswordLoading(false);
         },
         onError: (regError) => {
           console.error("Registration error:", regError);
@@ -214,6 +233,7 @@ export default function Login() {
             // First try to get the message directly
             if ('message' in regError && typeof regError.message === 'string') {
               setError(regError.message);
+              setEmailPasswordLoading(false);
               return;
             }
             
@@ -224,12 +244,14 @@ export default function Login() {
                 'message' in regError.error && 
                 typeof regError.error.message === 'string') {
               setError(regError.error.message);
+              setEmailPasswordLoading(false);
               return;
             }
           }
           
           // Default error message if we couldn't extract one
           setError("Failed to register with this email");
+          setEmailPasswordLoading(false);
         }
       }
     );
@@ -340,7 +362,7 @@ export default function Login() {
           fullWidth
           variant="filled"
           onClick={handleGoogleLogin}
-          loading={isLoading}
+          loading={googleLoading}
           leftSection={<Chrome size={20} />}
           mb="md"
           style={{
@@ -363,7 +385,7 @@ export default function Login() {
             onChange={handleInputChange}
             required
             mb="md"
-            disabled={isLoading || step === "password"}
+            disabled={emailPasswordLoading || step === "password"}
             styles={{
               input: { backgroundColor: "#333333", color: "#FFFFFF" },
               label: { color: "#333333" },
@@ -379,7 +401,7 @@ export default function Login() {
               onChange={handleInputChange}
               required
               mb="md"
-              disabled={isLoading}
+              disabled={emailPasswordLoading}
               styles={{
                 input: { backgroundColor: "#333333", color: "#FFFFFF" },
                 label: { color: "#333333" },
@@ -389,8 +411,8 @@ export default function Login() {
           <Button
             type="submit"
             fullWidth
-            loading={isLoading}
-            disabled={!isButtonActive}
+            loading={emailPasswordLoading}
+            disabled={!isButtonActive || emailPasswordLoading}
             style={{
               backgroundColor: isButtonActive ? "#D87A16" : "#666666",
               color: "#FFFFFF",
