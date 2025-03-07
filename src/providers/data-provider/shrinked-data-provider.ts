@@ -4,7 +4,7 @@ import {
   CrudSorting,
   HttpError
 } from "@refinedev/core";
-import axios, { AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosInstance } from "axios";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
 
 // Create axios instance
@@ -274,6 +274,3 @@ export interface DocumentOperations {
   sendDocumentEmail: (docId: string, apiUrl: string, email?: string) => Promise<{ success: boolean; data?: any; error?: any }>;
   deleteDocument: (docId: string, apiUrl: string) => Promise<{ success: boolean; data?: any; error?: any }>;
 }
-
-// Export documentOperations directly instead of via getDocumentOperations
-export { documentOperations };
