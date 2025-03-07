@@ -28,8 +28,8 @@ import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
-import { documentOperations } from '@/providers/data-provider/shrinked-data-provider';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
+import axios from "axios";
 
 interface Identity {
   token?: string;
@@ -68,10 +68,8 @@ export default function ApiKeysList() {
     return null;
   }, [identity?.userId]);
 
-  const requestedFields = 'id,name,key,createdAt';
-  
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: userId ? `api-keys/user/${userId}` : "",
+    resource: "users/api-keys",
     queryOptions: {
       enabled: !!userId && !!authUtils.isAuthenticated(),
     },
@@ -82,7 +80,7 @@ export default function ApiKeysList() {
       headers: {
         'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
       },
-      url: userId ? `${API_CONFIG.API_URL}/api-keys/user/${userId}?fields=${requestedFields}` : ""
+      url: `${API_CONFIG.API_URL}/users/api-keys`
     }
   });
 
@@ -107,25 +105,22 @@ export default function ApiKeysList() {
     console.log("Viewing API key:", apiKey);
   };
 
-  const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
-    if (result.success) {
-      alert("API key details sent successfully");
-    } else {
-      alert("Failed to send API key details: " + (result.error?.message || "Unknown error"));
-    }
-  };
-
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this API key?")) {
-      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
-      if (result.success) {
-        alert("API key deleted successfully");
-        refetch();
-      } else {
-        alert("Failed to delete API key: " + (result.error?.message || "Unknown error"));
+      try {
+        const response = await axios.delete(`${API_CONFIG.API_URL}/users/api-key/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
+          }
+        });
+        if (response.status === 200) {
+          alert("API key deleted successfully");
+          refetch();
+        }
+      } catch (error: any) {
+        console.error("Error deleting API key:", error);
+        alert(`Failed to delete API key: ${error.response?.data?.message || "Unknown error"}`);
       }
     }
   };
@@ -139,7 +134,7 @@ export default function ApiKeysList() {
 
     setIsLoading(true);
     try {
-      const newKey = await ApiKeyService.createApiKey(userId, keyName);
+      const newKey = await ApiKeyService.createApiKey(userId, keyName); // Assumes this uses POST /users/:userId/api-key
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
@@ -200,7 +195,6 @@ export default function ApiKeysList() {
       <DocumentsTable<ExtendedApiKey>
         data={formatApiKeyData(data?.data || [])}
         onView={handleViewDocument}
-        onSendEmail={handleSendEmail}
         onDelete={handleDelete}
         formatDate={formatDate}
         isLoading={isLoadingKeys}

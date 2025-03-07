@@ -6,8 +6,6 @@ import {
   Stack, 
   Button, 
   Group, 
-  Title, 
-  Modal, 
   Text, 
   LoadingOverlay, 
   Badge, 
@@ -15,7 +13,6 @@ import {
   Select
 } from '@mantine/core';
 import { 
-  Eye, 
   Info, 
   RefreshCw, 
   AlertCircle,
@@ -24,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
-import { documentOperations } from '@/providers/data-provider/shrinked-data-provider';
+import { formatDate } from '@/utils/formatting';
 
 interface Identity {
   token?: string;
@@ -42,18 +39,6 @@ interface Job extends ProcessedDocument {
   link: string;
 }
 
-const getStatusColor = (status: string) => {
-  if (!status) return 'gray';
-  const statusLower = status.toLowerCase();
-  switch (statusLower) {
-    case 'completed': return 'green';
-    case 'in_progress': case 'processing': return 'blue';
-    case 'failed': case 'error': return 'red';
-    case 'pending': case 'queued': return 'yellow';
-    default: return 'gray';
-  }
-};
-
 const formatScenarioName = (scenario: string) => {
   if (!scenario) return 'Unknown';
   if (scenario.includes('SINGLE_FILE_DEFAULT') || scenario.includes('PLATOGRAM')) {
@@ -64,15 +49,6 @@ const formatScenarioName = (scenario: string) => {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-};
-
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit'
-  }).format(date);
 };
 
 export default function JobList() {
@@ -96,7 +72,7 @@ export default function JobList() {
       pageSize,
     },
     meta: {
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(), // Use authUtils.getAuthHeaders
       url: `${API_CONFIG.API_URL}/jobs`
     }
   });
@@ -109,11 +85,8 @@ export default function JobList() {
   useEffect(() => {
     if (error) {
       console.error("Error fetching jobs:", error);
-      if (!navigator.onLine) {
-        console.error("Offline detected");
-      } else if (error.status === 521 || error.status === 522 || error.status === 523) {
-        console.error("Server unreachable");
-      } else if (error.status === 401 || error.status === 403) {
+      authUtils.handleAuthError(error); // Use authUtils error handling
+      if (error.status === 401 || error.status === 403) {
         refreshToken().then(success => {
           if (success) refetch();
         });
@@ -125,30 +98,8 @@ export default function JobList() {
     if (identity?.token) refetch();
   }, [identity, refetch]);
 
-  const handleViewDocument = (doc: Job, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    show("jobs", doc._id);
-  };
-
-  const handleSendEmail = async (id: string, email?: string) => {
-    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
-    if (result.success) {
-      alert("Job sent successfully");
-    } else {
-      alert("Failed to send job: " + (result.error?.message || "Unknown error"));
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this job?")) {
-      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
-      if (result.success) {
-        alert("Job deleted successfully");
-        refetch();
-      } else {
-        alert("Failed to delete job: " + (result.error?.message || "Unknown error"));
-      }
-    }
+  const handleRowClick = (doc: Job) => {
+    show("jobs", doc._id); // Navigate to /jobs/show/:id
   };
 
   const checkStatus = useCallback(async () => {
@@ -156,7 +107,7 @@ export default function JobList() {
     setStatusResult(null);
     setIsStatusModalOpen(true);
     try {
-      const response = await fetchWithAuth(`${API_CONFIG.API_URL}/health`);
+      const response = await fetchWithAuth(`${API_CONFIG.API_URL}/health`); // Use fetchWithAuth
       const status = await response.text();
       setStatusResult(status || "Service is operational.");
     } catch (error) {
@@ -228,10 +179,8 @@ export default function JobList() {
     <>
       <DocumentsTable<Job>
         data={formatJobData(data?.data || [])}
-        onView={handleViewDocument}
-        onSendEmail={handleSendEmail}
-        onDelete={handleDelete}
-        formatDate={formatDate}
+        onRowClick={handleRowClick}
+        formatDate={formatDate} // Use unified formatDate
         isLoading={isLoading}
         onRefresh={refetch}
         error={error}

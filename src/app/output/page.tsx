@@ -1,6 +1,6 @@
 "use client";
 
-import { useList, useGetIdentity, useDataProvider } from "@refinedev/core";
+import { useList, useGetIdentity } from "@refinedev/core";
 import React, { useEffect, useState } from "react";
 import { 
   Stack, 
@@ -35,60 +35,47 @@ export default function ProcessingList() {
       pageSize: 100,
     },
     meta: {
-      headers: {
-        'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
-      },
+      headers: authUtils.getAuthHeaders(), // Use authUtils.getAuthHeaders
       url: identity?.id ? `${API_CONFIG.API_URL}/processing/user/${identity.id}/documents?fields=${requestedFields}` : ""
     }
   });
 
   useEffect(() => {
-    if (data?.data && data.data.length > 0) {
+    console.log("Raw data from useList in ProcessingList:", data); // Debug raw data
+    if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
       documentOperations.fetchJobIdsForDocs(data.data, API_CONFIG.API_URL)
-        .then(mapping => setDocToJobMapping(mapping))
+        .then(mapping => {
+          console.log("Doc to Job mapping:", mapping);
+          setDocToJobMapping(mapping);
+        })
         .catch(err => console.error("Failed to fetch job mappings:", err));
+    } else {
+      console.log("No valid data.data array found:", data);
     }
   }, [data]);
 
   useEffect(() => {
-    if (error?.status === 401 || error?.status === 403) {
-      authUtils.refreshToken().then(success => {
-        if (success) refetch();
-      });
+    if (error) {
+      console.error("Error fetching documents:", error);
+      authUtils.handleAuthError(error); // Use authUtils error handling
+      if (error.status === 401 || error.status === 403) {
+        authUtils.refreshToken().then(success => {
+          if (success) refetch();
+        });
+      }
     }
   }, [error, refetch]);
 
   useEffect(() => {
-    if (identity?.id) refetch();
+    if (identity?.id) {
+      console.log("Refetching with user ID:", identity.id);
+      refetch();
+    }
   }, [identity, refetch]);
 
-  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleRowClick = (doc: ProcessedDocument) => {
     const jobId = docToJobMapping[doc._id] || doc._id;
     window.open(`/jobs/show/${jobId}`, '_blank');
-  };
-
-  const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
-    if (result.success) {
-      alert("Document sent successfully");
-    } else {
-      alert("Failed to send document: " + (result.error?.message || "Unknown error"));
-    }
-  };
-
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (confirm("Are you sure you want to delete this document?")) {
-      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
-      if (result.success) {
-        alert("Document deleted successfully");
-        refetch();
-      } else {
-        alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
-      }
-    }
   };
 
   const handleRefresh = () => {
@@ -122,10 +109,8 @@ export default function ProcessingList() {
     <DocumentsTable<ProcessedDocument>
       data={data?.data || []}
       docToJobMapping={docToJobMapping}
-      onView={handleViewDocument}
-      onSendEmail={handleSendEmail}
-      onDelete={handleDelete}
-      formatDate={formatDate}
+      onRowClick={handleRowClick}
+      formatDate={formatDate} // Use unified formatDate
       isLoading={isLoading}
       onRefresh={handleRefresh}
       error={error}
