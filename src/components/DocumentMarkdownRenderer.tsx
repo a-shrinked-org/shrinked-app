@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, Paper, Loader, Alert, Button, Progress } from '@mantine/core';
+import { Box, Text, Paper, Loader, Alert, Button, Progress, Title, Stack } from '@mantine/core';
 import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import Markdoc from '@markdoc/markdoc';
 
@@ -21,36 +21,6 @@ interface DocumentMarkdocRendererProps {
   onRefresh: () => void;
   processingStatus?: string;
 }
-
-// Interface for component props
-interface HeadingProps {
-  level: number;
-  children: React.ReactNode;
-}
-
-interface ParagraphProps {
-  children: React.ReactNode;
-}
-
-interface LinkProps {
-  href: string;
-  children: React.ReactNode;
-}
-
-// Custom styles for markdoc content
-const markdocStyles = {
-  content: {
-    fontSize: '16px',
-    lineHeight: 1.7,
-    color: '#000000',
-  } as React.CSSProperties,
-  container: {
-    position: 'relative' as const,
-    backgroundColor: '#ffffff',
-    borderRadius: '8px',
-    padding: '20px',
-  } as React.CSSProperties
-};
 
 function DocumentMarkdocRenderer({
   data,
@@ -105,15 +75,23 @@ function DocumentMarkdocRenderer({
     );
   }
   
-  // Render markdown content using Markdoc with enhanced reference support
+  // Clean and properly format references in the markdown content
+  const preprocessMarkdown = (content: string) => {
+    // Clean text of double bracket references and replace with proper format
+    return content.replace(
+      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g, // Match [[number]](#ts-number)
+      (match, num, id) => `<span class="reference-anchor" id="ref-ts-${id}"></span>[${num}](#ts-${id})`
+    ).replace(
+      /(\s*)\[\[([^\]]+)\]\]\(#(ts-\d+)\)(\s*)/g, // Match [[text]](#ts-number)
+      (match, spaceBefore, text, id, spaceAfter) => `${spaceBefore}${text} [<a href="#${id}" class="citation-ref">${id.replace('ts-', '')}</a>]${spaceAfter}`
+    );
+  };
+  
+  // Render markdown content using Markdoc
   const renderMarkdoc = (content: string) => {
     try {
-      // Process references in the markdown to support academic-style citations
-      // Convert [[text]](#ts-xx) to proper formatted references
-      const processedContent = content.replace(
-        /\[\[([^\]]+)\]\]\(#(ts-\d+)\)/g, 
-        (match, text, id) => `${text} [<a href="#${id}">${id.replace('ts-', '')}</a>]`
-      );
+      // Preprocess the markdown to handle references properly
+      const processedContent = preprocessMarkdown(content);
       
       // Parse the markdown content
       const ast = Markdoc.parse(processedContent);
@@ -121,16 +99,20 @@ function DocumentMarkdocRenderer({
       // Transform and render the content
       const contentAst = Markdoc.transform(ast);
       
-      // Render the content with HTML
-      const html = Markdoc.renderers.html(contentAst);
+      // Render to HTML
+      let html = Markdoc.renderers.html(contentAst);
       
-      // Add IDs to reference targets at the bottom
-      const processedHtml = html.replace(
-        /<a id="(ts-\d+)">(.*?)<\/a>/g,
-        '<a id="$1">$2</a>'
-      );
+      // Apply heading styles by replacing h1-h6 tags with appropriate Mantine Title classes
+      // (We'll add custom CSS to style these)
+      html = html
+        .replace(/<h1([^>]*)>(.*?)<\/h1>/g, '<div class="mantine-title-h1"$1>$2</div>')
+        .replace(/<h2([^>]*)>(.*?)<\/h2>/g, '<div class="mantine-title-h2"$1>$2</div>')
+        .replace(/<h3([^>]*)>(.*?)<\/h3>/g, '<div class="mantine-title-h3"$1>$2</div>')
+        .replace(/<h4([^>]*)>(.*?)<\/h4>/g, '<div class="mantine-title-h4"$1>$2</div>')
+        .replace(/<h5([^>]*)>(.*?)<\/h5>/g, '<div class="mantine-title-h5"$1>$2</div>')
+        .replace(/<h6([^>]*)>(.*?)<\/h6>/g, '<div class="mantine-title-h6"$1>$2</div>');
       
-      return processedHtml;
+      return html;
     } catch (error) {
       console.error('Error rendering Markdoc:', error);
       return '<div>Error rendering content</div>';
@@ -148,39 +130,76 @@ function DocumentMarkdocRenderer({
         className="markdoc-container"
       >
         <style jsx global>{`
-          .markdoc-container h1 {
+          /* Mantine title styles */
+          .mantine-title-h1 {
             font-size: 2.25rem;
             font-weight: 700;
+            line-height: 1.3;
             margin-top: 2rem;
             margin-bottom: 1rem;
             color: #000000;
           }
-          .markdoc-container h2 {
+          
+          .mantine-title-h2 {
             font-size: 1.875rem;
             font-weight: 600;
+            line-height: 1.35;
             margin-top: 1.75rem;
             margin-bottom: 0.75rem;
             color: #000000;
           }
-          .markdoc-container h3 {
+          
+          .mantine-title-h3 {
             font-size: 1.5rem;
             font-weight: 600;
+            line-height: 1.4;
             margin-top: 1.5rem;
             margin-bottom: 0.75rem;
             color: #000000;
           }
-          .markdoc-container a {
+          
+          .mantine-title-h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.45;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          
+          /* Citation reference styling */
+          .citation-ref {
             color: #0066cc;
+            text-decoration: none;
+          }
+          
+          .citation-ref:hover {
             text-decoration: underline;
           }
-          /* Reference section styling */
-          .markdoc-container .references {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e0e0e0;
+          
+          /* General text styling */
+          .markdoc-container p {
+            margin-bottom: 1rem;
+            line-height: 1.7;
           }
+          
+          .markdoc-container a {
+            color: #0066cc;
+          }
+          
+          /* Reference target styling */
           .markdoc-container [id^="ts-"] {
             scroll-margin-top: 2rem;
+          }
+          
+          /* Lists styling */
+          .markdoc-container ul, .markdoc-container ol {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+          }
+          
+          .markdoc-container li {
+            margin-bottom: 0.5rem;
           }
         `}</style>
         <div 
@@ -302,174 +321,91 @@ function DocumentMarkdocRenderer({
     return md;
   };
 
-  // Render the generated markdown using Markdoc
+  // Render the generated markdown
   const markdownContent = generateMarkdown();
   
   return (
     <Paper
       p="xl"
       bg="white"
-      c="black"
+      c="black" 
       radius="md"
-      style={markdocStyles.container}
       className="markdoc-container"
     >
       <style jsx global>{`
-        .markdoc-container h1 {
+        /* Mantine title styles */
+        .mantine-title-h1 {
           font-size: 2.25rem;
           font-weight: 700;
+          line-height: 1.3;
           margin-top: 2rem;
           margin-bottom: 1rem;
           color: #000000;
         }
-        .markdoc-container h2 {
+        
+        .mantine-title-h2 {
           font-size: 1.875rem;
           font-weight: 600;
+          line-height: 1.35;
           margin-top: 1.75rem;
           margin-bottom: 0.75rem;
           color: #000000;
         }
-        .markdoc-container h3 {
+        
+        .mantine-title-h3 {
           font-size: 1.5rem;
           font-weight: 600;
+          line-height: 1.4;
           margin-top: 1.5rem;
           margin-bottom: 0.75rem;
           color: #000000;
         }
-        .markdoc-container h4 {
+        
+        .mantine-title-h4 {
           font-size: 1.25rem;
           font-weight: 600;
+          line-height: 1.45;
           margin-top: 1.25rem;
           margin-bottom: 0.5rem;
           color: #000000;
         }
-        .markdoc-container h5 {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin-top: 1rem;
-          margin-bottom: 0.5rem;
-          color: #000000;
-        }
-        .markdoc-container h6 {
-          font-size: 1rem;
-          font-weight: 600;
-          margin-top: 1rem;
-          margin-bottom: 0.5rem;
-          color: #000000;
-        }
-        .markdoc-container p {
-          margin-bottom: 1rem;
-          color: #000000;
-        }
-        .markdoc-container ul, .markdoc-container ol {
-          margin-bottom: 1rem;
-          padding-left: 2rem;
-          color: #000000;
-        }
-        .markdoc-container li {
-          margin-bottom: 0.5rem;
-          color: #000000;
-        }
-        .markdoc-container a {
-          color: #0066cc;
-          text-decoration: underline;
-        }
-        /* Special styling for citation links */
-        .markdoc-container a.citation-link {
+        
+        /* Citation reference styling */
+        .citation-ref {
           color: #0066cc;
           text-decoration: none;
-          font-size: 0.8em;
-          vertical-align: super;
-          line-height: 0;
-          padding: 0 2px;
         }
-        .markdoc-container a.citation-link:hover {
+        
+        .citation-ref:hover {
           text-decoration: underline;
         }
-        /* Reference section styling */
-        .markdoc-container .references {
-          margin-top: 3rem;
-          padding-top: 1.5rem;
-          border-top: 1px solid #e0e0e0;
-        }
-        .markdoc-container .references h2 {
-          font-size: 1.5rem;
+        
+        /* General text styling */
+        .markdoc-container p {
           margin-bottom: 1rem;
+          line-height: 1.7;
         }
-        .markdoc-container .references ol {
-          margin-left: 0;
-          padding-left: 1.5rem;
+        
+        .markdoc-container a {
+          color: #0066cc;
         }
-        .markdoc-container .references li {
-          margin-bottom: 0.75rem;
-        }
-        /* Target for citation links */
+        
+        /* Reference target styling */
         .markdoc-container [id^="ts-"] {
           scroll-margin-top: 2rem;
         }
-        .markdoc-container blockquote {
-          border-left: 4px solid #e0e0e0;
-          padding-left: 1rem;
-          font-style: italic;
-          margin: 1rem 0;
-          color: #000000;
+        
+        /* Lists styling */
+        .markdoc-container ul, .markdoc-container ol {
+          margin-bottom: 1rem;
+          padding-left: 2rem;
         }
-        .markdoc-container table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 1rem 0;
-        }
-        .markdoc-container th, .markdoc-container td {
-          border: 1px solid #e0e0e0;
-          padding: 0.5rem;
-          text-align: left;
-          color: #000000;
-        }
-        .markdoc-container th {
-          background-color: #f5f5f5;
-          font-weight: 600;
-        }
-        .markdoc-container img {
-          max-width: 100%;
-          height: auto;
-        }
-        .markdoc-container code {
-          font-family: monospace;
-          background-color: #f5f5f5;
-          padding: 0.2rem 0.4rem;
-          border-radius: 3px;
-          font-size: 0.9em;
-          color: #000000;
-        }
-        .markdoc-container pre {
-          background-color: #f5f5f5;
-          padding: 1rem;
-          border-radius: 5px;
-          overflow-x: auto;
-          margin: 1rem 0;
-        }
-        .markdoc-container pre code {
-          background-color: transparent;
-          padding: 0;
-          border-radius: 0;
-          color: #000000;
-        }
-        /* Markdoc tags and annotations styling */
-        .markdoc-container .tag-container {
-          margin: 1rem 0;
-          padding: 1rem;
-          background-color: #f9f9f9;
-          border-radius: 5px;
-          border-left: 3px solid #0066cc;
-        }
-        /* Variables styling */
-        .markdoc-container .variable {
-          font-style: italic;
-          color: #0066cc;
+        
+        .markdoc-container li {
+          margin-bottom: 0.5rem;
         }
       `}</style>
       <div 
-        style={markdocStyles.content}
         className="markdoc-content"
         dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdownContent) }}
       />
