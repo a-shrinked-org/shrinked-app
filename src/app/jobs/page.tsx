@@ -10,7 +10,8 @@ import {
   LoadingOverlay, 
   Badge, 
   Alert,
-  Select
+  Select,
+  Modal // Added Modal here
 } from '@mantine/core';
 import { 
   Info, 
