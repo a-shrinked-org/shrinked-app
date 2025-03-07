@@ -64,6 +64,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
   onView, 
   onSendEmail, 
   onDelete,
+  onRowClick,
   formatDate,
   isLoading = false,
   onRefresh,
@@ -83,7 +84,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
   };
 
   const handleSendEmail = async () => {
-    if (!activeDocId) return;
+    if (!activeDocId || !onSendEmail) return; // Check onSendEmail exists
     
     setSendingEmail(true);
     try {
@@ -101,6 +102,8 @@ const DocumentsTable = <T extends ProcessedDocument>({
       return <Text>No documents found.</Text>;
     }
 
+    const hasActions = onView || onSendEmail || onDelete;
+
     return (
       <Table striped highlightOnHover>
         <Table.Thead>
@@ -111,12 +114,16 @@ const DocumentsTable = <T extends ProcessedDocument>({
             {extraColumns.map((col, index) => (
               <Table.Th key={index}>{col.header}</Table.Th>
             ))}
-            <Table.Th>Actions</Table.Th>
+            {hasActions && <Table.Th>Actions</Table.Th>}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {data.map((doc) => (
-            <Table.Tr key={doc._id}>
+            <Table.Tr 
+              key={doc._id}
+              onClick={() => onRowClick && onRowClick(doc)}
+              style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+            >
               <Table.Td>
                 <Text fw={500}>
                   {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
@@ -131,37 +138,45 @@ const DocumentsTable = <T extends ProcessedDocument>({
                   {typeof col.accessor === 'function' ? col.accessor(doc) : (doc[col.accessor] as React.ReactNode)}
                 </Table.Td>
               ))}
-              <Table.Td>
-                <Group>
-                  <Tooltip label="View Document">
-                    <ActionIcon 
-                      variant="light" 
-                      color="blue"
-                      onClick={(e) => onView(doc, e)}
-                    >
-                      <Eye size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Send to Email">
-                    <ActionIcon 
-                      variant="light" 
-                      color="indigo"
-                      onClick={(e) => handleEmailClick(doc._id, e)}
-                    >
-                      <Mail size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Delete">
-                    <ActionIcon 
-                      variant="light" 
-                      color="red"
-                      onClick={(e) => onDelete(doc._id, e)}
-                    >
-                      <Trash size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                </Group>
-              </Table.Td>
+              {hasActions && (
+                <Table.Td>
+                  <Group>
+                    {onView && (
+                      <Tooltip label="View Document">
+                        <ActionIcon 
+                          variant="light" 
+                          color="blue"
+                          onClick={(e) => onView(doc, e)}
+                        >
+                          <Eye size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                    {onSendEmail && (
+                      <Tooltip label="Send to Email">
+                        <ActionIcon 
+                          variant="light" 
+                          color="indigo"
+                          onClick={(e) => handleEmailClick(doc._id, e)}
+                        >
+                          <Mail size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                    {onDelete && (
+                      <Tooltip label="Delete">
+                        <ActionIcon 
+                          variant="light" 
+                          color="red"
+                          onClick={(e) => onDelete(doc._id, e)}
+                        >
+                          <Trash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
+                </Table.Td>
+              )}
             </Table.Tr>
           ))}
         </Table.Tbody>
@@ -206,36 +221,38 @@ const DocumentsTable = <T extends ProcessedDocument>({
         </Card>
       </Stack>
 
-      <Modal
-        opened={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        title="Send to Email"
-        centered
-      >
-        <Stack>
-          <TextInput
-            label="Email Address"
-            placeholder="Enter email address"
-            value={emailAddress}
-            onChange={(e) => setEmailAddress(e.target.value)}
-            required
-          />
-          <Group justify="flex-end">
-            <Button variant="outline" onClick={() => setEmailModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              color="indigo" 
-              onClick={handleSendEmail} 
-              leftSection={<Send size={16} />}
-              loading={sendingEmail}
-              disabled={!emailAddress}
-            >
-              Send
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      {onSendEmail && (
+        <Modal
+          opened={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          title="Send to Email"
+          centered
+        >
+          <Stack>
+            <TextInput
+              label="Email Address"
+              placeholder="Enter email address"
+              value={emailAddress}
+              onChange={(e) => setEmailAddress(e.target.value)}
+              required
+            />
+            <Group justify="flex-end">
+              <Button variant="outline" onClick={() => setEmailModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                color="indigo" 
+                onClick={handleSendEmail} 
+                leftSection={<Send size={16} />}
+                loading={sendingEmail}
+                disabled={!emailAddress}
+              >
+                Send
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
+      )}
     </>
   );
 };
