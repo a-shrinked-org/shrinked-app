@@ -1,4 +1,37 @@
-// Apply Mantine styling to the rendered HTML
+// Post-process HTML to fix references and styling
+  const processReferences = (html: string): string => {
+    // Clean up any direct reference markup
+    let processed = html;
+    
+    // Replace `[[number]](#ts-number)` with citation links
+    processed = processed.replace(
+      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
+    );
+    
+    // Replace explicit HTML anchors with proper citation links
+    processed = processed.replace(
+      /<a id="ts-(\d+)" class="ref-target"><\/a>\[(\d+)\]/g,
+      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
+    );
+    
+    // Handle any remaining plain text reference patterns
+    processed = processed.replace(
+      /<a id="ts-(\d+)"[^>]*><\/a>\[(\d+)\]/g,
+      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
+    );
+    
+    // Handle markdown-style links with ts- references
+    processed = processed.replace(
+      /\[(\d+)\]\(#ts-(\d+)\)/g,
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
+    );
+    
+    // Clean up any reference artifacts
+    processed = processed.replace(/\{#ref-ts-\d+\}/g, '');
+    
+    return processed;
+  };  // Apply Mantine styling to the rendered HTML
   const getStyledHtml = (renderedHtml: string): React.ReactElement => {
     return (
       <div 
@@ -85,31 +118,16 @@ function DocumentMarkdocRenderer({
     );
   }
   
-  // Convert markdown citations to HTML links
-  const processReferences = (html: string): string => {
-    // Clean up any direct reference markup
-    let processed = html;
+  // Convert markdown citations to HTML links - Simple preprocessing
+  const preprocessMarkdown = (content: string): string => {
+    // Process different citation formats
+    let processed = content;
     
-    // Replace `[[number]](#ts-number)` with citation links
+    // Process citation references in the original markdown
     processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
-      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
+      (match, num, id) => `[${num}](#ts-${id})`
     );
-    
-    // Replace explicit HTML anchors with proper citation links
-    processed = processed.replace(
-      /<a id="ts-(\d+)" class="ref-target"><\/a>\[(\d+)\]/g,
-      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
-    );
-    
-    // Handle any remaining plain text reference patterns
-    processed = processed.replace(
-      /<a id="ts-(\d+)"[^>]*><\/a>\[(\d+)\]/g,
-      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
-    );
-    
-    // Clean up any reference artifacts
-    processed = processed.replace(/\{#ref-ts-\d+\}/g, '');
     
     return processed;
   };
@@ -231,7 +249,7 @@ function DocumentMarkdocRenderer({
         `}</style>
         <div 
           className="markdoc-content"
-          dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdown) }}
+          dangerouslySetInnerHTML={{ __html: processReferences(renderMarkdoc(markdown)) }}
         />
       </Paper>
     );
