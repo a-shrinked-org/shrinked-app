@@ -389,9 +389,11 @@ const App = (props: React.PropsWithChildren<{}>) => {
             closeOnClick
             rtl={false}
             pauseOnFocusLoss
+            draggable
             pauseOnHover
             theme="dark"
             transition={Slide}
+            icon={false}
           />
         </Refine>
       </RefineKbarProvider>
