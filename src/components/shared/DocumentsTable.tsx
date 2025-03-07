@@ -14,7 +14,8 @@ import {
   Alert,
   Modal,
   TextInput,
-  LoadingOverlay
+  LoadingOverlay,
+  Badge
 } from '@mantine/core';
 import { 
   Eye, 
@@ -37,6 +38,11 @@ export interface ProcessedDocument {
   }
 }
 
+interface ExtraColumn {
+  header: string;
+  accessor: keyof ProcessedDocument | ((doc: ProcessedDocument) => React.ReactNode);
+}
+
 interface DocumentsTableProps {
   data: ProcessedDocument[];
   docToJobMapping?: Record<string, string>;
@@ -48,6 +54,7 @@ interface DocumentsTableProps {
   onRefresh?: () => void;
   error?: any;
   title?: string;
+  extraColumns?: ExtraColumn[]; // New prop for custom columns
 }
 
 const DocumentsTable: React.FC<DocumentsTableProps> = ({ 
@@ -60,7 +67,8 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
   isLoading = false,
   onRefresh,
   error,
-  title = "Documents"
+  title = "Documents",
+  extraColumns = []
 }) => {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
@@ -99,6 +107,9 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
             <Table.Th>Document Title</Table.Th>
             <Table.Th>Date</Table.Th>
             <Table.Th>Status</Table.Th>
+            {extraColumns.map((col, index) => (
+              <Table.Th key={index}>{col.header}</Table.Th>
+            ))}
             <Table.Th>Actions</Table.Th>
           </Table.Tr>
         </Table.Thead>
@@ -114,6 +125,11 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
               <Table.Td>
                 <Text>{doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : 'Unknown'}</Text>
               </Table.Td>
+              {extraColumns.map((col, index) => (
+                <Table.Td key={index}>
+                  {typeof col.accessor === 'function' ? col.accessor(doc) : (doc[col.accessor] as React.ReactNode)}
+                </Table.Td>
+              ))}
               <Table.Td>
                 <Group>
                   <Tooltip label="View Document">
@@ -175,7 +191,7 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
             color="red" 
             withCloseButton
           >
-            {error.message || "Failed to load documents. Please try again."}
+            {error.message || "Failed to load data. Please try again."}
           </Alert>
         )}
 
@@ -192,7 +208,7 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
       <Modal
         opened={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
-        title="Send Document to Email"
+        title="Send to Email"
         centered
       >
         <Stack>

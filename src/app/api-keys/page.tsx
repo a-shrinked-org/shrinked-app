@@ -88,32 +88,24 @@ export default function ApiKeysList() {
     }
   });
 
-  // Error handling with token refresh
   useEffect(() => {
     if (error) {
       console.error("Error fetching API keys:", error);
       if (error.status === 401 || error.status === 403) {
-        console.log("Authentication error, attempting to refresh token");
         authUtils.refreshToken().then(success => {
-          if (success) {
-            console.log("Token refreshed successfully, retrying request");
-            refetch();
-          }
+          if (success) refetch();
         });
       }
     }
   }, [error, refetch]);
 
-  // Refetch when identity is loaded
   useEffect(() => {
     if (userId && authUtils.isAuthenticated()) {
-      console.log("Identity loaded, refetching data:", { userId });
       refetch();
     }
   }, [userId, refetch]);
 
   const handleViewDocument = (apiKey: ProcessedDocument) => {
-    // For API keys, "view" could show details; here we'll just log it
     console.log("Viewing API key:", apiKey);
   };
 
@@ -123,20 +115,19 @@ export default function ApiKeysList() {
     if (result.success) {
       alert("API key details sent successfully");
     } else {
-      alert("Failed to send API key details. Please try again.");
+      alert("Failed to send API key details: " + (result.error?.message || "Unknown error"));
     }
   };
 
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this API key?")) {
-      try {
-        await ApiKeyService.deleteApiKey(id);
+      const result = await documentOperations.deleteDocument(id);
+      if (result.success) {
         alert("API key deleted successfully");
         refetch();
-      } catch (error) {
-        console.error("Error deleting API key:", error);
-        alert("Failed to delete API key. Please try again.");
+      } else {
+        alert("Failed to delete API key: " + (result.error?.message || "Unknown error"));
       }
     }
   };
@@ -176,8 +167,8 @@ export default function ApiKeysList() {
       fileName: key.key.length > 16 ? 
         `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
         key.key,
-      createdAt: key.createdAt,
-      status: 'active', // API keys don't have status in this model; assuming active
+      createdAt: key.createdAt || new Date().toISOString(), // Fix for build error
+      status: 'active',
       output: { title: key.name },
       keyName: key.name,
       keyValue: key.key
@@ -229,7 +220,6 @@ export default function ApiKeysList() {
         </Button>
       </Group>
 
-      {/* Create API Key Modal */}
       <Modal
         opened={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -254,7 +244,6 @@ export default function ApiKeysList() {
         </Stack>
       </Modal>
 
-      {/* API Key Created Success Modal */}
       <Modal
         opened={isModalOpen}
         onClose={closeSuccessModal}

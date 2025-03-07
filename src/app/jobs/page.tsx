@@ -83,7 +83,7 @@ export default function JobList() {
   const [pageSize, setPageSize] = useState(10);
   
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
-  const { edit, show, create } = useNavigation();
+  const { show, create } = useNavigation();
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
   const dataProvider = useDataProvider();
   const documentOperations = getDocumentOperations(dataProvider);
@@ -121,7 +121,7 @@ export default function JobList() {
         });
       }
     }
-  }, [error, refetch, refreshToken]);
+  }, [error, refetch]);
 
   useEffect(() => {
     if (identity?.token) refetch();
@@ -183,6 +183,29 @@ export default function JobList() {
     }));
   };
 
+  const extraColumns = [
+    {
+      header: "Logic",
+      accessor: (doc: Job) => formatScenarioName(doc.scenario || '')
+    },
+    {
+      header: "Public",
+      accessor: (doc: Job) => (
+        <Badge color={doc.isPublic ? "green" : "gray"} variant="light">
+          {doc.isPublic ? "Yes" : "No"}
+        </Badge>
+      )
+    },
+    {
+      header: "Page",
+      accessor: (doc: Job) => (
+        <Badge color={doc.createPage ? "green" : "gray"} variant="light">
+          {doc.createPage ? "Yes" : "No"}
+        </Badge>
+      )
+    }
+  ];
+
   if (identityLoading || (isLoading && identity?.token)) {
     return (
       <Stack p="md">
@@ -214,6 +237,7 @@ export default function JobList() {
         onRefresh={refetch}
         error={error}
         title="Jobs List"
+        extraColumns={extraColumns}
       />
       
       <Stack gap="md" p="md">
