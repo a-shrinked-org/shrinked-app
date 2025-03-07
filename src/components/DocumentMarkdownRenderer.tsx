@@ -37,43 +37,19 @@ interface LinkProps {
   children: React.ReactNode;
 }
 
-// Custom config for Markdoc
-const config = {
-  nodes: {
-    heading: {
-      render: 'Heading',
-      attributes: {
-        level: { type: Number, required: true },
-        id: { type: String }
-      }
-    },
-    paragraph: {
-      render: 'Paragraph'
-    },
-    link: {
-      render: 'Link',
-      attributes: {
-        href: { type: String, required: true },
-        title: { type: String }
-      }
-    }
-  }
-};
-
-// Custom components for rendering
-const components = {
-  Heading: ({ level, children }: HeadingProps) => {
-    const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
-    return React.createElement(HeadingTag, { style: { color: '#000000' } }, children);
+// Custom styles for markdoc content
+const markdocStyles = {
+  content: {
+    fontSize: '16px',
+    lineHeight: 1.7,
+    color: '#000000',
   },
-  Paragraph: ({ children }: ParagraphProps) => (
-    <p style={{ color: '#000000', marginBottom: '1rem' }}>{children}</p>
-  ),
-  Link: ({ href, children }: LinkProps) => (
-    <a href={href} style={{ color: '#0066cc', textDecoration: 'underline' }}>
-      {children}
-    </a>
-  )
+  container: {
+    position: 'relative',
+    backgroundColor: '#ffffff',
+    borderRadius: '8px',
+    padding: '20px',
+  }
 };
 
 function DocumentMarkdocRenderer({
@@ -298,16 +274,10 @@ function DocumentMarkdocRenderer({
       // Render the content with HTML
       const html = Markdoc.renderers.html(contentAst);
       
-      return (
-        <div 
-          dangerouslySetInnerHTML={{ __html: html }} 
-          className="markdoc-content"
-          style={{ color: '#000000' }}
-        />
-      );
+      return html;
     } catch (error) {
       console.error('Error rendering Markdoc:', error);
-      return <div>Error rendering content</div>;
+      return '<div>Error rendering content</div>';
     }
   };
   
@@ -319,36 +289,168 @@ function DocumentMarkdocRenderer({
         bg="white"
         c="black" 
         radius="md"
-        style={{ 
-          position: 'relative',
-          color: '#000000',
-          backgroundColor: '#ffffff',
-          borderRadius: '8px'
-        }}
+        style={markdocStyles.container}
         className="markdoc-container"
       >
         <style jsx global>{`
-          .markdoc-container p, 
-          .markdoc-container h1, 
-          .markdoc-container h2, 
-          .markdoc-container h3, 
-          .markdoc-container h4, 
-          .markdoc-container h5, 
-          .markdoc-container h6, 
-          .markdoc-container li, 
-          .markdoc-container a, 
-          .markdoc-container span, 
-          .markdoc-container div {
+          .markdoc-container h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
             color: #000000;
           }
+          .markdoc-container h2 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin-top: 1.75rem;
+            margin-bottom: 0.75rem;
+            color: #000000;
+          }
+          .markdoc-container h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #000000;
+          }
+          .markdoc-container h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-container h5 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-container h6 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-container p {
+            margin-bottom: 1rem;
+            color: #000000;
+          }
+          .markdoc-container ul, .markdoc-container ol {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+            color: #000000;
+          }
+          .markdoc-container li {
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-container a {
+            color: #0066cc;
+            text-decoration: underline;
+          }
+          /* Special styling for citation links */
+          .markdoc-container a.citation-link {
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 0.8em;
+            vertical-align: super;
+            line-height: 0;
+            padding: 0 2px;
+          }
+          .markdoc-container a.citation-link:hover {
+            text-decoration: underline;
+          }
+          /* Reference section styling */
+          .markdoc-container .references {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+          }
+          .markdoc-container .references h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+          }
+          .markdoc-container .references ol {
+            margin-left: 0;
+            padding-left: 1.5rem;
+          }
+          .markdoc-container .references li {
+            margin-bottom: 0.75rem;
+          }
+          /* Target for citation links */
+          .markdoc-container [id^="ts-"] {
+            scroll-margin-top: 2rem;
+          }
+          .markdoc-container blockquote {
+            border-left: 4px solid #e0e0e0;
+            padding-left: 1rem;
+            font-style: italic;
+            margin: 1rem 0;
+            color: #000000;
+          }
+          .markdoc-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+          }
+          .markdoc-container th, .markdoc-container td {
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem;
+            text-align: left;
+            color: #000000;
+          }
+          .markdoc-container th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+          }
+          .markdoc-container img {
+            max-width: 100%;
+            height: auto;
+          }
+          .markdoc-container code {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #000000;
+          }
+          .markdoc-container pre {
+            background-color: #f5f5f5;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+          }
+          .markdoc-container pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            color: #000000;
+          }
+          /* Markdoc tags and annotations styling */
+          .markdoc-container .tag-container {
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 3px solid #0066cc;
+          }
+          /* Variables styling */
+          .markdoc-container .variable {
+            font-style: italic;
+            color: #0066cc;
+          }
         `}</style>
-        <Box className="markdoc-content" style={{ 
-          fontSize: '16px', 
-          lineHeight: 1.7, 
-          color: '#000000' 
-        }}>
-          {renderMarkdoc(markdown)}
-        </Box>
+        <div 
+          style={markdocStyles.content}
+          className="markdoc-content"
+          dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdown) }}
+        />
       </Paper>
     );
   }
@@ -473,190 +575,168 @@ function DocumentMarkdocRenderer({
       bg="white"
       c="black"
       radius="md"
-      style={{ 
-        position: 'relative',
-        color: '#000000',
-        backgroundColor: '#ffffff',
-        borderRadius: '8px'
-      }}
+      style={markdocStyles.container}
       className="markdoc-container"
     >
       <style jsx global>{`
-        .markdoc-container p, 
-        .markdoc-container h1, 
-        .markdoc-container h2, 
-        .markdoc-container h3, 
-        .markdoc-container h4, 
-        .markdoc-container h5, 
-        .markdoc-container h6, 
-        .markdoc-container li, 
-        .markdoc-container a, 
-        .markdoc-container span, 
-        .markdoc-container div {
+        .markdoc-container h1 {
+          font-size: 2.25rem;
+          font-weight: 700;
+          margin-top: 2rem;
+          margin-bottom: 1rem;
           color: #000000;
         }
+        .markdoc-container h2 {
+          font-size: 1.875rem;
+          font-weight: 600;
+          margin-top: 1.75rem;
+          margin-bottom: 0.75rem;
+          color: #000000;
+        }
+        .markdoc-container h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin-top: 1.5rem;
+          margin-bottom: 0.75rem;
+          color: #000000;
+        }
+        .markdoc-container h4 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-top: 1.25rem;
+          margin-bottom: 0.5rem;
+          color: #000000;
+        }
+        .markdoc-container h5 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+          color: #000000;
+        }
+        .markdoc-container h6 {
+          font-size: 1rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+          color: #000000;
+        }
+        .markdoc-container p {
+          margin-bottom: 1rem;
+          color: #000000;
+        }
+        .markdoc-container ul, .markdoc-container ol {
+          margin-bottom: 1rem;
+          padding-left: 2rem;
+          color: #000000;
+        }
+        .markdoc-container li {
+          margin-bottom: 0.5rem;
+          color: #000000;
+        }
+        .markdoc-container a {
+          color: #0066cc;
+          text-decoration: underline;
+        }
+        /* Special styling for citation links */
+        .markdoc-container a.citation-link {
+          color: #0066cc;
+          text-decoration: none;
+          font-size: 0.8em;
+          vertical-align: super;
+          line-height: 0;
+          padding: 0 2px;
+        }
+        .markdoc-container a.citation-link:hover {
+          text-decoration: underline;
+        }
+        /* Reference section styling */
+        .markdoc-container .references {
+          margin-top: 3rem;
+          padding-top: 1.5rem;
+          border-top: 1px solid #e0e0e0;
+        }
+        .markdoc-container .references h2 {
+          font-size: 1.5rem;
+          margin-bottom: 1rem;
+        }
+        .markdoc-container .references ol {
+          margin-left: 0;
+          padding-left: 1.5rem;
+        }
+        .markdoc-container .references li {
+          margin-bottom: 0.75rem;
+        }
+        /* Target for citation links */
+        .markdoc-container [id^="ts-"] {
+          scroll-margin-top: 2rem;
+        }
+        .markdoc-container blockquote {
+          border-left: 4px solid #e0e0e0;
+          padding-left: 1rem;
+          font-style: italic;
+          margin: 1rem 0;
+          color: #000000;
+        }
+        .markdoc-container table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1rem 0;
+        }
+        .markdoc-container th, .markdoc-container td {
+          border: 1px solid #e0e0e0;
+          padding: 0.5rem;
+          text-align: left;
+          color: #000000;
+        }
+        .markdoc-container th {
+          background-color: #f5f5f5;
+          font-weight: 600;
+        }
+        .markdoc-container img {
+          max-width: 100%;
+          height: auto;
+        }
+        .markdoc-container code {
+          font-family: monospace;
+          background-color: #f5f5f5;
+          padding: 0.2rem 0.4rem;
+          border-radius: 3px;
+          font-size: 0.9em;
+          color: #000000;
+        }
+        .markdoc-container pre {
+          background-color: #f5f5f5;
+          padding: 1rem;
+          border-radius: 5px;
+          overflow-x: auto;
+          margin: 1rem 0;
+        }
+        .markdoc-container pre code {
+          background-color: transparent;
+          padding: 0;
+          border-radius: 0;
+          color: #000000;
+        }
+        /* Markdoc tags and annotations styling */
+        .markdoc-container .tag-container {
+          margin: 1rem 0;
+          padding: 1rem;
+          background-color: #f9f9f9;
+          border-radius: 5px;
+          border-left: 3px solid #0066cc;
+        }
+        /* Variables styling */
+        .markdoc-container .variable {
+          font-style: italic;
+          color: #0066cc;
+        }
       `}</style>
-      <Box style={{ 
-        fontSize: '16px', 
-        lineHeight: 1.7, 
-        color: '#000000' 
-      }}>
-        {renderMarkdoc(markdownContent)}
-        <style jsx global>{`
-          .markdoc-content h1 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            color: #000000;
-          }
-          .markdoc-content h2 {
-            font-size: 1.875rem;
-            font-weight: 600;
-            margin-top: 1.75rem;
-            margin-bottom: 0.75rem;
-            color: #000000;
-          }
-          .markdoc-content h3 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-top: 1.5rem;
-            margin-bottom: 0.75rem;
-            color: #000000;
-          }
-          .markdoc-content h4 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-top: 1.25rem;
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-content h5 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-content h6 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-content p {
-            margin-bottom: 1rem;
-            color: #000000;
-          }
-          .markdoc-content ul, .markdoc-content ol {
-            margin-bottom: 1rem;
-            padding-left: 2rem;
-            color: #000000;
-          }
-          .markdoc-content li {
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-content a {
-            color: #0066cc;
-            text-decoration: underline;
-          }
-          /* Special styling for citation links */
-          .markdoc-content a.citation-link {
-            color: #0066cc;
-            text-decoration: none;
-            font-size: 0.8em;
-            vertical-align: super;
-            line-height: 0;
-            padding: 0 2px;
-          }
-          .markdoc-content a.citation-link:hover {
-            text-decoration: underline;
-          }
-          /* Reference section styling */
-          .markdoc-content .references {
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e0e0e0;
-          }
-          .markdoc-content .references h2 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-          }
-          .markdoc-content .references ol {
-            margin-left: 0;
-            padding-left: 1.5rem;
-          }
-          .markdoc-content .references li {
-            margin-bottom: 0.75rem;
-          }
-          /* Target for citation links */
-          .markdoc-content [id^="ts-"] {
-            scroll-margin-top: 2rem;
-          }
-          .markdoc-content blockquote {
-            border-left: 4px solid #e0e0e0;
-            padding-left: 1rem;
-            font-style: italic;
-            margin: 1rem 0;
-            color: #000000;
-          }
-          .markdoc-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-          }
-          .markdoc-content th, .markdoc-content td {
-            border: 1px solid #e0e0e0;
-            padding: 0.5rem;
-            text-align: left;
-            color: #000000;
-          }
-          .markdoc-content th {
-            background-color: #f5f5f5;
-            font-weight: 600;
-          }
-          .markdoc-content img {
-            max-width: 100%;
-            height: auto;
-          }
-          .markdoc-content code {
-            font-family: monospace;
-            background-color: #f5f5f5;
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-size: 0.9em;
-            color: #000000;
-          }
-          .markdoc-content pre {
-            background-color: #f5f5f5;
-            padding: 1rem;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 1rem 0;
-          }
-          .markdoc-content pre code {
-            background-color: transparent;
-            padding: 0;
-            border-radius: 0;
-            color: #000000;
-          }
-          /* Markdoc tags and annotations styling */
-          .markdoc-content .tag-container {
-            margin: 1rem 0;
-            padding: 1rem;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-            border-left: 3px solid #0066cc;
-          }
-          /* Variables styling */
-          .markdoc-content .variable {
-            font-style: italic;
-            color: #0066cc;
-          }
-        `}</style>
-      </Box>
+      <div 
+        style={markdocStyles.content}
+        className="markdoc-content"
+        dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdownContent) }}
+      />
     </Paper>
   );
 }
