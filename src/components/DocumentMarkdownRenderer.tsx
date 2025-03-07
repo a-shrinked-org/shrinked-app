@@ -118,163 +118,20 @@ function DocumentMarkdocRenderer({
       // Parse the markdown content
       const ast = Markdoc.parse(processedContent);
       
-      // Define a custom schema with enhanced support for references
-      const schema = {
-        nodes: {
-          document: {
-            render: 'div'
-          },
-          heading: {
-            render: 'heading',
-            attributes: {
-              level: { type: Number, required: true },
-              id: { type: String }
-            }
-          },
-          paragraph: {
-            render: 'p',
-            attributes: {
-              id: { type: String }
-            }
-          },
-          link: {
-            render: 'a',
-            attributes: {
-              href: { type: String },
-              title: { type: String },
-              id: { type: String }
-            }
-          },
-          list: {
-            render: ({ ordered }: { ordered?: boolean }) => ordered ? 'ol' : 'ul',
-            attributes: {
-              id: { type: String }
-            }
-          },
-          item: {
-            render: 'li',
-            attributes: {
-              id: { type: String }
-            }
-          },
-          blockquote: {
-            render: 'blockquote',
-            attributes: {
-              id: { type: String }
-            }
-          },
-          image: {
-            render: 'img',
-            attributes: {
-              src: { type: String },
-              alt: { type: String },
-              id: { type: String }
-            }
-          },
-          table: {
-            render: 'table',
-            attributes: {
-              id: { type: String }
-            }
-          },
-          thead: {
-            render: 'thead'
-          },
-          tbody: {
-            render: 'tbody'
-          },
-          tr: {
-            render: 'tr'
-          },
-          th: {
-            render: 'th',
-            attributes: {
-              colspan: { type: String },
-              rowspan: { type: String },
-              width: { type: String },
-              align: { type: String }
-            }
-          },
-          td: {
-            render: 'td',
-            attributes: {
-              colspan: { type: String },
-              rowspan: { type: String },
-              width: { type: String },
-              align: { type: String }
-            }
-          },
-          code: {
-            render: 'code',
-            attributes: {
-              language: { type: String }
-            }
-          }
-        },
-        tags: {
-          ref: {
-            render: 'a',
-            attributes: {
-              id: { type: String, required: true },
-              href: { type: String, required: true }
-            }
-          },
-          cite: {
-            render: 'cite',
-            attributes: {
-              id: { type: String }
-            }
-          }
-        },
-        variables: {
-          currentYear: new Date().getFullYear()
-        },
-        functions: {
-          uppercase: (str: string): string => str.toUpperCase(),
-          lowercase: (str: string): string => str.toLowerCase()
-        }
-      };
-      
-      // Additional configuration for Markdoc
-      const config = {
-        nodes: {
-          link: {
-            transform(node: any, config: any) {
-              const attributes = node.transformAttributes(config) as Record<string, any>;
-              const children = node.transformChildren(config);
-              
-              // Handle ID annotations for references
-              const id = node.attributes?.find((attr: { name: string, value: string }) => attr.name === 'id')?.value;
-              
-              // Special handling for academic citations
-              if (attributes.href && attributes.href.startsWith('#ts-')) {
-                return new Markdoc.Tag(
-                  'a',
-                  { 
-                    href: attributes.href,
-                    id: id,
-                    className: 'citation-link'
-                  },
-                  children
-                );
-              }
-              
-              return new Markdoc.Tag('a', attributes, children);
-            }
-          }
-        }
-      };
-      
-      // Transform AST using enhanced schema and config
-      const contentAst = Markdoc.transform(ast, {
-        ...schema,
-        ...config
-      });
+      // Use a simpler approach to transform and render the content
+      // to avoid TypeScript errors with complex configurations
+      const contentAst = Markdoc.transform(ast);
       
       // Render the content with HTML
       const html = Markdoc.renderers.html(contentAst);
       
-      return html;
+      // Process the HTML to add citation link classes
+      const processedHtml = html.replace(
+        /<a\s+href="#(ts-\d+)"([^>]*)>(.*?)<\/a>/g,
+        '<a href="#$1" class="citation-link"$2>$3</a>'
+      );
+      
+      return processedHtml;
     } catch (error) {
       console.error('Error rendering Markdoc:', error);
       return '<div>Error rendering content</div>';
