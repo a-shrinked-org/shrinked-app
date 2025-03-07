@@ -24,7 +24,7 @@ export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [docToJobMapping, setDocToJobMapping] = useState<Record<string, string>>({});
   
-  const requestedFields = '_id,title,fileName,createdAt,status,output.title';
+  const requestedFields = '_id,title,createdAt';
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
@@ -35,20 +35,26 @@ export default function ProcessingList() {
       pageSize: 100,
     },
     meta: {
-      headers: authUtils.getAuthHeaders(), // Use authUtils.getAuthHeaders
+      headers: authUtils.getAuthHeaders(),
       url: identity?.id ? `${API_CONFIG.API_URL}/processing/user/${identity.id}/documents?fields=${requestedFields}` : ""
     }
   });
 
   useEffect(() => {
-    console.log("Raw data from useList in ProcessingList:", data); // Debug raw data
-    if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
-      documentOperations.fetchJobIdsForDocs(data.data, API_CONFIG.API_URL)
-        .then(mapping => {
-          console.log("Doc to Job mapping:", mapping);
-          setDocToJobMapping(mapping);
-        })
-        .catch(err => console.error("Failed to fetch job mappings:", err));
+    console.log("Raw data from useList in ProcessingList:", data);
+    if (data?.data && Array.isArray(data.data)) {
+      const validDocs = data.data.filter(doc => doc && doc._id && doc.createdAt) as ProcessedDocument[];
+      console.log("Filtered valid documents:", validDocs);
+      if (validDocs.length > 0) {
+        documentOperations.fetchJobIdsForDocs(validDocs, API_CONFIG.API_URL)
+          .then(mapping => {
+            console.log("Doc to Job mapping:", mapping);
+            setDocToJobMapping(mapping);
+          })
+          .catch(err => console.error("Failed to fetch job mappings:", err));
+      } else {
+        console.log("No valid documents with _id and createdAt found");
+      }
     } else {
       console.log("No valid data.data array found:", data);
     }
@@ -57,7 +63,7 @@ export default function ProcessingList() {
   useEffect(() => {
     if (error) {
       console.error("Error fetching documents:", error);
-      authUtils.handleAuthError(error); // Use authUtils error handling
+      authUtils.handleAuthError(error);
       if (error.status === 401 || error.status === 403) {
         authUtils.refreshToken().then(success => {
           if (success) refetch();
@@ -73,9 +79,33 @@ export default function ProcessingList() {
     }
   }, [identity, refetch]);
 
-  const handleRowClick = (doc: ProcessedDocument) => {
+  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     const jobId = docToJobMapping[doc._id] || doc._id;
     window.open(`/jobs/show/${jobId}`, '_blank');
+  };
+
+  const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
+    if (result.success) {
+      alert("Document sent successfully");
+    } else {
+      alert("Failed to send document: " + (result.error?.message || "Unknown error"));
+    }
+  };
+
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (confirm("Are you sure you want to delete this document?")) {
+      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
+      if (result.success) {
+        alert("Document deleted successfully");
+        refetch();
+      } else {
+        alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
+      }
+    }
   };
 
   const handleRefresh = () => {
@@ -109,12 +139,15 @@ export default function ProcessingList() {
     <DocumentsTable<ProcessedDocument>
       data={data?.data || []}
       docToJobMapping={docToJobMapping}
-      onRowClick={handleRowClick}
-      formatDate={formatDate} // Use unified formatDate
+      onView={handleViewDocument}
+      onSendEmail={handleSendEmail}
+      onDelete={handleDelete}
+      formatDate={formatDate}
       isLoading={isLoading}
       onRefresh={handleRefresh}
       error={error}
       title="Doc Store"
+      showStatus={false}
     />
   );
 }

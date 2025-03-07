@@ -56,6 +56,8 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   error?: any;
   title?: string;
   extraColumns?: ExtraColumn<T>[];
+  showStatus?: boolean; // New prop to toggle status column
+  noDataMessage?: string; // New prop for custom no-data message
 }
 
 const DocumentsTable = <T extends ProcessedDocument>({ 
@@ -70,7 +72,9 @@ const DocumentsTable = <T extends ProcessedDocument>({
   onRefresh,
   error,
   title = "Documents",
-  extraColumns = []
+  extraColumns = [],
+  showStatus = true, // Default to true for backward compatibility
+  noDataMessage = "No documents found."
 }: DocumentsTableProps<T>) => {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
@@ -84,7 +88,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
   };
 
   const handleSendEmail = async () => {
-    if (!activeDocId || !onSendEmail) return; // Check onSendEmail exists
+    if (!activeDocId || !onSendEmail) return;
     
     setSendingEmail(true);
     try {
@@ -99,7 +103,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
 
   const renderTable = () => {
     if (!data || data.length === 0) {
-      return <Text>No documents found.</Text>;
+      return <Text>{noDataMessage}</Text>;
     }
 
     const hasActions = onView || onSendEmail || onDelete;
@@ -110,7 +114,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
           <Table.Tr>
             <Table.Th>Document Title</Table.Th>
             <Table.Th>Date</Table.Th>
-            <Table.Th>Status</Table.Th>
+            {showStatus && <Table.Th>Status</Table.Th>}
             {extraColumns.map((col, index) => (
               <Table.Th key={index}>{col.header}</Table.Th>
             ))}
@@ -130,9 +134,11 @@ const DocumentsTable = <T extends ProcessedDocument>({
                 </Text>
               </Table.Td>
               <Table.Td>{formatDate(doc.createdAt)}</Table.Td>
-              <Table.Td>
-                <Text>{doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : 'Unknown'}</Text>
-              </Table.Td>
+              {showStatus && (
+                <Table.Td>
+                  <Text>{doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : 'Unknown'}</Text>
+                </Table.Td>
+              )}
               {extraColumns.map((col, index) => (
                 <Table.Td key={index}>
                   {typeof col.accessor === 'function' ? col.accessor(doc) : (doc[col.accessor] as React.ReactNode)}

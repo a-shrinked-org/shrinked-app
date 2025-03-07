@@ -29,7 +29,6 @@ import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
-import axios from "axios";
 
 interface Identity {
   token?: string;
@@ -77,7 +76,7 @@ export default function ApiKeysList() {
       pageSize: 100,
     },
     meta: {
-      headers: authUtils.getAuthHeaders(), // Use authUtils.getAuthHeaders
+      headers: authUtils.getAuthHeaders(),
       url: `${API_CONFIG.API_URL}/users/api-keys`
     }
   });
@@ -85,7 +84,7 @@ export default function ApiKeysList() {
   useEffect(() => {
     if (error) {
       console.error("Error fetching API keys:", error);
-      authUtils.handleAuthError(error); // Consistent error handling
+      authUtils.handleAuthError(error);
       if (error.status === 401 || error.status === 403) {
         authUtils.refreshToken().then(success => {
           if (success) refetch();
@@ -110,7 +109,7 @@ export default function ApiKeysList() {
       try {
         const response = await authUtils.fetchWithAuth(`${API_CONFIG.API_URL}/users/api-key/${id}`, {
           method: 'DELETE',
-        }); // Use fetchWithAuth instead of axios
+        });
         if (response.status === 200) {
           alert("API key deleted successfully");
           refetch();
@@ -131,7 +130,7 @@ export default function ApiKeysList() {
 
     setIsLoading(true);
     try {
-      const newKey = await ApiKeyService.createApiKey(userId, keyName); // Assumes POST /users/:userId/api-key
+      const newKey = await ApiKeyService.createApiKey(userId, keyName);
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
@@ -198,6 +197,7 @@ export default function ApiKeysList() {
         onRefresh={handleRefresh}
         error={error}
         title="API Keys"
+        noDataMessage="No API keys found."
       />
 
       <Group p="md" justify="flex-end">
