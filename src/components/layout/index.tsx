@@ -110,6 +110,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   ];
 
   return (
+  <>
     <DefaultMetadata />
     <AppShell
       navbar={{ 
