@@ -129,13 +129,20 @@ function DocumentMarkdocRenderer({
     );
   }
   
-  // Render markdown content using Markdoc
+  // Render markdown content using Markdoc with enhanced reference support
   const renderMarkdoc = (content: string) => {
     try {
-      // Parse the markdown content
-      const ast = Markdoc.parse(content);
+      // Process references in the markdown to support academic-style citations
+      // Example: [text](#ts-43) -> <a href="#ts-43" id="ref-ts-43">text</a>
+      const processedContent = content.replace(
+        /\[\[([^\]]+)\]\]\(#(ts-\d+)\)/g, 
+        (match, text, id) => `[${text}](#${id}){#ref-${id}}`
+      );
       
-      // Define a custom schema to ensure proper heading rendering
+      // Parse the markdown content
+      const ast = Markdoc.parse(processedContent);
+      
+      // Define a custom schema with enhanced support for references
       const schema = {
         nodes: {
           document: {
@@ -144,37 +151,55 @@ function DocumentMarkdocRenderer({
           heading: {
             render: 'heading',
             attributes: {
-              level: { type: Number, required: true }
+              level: { type: Number, required: true },
+              id: { type: String }
             }
           },
           paragraph: {
-            render: 'p'
+            render: 'p',
+            attributes: {
+              id: { type: String }
+            }
           },
           link: {
             render: 'a',
             attributes: {
               href: { type: String },
-              title: { type: String }
+              title: { type: String },
+              id: { type: String }
             }
           },
           list: {
-            render: ({ ordered }) => ordered ? 'ol' : 'ul'
+            render: ({ ordered }) => ordered ? 'ol' : 'ul',
+            attributes: {
+              id: { type: String }
+            }
           },
           item: {
-            render: 'li'
+            render: 'li',
+            attributes: {
+              id: { type: String }
+            }
           },
           blockquote: {
-            render: 'blockquote'
+            render: 'blockquote',
+            attributes: {
+              id: { type: String }
+            }
           },
           image: {
             render: 'img',
             attributes: {
               src: { type: String },
-              alt: { type: String }
+              alt: { type: String },
+              id: { type: String }
             }
           },
           table: {
-            render: 'table'
+            render: 'table',
+            attributes: {
+              id: { type: String }
+            }
           },
           thead: {
             render: 'thead'
@@ -186,16 +211,89 @@ function DocumentMarkdocRenderer({
             render: 'tr'
           },
           th: {
-            render: 'th'
+            render: 'th',
+            attributes: {
+              colspan: { type: String },
+              rowspan: { type: String },
+              width: { type: String },
+              align: { type: String }
+            }
           },
           td: {
-            render: 'td'
+            render: 'td',
+            attributes: {
+              colspan: { type: String },
+              rowspan: { type: String },
+              width: { type: String },
+              align: { type: String }
+            }
+          },
+          code: {
+            render: 'code',
+            attributes: {
+              language: { type: String }
+            }
+          }
+        },
+        tags: {
+          ref: {
+            render: 'a',
+            attributes: {
+              id: { type: String, required: true },
+              href: { type: String, required: true }
+            }
+          },
+          cite: {
+            render: 'cite',
+            attributes: {
+              id: { type: String }
+            }
+          }
+        },
+        variables: {
+          currentYear: new Date().getFullYear()
+        },
+        functions: {
+          uppercase: (str: string) => str.toUpperCase(),
+          lowercase: (str: string) => str.toLowerCase()
+        }
+      };
+      
+      // Additional configuration for Markdoc
+      const config = {
+        nodes: {
+          link: {
+            transform(node, config) {
+              const attributes = node.transformAttributes(config);
+              const children = node.transformChildren(config);
+              
+              // Handle ID annotations for references
+              const id = node.attributes.find(attr => attr.name === 'id')?.value;
+              
+              // Special handling for academic citations
+              if (attributes.href && attributes.href.startsWith('#ts-')) {
+                return new Markdoc.Tag(
+                  'a',
+                  { 
+                    href: attributes.href,
+                    id: id,
+                    className: 'citation-link'
+                  },
+                  children
+                );
+              }
+              
+              return new Markdoc.Tag('a', attributes, children);
+            }
           }
         }
       };
       
-      // Transform AST using enhanced schema
-      const contentAst = Markdoc.transform(ast, schema);
+      // Transform AST using enhanced schema and config
+      const contentAst = Markdoc.transform(ast, {
+        ...schema,
+        ...config
+      });
       
       // Render the content with HTML
       const html = Markdoc.renderers.html(contentAst);
@@ -464,6 +562,39 @@ function DocumentMarkdocRenderer({
             color: #0066cc;
             text-decoration: underline;
           }
+          /* Special styling for citation links */
+          .markdoc-content a.citation-link {
+            color: #0066cc;
+            text-decoration: none;
+            font-size: 0.8em;
+            vertical-align: super;
+            line-height: 0;
+            padding: 0 2px;
+          }
+          .markdoc-content a.citation-link:hover {
+            text-decoration: underline;
+          }
+          /* Reference section styling */
+          .markdoc-content .references {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e0e0e0;
+          }
+          .markdoc-content .references h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+          }
+          .markdoc-content .references ol {
+            margin-left: 0;
+            padding-left: 1.5rem;
+          }
+          .markdoc-content .references li {
+            margin-bottom: 0.75rem;
+          }
+          /* Target for citation links */
+          .markdoc-content [id^="ts-"] {
+            scroll-margin-top: 2rem;
+          }
           .markdoc-content blockquote {
             border-left: 4px solid #e0e0e0;
             padding-left: 1rem;
@@ -510,6 +641,19 @@ function DocumentMarkdocRenderer({
             padding: 0;
             border-radius: 0;
             color: #000000;
+          }
+          /* Markdoc tags and annotations styling */
+          .markdoc-content .tag-container {
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border-left: 3px solid #0066cc;
+          }
+          /* Variables styling */
+          .markdoc-content .variable {
+            font-style: italic;
+            color: #0066cc;
           }
         `}</style>
       </Box>
