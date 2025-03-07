@@ -38,7 +38,7 @@ export interface ProcessedDocument {
   }
 }
 
-interface ExtraColumn<T extends ProcessedDocument> {
+export interface ExtraColumn<T extends ProcessedDocument> {
   header: string;
   accessor: keyof T | ((doc: T) => React.ReactNode);
 }

@@ -23,7 +23,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
-import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
+import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
 import { getDocumentOperations } from '@/providers/data-provider/shrinked-data-provider';
 
 interface Identity {
