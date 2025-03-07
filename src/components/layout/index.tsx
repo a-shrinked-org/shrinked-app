@@ -192,5 +192,6 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
         </Container>
       </AppShell.Main>
     </AppShell>
+    </>
   );
 };
