@@ -77,14 +77,21 @@ function DocumentMarkdocRenderer({
   
   // Clean and properly format references in the markdown content
   const preprocessMarkdown = (content: string) => {
-    // Clean text of double bracket references and replace with proper format
-    return content.replace(
-      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g, // Match [[number]](#ts-number)
-      (match, num, id) => `<span class="reference-anchor" id="ref-ts-${id}"></span>[${num}](#ts-${id})`
-    ).replace(
-      /(\s*)\[\[([^\]]+)\]\]\(#(ts-\d+)\)(\s*)/g, // Match [[text]](#ts-number)
-      (match, spaceBefore, text, id, spaceAfter) => `${spaceBefore}${text} [<a href="#${id}" class="citation-ref">${id.replace('ts-', '')}</a>]${spaceAfter}`
+    // Handle inline references - convert [[number]](#ts-xx) to proper text with linkable references
+    // This handles cases like [[23]](#ts-23) at the beginning of sentences
+    let processed = content.replace(
+      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
+      (match, num, id) => `<a id="ts-${id}"></a>[${num}]`
     );
+    
+    // Handle text with citation references
+    // This handles cases like [[text]](#ts-xx) which should become "text [xx]" with xx linked
+    processed = processed.replace(
+      /\[\[([^\]]+)\]\]\(#ts-(\d+)\)/g,
+      (match, text, id) => `${text} <a href="#ts-${id}" class="citation-ref">[${id}]</a>`
+    );
+    
+    return processed;
   };
   
   // Render markdown content using Markdoc
@@ -335,6 +342,7 @@ function DocumentMarkdocRenderer({
       <style jsx global>{`
         /* Mantine title styles */
         .mantine-title-h1 {
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 2.25rem;
           font-weight: 700;
           line-height: 1.3;
@@ -344,6 +352,7 @@ function DocumentMarkdocRenderer({
         }
         
         .mantine-title-h2 {
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 1.875rem;
           font-weight: 600;
           line-height: 1.35;
@@ -353,6 +362,7 @@ function DocumentMarkdocRenderer({
         }
         
         .mantine-title-h3 {
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 1.5rem;
           font-weight: 600;
           line-height: 1.4;
@@ -362,6 +372,7 @@ function DocumentMarkdocRenderer({
         }
         
         .mantine-title-h4 {
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 1.25rem;
           font-weight: 600;
           line-height: 1.45;
@@ -372,8 +383,9 @@ function DocumentMarkdocRenderer({
         
         /* Citation reference styling */
         .citation-ref {
-          color: #0066cc;
+          color: #228be6;
           text-decoration: none;
+          font-weight: normal;
         }
         
         .citation-ref:hover {
@@ -384,6 +396,9 @@ function DocumentMarkdocRenderer({
         .markdoc-container p {
           margin-bottom: 1rem;
           line-height: 1.7;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
+          font-size: 1rem;
+          color: #000000;
         }
         
         .markdoc-container a {
@@ -405,7 +420,7 @@ function DocumentMarkdocRenderer({
           margin-bottom: 0.5rem;
         }
       `}</style>
-      <div 
+      <div
         className="markdoc-content"
         dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdownContent) }}
       />
