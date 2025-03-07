@@ -121,7 +121,7 @@ export default function JobShow() {
     try {
       console.log('Attempting to fetch markdown with job ID:', jobId);
       
-      // Use the corrected endpoint format: /pdf/{jobId}/markdown?includeReferences=true
+      // Always use the correct endpoint format with jobId
       const response = await fetchWithAuth(
         `${API_CONFIG.API_URL}/pdf/${jobId}/markdown?includeReferences=true`
       );
@@ -146,12 +146,12 @@ export default function JobShow() {
       setErrorMessage("Missing required data to fetch document");
       return;
     }
-
+  
     if (!navigator.onLine) {
       setErrorMessage("You appear to be offline. Please check your internet connection.");
       return;
     }
-
+  
     try {
       setIsLoadingDoc(true);
       setErrorMessage(null);
@@ -163,11 +163,11 @@ export default function JobShow() {
       const response = await fetchWithAuth(
         `${API_CONFIG.API_URL}/processing/${processingDocId}?fields=${fields}`
       );
-
+  
       if (!response.ok) {
         throw new Error(`Fetch failed with status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       
       const sanitizedData = JSON.parse(
@@ -180,18 +180,15 @@ export default function JobShow() {
       );
       
       setProcessingDoc(sanitizedData);
-
-      // If we're in preview tab, also fetch the markdown content
-      if (activeTab === "preview") {
-        fetchMarkdownContent();
-      }
+  
+      // Don't fetch markdown here - let the effect handle it
     } catch (error) {
       console.error("Failed to fetch document:", error);
       setErrorMessage(`Error loading document: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoadingDoc(false);
     }
-  }, [processingDocId, fetchWithAuth, activeTab, fetchMarkdownContent]);
+  }, [processingDocId, fetchWithAuth]);
 
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
@@ -305,10 +302,11 @@ export default function JobShow() {
 
   // Effect to load markdown content when tab changes to preview
   useEffect(() => {
-    if (activeTab === "preview" && !markdownContent && (processingDocId || jobId)) {
+    if (activeTab === "preview" && !markdownContent && jobId) {
+      // Only fetch markdown if we have a jobId and are in preview mode
       fetchMarkdownContent();
     }
-  }, [activeTab, processingDocId, jobId, markdownContent, fetchMarkdownContent]);
+  }, [activeTab, jobId, markdownContent, fetchMarkdownContent]);
 
   const manualRefetch = () => {
     setErrorMessage(null);
@@ -317,7 +315,10 @@ export default function JobShow() {
     
     if (processingDocId) {
       getProcessingDocument();
-    } else {
+    }
+    
+    // Always fetch markdown using jobId if in preview tab
+    if (activeTab === "preview" && jobId) {
       fetchMarkdownContent();
     }
   };
