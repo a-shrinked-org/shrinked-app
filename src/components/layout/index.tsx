@@ -110,7 +110,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
 
   return (
     <AppShell
-      header={{ height: 60 }}
+      header={{ height: 0 }}
       navbar={{ 
         width: 300, 
         breakpoint: 'sm',
