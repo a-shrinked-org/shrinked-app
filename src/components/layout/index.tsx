@@ -1,197 +1,185 @@
 "use client";
 
-import { useState } from "react";
+import React, { ReactNode } from "react";
 import { 
-  AppShell,
-  Burger,
-  Group,
-  Title,
-  Stack,
-  NavLink as MantineNavLink,
+  Box, 
+  Text, 
+  Flex,
+  UnstyledButton,
   Avatar,
-  Text,
-  Box,
-  Container
+  Group,
+  Progress,
+  Stack
 } from '@mantine/core';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSession, signOut } from "next-auth/react";
-import { 
-  LayoutDashboard, 
-  Briefcase,
-  LogOut,
-  Files,
-  Key,
-  Calendar
-} from 'lucide-react';
-import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
-import { authUtils } from "@/utils/authUtils";
-// Import IconWrapper from the utils file
-import { IconWrapper } from '@/utils/ui-utils';
-import { DefaultMetadata } from '@/components/DefaultMetadata';
+import { useLogout, useGetIdentity } from "@refinedev/core";
 
 interface Identity {
   id?: string;
   name?: string;
   email?: string;
   avatar?: string;
-  username?: string;
 }
 
-export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
-  const [opened, setOpened] = useState(true);
+interface CustomLayoutProps {
+  children: ReactNode;
+}
+
+const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
   const pathname = usePathname();
-  const { data: session } = useSession();
   const router = useRouter();
   const { mutate: logout } = useLogout();
   const { data: identity } = useGetIdentity<Identity>();
 
-  // Use either session or custom auth identity
-  const userInfo = {
-    name: session?.user?.name || identity?.name || identity?.username,
-    email: session?.user?.email || identity?.email,
-    avatar: session?.user?.image || identity?.avatar,
-  };
-
-  // Generate initials from the user's name or email
-  const getInitials = () => {
-    if (userInfo.name) {
-      const nameParts = userInfo.name.split(' ');
-      if (nameParts.length > 1) {
-        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
-      }
-      return userInfo.name.substring(0, 2).toUpperCase();
-    } else if (userInfo.email) {
-      return userInfo.email.substring(0, 2).toUpperCase();
-    }
-    return 'UN'; // Unknown
-  };
-
-  const handleLogout = () => {
-    if (session) {
-      signOut();
-    } else {
-      // Use centralized auth utilities to clear storage
-      authUtils.clearAuthStorage();
-      logout();
-    }
-  };
-
   const menuItems = [
-    { 
-      label: 'Dashboard', 
-      icon: LayoutDashboard,
-      href: '/',
-      resource: "dashboard" 
-    },
-    { 
-      label: 'Jobs', 
-      icon: Briefcase,
-      href: '/jobs',
-      resource: "jobs" 
-    },
-    { 
-      label: 'docStore', 
-      icon: Files,
-      href: '/output',
-      resource: "output" 
-    },
-    { 
-      label: 'API Keys', 
-      icon: Key,
-      href: '/api-keys',
-      resource: "api-keys" 
-    },
-    { 
-      label: 'Scheduled', 
-      icon: Calendar,
-      href: '/scheduled',
-      resource: "scheduled" 
-    },
+    { label: 'Dashboard', href: '/' },
+    { label: 'JOB LIST', href: '/jobs', active: true },
+    { label: 'DOC STORE', href: '/output' },
+    { label: 'API KEYS', href: '/api-keys' },
+    { label: 'SCHEDULED', href: '/scheduled' },
   ];
 
+  const handleNavigation = (href: string) => {
+    router.push(href);
+  };
+
+  const userInfo = {
+    name: identity?.name || 'IVAN CHEREPUKHIN',
+    email: identity?.email || 'cherepukhin@damn.vc',
+    avatar: identity?.avatar,
+  };
+
   return (
-  <>
-    <DefaultMetadata />
-    <AppShell
-      navbar={{ 
-        width: 300, 
-        breakpoint: 'sm',
-        collapsed: { mobile: !opened }
-      }}
-      padding="md"
-    >
-      {/* Remove the AppShell.Header completely */}
-      
-      <AppShell.Navbar p="md">
-        <Stack justify="space-between" h="100%">
-          <Stack>
-            {/* Add logo at the top of sidebar */}
-            <Box p="md" mb="md">
-              <Group align="center">
-                {/* Mobile menu toggle */}
-                <Burger 
-                  opened={opened} 
-                  onClick={() => setOpened(!opened)} 
-                  size="sm"
-                  hiddenFrom="sm"
-                />
-                <Title order={3}>Shrinked</Title>
-              </Group>
+    <Flex className="h-screen bg-[#000000] text-[#ffffff] overflow-hidden font-mono">
+      {/* Sidebar */}
+      <Box w={316} style={{ 
+        borderRight: '1px solid #2b2b2b',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        <Box p="md">
+          {/* Logo */}
+          <Flex align="center" gap="xs" mb="xl">
+            <Box w={24} h={24} style={{ 
+              border: '1px solid #ffffff', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <Text size="xs">◻</Text>
             </Box>
-            
+            <Text fw={700}>SHRINKED.AI</Text>
+            <Text c="#a1a1a1" ml="md">ID: [number]</Text>
+          </Flex>
+
+          {/* Studio Description */}
+          <Box mb={48}>
+            <Text size="xs" c="#d9d9d9" lh={1.2}>
+              FOUNDED BY A DIVERSE GROUP OF<br />
+              CREATIVES, WE ARE<br />
+              A BROOKLYN-BASED DESIGN STUDIO<br />
+              THAT FOCUSES ON<br />
+              WHERE BRAND, MARKETING, AND<br />
+              DIGITAL PRODUCTS<br />
+              COME TOGETHER.
+            </Text>
+          </Box>
+
+          {/* Navigation Menu */}
+          <Stack gap="sm" mb={48}>
             {menuItems.map((item) => (
-              <CanAccess key={item.href} resource={item.resource} action="list">
-                <MantineNavLink
-                  label={item.label}
-                  leftSection={<IconWrapper icon={item.icon} size={19} />}
-                  active={pathname === item.href || pathname?.startsWith(item.href + '/')}
-                  onClick={() => router.push(item.href)}
-                />
-              </CanAccess>
+              <UnstyledButton
+                key={item.label}
+                onClick={() => handleNavigation(item.href)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                {item.active && (
+                  <Box w={8} h={8} style={{ 
+                    backgroundColor: '#ffffff', 
+                    borderRadius: '50%' 
+                  }} />
+                )}
+                <Text 
+                  size="sm" 
+                  c={item.active ? '#ffffff' : '#a1a1a1'}
+                >
+                  {item.label}
+                </Text>
+              </UnstyledButton>
             ))}
           </Stack>
+        </Box>
 
-          <Stack>
-            <Box p="xs">
-              <Group>
-                <Avatar 
-                  src={userInfo.avatar} 
-                  radius="xl" 
-                  size="md"
-                  color="blue"
-                  alt={userInfo.name || userInfo.email || 'User'}
-                >
-                  {getInitials()}
-                </Avatar>
-                <Stack gap={0}>
-                  <Text size="sm" fw={500}>
-                    {userInfo.name || userInfo.email || 'User'}
-                  </Text>
-                  {userInfo.email && (
-                    <Text size="xs" c="dimmed">
-                      {userInfo.email}
-                    </Text>
-                  )}
-                </Stack>
-              </Group>
-            </Box>
-            
-            <MantineNavLink
-              label="Logout"
-              leftSection={<IconWrapper icon={LogOut} size={19} />}
-              onClick={handleLogout}
-              color="red"
+        {/* Bottom Footer Section */}
+        <Box mt="auto" style={{ 
+          borderTop: '1px solid #2b2b2b',
+          padding: '24px',
+        }}>
+          <Text size="sm" c="#a1a1a1" mb="xs">DOCUMENTATION</Text>
+          <Text size="sm" c="#a1a1a1" mb="xl">FEEDBACK</Text>
+
+          {/* Usage Stats */}
+          <Box 
+            p="md" 
+            mb="xl" 
+            style={{ 
+              backgroundColor: '#0d0d0d', 
+              border: '1px solid #2b2b2b',
+              borderRadius: '4px',
+            }}
+          >
+            <Text size="xs" mb="xs">BASE PLAN</Text>
+            <Flex justify="space-between" mb="xs">
+              <Text size="xs">Pages</Text>
+              <Text size="xs">40 / 600</Text>
+            </Flex>
+            <Progress 
+              value={6.67} 
+              size="xs" 
+              color="#f44336"
+              styles={{
+                root: {
+                  backgroundColor: '#2b2b2b',
+                },
+              }}
             />
-          </Stack>
-        </Stack>
-      </AppShell.Navbar>
+            <Text size="xs" c="#a1a1a1" mt="xs">some exampleiner</Text>
+          </Box>
 
-      <AppShell.Main>
-        <Container size={1200} px="md">
-          {children}
-        </Container>
-      </AppShell.Main>
-    </AppShell>
-    </>
+          {/* User Profile */}
+          <Flex align="center" gap="xs">
+            <Box>
+              <Text size="xs">{userInfo.name}</Text>
+              <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
+            </Box>
+            <Group ml="auto" spacing={-8}>
+              <Avatar 
+                size="sm" 
+                radius="xl" 
+                bg="#ffffff"
+                style={{ border: '1px solid #2b2b2b' }}
+              />
+              <Avatar 
+                size="sm" 
+                radius="xl" 
+                bg="#a1a1a1"
+                style={{ border: '1px solid #2b2b2b' }}
+              />
+            </Group>
+          </Flex>
+        </Box>
+      </Box>
+
+      {/* Main Content */}
+      <Box style={{ flex: 1 }}>
+        {children}
+      </Box>
+    </Flex>
   );
 };
+
+export default CustomLayout;

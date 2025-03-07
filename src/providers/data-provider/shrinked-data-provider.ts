@@ -75,7 +75,7 @@ const generateSort = (sorters?: CrudSorting) => {
 };
 
 // Document operations helper functions
-interface ProcessedDocument {
+export interface ProcessedDocument {
   _id: string;
   jobId?: string;
   title?: string;
@@ -87,16 +87,9 @@ interface ProcessedDocument {
   }
 }
 
-/**
- * Enhanced Shrinked Data Provider with document-specific operations
- */
-export const shrinkedDataProvider = (
-  apiUrl: string,
-  httpClient: AxiosInstance = axiosInstance
-): Partial<DataProvider> => {
-  
-  // Batch fetch job IDs for documents
-  const fetchJobIdsForDocs = async (documents: ProcessedDocument[]) => {
+// Document-specific operations
+export const documentOperations = {
+  fetchJobIdsForDocs: async (documents: ProcessedDocument[], apiUrl: string) => {
 	const mapping: Record<string, string> = {};
 	
 	// Process documents in small batches to avoid too many concurrent requests
@@ -108,7 +101,6 @@ export const shrinkedDataProvider = (
 	}
 	
 	for (const batch of docBatches) {
-	  // Create a batch of promises for parallel execution
 	  const promises = batch.map(async (doc) => {
 		try {
 		  const response = await authUtils.fetchWithAuth(
@@ -126,17 +118,15 @@ export const shrinkedDataProvider = (
 		}
 	  });
 	  
-	  // Wait for this batch to complete before moving to the next
 	  await Promise.all(promises);
 	}
 	
 	return mapping;
-  };
+  },
 
-  // Send document via email
-  const sendDocumentEmail = async (docId: string, email?: string) => {
+  sendDocumentEmail: async (docId: string, apiUrl: string, email?: string) => {
 	try {
-	  const response = await httpClient.post(`${apiUrl}/documents/${docId}/email`, { 
+	  const response = await axiosInstance.post(`${apiUrl}/documents/${docId}/email`, { 
 		email 
 	  }, {
 		headers: {
@@ -148,12 +138,11 @@ export const shrinkedDataProvider = (
 	  console.error("Error sending document email:", error);
 	  return { success: false, error };
 	}
-  };
+  },
 
-  // Delete document
-  const deleteDocument = async (docId: string) => {
+  deleteDocument: async (docId: string, apiUrl: string) => {
 	try {
-	  const response = await httpClient.delete(`${apiUrl}/documents/${docId}`, {
+	  const response = await axiosInstance.delete(`${apiUrl}/documents/${docId}`, {
 		headers: {
 		  'Authorization': `Bearer ${authUtils.getAccessToken()}`
 		}
@@ -163,8 +152,16 @@ export const shrinkedDataProvider = (
 	  console.error("Error deleting document:", error);
 	  return { success: false, error };
 	}
-  };
-  
+  }
+};
+
+/**
+ * Enhanced Shrinked Data Provider
+ */
+export const shrinkedDataProvider = (
+  apiUrl: string,
+  httpClient: AxiosInstance = axiosInstance
+): DataProvider => {
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {
 	  const url = meta?.url || `${apiUrl}/${resource}${resource === "jobs/key" ? "" : ""}`;
@@ -267,28 +264,16 @@ export const shrinkedDataProvider = (
 	  
 	  const { data } = axiosResponse;
 	  return { data };
-	},
-
-	// Document specific operations - added as custom methods
-	documents: {
-	  fetchJobIdsForDocs,
-	  sendDocumentEmail,
-	  deleteDocument
 	}
   };
 };
 
 // Export types for document operations
 export interface DocumentOperations {
-  fetchJobIdsForDocs: (documents: ProcessedDocument[]) => Promise<Record<string, string>>;
-  sendDocumentEmail: (docId: string, email?: string) => Promise<{ success: boolean; data?: any; error?: any }>;
-  deleteDocument: (docId: string) => Promise<{ success: boolean; data?: any; error?: any }>;
+  fetchJobIdsForDocs: (documents: ProcessedDocument[], apiUrl: string) => Promise<Record<string, string>>;
+  sendDocumentEmail: (docId: string, apiUrl: string, email?: string) => Promise<{ success: boolean; data?: any; error?: any }>;
+  deleteDocument: (docId: string, apiUrl: string) => Promise<{ success: boolean; data?: any; error?: any }>;
 }
 
-// Helper to access the document operations from the data provider
-export const getDocumentOperations = (dataProvider: any): DocumentOperations => {
-  if (!dataProvider.documents) {
-	throw new Error("Document operations not found in data provider");
-  }
-  return dataProvider.documents;
-};
+// Export documentOperations directly instead of via getDocumentOperations
+export { documentOperations };

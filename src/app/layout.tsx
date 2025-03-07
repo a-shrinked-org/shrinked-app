@@ -7,6 +7,9 @@ import '@mantine/core/styles.css';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { IconWrapper } from '@/utils/ui-utils';
+// Import Geist fonts
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
@@ -135,6 +138,13 @@ const theme = createTheme({
   white: '#fff',
   black: '#1A1B1E',
   
+  // Update the font families in the theme
+  fontFamily: GeistSans.style.fontFamily,
+  fontFamilyMonospace: GeistMono.style.fontFamily,
+  headings: {
+    fontFamily: GeistSans.style.fontFamily,
+  },
+  
   components: {
     AppShell: {
       styles: {
@@ -155,6 +165,8 @@ const theme = createTheme({
           '&:hover': {
             backgroundColor: 'var(--mantine-color-blue-7)',
           },
+          // Apply Geist Mono to buttons
+          fontFamily: GeistMono.style.fontFamily,
         },
       },
     },
@@ -182,6 +194,8 @@ const theme = createTheme({
           '&:focus': {
             borderColor: 'var(--mantine-color-blue-6)',
           },
+          // Apply Geist Mono to inputs
+          fontFamily: GeistMono.style.fontFamily,
         },
       },
     },
@@ -194,11 +208,23 @@ const theme = createTheme({
         th: {
           backgroundColor: 'var(--mantine-color-dark-6)',
           color: 'var(--mantine-color-white)',
+          // Apply Geist Mono to table headers
+          fontFamily: GeistMono.style.fontFamily,
         },
         td: {
           color: 'var(--mantine-color-white)',
+          // Apply Geist Mono to table cells
+          fontFamily: GeistMono.style.fontFamily,
         },
       },
+    },
+    Text: {
+      styles: {
+        root: {
+          // Apply Geist Mono to text components
+          fontFamily: GeistMono.style.fontFamily,
+        }
+      }
     },
   },
 });
@@ -211,7 +237,8 @@ function LoadingFallback() {
       alignItems: 'center', 
       height: '100vh',
       backgroundColor: 'var(--mantine-color-dark-9)',
-      color: '#fff'
+      color: '#fff',
+      fontFamily: GeistMono.style.fontFamily,
     }}>
       Loading...
     </div>
@@ -227,7 +254,7 @@ export default function RootLayout({
   const helmetContext = {};
 
   return (
-    <html lang="en" data-mantine-color-scheme="dark">
+    <html lang="en" data-mantine-color-scheme="dark" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
         <ColorSchemeScript forceColorScheme="dark" />
         <meta name="color-scheme" content="dark" />
@@ -255,6 +282,12 @@ export default function RootLayout({
               width: 2em;
               height: 2em;
             }
+            
+            /* Add CSS variables for Geist fonts */
+            :root {
+              --font-geist-sans: ${GeistSans.style.fontFamily};
+              --font-geist-mono: ${GeistMono.style.fontFamily};
+            }
           `
         }} />
       </head>
@@ -263,7 +296,8 @@ export default function RootLayout({
         color: '#fff',
         margin: 0,
         padding: 0,
-        minHeight: '100vh'
+        minHeight: '100vh',
+        fontFamily: GeistMono.style.fontFamily,
       }}>
         <HelmetProvider context={helmetContext}>
           {/* Define metadata using Helmet */}

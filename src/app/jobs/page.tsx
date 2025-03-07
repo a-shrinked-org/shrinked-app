@@ -1,6 +1,6 @@
 "use client";
 
-import { useList, useNavigation, useGetIdentity, useDataProvider } from "@refinedev/core";
+import { useList, useNavigation, useGetIdentity } from "@refinedev/core";
 import React, { useState, useCallback, useEffect } from "react";
 import { 
   Stack, 
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
-import { getDocumentOperations } from '@/providers/data-provider/shrinked-data-provider';
+import { documentOperations } from '@/providers/data-provider/shrinked-data-provider';
 
 interface Identity {
   token?: string;
@@ -85,8 +85,6 @@ export default function JobList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const { show, create } = useNavigation();
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
-  const dataProvider = useDataProvider();
-  const documentOperations = getDocumentOperations(dataProvider);
 
   const { data, isLoading, refetch, error } = useList<Job>({
     resource: "jobs",
@@ -133,7 +131,7 @@ export default function JobList() {
   };
 
   const handleSendEmail = async (id: string, email?: string) => {
-    const result = await documentOperations.sendDocumentEmail(id, email);
+    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
     if (result.success) {
       alert("Job sent successfully");
     } else {
@@ -143,7 +141,7 @@ export default function JobList() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this job?")) {
-      const result = await documentOperations.deleteDocument(id);
+      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
       if (result.success) {
         alert("Job deleted successfully");
         refetch();

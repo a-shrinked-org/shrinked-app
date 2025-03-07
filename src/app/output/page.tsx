@@ -11,7 +11,7 @@ import { AlertCircle } from 'lucide-react';
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
-import { getDocumentOperations } from '@/providers/data-provider/shrinked-data-provider';
+import { documentOperations } from '@/providers/data-provider/shrinked-data-provider';
 
 interface Identity {
   token?: string;
@@ -23,8 +23,6 @@ interface Identity {
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [docToJobMapping, setDocToJobMapping] = useState<Record<string, string>>({});
-  const dataProvider = useDataProvider();
-  const documentOperations = getDocumentOperations(dataProvider);
   
   const requestedFields = '_id,title,fileName,createdAt,status,output.title';
   
@@ -46,11 +44,11 @@ export default function ProcessingList() {
 
   useEffect(() => {
     if (data?.data && data.data.length > 0) {
-      documentOperations.fetchJobIdsForDocs(data.data)
+      documentOperations.fetchJobIdsForDocs(data.data, API_CONFIG.API_URL)
         .then(mapping => setDocToJobMapping(mapping))
         .catch(err => console.error("Failed to fetch job mappings:", err));
     }
-  }, [data, documentOperations]);
+  }, [data]);
 
   useEffect(() => {
     if (error?.status === 401 || error?.status === 403) {
@@ -72,7 +70,7 @@ export default function ProcessingList() {
 
   const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const result = await documentOperations.sendDocumentEmail(id, email);
+    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
     if (result.success) {
       alert("Document sent successfully");
     } else {
@@ -83,7 +81,7 @@ export default function ProcessingList() {
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this document?")) {
-      const result = await documentOperations.deleteDocument(id);
+      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
       if (result.success) {
         alert("Document deleted successfully");
         refetch();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useGetIdentity, useDataProvider, useList } from "@refinedev/core";
+import { useGetIdentity, useList } from "@refinedev/core";
 import React, { useState, useEffect } from "react";
 import {
   Stack,
@@ -28,7 +28,7 @@ import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
-import { getDocumentOperations } from '@/providers/data-provider/shrinked-data-provider';
+import { documentOperations } from '@/providers/data-provider/shrinked-data-provider';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 
 interface Identity {
@@ -51,8 +51,6 @@ export default function ApiKeysList() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { data: identity, isLoading: isIdentityLoading } = useGetIdentity<Identity>();
-  const dataProvider = useDataProvider();
-  const documentOperations = getDocumentOperations(dataProvider);
 
   const userId = React.useMemo(() => {
     if (identity?.userId) return identity.userId;
@@ -111,7 +109,7 @@ export default function ApiKeysList() {
 
   const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const result = await documentOperations.sendDocumentEmail(id, email);
+    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
     if (result.success) {
       alert("API key details sent successfully");
     } else {
@@ -122,7 +120,7 @@ export default function ApiKeysList() {
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this API key?")) {
-      const result = await documentOperations.deleteDocument(id);
+      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
       if (result.success) {
         alert("API key deleted successfully");
         refetch();
