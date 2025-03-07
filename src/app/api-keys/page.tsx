@@ -251,7 +251,7 @@ export default function ApiKeysList() {
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won't be able to view it again.
+          Keep a record of the key below. You won&apos;t be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
@@ -281,7 +281,7 @@ export default function ApiKeysList() {
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I've saved my API key
+            I&apos;ve saved my API key
           </Button>
         </Group>
       </Modal>
