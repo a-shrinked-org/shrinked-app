@@ -24,7 +24,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
-import { authUtils, API_CONFIG } from "@/utils/authUtils";
+import { authUtils } from "@/utils/authUtils";
 // Import IconWrapper from the utils file
 import { IconWrapper } from '@/utils/ui-utils';
 
@@ -110,7 +110,6 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
 
   return (
     <AppShell
-      header={{ height: 0 }}
       navbar={{ 
         width: 300, 
         breakpoint: 'sm',
@@ -118,23 +117,25 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
       }}
       padding="md"
     >
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group>
-            <Burger 
-              opened={opened} 
-              onClick={() => setOpened(!opened)} 
-              size="sm"
-              hiddenFrom="sm"
-            />
-            <Title order={3}>Shrinked</Title>
-          </Group>
-        </Group>
-      </AppShell.Header>
-
+      {/* Remove the AppShell.Header completely */}
+      
       <AppShell.Navbar p="md">
         <Stack justify="space-between" h="100%">
           <Stack>
+            {/* Add logo at the top of sidebar */}
+            <Box p="md" mb="md">
+              <Group align="center">
+                {/* Mobile menu toggle */}
+                <Burger 
+                  opened={opened} 
+                  onClick={() => setOpened(!opened)} 
+                  size="sm"
+                  hiddenFrom="sm"
+                />
+                <Title order={3}>Shrinked</Title>
+              </Group>
+            </Box>
+            
             {menuItems.map((item) => (
               <CanAccess key={item.href} resource={item.resource} action="list">
                 <MantineNavLink
