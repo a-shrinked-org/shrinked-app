@@ -121,14 +121,15 @@ export default function JobList() {
         });
       }
     }
-  }, [error, refetch]);
+  }, [error, refetch, refreshToken]); // Added refreshToken to dependencies
 
   useEffect(() => {
     if (identity?.token) refetch();
   }, [identity, refetch]);
 
-  const handleViewDocument = (job: Job) => {
-    show("jobs", job._id);
+  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    show("jobs", doc._id);
   };
 
   const handleSendEmail = async (id: string, email?: string) => {

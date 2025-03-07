@@ -54,7 +54,7 @@ interface DocumentsTableProps {
   onRefresh?: () => void;
   error?: any;
   title?: string;
-  extraColumns?: ExtraColumn[]; // New prop for custom columns
+  extraColumns?: ExtraColumn[];
 }
 
 const DocumentsTable: React.FC<DocumentsTableProps> = ({ 

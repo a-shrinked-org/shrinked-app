@@ -167,7 +167,7 @@ export default function ApiKeysList() {
       fileName: key.key.length > 16 ? 
         `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
         key.key,
-      createdAt: key.createdAt || new Date().toISOString(), // Fix for build error
+      createdAt: key.createdAt || new Date().toISOString(),
       status: 'active',
       output: { title: key.name },
       keyName: key.name,
@@ -251,7 +251,7 @@ export default function ApiKeysList() {
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won&apos;t be able to view it again.
+          Keep a record of the key below. You won't be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
@@ -281,7 +281,7 @@ export default function ApiKeysList() {
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I&apos;ve saved my API key
+            I've saved my API key
           </Button>
         </Group>
       </Modal>
