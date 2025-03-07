@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, ChangeEvent, FormEvent } from "react";
+import React, { useState, ChangeEvent, FormEvent, useRef } from "react";
 import { useLogin } from "@refinedev/core";
 import {
   Card,
@@ -28,9 +28,12 @@ export default function Login() {
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
   const [step, setStep] = useState<"email" | "password" | "verification-sent">("email");
   
-  // Separate loading states for different actions
+  // Completely separate loading states with useRef to ensure they don't interfere
   const [emailPasswordLoading, setEmailPasswordLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  
+  // Use refs to track which button triggered the action
+  const actionTypeRef = useRef<"google" | "email" | null>(null);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -40,9 +43,23 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
+    // Clear any existing loading states first
+    setEmailPasswordLoading(false);
+    
+    // Set action type
+    actionTypeRef.current = "google";
+    
+    // Set only Google loading
     setGoogleLoading(true);
+    
     // Set a timeout to restore the button if the redirect fails
-    setTimeout(() => setGoogleLoading(false), 5000);
+    setTimeout(() => {
+      if (actionTypeRef.current === "google") {
+        setGoogleLoading(false);
+        actionTypeRef.current = null;
+      }
+    }, 5000);
+    
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
@@ -50,11 +67,20 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setInfo("");
+    
+    // Clear any existing loading states first
+    setGoogleLoading(false);
+    
+    // Set action type
+    actionTypeRef.current = "email";
+    
+    // Set only email/password loading
     setEmailPasswordLoading(true);
   
     if (!formData.email) {
       setError("Please enter your email");
       setEmailPasswordLoading(false);
+      actionTypeRef.current = null;
       return;
     }
   
@@ -64,21 +90,21 @@ export default function Login() {
         { email: formData.email, password: "" },
         {
           onSuccess: (response) => {
-            // Only move to password step if the response clearly indicates success
+            // Only process if we're still in email mode
+            if (actionTypeRef.current !== "email") return;
+            
             console.log("Email check response:", response);
             
             if (response && response.success === true) {
-              // Ignore any redirectTo property at this stage
               console.log("Email exists, showing password field");
-              setStep("password"); // Email exists, show password field
+              setStep("password");
               setEmailPasswordLoading(false);
-              return; // Early return to prevent redirection
+              actionTypeRef.current = null;
+              return;
             } 
             
-            // If response has an unexpected structure, log it for debugging
             console.log("Unexpected success response structure:", response);
             
-            // If response contains an error with RegistrationRequired name, handle registration flow
             if (response && 
                 typeof response === 'object' && 
                 'error' in response && 
@@ -90,31 +116,28 @@ export default function Login() {
             } else {
               setError("Unable to verify email status. Please try again.");
               setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
             }
           },
           onError: (error: any) => {
-            console.log("Email check result:", error);
+            // Only process if we're still in email mode
+            if (actionTypeRef.current !== "email") return;
             
-            // Log the full error structure to debug
+            console.log("Email check result:", error);
             console.log("Error object structure:", JSON.stringify(error, null, 2));
             
-            // Check if this is a "RegistrationRequired" error
-            // The error structure might be nested differently than expected
             let errorName = '';
             let errorMessage = '';
             
             if (typeof error === 'object' && error !== null) {
-              // Try to get name directly
               if ('name' in error && typeof error.name === 'string') {
                 errorName = error.name;
               }
               
-              // Try to get message directly
               if ('message' in error && typeof error.message === 'string') {
                 errorMessage = error.message;
               }
               
-              // Try to get from nested error object
               if ('error' in error && typeof error.error === 'object' && error.error !== null) {
                 if ('name' in error.error && typeof error.error.name === 'string') {
                   errorName = errorName || error.error.name;
@@ -130,18 +153,16 @@ export default function Login() {
               console.log("Email not found, initiating registration flow");
               handleRegistrationFlow();
             } else {
-              // For any other errors
               console.error("Login error:", error);
               
               if (typeof error === 'object' && error !== null) {
-                // Try to get the message directly
                 if ('message' in error && typeof error.message === 'string') {
                   setError(error.message);
                   setEmailPasswordLoading(false);
+                  actionTypeRef.current = null;
                   return;
                 }
                 
-                // Try to get it from a nested error object
                 if ('error' in error && 
                     typeof error.error === 'object' && 
                     error.error !== null &&
@@ -149,12 +170,14 @@ export default function Login() {
                     typeof error.error.message === 'string') {
                   setError(error.error.message);
                   setEmailPasswordLoading(false);
+                  actionTypeRef.current = null;
                   return;
                 }
               }
               
               setError("An error occurred");
               setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
             }
           }
         }
@@ -163,35 +186,39 @@ export default function Login() {
       if (!formData.password) {
         setError("Please enter your password");
         setEmailPasswordLoading(false);
+        actionTypeRef.current = null;
         return;
       }
       
-      // Login with password
       console.log("Attempting login with password");
       login(
         { 
           email: formData.email, 
           password: formData.password,
-          skipEmailCheck: true // Skip email check on login with password
+          skipEmailCheck: true
         },
         {
           onSuccess: () => {
+            // Only process if we're still in email mode
+            if (actionTypeRef.current !== "email") return;
+            
             console.log("Login successful");
-            // Redirect handled by auth provider
-            // Keep loading state on success as we're redirecting
+            // Keep loading on successful login since we're redirecting
           },
           onError: (error: any) => {
+            // Only process if we're still in email mode
+            if (actionTypeRef.current !== "email") return;
+            
             console.error("Login error:", error);
             
             if (typeof error === 'object' && error !== null) {
-              // Try to get the message directly
               if ('message' in error && typeof error.message === 'string') {
                 setError(error.message);
                 setEmailPasswordLoading(false);
+                actionTypeRef.current = null;
                 return;
               }
               
-              // Try to get it from a nested error object
               if ('error' in error && 
                   typeof error.error === 'object' && 
                   error.error !== null &&
@@ -199,20 +226,22 @@ export default function Login() {
                   typeof error.error.message === 'string') {
                 setError(error.error.message);
                 setEmailPasswordLoading(false);
+                actionTypeRef.current = null;
                 return;
               }
             }
             
             setError("Invalid email or password");
             setEmailPasswordLoading(false);
+            actionTypeRef.current = null;
           }
         }
       );
     }
   };
 
-  // Separate function to handle the registration flow
   const handleRegistrationFlow = () => {
+    // We know we're in email flow here
     login(
       { 
         email: formData.email,
@@ -221,23 +250,28 @@ export default function Login() {
       },
       {
         onSuccess: (data) => {
+          // Only process if we're still in email mode
+          if (actionTypeRef.current !== "email") return;
+          
           console.log("Registration initiated successfully", data);
-          // Don't rely on redirectTo, just update the step
           setStep("verification-sent");
           setEmailPasswordLoading(false);
+          actionTypeRef.current = null;
         },
         onError: (regError) => {
+          // Only process if we're still in email mode
+          if (actionTypeRef.current !== "email") return;
+          
           console.error("Registration error:", regError);
-          // Handle various error object structures safely
+          
           if (typeof regError === 'object' && regError !== null) {
-            // First try to get the message directly
             if ('message' in regError && typeof regError.message === 'string') {
               setError(regError.message);
               setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
               return;
             }
             
-            // Then try to get it from a nested error object
             if ('error' in regError && 
                 typeof regError.error === 'object' && 
                 regError.error !== null &&
@@ -245,13 +279,14 @@ export default function Login() {
                 typeof regError.error.message === 'string') {
               setError(regError.error.message);
               setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
               return;
             }
           }
           
-          // Default error message if we couldn't extract one
           setError("Failed to register with this email");
           setEmailPasswordLoading(false);
+          actionTypeRef.current = null;
         }
       }
     );
@@ -298,6 +333,9 @@ export default function Login() {
               setStep("email");
               setInfo("");
               setError("");
+              actionTypeRef.current = null;
+              setEmailPasswordLoading(false);
+              setGoogleLoading(false);
             }}
             style={{ color: "#D87A16" }}
           >

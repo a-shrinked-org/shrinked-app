@@ -116,14 +116,16 @@ export default function JobShow() {
 
   // Fetch markdown content from backend endpoint
   const fetchMarkdownContent = useCallback(async () => {
-    if (!jobId) return;
+    // Use processingDocId when available, not jobId
+    if (!processingDocId && !jobId) return;
   
     try {
-      console.log('Attempting to fetch markdown with job ID:', jobId);
+      // Try using processingDocId first if available, otherwise fall back to jobId
+      const idToUse = processingDocId || jobId;
+      console.log('Attempting to fetch markdown with ID:', idToUse);
       
-      // Always use the correct endpoint format with jobId
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${jobId}/markdown?includeReferences=true`
+        `${API_CONFIG.API_URL}/pdf/${idToUse}/markdown?includeReferences=true`
       );
   
       if (!response.ok) {
@@ -133,12 +135,12 @@ export default function JobShow() {
       // The response should be the markdown text directly
       const markdown = await response.text();
       setMarkdownContent(markdown);
-      console.log('Fetched markdown content successfully using job ID:', jobId);
+      console.log('Fetched markdown content successfully using ID:', idToUse);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
       setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [jobId, fetchWithAuth]);
+  }, [processingDocId, jobId, fetchWithAuth]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
