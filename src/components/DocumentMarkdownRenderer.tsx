@@ -43,13 +43,13 @@ const markdocStyles = {
     fontSize: '16px',
     lineHeight: 1.7,
     color: '#000000',
-  },
+  } as React.CSSProperties,
   container: {
-    position: 'relative',
+    position: 'relative' as const,
     backgroundColor: '#ffffff',
     borderRadius: '8px',
     padding: '20px',
-  }
+  } as React.CSSProperties
 };
 
 function DocumentMarkdocRenderer({
@@ -118,8 +118,6 @@ function DocumentMarkdocRenderer({
       // Parse the markdown content
       const ast = Markdoc.parse(processedContent);
       
-      // Use a simpler approach to transform and render the content
-      // to avoid TypeScript errors with complex configurations
       const contentAst = Markdoc.transform(ast);
       
       // Render the content with HTML
