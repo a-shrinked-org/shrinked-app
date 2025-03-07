@@ -67,8 +67,10 @@ export default function ApiKeysList() {
     return null;
   }, [identity?.userId]);
 
+  console.log("API URL used for list:", `${API_CONFIG.API_URL}/users/${userId}/api-keys"); // Debug log
+
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: "users/api-keys",
+    resource: userId ? `users/${userId}/api-keys` : "",
     queryOptions: {
       enabled: !!userId && !!authUtils.isAuthenticated(),
     },
@@ -77,7 +79,7 @@ export default function ApiKeysList() {
     },
     meta: {
       headers: authUtils.getAuthHeaders(),
-      url: `${API_CONFIG.API_URL}/users/api-keys`
+      url: userId ? `${API_CONFIG.API_URL}/users/${userId}/api-keys` : ""
     }
   });
 
@@ -240,7 +242,7 @@ export default function ApiKeysList() {
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won&apos;t be able to view it again.
+          Keep a record of the key below. You won't be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
@@ -270,7 +272,7 @@ export default function ApiKeysList() {
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I&apos;ve saved my API key
+            I've saved my API key
           </Button>
         </Group>
       </Modal>

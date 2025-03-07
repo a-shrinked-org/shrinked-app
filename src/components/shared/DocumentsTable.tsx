@@ -13,9 +13,10 @@ import {
   TextInput,
   Flex,
   Loader,
-  MediaQuery,
-  Stack
+  Stack,
+  useMantineColorScheme
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks'; // Use this instead of MediaQuery component
 import { 
   Eye, 
   Mail, 
@@ -93,6 +94,9 @@ const DocumentsTable = <T extends ProcessedDocument>({
   const [emailAddress, setEmailAddress] = useState("");
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  
+  // Use useMediaQuery instead of MediaQuery component
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const handleEmailClick = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -182,9 +186,9 @@ const DocumentsTable = <T extends ProcessedDocument>({
   }
 
   // Define visible columns for different screen sizes
-  const desktopColumns = extraColumns.filter(col => !col.hideOnMobile);
-  const mobileVisibleColumns = extraColumns.filter(col => !col.hideOnMobile);
+  const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
 
+  // Render either desktop or mobile view based on screen size
   return (
     <Box style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
       {/* Header */}
@@ -208,9 +212,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                 },
               }}
             >
-              <MediaQuery smallerThan="sm" styles={{ display: 'none' }}>
-                <Text>Refresh</Text>
-              </MediaQuery>
+              {!isMobile && <Text>Refresh</Text>}
             </Button>
           )}
           {onAddNew && (
@@ -235,22 +237,24 @@ const DocumentsTable = <T extends ProcessedDocument>({
         </Group>
       </Flex>
 
-      {/* Desktop View */}
-      <MediaQuery smallerThan="md" styles={{ display: 'none' }}>
-        <Box>
+      {!isMobile ? (
+        // Desktop View
+        <>
           {/* Table Header */}
-          <Box style={{ 
-            display: 'grid', 
-            gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${desktopColumns.length > 0 ? `repeat(${desktopColumns.length}, 1fr)` : ''} 15%`, 
-            padding: '1rem 1.5rem',
-            borderBottom: '1px solid #2b2b2b',
-            color: '#a1a1a1',
-            fontSize: '12px',
-          }}>
+          <Box 
+            style={{ 
+              display: 'grid', 
+              gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${visibleColumns.length > 0 ? `repeat(${visibleColumns.length}, 1fr)` : ''} 15%`, 
+              padding: '1rem 1.5rem',
+              borderBottom: '1px solid #2b2b2b',
+              color: '#a1a1a1',
+              fontSize: '12px',
+            }}
+          >
             <Box>/title</Box>
             {showStatus && <Box>/status</Box>}
             <Box>/date</Box>
-            {desktopColumns.map((col, index) => (
+            {visibleColumns.map((col, index) => (
               <Box key={index}>/{col.header.toLowerCase()}</Box>
             ))}
             <Box style={{ textAlign: 'right' }}>/actions</Box>
@@ -265,7 +269,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                   onClick={() => onRowClick && onRowClick(doc)}
                   style={{ 
                     display: 'grid',
-                    gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${desktopColumns.length > 0 ? `repeat(${desktopColumns.length}, 1fr)` : ''} 15%`,
+                    gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${visibleColumns.length > 0 ? `repeat(${visibleColumns.length}, 1fr)` : ''} 15%`,
                     padding: '1.5rem',
                     borderBottom: '1px solid #2b2b2b',
                     cursor: onRowClick ? 'pointer' : 'default',
@@ -284,10 +288,18 @@ const DocumentsTable = <T extends ProcessedDocument>({
                       flexShrink: 0
                     }} />
                     <Box style={{ overflow: 'hidden' }}>
-                      <Text size="sm" fw={500} lineClamp={1}>
+                      <Text size="sm" fw={500} style={{ 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
                         {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
                       </Text>
-                      <Text size="xs" c="#a1a1a1" lineClamp={1}>
+                      <Text size="xs" c="#a1a1a1" style={{ 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
                         {doc.description || doc.output?.description || '...'}
                       </Text>
                     </Box>
@@ -305,12 +317,18 @@ const DocumentsTable = <T extends ProcessedDocument>({
                     <Text size="sm">{formatDate(doc.createdAt)}</Text>
                   </Box>
                   
-                  {desktopColumns.map((col, index) => (
+                  {visibleColumns.map((col, index) => (
                     <Box key={index} style={{ display: 'flex', alignItems: 'center' }}>
                       {typeof col.accessor === 'function' ? (
                         col.accessor(doc)
                       ) : (
-                        <Text size="sm" lineClamp={1}>{String(doc[col.accessor] || '')}</Text>
+                        <Text size="sm" style={{ 
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {String(doc[col.accessor] || '')}
+                        </Text>
                       )}
                     </Box>
                   ))}
@@ -378,11 +396,9 @@ const DocumentsTable = <T extends ProcessedDocument>({
               <Text c="#a1a1a1">{noDataMessage}</Text>
             </Box>
           )}
-        </Box>
-      </MediaQuery>
-
-      {/* Mobile View */}
-      <MediaQuery largerThan="md" styles={{ display: 'none' }}>
+        </>
+      ) : (
+        // Mobile View
         <Box>
           {data && data.length > 0 ? (
             <Stack spacing={0}>
@@ -407,10 +423,19 @@ const DocumentsTable = <T extends ProcessedDocument>({
                     <Box style={{ flex: 1 }}>
                       <Flex justify="space-between" align="flex-start">
                         <Box style={{ flex: 1 }}>
-                          <Text size="sm" fw={500} lineClamp={1}>
+                          <Text size="sm" fw={500} style={{ 
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
                             {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
                           </Text>
-                          <Text size="xs" c="#a1a1a1" lineClamp={2} mb="xs">
+                          <Text size="xs" c="#a1a1a1" mb="xs" style={{
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                          }}>
                             {doc.description || doc.output?.description || '...'}
                           </Text>
                         </Box>
@@ -440,7 +465,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                           {formatDate(doc.createdAt)}
                         </Text>
                         
-                        {mobileVisibleColumns.map((col, index) => (
+                        {visibleColumns.map((col, index) => (
                           <Text key={index} size="xs" c="#a1a1a1">
                             {typeof col.accessor === 'function' 
                               ? React.isValidElement(col.accessor(doc)) 
@@ -494,7 +519,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
             </Box>
           )}
         </Box>
-      </MediaQuery>
+      )}
 
       {/* Email Modal */}
       <Modal
