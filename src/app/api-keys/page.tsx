@@ -67,10 +67,10 @@ export default function ApiKeysList() {
     return null;
   }, [identity?.userId]);
 
-  console.log("API URL used for list:", `${API_CONFIG.API_URL}/users/${userId}/api-keys"); // Debug log
+  console.log("API URL used for list:", `${API_CONFIG.API_URL}/users/${userId}/api-keys`); // Fixed typo: removed extra quote
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: userId ? `users/${userId}/api-keys` : "",
+    resource: userId ? `users/${userId}/api-keys` : "", // Correct syntax: no extra quotes
     queryOptions: {
       enabled: !!userId && !!authUtils.isAuthenticated(),
     },
