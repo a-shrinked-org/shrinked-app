@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, Text, Paper, Loader, Alert, Button, Progress } from '@mantine/core';
 import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import Markdoc from '@markdoc/markdoc';
-import { renderers } from '@markdoc/markdoc';
 
 // Define component props interface
 interface DocumentMarkdocRendererProps {
@@ -21,6 +20,21 @@ interface DocumentMarkdocRendererProps {
   errorMessage: string | null;
   onRefresh: () => void;
   processingStatus?: string;
+}
+
+// Interface for component props
+interface HeadingProps {
+  level: number;
+  children: React.ReactNode;
+}
+
+interface ParagraphProps {
+  children: React.ReactNode;
+}
+
+interface LinkProps {
+  href: string;
+  children: React.ReactNode;
 }
 
 // Custom config for Markdoc
@@ -48,14 +62,14 @@ const config = {
 
 // Custom components for rendering
 const components = {
-  Heading: ({ level, children }) => {
-    const HeadingTag = `h${level}`;
+  Heading: ({ level, children }: HeadingProps) => {
+    const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
     return React.createElement(HeadingTag, { style: { color: '#000000' } }, children);
   },
-  Paragraph: ({ children }) => (
+  Paragraph: ({ children }: ParagraphProps) => (
     <p style={{ color: '#000000', marginBottom: '1rem' }}>{children}</p>
   ),
-  Link: ({ href, children }) => (
+  Link: ({ href, children }: LinkProps) => (
     <a href={href} style={{ color: '#0066cc', textDecoration: 'underline' }}>
       {children}
     </a>
@@ -117,14 +131,26 @@ function DocumentMarkdocRenderer({
   
   // Render markdown content using Markdoc
   const renderMarkdoc = (content: string) => {
-    // Parse the markdown content
-    const ast = Markdoc.parse(content);
-    
-    // Transform AST using config
-    const content_ast = Markdoc.transform(ast, config);
-    
-    // Render the content
-    return renderers.react(content_ast, React, { components });
+    try {
+      // Parse the markdown content
+      const ast = Markdoc.parse(content);
+      
+      // Transform AST using config
+      const contentAst = Markdoc.transform(ast, config);
+      
+      // Render the content
+      const html = Markdoc.renderers.html(contentAst);
+      
+      return (
+        <div 
+          dangerouslySetInnerHTML={{ __html: html }} 
+          style={{ color: '#000000' }}
+        />
+      );
+    } catch (error) {
+      console.error('Error rendering Markdoc:', error);
+      return <div>Error rendering content</div>;
+    }
   };
   
   // If markdown content is directly provided, render it instead of generating
