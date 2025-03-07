@@ -1,14 +1,11 @@
 "use client";
 
-import { useGetIdentity } from "@refinedev/core";
+import { useGetIdentity, useDataProvider, useList } from "@refinedev/core";
 import React, { useState, useEffect } from "react";
 import {
-  Table,
+  Stack,
   Button,
   Group,
-  Title,
-  Box,
-  Stack,
   Modal,
   Text,
   TextInput,
@@ -18,7 +15,6 @@ import {
   Alert,
   Code,
 } from "@mantine/core";
-// Lucide icons
 import {
   Trash,
   Copy,
@@ -26,11 +22,12 @@ import {
   Plus,
   Key,
 } from 'lucide-react';
-import { ApiKeyService, ApiKey } from "@/services/api-key-service";
-// Import centralized auth utilities
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-// Import IconWrapper for SVG fixes
 import { IconWrapper } from "@/utils/ui-utils";
+import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
+import { formatDate } from '@/utils/formatting';
+import { getDocumentOperations } from '@/providers/data-provider/shrinked-data-provider';
+import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 
 interface Identity {
   token?: string;
@@ -39,30 +36,30 @@ interface Identity {
   userId?: string;
 }
 
+interface ExtendedApiKey extends ProcessedDocument {
+  keyName?: string;
+  keyValue?: string;
+}
+
 export default function ApiKeysList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [isLoadingKeys, setIsLoadingKeys] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const { data: identity, isLoading: isIdentityLoading } =
-    useGetIdentity<Identity>();
+  const { data: identity, isLoading: isIdentityLoading } = useGetIdentity<Identity>();
+  const dataProvider = useDataProvider();
+  const documentOperations = getDocumentOperations(dataProvider);
 
   const userId = React.useMemo(() => {
     if (identity?.userId) return identity.userId;
-
     if (typeof window !== "undefined") {
       const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
       if (userStr) {
         try {
           const userData = JSON.parse(userStr);
-          if (userData.id || userData.userId || userData._id) {
-            return userData.id || userData.userId || userData._id;
-          }
+          return userData.id || userData.userId || userData._id;
         } catch (e) {
           console.error("Error parsing user data from localStorage", e);
         }
@@ -71,121 +68,96 @@ export default function ApiKeysList() {
     return null;
   }, [identity?.userId]);
 
-  useEffect(() => {
-    if (identity) {
-      console.log("Identity from useGetIdentity:", {
-        email: identity.email,
-        userId: identity.userId || "Missing in identity",
-        token: identity.token ? "Present" : "Missing",
-      });
-      console.log("userId from calculation:", userId || "Missing");
+  const requestedFields = 'id,name,key,createdAt';
+  
+  const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
+    resource: userId ? `api-keys/user/${userId}` : "",
+    queryOptions: {
+      enabled: !!userId && !!authUtils.isAuthenticated(),
+    },
+    pagination: {
+      pageSize: 100,
+    },
+    meta: {
+      headers: {
+        'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
+      },
+      url: userId ? `${API_CONFIG.API_URL}/api-keys/user/${userId}?fields=${requestedFields}` : ""
     }
-  }, [identity, userId]);
+  });
 
-  // Updated fetchApiKeys function - remove token parameter
+  // Error handling with token refresh
   useEffect(() => {
-    const fetchApiKeys = async () => {
-      // Check if token is available through authUtils
-      if (!authUtils.getAccessToken() && !identity?.token) {
-        console.log("No token available, skipping API keys fetch");
-        return;
+    if (error) {
+      console.error("Error fetching API keys:", error);
+      if (error.status === 401 || error.status === 403) {
+        console.log("Authentication error, attempting to refresh token");
+        authUtils.refreshToken().then(success => {
+          if (success) {
+            console.log("Token refreshed successfully, retrying request");
+            refetch();
+          }
+        });
       }
-
-      setIsLoadingKeys(true);
-      setError(null);
-
-      try {
-        console.log("Fetching API keys...");
-        // Call getApiKeys without passing a token parameter
-        const fetchedApiKeys = await ApiKeyService.getApiKeys();
-        console.log("API keys fetched successfully:", fetchedApiKeys.length, "keys");
-        setApiKeys(fetchedApiKeys);
-      } catch (error: unknown) {
-        console.error("Error fetching API keys:", error);
-        setApiKeys([]);
-        setError("Error fetching API keys. Please try again later.");
-      } finally {
-        setIsLoadingKeys(false);
-      }
-    };
-
-    // Only fetch if we're authenticated
-    if (authUtils.isAuthenticated()) {
-      fetchApiKeys();
     }
-  }, [identity?.token]);
+  }, [error, refetch]);
 
-  // Simplified refreshApiKeys function - remove token parameter
-  const refreshApiKeys = async () => {
-    if (!authUtils.isAuthenticated()) return;
+  // Refetch when identity is loaded
+  useEffect(() => {
+    if (userId && authUtils.isAuthenticated()) {
+      console.log("Identity loaded, refetching data:", { userId });
+      refetch();
+    }
+  }, [userId, refetch]);
 
-    setIsLoadingKeys(true);
-    setError(null);
+  const handleViewDocument = (apiKey: ProcessedDocument) => {
+    // For API keys, "view" could show details; here we'll just log it
+    console.log("Viewing API key:", apiKey);
+  };
 
-    try {
-      // Call getApiKeys without passing a token parameter
-      const fetchedApiKeys = await ApiKeyService.getApiKeys();
-      setApiKeys(fetchedApiKeys);
-    } catch (error: unknown) {
-      console.error("Error refreshing API keys:", error);
-      setApiKeys([]);
-      setError("Error refreshing API keys. Please try again later.");
-    } finally {
-      setIsLoadingKeys(false);
+  const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const result = await documentOperations.sendDocumentEmail(id, email);
+    if (result.success) {
+      alert("API key details sent successfully");
+    } else {
+      alert("Failed to send API key details. Please try again.");
     }
   };
 
-  // Update handleCreateApiKey function - remove token parameter
+  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (confirm("Are you sure you want to delete this API key?")) {
+      try {
+        await ApiKeyService.deleteApiKey(id);
+        alert("API key deleted successfully");
+        refetch();
+      } catch (error) {
+        console.error("Error deleting API key:", error);
+        alert("Failed to delete API key. Please try again.");
+      }
+    }
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
   const handleCreateApiKey = async () => {
-    if (!keyName) return;
-
-    const effectiveUserId = userId || identity?.userId;
-
-    if (!effectiveUserId) {
-      console.error("Missing user ID for creating API key");
-      setError("Cannot create API key: User ID is missing");
-      return;
-    }
-
-    if (!authUtils.isAuthenticated()) {
-      console.error("User is not authenticated");
-      setError("Cannot create API key: Not authenticated");
-      return;
-    }
+    if (!keyName || !userId) return;
 
     setIsLoading(true);
-    setError(null);
-
     try {
-      console.log(`Creating API key for userId: ${effectiveUserId}`);
-      // Pass only userId and name, not token
-      const newKey = await ApiKeyService.createApiKey(effectiveUserId, keyName);
-      console.log("API key created successfully:", newKey ? "Result received" : "No result returned");
-
+      const newKey = await ApiKeyService.createApiKey(userId, keyName);
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
-
-      refreshApiKeys();
-    } catch (error: unknown) {
+      refetch();
+    } catch (error) {
       console.error("Error creating API key:", error);
-      setError(`Error creating API key: ${error instanceof Error ? error.message : String(error)}`);
+      alert(`Error creating API key: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Update handleDeleteApiKey function - remove token parameter
-  const handleDeleteApiKey = async (keyId: string) => {
-    if (!authUtils.isAuthenticated()) return;
-
-    try {
-      // Call deleteApiKey without passing a token parameter
-      await ApiKeyService.deleteApiKey(keyId);
-      refreshApiKeys();
-    } catch (error: unknown) {
-      console.error("Error deleting API key:", error);
-      setError(`Error deleting API key: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -195,106 +167,65 @@ export default function ApiKeysList() {
     setKeyName("");
   };
 
-  if (isIdentityLoading) {
+  const formatApiKeyData = (apiKeys: ApiKey[]): ExtendedApiKey[] => {
+    return apiKeys.map(key => ({
+      _id: key.id,
+      title: key.name || 'Unnamed API Key',
+      fileName: key.key.length > 16 ? 
+        `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
+        key.key,
+      createdAt: key.createdAt,
+      status: 'active', // API keys don't have status in this model; assuming active
+      output: { title: key.name },
+      keyName: key.name,
+      keyValue: key.key
+    }));
+  };
+
+  if (isIdentityLoading || (isLoadingKeys && userId)) {
     return (
-      <Box p="md">
-        <LoadingOverlay visible />
-        <Text>Loading authentication...</Text>
-      </Box>
+      <Stack p="md" style={{ position: 'relative', minHeight: '200px' }}>
+        <LoadingOverlay visible={true} />
+      </Stack>
     );
   }
 
-  // Use centralized token management
   if (!authUtils.isAuthenticated()) {
     return (
-      <Box p="md">
-        <Alert color="red" title="Authentication Required">
+      <Stack p="md">
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          title="Authentication Required" 
+          color="red"
+        >
           You must be logged in to manage API keys.
         </Alert>
-      </Box>
+      </Stack>
     );
   }
 
   return (
-    <Stack gap="md" p="md">
-      <Group justify="space-between">
-        <Title order={2}>API Keys</Title>
-        <Button leftSection={<Plus size={16} />} onClick={() => setIsCreateModalOpen(true)}>
+    <>
+      <DocumentsTable 
+        data={formatApiKeyData(data?.data || [])}
+        onView={handleViewDocument}
+        onSendEmail={handleSendEmail}
+        onDelete={handleDelete}
+        formatDate={formatDate}
+        isLoading={isLoadingKeys}
+        onRefresh={handleRefresh}
+        error={error}
+        title="API Keys"
+      />
+
+      <Group p="md" justify="flex-end">
+        <Button 
+          leftSection={<Plus size={16} />} 
+          onClick={() => setIsCreateModalOpen(true)}
+        >
           Create API Key
         </Button>
       </Group>
-
-      {error && (
-        <Alert color="red" title="Error" mb="md" onClose={() => setError(null)} withCloseButton>
-          {error}
-        </Alert>
-      )}
-
-      <Box style={{ overflowX: 'auto' }}>
-        <LoadingOverlay visible={isLoadingKeys} />
-        <Table highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
-                NAME
-              </Table.Th>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
-                API KEY
-              </Table.Th>
-              <Table.Th style={{ background: 'none', fontWeight: 500, color: '#666', padding: '12px 16px', textTransform: 'uppercase', fontSize: '12px' }}>
-                ACTIONS
-              </Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {!isLoadingKeys && apiKeys.length === 0 ? (
-              <Table.Tr>
-                <Table.Td colSpan={3} align="center">
-                  <Text p="md">No API keys found. Create one to get started.</Text>
-                </Table.Td>
-              </Table.Tr>
-            ) : (
-              apiKeys.map((key) => (
-                <Table.Tr key={key.id}>
-                  <Table.Td>
-                    <Group>
-                      <IconWrapper icon={Key} size={16} />
-                      <Text>{key.name}</Text>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group>
-                      <Code>{key.key.length > 16 ? 
-                        `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
-                        key.key}</Code>
-                      <CopyButton value={key.key} timeout={2000}>
-                        {({ copied, copy }) => (
-                          <ActionIcon color={copied ? 'teal' : 'gray'} onClick={copy} variant="subtle">
-                            {copied ? <IconWrapper icon={Check} size={16} /> : <IconWrapper icon={Copy} size={16} />}
-                          </ActionIcon>
-                        )}
-                      </CopyButton>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs">
-                      <ActionIcon 
-                        color="red" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteApiKey(key.id);
-                        }}
-                      >
-                        <IconWrapper icon={Trash} size={16} />
-                      </ActionIcon>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))
-            )}
-          </Table.Tbody>
-        </Table>
-      </Box>
 
       {/* Create API Key Modal */}
       <Modal
@@ -329,7 +260,7 @@ export default function ApiKeysList() {
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won&apos;t be able to view it again.
+          Keep a record of the key below. You won't be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
@@ -354,15 +285,15 @@ export default function ApiKeysList() {
         
         <Text size="sm" mt="lg">
           You can use this API key to authenticate with the Shrinked API.
-          To use it, include it in the <Code>x-api-key</Code> header in your requests.
+          Include it in the <Code>x-api-key</Code> header in your requests.
         </Text>
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I&apos;ve saved my API key
+            I've saved my API key
           </Button>
         </Group>
       </Modal>
-    </Stack>
+    </>
   );
 }

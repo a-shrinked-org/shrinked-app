@@ -1,4 +1,3 @@
-// src/components/shared/DocumentsTable.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -40,10 +39,10 @@ export interface ProcessedDocument {
 
 interface DocumentsTableProps {
   data: ProcessedDocument[];
-  docToJobMapping: Record<string, string>;
+  docToJobMapping?: Record<string, string>;
   onView: (doc: ProcessedDocument, e?: React.MouseEvent) => void;
-  onSendEmail: (id: string, email?: string, e?: React.MouseEvent) => void;
-  onDelete: (id: string, e?: React.MouseEvent) => void;
+  onSendEmail: (id: string, email?: string, e?: React.MouseEvent) => Promise<void>;
+  onDelete: (id: string, e?: React.MouseEvent) => Promise<void>;
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
   onRefresh?: () => void;
@@ -53,7 +52,7 @@ interface DocumentsTableProps {
 
 const DocumentsTable: React.FC<DocumentsTableProps> = ({ 
   data, 
-  docToJobMapping, 
+  docToJobMapping = {},
   onView, 
   onSendEmail, 
   onDelete,
@@ -190,7 +189,6 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
         </Card>
       </Stack>
 
-      {/* Email Modal */}
       <Modal
         opened={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
