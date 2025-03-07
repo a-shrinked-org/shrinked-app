@@ -346,7 +346,7 @@ export default function JobList() {
       )}
 
       <Box style={{ overflowX: 'auto', position: 'relative' }}>
-        <LoadingOverlay visible={isLoading} />
+        <LoadingOverlay visible={refineCore.tableQueryResult.isLoading} />
         <Table highlightOnHover>
           <Table.Thead>
             {getHeaderGroups().map((headerGroup) => (
