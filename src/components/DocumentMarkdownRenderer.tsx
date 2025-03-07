@@ -77,15 +77,13 @@ function DocumentMarkdocRenderer({
   
   // Clean and properly format references in the markdown content
   const preprocessMarkdown = (content: string) => {
-    // Handle inline references - convert [[number]](#ts-xx) to proper text with linkable references
-    // This handles cases like [[23]](#ts-23) at the beginning of sentences
+    // First, create anchor targets for references
     let processed = content.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
-      (match, num, id) => `<a id="ts-${id}"></a>[${num}]`
+      (match, num, id) => `<a id="ts-${id}" class="ref-target"></a>`
     );
     
-    // Handle text with citation references
-    // This handles cases like [[text]](#ts-xx) which should become "text [xx]" with xx linked
+    // Then handle references in text
     processed = processed.replace(
       /\[\[([^\]]+)\]\]\(#ts-(\d+)\)/g,
       (match, text, id) => `${text} <a href="#ts-${id}" class="citation-ref">[${id}]</a>`
@@ -390,6 +388,12 @@ function DocumentMarkdocRenderer({
         
         .citation-ref:hover {
           text-decoration: underline;
+        }
+        
+        /* Reference target styling */
+        .ref-target {
+          display: inline;
+          position: relative;
         }
         
         /* General text styling */
