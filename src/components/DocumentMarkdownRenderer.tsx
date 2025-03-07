@@ -135,15 +135,75 @@ function DocumentMarkdocRenderer({
       // Parse the markdown content
       const ast = Markdoc.parse(content);
       
-      // Transform AST using config
-      const contentAst = Markdoc.transform(ast, config);
+      // Define a custom schema to ensure proper heading rendering
+      const schema = {
+        nodes: {
+          document: {
+            render: 'div'
+          },
+          heading: {
+            render: 'heading',
+            attributes: {
+              level: { type: Number, required: true }
+            }
+          },
+          paragraph: {
+            render: 'p'
+          },
+          link: {
+            render: 'a',
+            attributes: {
+              href: { type: String },
+              title: { type: String }
+            }
+          },
+          list: {
+            render: ({ ordered }) => ordered ? 'ol' : 'ul'
+          },
+          item: {
+            render: 'li'
+          },
+          blockquote: {
+            render: 'blockquote'
+          },
+          image: {
+            render: 'img',
+            attributes: {
+              src: { type: String },
+              alt: { type: String }
+            }
+          },
+          table: {
+            render: 'table'
+          },
+          thead: {
+            render: 'thead'
+          },
+          tbody: {
+            render: 'tbody'
+          },
+          tr: {
+            render: 'tr'
+          },
+          th: {
+            render: 'th'
+          },
+          td: {
+            render: 'td'
+          }
+        }
+      };
       
-      // Render the content
+      // Transform AST using enhanced schema
+      const contentAst = Markdoc.transform(ast, schema);
+      
+      // Render the content with HTML
       const html = Markdoc.renderers.html(contentAst);
       
       return (
         <div 
           dangerouslySetInnerHTML={{ __html: html }} 
+          className="markdoc-content"
           style={{ color: '#000000' }}
         />
       );
@@ -338,12 +398,120 @@ function DocumentMarkdocRenderer({
           color: #000000;
         }
       `}</style>
-      <Box className="markdoc-content" style={{ 
+      <Box style={{ 
         fontSize: '16px', 
         lineHeight: 1.7, 
         color: '#000000' 
       }}>
         {renderMarkdoc(markdownContent)}
+        <style jsx global>{`
+          .markdoc-content h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            color: #000000;
+          }
+          .markdoc-content h2 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin-top: 1.75rem;
+            margin-bottom: 0.75rem;
+            color: #000000;
+          }
+          .markdoc-content h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #000000;
+          }
+          .markdoc-content h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-content h5 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-content h6 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-content p {
+            margin-bottom: 1rem;
+            color: #000000;
+          }
+          .markdoc-content ul, .markdoc-content ol {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+            color: #000000;
+          }
+          .markdoc-content li {
+            margin-bottom: 0.5rem;
+            color: #000000;
+          }
+          .markdoc-content a {
+            color: #0066cc;
+            text-decoration: underline;
+          }
+          .markdoc-content blockquote {
+            border-left: 4px solid #e0e0e0;
+            padding-left: 1rem;
+            font-style: italic;
+            margin: 1rem 0;
+            color: #000000;
+          }
+          .markdoc-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+          }
+          .markdoc-content th, .markdoc-content td {
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem;
+            text-align: left;
+            color: #000000;
+          }
+          .markdoc-content th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+          }
+          .markdoc-content img {
+            max-width: 100%;
+            height: auto;
+          }
+          .markdoc-content code {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #000000;
+          }
+          .markdoc-content pre {
+            background-color: #f5f5f5;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+          }
+          .markdoc-content pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            color: #000000;
+          }
+        `}</style>
       </Box>
     </Paper>
   );
