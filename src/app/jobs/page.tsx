@@ -11,7 +11,7 @@ import {
   Badge, 
   Alert,
   Select,
-  Modal // Added Modal here
+  Modal
 } from '@mantine/core';
 import { 
   Info, 
@@ -20,7 +20,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { useAuth, API_CONFIG } from "@/utils/authUtils";
+import { useAuth, authUtils, API_CONFIG } from "@/utils/authUtils"; // Added authUtils import
 import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 
@@ -86,7 +86,7 @@ export default function JobList() {
   useEffect(() => {
     if (error) {
       console.error("Error fetching jobs:", error);
-      authUtils.handleAuthError(error); // Use authUtils error handling
+      authUtils.handleAuthError(error); // Now works with authUtils imported
       if (error.status === 401 || error.status === 403) {
         refreshToken().then(success => {
           if (success) refetch();
@@ -181,7 +181,7 @@ export default function JobList() {
       <DocumentsTable<Job>
         data={formatJobData(data?.data || [])}
         onRowClick={handleRowClick}
-        formatDate={formatDate} // Use unified formatDate
+        formatDate={formatDate}
         isLoading={isLoading}
         onRefresh={refetch}
         error={error}
