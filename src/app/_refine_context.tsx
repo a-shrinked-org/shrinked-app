@@ -12,6 +12,7 @@ import { toast, ToastContainer, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 interface RefineContextProps {}
 
