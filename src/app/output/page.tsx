@@ -121,7 +121,7 @@ export default function ProcessingList() {
   }
 
   return (
-    <DocumentsTable 
+    <DocumentsTable<ProcessedDocument>
       data={data?.data || []}
       docToJobMapping={docToJobMapping}
       onView={handleViewDocument}

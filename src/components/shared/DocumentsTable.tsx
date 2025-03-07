@@ -38,15 +38,15 @@ export interface ProcessedDocument {
   }
 }
 
-interface ExtraColumn {
+interface ExtraColumn<T extends ProcessedDocument> {
   header: string;
-  accessor: keyof ProcessedDocument | ((doc: ProcessedDocument) => React.ReactNode);
+  accessor: keyof T | ((doc: T) => React.ReactNode);
 }
 
-interface DocumentsTableProps {
-  data: ProcessedDocument[];
+interface DocumentsTableProps<T extends ProcessedDocument> {
+  data: T[];
   docToJobMapping?: Record<string, string>;
-  onView: (doc: ProcessedDocument, e?: React.MouseEvent) => void;
+  onView: (doc: T, e?: React.MouseEvent) => void;
   onSendEmail: (id: string, email?: string, e?: React.MouseEvent) => Promise<void>;
   onDelete: (id: string, e?: React.MouseEvent) => Promise<void>;
   formatDate: (dateString: string) => string;
@@ -54,10 +54,10 @@ interface DocumentsTableProps {
   onRefresh?: () => void;
   error?: any;
   title?: string;
-  extraColumns?: ExtraColumn[];
+  extraColumns?: ExtraColumn<T>[];
 }
 
-const DocumentsTable: React.FC<DocumentsTableProps> = ({ 
+const DocumentsTable = <T extends ProcessedDocument>({ 
   data, 
   docToJobMapping = {},
   onView, 
@@ -69,7 +69,7 @@ const DocumentsTable: React.FC<DocumentsTableProps> = ({
   error,
   title = "Documents",
   extraColumns = []
-}) => {
+}: DocumentsTableProps<T>) => {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
   const [activeDocId, setActiveDocId] = useState<string | null>(null);

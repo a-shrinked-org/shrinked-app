@@ -121,13 +121,13 @@ export default function JobList() {
         });
       }
     }
-  }, [error, refetch, refreshToken]); // Added refreshToken to dependencies
+  }, [error, refetch, refreshToken]);
 
   useEffect(() => {
     if (identity?.token) refetch();
   }, [identity, refetch]);
 
-  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
+  const handleViewDocument = (doc: Job, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     show("jobs", doc._id);
   };
@@ -184,7 +184,7 @@ export default function JobList() {
     }));
   };
 
-  const extraColumns = [
+  const extraColumns: ExtraColumn<Job>[] = [
     {
       header: "Logic",
       accessor: (doc: Job) => formatScenarioName(doc.scenario || '')
@@ -228,7 +228,7 @@ export default function JobList() {
 
   return (
     <>
-      <DocumentsTable
+      <DocumentsTable<Job>
         data={formatJobData(data?.data || [])}
         onView={handleViewDocument}
         onSendEmail={handleSendEmail}

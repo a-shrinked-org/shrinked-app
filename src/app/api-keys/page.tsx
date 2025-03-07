@@ -105,7 +105,7 @@ export default function ApiKeysList() {
     }
   }, [userId, refetch]);
 
-  const handleViewDocument = (apiKey: ProcessedDocument) => {
+  const handleViewDocument = (apiKey: ExtendedApiKey) => {
     console.log("Viewing API key:", apiKey);
   };
 
@@ -199,7 +199,7 @@ export default function ApiKeysList() {
 
   return (
     <>
-      <DocumentsTable 
+      <DocumentsTable<ExtendedApiKey>
         data={formatApiKeyData(data?.data || [])}
         onView={handleViewDocument}
         onSendEmail={handleSendEmail}
