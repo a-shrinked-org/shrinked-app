@@ -109,24 +109,25 @@ function DocumentMarkdocRenderer({
   const renderMarkdoc = (content: string) => {
     try {
       // Process references in the markdown to support academic-style citations
-      // Example: [text](#ts-43) -> <a href="#ts-43" id="ref-ts-43">text</a>
+      // Convert [[text]](#ts-xx) to proper formatted references
       const processedContent = content.replace(
         /\[\[([^\]]+)\]\]\(#(ts-\d+)\)/g, 
-        (match, text, id) => `[${text}](#${id}){#ref-${id}}`
+        (match, text, id) => `${text} [<a href="#${id}">${id.replace('ts-', '')}</a>]`
       );
       
       // Parse the markdown content
       const ast = Markdoc.parse(processedContent);
       
+      // Transform and render the content
       const contentAst = Markdoc.transform(ast);
       
       // Render the content with HTML
       const html = Markdoc.renderers.html(contentAst);
       
-      // Process the HTML to add citation link classes
+      // Add IDs to reference targets at the bottom
       const processedHtml = html.replace(
-        /<a\s+href="#(ts-\d+)"([^>]*)>(.*?)<\/a>/g,
-        '<a href="#$1" class="citation-link"$2>$3</a>'
+        /<a id="(ts-\d+)">(.*?)<\/a>/g,
+        '<a id="$1">$2</a>'
       );
       
       return processedHtml;
@@ -144,7 +145,6 @@ function DocumentMarkdocRenderer({
         bg="white"
         c="black" 
         radius="md"
-        style={markdocStyles.container}
         className="markdoc-container"
       >
         <style jsx global>{`
@@ -169,54 +169,8 @@ function DocumentMarkdocRenderer({
             margin-bottom: 0.75rem;
             color: #000000;
           }
-          .markdoc-container h4 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-top: 1.25rem;
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-container h5 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-container h6 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
-          .markdoc-container p {
-            margin-bottom: 1rem;
-            color: #000000;
-          }
-          .markdoc-container ul, .markdoc-container ol {
-            margin-bottom: 1rem;
-            padding-left: 2rem;
-            color: #000000;
-          }
-          .markdoc-container li {
-            margin-bottom: 0.5rem;
-            color: #000000;
-          }
           .markdoc-container a {
             color: #0066cc;
-            text-decoration: underline;
-          }
-          /* Special styling for citation links */
-          .markdoc-container a.citation-link {
-            color: #0066cc;
-            text-decoration: none;
-            font-size: 0.8em;
-            vertical-align: super;
-            line-height: 0;
-            padding: 0 2px;
-          }
-          .markdoc-container a.citation-link:hover {
             text-decoration: underline;
           }
           /* Reference section styling */
@@ -225,84 +179,11 @@ function DocumentMarkdocRenderer({
             padding-top: 1.5rem;
             border-top: 1px solid #e0e0e0;
           }
-          .markdoc-container .references h2 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-          }
-          .markdoc-container .references ol {
-            margin-left: 0;
-            padding-left: 1.5rem;
-          }
-          .markdoc-container .references li {
-            margin-bottom: 0.75rem;
-          }
-          /* Target for citation links */
           .markdoc-container [id^="ts-"] {
             scroll-margin-top: 2rem;
           }
-          .markdoc-container blockquote {
-            border-left: 4px solid #e0e0e0;
-            padding-left: 1rem;
-            font-style: italic;
-            margin: 1rem 0;
-            color: #000000;
-          }
-          .markdoc-container table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-          }
-          .markdoc-container th, .markdoc-container td {
-            border: 1px solid #e0e0e0;
-            padding: 0.5rem;
-            text-align: left;
-            color: #000000;
-          }
-          .markdoc-container th {
-            background-color: #f5f5f5;
-            font-weight: 600;
-          }
-          .markdoc-container img {
-            max-width: 100%;
-            height: auto;
-          }
-          .markdoc-container code {
-            font-family: monospace;
-            background-color: #f5f5f5;
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-size: 0.9em;
-            color: #000000;
-          }
-          .markdoc-container pre {
-            background-color: #f5f5f5;
-            padding: 1rem;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 1rem 0;
-          }
-          .markdoc-container pre code {
-            background-color: transparent;
-            padding: 0;
-            border-radius: 0;
-            color: #000000;
-          }
-          /* Markdoc tags and annotations styling */
-          .markdoc-container .tag-container {
-            margin: 1rem 0;
-            padding: 1rem;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-            border-left: 3px solid #0066cc;
-          }
-          /* Variables styling */
-          .markdoc-container .variable {
-            font-style: italic;
-            color: #0066cc;
-          }
         `}</style>
         <div 
-          style={markdocStyles.content}
           className="markdoc-content"
           dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdown) }}
         />
