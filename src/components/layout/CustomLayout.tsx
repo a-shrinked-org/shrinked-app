@@ -177,7 +177,8 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
               <Text size="xs">{userInfo.name}</Text>
               <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
             </Box>
-            <Group ml="auto" spacing={-8}>
+            {/* In Mantine 7, 'spacing' is changed to 'gap' */}
+            <Group ml="auto" gap={-8}>
               <Avatar 
                 size="sm" 
                 radius="xl" 
