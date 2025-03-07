@@ -77,9 +77,7 @@ export default function ApiKeysList() {
       pageSize: 100,
     },
     meta: {
-      headers: {
-        'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
-      },
+      headers: authUtils.getAuthHeaders(), // Use authUtils.getAuthHeaders
       url: `${API_CONFIG.API_URL}/users/api-keys`
     }
   });
@@ -87,6 +85,7 @@ export default function ApiKeysList() {
   useEffect(() => {
     if (error) {
       console.error("Error fetching API keys:", error);
+      authUtils.handleAuthError(error); // Consistent error handling
       if (error.status === 401 || error.status === 403) {
         authUtils.refreshToken().then(success => {
           if (success) refetch();
@@ -109,18 +108,16 @@ export default function ApiKeysList() {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this API key?")) {
       try {
-        const response = await axios.delete(`${API_CONFIG.API_URL}/users/api-key/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${authUtils.getAccessToken() || identity?.token || ''}`
-          }
-        });
+        const response = await authUtils.fetchWithAuth(`${API_CONFIG.API_URL}/users/api-key/${id}`, {
+          method: 'DELETE',
+        }); // Use fetchWithAuth instead of axios
         if (response.status === 200) {
           alert("API key deleted successfully");
           refetch();
         }
       } catch (error: any) {
         console.error("Error deleting API key:", error);
-        alert(`Failed to delete API key: ${error.response?.data?.message || "Unknown error"}`);
+        alert(`Failed to delete API key: ${error.message || "Unknown error"}`);
       }
     }
   };
@@ -134,7 +131,7 @@ export default function ApiKeysList() {
 
     setIsLoading(true);
     try {
-      const newKey = await ApiKeyService.createApiKey(userId, keyName); // Assumes this uses POST /users/:userId/api-key
+      const newKey = await ApiKeyService.createApiKey(userId, keyName); // Assumes POST /users/:userId/api-key
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);

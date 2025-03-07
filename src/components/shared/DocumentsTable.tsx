@@ -46,9 +46,10 @@ export interface ExtraColumn<T extends ProcessedDocument> {
 interface DocumentsTableProps<T extends ProcessedDocument> {
   data: T[];
   docToJobMapping?: Record<string, string>;
-  onView: (doc: T, e?: React.MouseEvent) => void;
-  onSendEmail: (id: string, email?: string, e?: React.MouseEvent) => Promise<void>;
-  onDelete: (id: string, e?: React.MouseEvent) => Promise<void>;
+  onView?: (doc: T, e?: React.MouseEvent) => void;
+  onSendEmail?: (id: string, email?: string, e?: React.MouseEvent) => Promise<void>;
+  onDelete?: (id: string, e?: React.MouseEvent) => Promise<void>;
+  onRowClick?: (doc: T) => void;
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
   onRefresh?: () => void;
