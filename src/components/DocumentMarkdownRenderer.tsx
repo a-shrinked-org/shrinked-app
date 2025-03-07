@@ -146,7 +146,7 @@ function DocumentMarkdocRenderer({
             }
           },
           list: {
-            render: ({ ordered }) => ordered ? 'ol' : 'ul',
+            render: ({ ordered }: { ordered?: boolean }) => ordered ? 'ol' : 'ul',
             attributes: {
               id: { type: String }
             }
@@ -230,8 +230,8 @@ function DocumentMarkdocRenderer({
           currentYear: new Date().getFullYear()
         },
         functions: {
-          uppercase: (str: string) => str.toUpperCase(),
-          lowercase: (str: string) => str.toLowerCase()
+          uppercase: (str: string): string => str.toUpperCase(),
+          lowercase: (str: string): string => str.toLowerCase()
         }
       };
       
@@ -239,12 +239,12 @@ function DocumentMarkdocRenderer({
       const config = {
         nodes: {
           link: {
-            transform(node, config) {
-              const attributes = node.transformAttributes(config);
+            transform(node: any, config: any) {
+              const attributes = node.transformAttributes(config) as Record<string, any>;
               const children = node.transformChildren(config);
               
               // Handle ID annotations for references
-              const id = node.attributes.find(attr => attr.name === 'id')?.value;
+              const id = node.attributes?.find((attr: { name: string, value: string }) => attr.name === 'id')?.value;
               
               // Special handling for academic citations
               if (attributes.href && attributes.href.startsWith('#ts-')) {
