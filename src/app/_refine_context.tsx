@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef } from "react";
 import routerProvider from "@refinedev/nextjs-router";
 import { dataProvider } from "@providers/data-provider";
 import { customAuthProvider } from "@providers/customAuthProvider";
-import { toast, ToastContainer } from "react-toastify";
+import { toast, ToastContainer, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
@@ -40,13 +40,13 @@ const notificationProvider: NotificationProvider = {
       toast.update(toastId, {
         render: content,
         type: type === "error" ? "error" : type === "success" ? "success" : "info",
-        autoClose: 3000,
+        autoClose: 5000, // Updated to match ToastContainer config
       });
     } else {
       toast(content, {
         toastId: toastId,
         type: type === "error" ? "error" : type === "success" ? "success" : "info",
-        autoClose: 3000,
+        autoClose: 5000, // Updated to match ToastContainer config
       });
     }
   },
@@ -381,7 +381,19 @@ const App = (props: React.PropsWithChildren<{}>) => {
         >
           {props.children}
           <RefineKbar />
-          <ToastContainer />
+          <ToastContainer
+            position="top-center"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+            transition={Slide}
+          />
         </Refine>
       </RefineKbarProvider>
     </>
