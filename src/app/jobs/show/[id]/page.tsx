@@ -116,80 +116,29 @@ export default function JobShow() {
 
   // Fetch markdown content from backend endpoint
   const fetchMarkdownContent = useCallback(async () => {
-    // We need either resultId (processingDocId) or jobId
-    if (!processingDocId && !jobId) {
-      console.log("No document ID or job ID available for markdown fetch");
-      setErrorMessage("Missing required IDs to fetch content");
-      return;
-    }
-
+    if (!jobId) return;
+  
     try {
-      // From your Postman collection, the correct endpoint format is:
-      // /markdown/{id}/json?includeReferences=true
+      console.log('Attempting to fetch markdown with job ID:', jobId);
       
-      // Try with processingDocId (resultId) first - this is the correct ID to use
-      if (processingDocId) {
-        console.log('Attempting to fetch markdown with resultId:', processingDocId);
-        
-        const response = await fetchWithAuth(
-          `${API_CONFIG.API_URL}/markdown/${processingDocId}/json?includeReferences=true`
-        );
-
-        if (response.ok) {
-          const markdown = await response.text();
-          setMarkdownContent(markdown);
-          console.log('Fetched markdown content successfully using resultId');
-          return;
-        }
-        
-        console.log(`Markdown fetch failed with resultId, status: ${response.status}`);
+      // Use the corrected endpoint format: /pdf/{jobId}/markdown?includeReferences=true
+      const response = await fetchWithAuth(
+        `${API_CONFIG.API_URL}/pdf/${jobId}/markdown?includeReferences=true`
+      );
+  
+      if (!response.ok) {
+        throw new Error(`Markdown fetch failed with status: ${response.status}`);
       }
-
-      // If that fails or processingDocId is not available, try with jobId
-      if (jobId) {
-        console.log('Attempting to fetch markdown with jobId:', jobId);
-        
-        const response = await fetchWithAuth(
-          `${API_CONFIG.API_URL}/markdown/${jobId}/json?includeReferences=true`
-        );
-
-        if (response.ok) {
-          const markdown = await response.text();
-          setMarkdownContent(markdown);
-          console.log('Fetched markdown content successfully using jobId');
-          return;
-        }
-        
-        console.log(`Markdown fetch failed with jobId, status: ${response.status}`);
-      }
-
-      // If none of the above worked, try the processing document endpoint as a fallback
-      if (processingDocId) {
-        console.log('Attempting to fetch processing document directly:', processingDocId);
-        
-        const response = await fetchWithAuth(
-          `${API_CONFIG.API_URL}/processing/${processingDocId}`
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Fetched processing document:', data);
-          setProcessingDoc(data);
-          // Let the DocumentMarkdownRenderer component handle rendering from structured data
-          return;
-        }
-        
-        console.log(`Processing document fetch failed, status: ${response.status}`);
-      }
-
-      // If all attempts failed
-      throw new Error("Failed to fetch markdown through all available methods");
-      
+  
+      // The response should be the markdown text directly
+      const markdown = await response.text();
+      setMarkdownContent(markdown);
+      console.log('Fetched markdown content successfully using job ID:', jobId);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
       setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [processingDocId, jobId, fetchWithAuth]);
+  }, [jobId, fetchWithAuth]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
@@ -246,78 +195,37 @@ export default function JobShow() {
 
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
-    // We need either resultId (processingDocId) or jobId
-    if (!processingDocId && !jobId) {
-      setErrorMessage("Missing required IDs to generate PDF");
-      return;
-    }
-
+    if (!jobId) return;
+  
     try {
-      // From your Postman collection, the correct endpoint format is:
-      // /pdf/{id}/json?includeReferences=true
-
-      // Try with processingDocId (resultId) first
-      if (processingDocId) {
-        console.log('Attempting to download PDF with resultId:', processingDocId);
-        
-        const response = await fetchWithAuth(
-          `${API_CONFIG.API_URL}/pdf/${processingDocId}/json?includeReferences=true`,
-          { method: 'GET' }
-        );
-
-        if (response.ok) {
-          // Process successful response
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `document-${processingDocId}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.URL.revokeObjectURL(url);
-          console.log('Downloaded PDF successfully using resultId');
-          return;
-        }
-        
-        console.log(`PDF download failed with resultId, status: ${response.status}`);
-      }
-
-      // If that fails or processingDocId is not available, try with jobId
-      if (jobId) {
-        console.log('Attempting to download PDF with jobId:', jobId);
-        
-        const response = await fetchWithAuth(
-          `${API_CONFIG.API_URL}/pdf/${jobId}/json?includeReferences=true`,
-          { method: 'GET' }
-        );
-
-        if (response.ok) {
-          // Process successful response
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `document-${jobId}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.URL.revokeObjectURL(url);
-          console.log('Downloaded PDF successfully using jobId');
-          return;
-        }
-        
-        console.log(`PDF download failed with jobId, status: ${response.status}`);
-      }
-
-      // If all attempts failed
-      throw new Error("Failed to download PDF through all available methods");
+      console.log('Attempting to download PDF with job ID:', jobId);
       
+      // This endpoint seems to be correct based on your Postman collection
+      const response = await fetchWithAuth(
+        `${API_CONFIG.API_URL}/pdf/${jobId}/json?includeReferences=true`,
+        { method: 'GET' }
+      );
+  
+      if (!response.ok) {
+        throw new Error(`PDF download failed with status: ${response.status}`);
+      }
+      
+      // Convert response to blob and create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `document-${jobId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      console.log('Downloaded PDF successfully using job ID:', jobId);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [processingDocId, jobId, fetchWithAuth]);
+  }, [jobId, fetchWithAuth]);
 
   const { queryResult } = useShow<Job>({
     resource: "jobs",
