@@ -405,9 +405,11 @@ export const RefineContext = (
   props: React.PropsWithChildren<RefineContextProps>
 ) => {
   return (
-    <SessionProvider>
-      <App {...props} />
-    </SessionProvider>
+    <HelmetProvider>
+      <SessionProvider>
+        <App {...props} />
+      </SessionProvider>
+    </HelmetProvider>
   );
 };
 

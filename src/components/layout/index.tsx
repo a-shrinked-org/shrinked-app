@@ -27,6 +27,7 @@ import { CanAccess, useGetIdentity, useLogout } from "@refinedev/core";
 import { authUtils } from "@/utils/authUtils";
 // Import IconWrapper from the utils file
 import { IconWrapper } from '@/utils/ui-utils';
+import { DefaultMetadata } from '@/components/DefaultMetadata';
 
 interface Identity {
   id?: string;
@@ -109,6 +110,7 @@ export const Layout: React.FC<React.PropsWithChildren> = ({ children }) => {
   ];
 
   return (
+    <DefaultMetadata />
     <AppShell
       navbar={{ 
         width: 300, 
