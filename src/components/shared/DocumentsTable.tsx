@@ -2,20 +2,19 @@
 
 import React, { useState } from "react";
 import { 
-  Table, 
   Text, 
   Group, 
   ActionIcon, 
   Tooltip,
-  Stack,
-  Card,
-  Title,
+  Box,
   Button,
   Alert,
   Modal,
   TextInput,
-  LoadingOverlay,
-  Badge
+  Flex,
+  Loader,
+  MediaQuery,
+  Stack
 } from '@mantine/core';
 import { 
   Eye, 
@@ -23,8 +22,11 @@ import {
   Trash,
   RefreshCw,
   AlertCircle,
-  Send
+  Send,
+  Plus,
+  ChevronRight
 } from 'lucide-react';
+import { GeistMono } from 'geist/font/mono';
 
 export interface ProcessedDocument {
   _id: string;
@@ -33,14 +35,23 @@ export interface ProcessedDocument {
   fileName?: string;
   createdAt: string;
   status?: string;
+  type?: string;
+  logic?: string;
+  owner?: {
+    name?: string;
+    avatar?: string;
+  };
   output?: {
     title?: string;
-  }
+    description?: string;
+  };
+  description?: string;
 }
 
 export interface ExtraColumn<T extends ProcessedDocument> {
   header: string;
   accessor: keyof T | ((doc: T) => React.ReactNode);
+  hideOnMobile?: boolean; // Option to hide column on mobile
 }
 
 interface DocumentsTableProps<T extends ProcessedDocument> {
@@ -53,11 +64,12 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
   onRefresh?: () => void;
+  onAddNew?: () => void;
   error?: any;
   title?: string;
   extraColumns?: ExtraColumn<T>[];
-  showStatus?: boolean; // New prop to toggle status column
-  noDataMessage?: string; // New prop for custom no-data message
+  showStatus?: boolean;
+  noDataMessage?: string;
 }
 
 const DocumentsTable = <T extends ProcessedDocument>({ 
@@ -70,10 +82,11 @@ const DocumentsTable = <T extends ProcessedDocument>({
   formatDate,
   isLoading = false,
   onRefresh,
+  onAddNew,
   error,
-  title = "Documents",
+  title = "DOCUMENTS",
   extraColumns = [],
-  showStatus = true, // Default to true for backward compatibility
+  showStatus = true,
   noDataMessage = "No documents found."
 }: DocumentsTableProps<T>) => {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -101,165 +114,452 @@ const DocumentsTable = <T extends ProcessedDocument>({
     }
   };
 
-  const renderTable = () => {
-    if (!data || data.length === 0) {
-      return <Text>{noDataMessage}</Text>;
+  // Status color mapping
+  const getStatusColor = (status?: string) => {
+    if (!status) return "#ffffff";
+    
+    switch(status.toLowerCase()) {
+      case 'completed':
+        return "#185a2f";
+      case 'error':
+        return "#f44336";
+      case 'processing':
+        return "#a1a1a1";
+      default:
+        return "#ffffff";
     }
-
-    const hasActions = onView || onSendEmail || onDelete;
-
-    return (
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Document Title</Table.Th>
-            <Table.Th>Date</Table.Th>
-            {showStatus && <Table.Th>Status</Table.Th>}
-            {extraColumns.map((col, index) => (
-              <Table.Th key={index}>{col.header}</Table.Th>
-            ))}
-            {hasActions && <Table.Th>Actions</Table.Th>}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {data.map((doc) => (
-            <Table.Tr 
-              key={doc._id}
-              onClick={() => onRowClick && onRowClick(doc)}
-              style={{ cursor: onRowClick ? 'pointer' : 'default' }}
-            >
-              <Table.Td>
-                <Text fw={500}>
-                  {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
-                </Text>
-              </Table.Td>
-              <Table.Td>{formatDate(doc.createdAt)}</Table.Td>
-              {showStatus && (
-                <Table.Td>
-                  <Text>{doc.status ? doc.status.charAt(0).toUpperCase() + doc.status.slice(1) : 'Unknown'}</Text>
-                </Table.Td>
-              )}
-              {extraColumns.map((col, index) => (
-                <Table.Td key={index}>
-                  {typeof col.accessor === 'function' ? col.accessor(doc) : (doc[col.accessor] as React.ReactNode)}
-                </Table.Td>
-              ))}
-              {hasActions && (
-                <Table.Td>
-                  <Group>
-                    {onView && (
-                      <Tooltip label="View Document">
-                        <ActionIcon 
-                          variant="light" 
-                          color="blue"
-                          onClick={(e) => onView(doc, e)}
-                        >
-                          <Eye size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                    {onSendEmail && (
-                      <Tooltip label="Send to Email">
-                        <ActionIcon 
-                          variant="light" 
-                          color="indigo"
-                          onClick={(e) => handleEmailClick(doc._id, e)}
-                        >
-                          <Mail size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                    {onDelete && (
-                      <Tooltip label="Delete">
-                        <ActionIcon 
-                          variant="light" 
-                          color="red"
-                          onClick={(e) => onDelete(doc._id, e)}
-                        >
-                          <Trash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                  </Group>
-                </Table.Td>
-              )}
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    );
   };
 
+  const getStatusTextColor = (status?: string) => {
+    if (!status) return "#ffffff";
+    
+    switch(status.toLowerCase()) {
+      case 'completed':
+        return "#185a2f";
+      case 'error':
+        return "#f44336";
+      case 'processing':
+      default:
+        return "#a1a1a1";
+    }
+  };
+
+  const getRowIndicatorColor = (status?: string) => {
+    if (!status) return "#ffffff";
+    
+    switch(status.toLowerCase()) {
+      case 'completed':
+        return "#185a2f";
+      case 'error':
+        return "#f44336";
+      case 'processing':
+        return "#ffffff";
+      default:
+        return "#f4a522"; // Orange for other cases
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box p="xl" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+        <Loader color="#ffffff" />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box p="md">
+        <Alert 
+          icon={<AlertCircle size={16} />} 
+          title="Error loading data" 
+          color="red"
+        >
+          {error.message || "Failed to load data. Please try again."}
+        </Alert>
+      </Box>
+    );
+  }
+
+  // Define visible columns for different screen sizes
+  const desktopColumns = extraColumns.filter(col => !col.hideOnMobile);
+  const mobileVisibleColumns = extraColumns.filter(col => !col.hideOnMobile);
+
   return (
-    <>
-      <Stack p="md">
-        <Group justify="space-between">
-          <Title order={2}>{title}</Title>
+    <Box style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
+      {/* Header */}
+      <Flex justify="space-between" align="center" p="md" style={{ borderBottom: '1px solid #2b2b2b' }}>
+        <Text size="lg" fw={700}>{title}</Text>
+        <Group>
           {onRefresh && (
-            <Button 
-              onClick={onRefresh} 
+            <Button
+              variant="outline"
+              onClick={onRefresh}
               leftSection={<RefreshCw size={16} />}
               loading={isLoading}
+              styles={{
+                root: {
+                  backgroundColor: 'transparent',
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#2b2b2b',
+                  },
+                },
+              }}
             >
-              Refresh
+              <MediaQuery smallerThan="sm" styles={{ display: 'none' }}>
+                <Text>Refresh</Text>
+              </MediaQuery>
+            </Button>
+          )}
+          {onAddNew && (
+            <Button
+              variant="outline"
+              onClick={onAddNew}
+              rightSection={<Plus size={16} />}
+              styles={{
+                root: {
+                  backgroundColor: 'transparent',
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#2b2b2b',
+                  },
+                },
+              }}
+            >
+              <Text size="xs">ADD NEW</Text>
             </Button>
           )}
         </Group>
+      </Flex>
 
-        {error && (
-          <Alert 
-            icon={<AlertCircle size={16} />}
-            title="Error" 
-            color="red" 
-            withCloseButton
-          >
-            {error.message || "Failed to load data. Please try again."}
-          </Alert>
-        )}
+      {/* Desktop View */}
+      <MediaQuery smallerThan="md" styles={{ display: 'none' }}>
+        <Box>
+          {/* Table Header */}
+          <Box style={{ 
+            display: 'grid', 
+            gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${desktopColumns.length > 0 ? `repeat(${desktopColumns.length}, 1fr)` : ''} 15%`, 
+            padding: '1rem 1.5rem',
+            borderBottom: '1px solid #2b2b2b',
+            color: '#a1a1a1',
+            fontSize: '12px',
+          }}>
+            <Box>/title</Box>
+            {showStatus && <Box>/status</Box>}
+            <Box>/date</Box>
+            {desktopColumns.map((col, index) => (
+              <Box key={index}>/{col.header.toLowerCase()}</Box>
+            ))}
+            <Box style={{ textAlign: 'right' }}>/actions</Box>
+          </Box>
 
-        <Card withBorder>
-          <div style={{ position: 'relative' }}>
-            <LoadingOverlay visible={isLoading} />
-            <Stack>
-              {renderTable()}
+          {/* Table Content */}
+          {data && data.length > 0 ? (
+            <Box>
+              {data.map((doc) => (
+                <Box
+                  key={doc._id}
+                  onClick={() => onRowClick && onRowClick(doc)}
+                  style={{ 
+                    display: 'grid',
+                    gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${desktopColumns.length > 0 ? `repeat(${desktopColumns.length}, 1fr)` : ''} 15%`,
+                    padding: '1.5rem',
+                    borderBottom: '1px solid #2b2b2b',
+                    cursor: onRowClick ? 'pointer' : 'default',
+                    transition: 'background-color 0.2s',
+                    '&:hover': {
+                      backgroundColor: '#0d0d0d',
+                    },
+                  }}
+                >
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <Box style={{ 
+                      height: '12px', 
+                      width: '12px', 
+                      borderRadius: '50%', 
+                      backgroundColor: getRowIndicatorColor(doc.status),
+                      flexShrink: 0
+                    }} />
+                    <Box style={{ overflow: 'hidden' }}>
+                      <Text size="sm" fw={500} lineClamp={1}>
+                        {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+                      </Text>
+                      <Text size="xs" c="#a1a1a1" lineClamp={1}>
+                        {doc.description || doc.output?.description || '...'}
+                      </Text>
+                    </Box>
+                  </Box>
+                  
+                  {showStatus && (
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
+                      <Text size="sm" c={getStatusTextColor(doc.status)}>
+                        {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
+                      </Text>
+                    </Box>
+                  )}
+                  
+                  <Box style={{ display: 'flex', alignItems: 'center' }}>
+                    <Text size="sm">{formatDate(doc.createdAt)}</Text>
+                  </Box>
+                  
+                  {desktopColumns.map((col, index) => (
+                    <Box key={index} style={{ display: 'flex', alignItems: 'center' }}>
+                      {typeof col.accessor === 'function' ? (
+                        col.accessor(doc)
+                      ) : (
+                        <Text size="sm" lineClamp={1}>{String(doc[col.accessor] || '')}</Text>
+                      )}
+                    </Box>
+                  ))}
+                  
+                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <Group>
+                      {onView && (
+                        <Tooltip label="View Document">
+                          <ActionIcon 
+                            variant="subtle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onView(doc, e);
+                            }}
+                            style={{
+                              color: '#ffffff',
+                              '&:hover': { backgroundColor: '#2b2b2b' }
+                            }}
+                          >
+                            <Eye size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                      {onSendEmail && (
+                        <Tooltip label="Send to Email">
+                          <ActionIcon 
+                            variant="subtle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEmailClick(doc._id, e);
+                            }}
+                            style={{
+                              color: '#ffffff',
+                              '&:hover': { backgroundColor: '#2b2b2b' }
+                            }}
+                          >
+                            <Mail size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                      {onDelete && (
+                        <Tooltip label="Delete">
+                          <ActionIcon 
+                            variant="subtle"
+                            color="red"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(doc._id, e);
+                            }}
+                            style={{
+                              '&:hover': { backgroundColor: '#2b2b2b' }
+                            }}
+                          >
+                            <Trash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Group>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Box p="xl" style={{ textAlign: 'center' }}>
+              <Text c="#a1a1a1">{noDataMessage}</Text>
+            </Box>
+          )}
+        </Box>
+      </MediaQuery>
+
+      {/* Mobile View */}
+      <MediaQuery largerThan="md" styles={{ display: 'none' }}>
+        <Box>
+          {data && data.length > 0 ? (
+            <Stack spacing={0}>
+              {data.map((doc) => (
+                <Box
+                  key={doc._id}
+                  onClick={() => onRowClick && onRowClick(doc)}
+                  style={{ 
+                    padding: '1rem',
+                    borderBottom: '1px solid #2b2b2b',
+                    cursor: onRowClick ? 'pointer' : 'default',
+                  }}
+                >
+                  <Flex align="stretch" gap="md">
+                    <Box style={{ 
+                      width: '8px', 
+                      borderRadius: '4px', 
+                      backgroundColor: getRowIndicatorColor(doc.status),
+                      alignSelf: 'stretch',
+                      flexShrink: 0
+                    }} />
+                    <Box style={{ flex: 1 }}>
+                      <Flex justify="space-between" align="flex-start">
+                        <Box style={{ flex: 1 }}>
+                          <Text size="sm" fw={500} lineClamp={1}>
+                            {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+                          </Text>
+                          <Text size="xs" c="#a1a1a1" lineClamp={2} mb="xs">
+                            {doc.description || doc.output?.description || '...'}
+                          </Text>
+                        </Box>
+                        <ActionIcon 
+                          variant="subtle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView && onView(doc, e);
+                          }}
+                          style={{
+                            color: '#ffffff',
+                            marginLeft: '8px'
+                          }}
+                        >
+                          <ChevronRight size={16} />
+                        </ActionIcon>
+                      </Flex>
+                      
+                      <Flex gap="md" wrap="wrap" mt="xs">
+                        {showStatus && (
+                          <Text size="xs" c={getStatusTextColor(doc.status)}>
+                            {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
+                          </Text>
+                        )}
+                        
+                        <Text size="xs" c="#a1a1a1">
+                          {formatDate(doc.createdAt)}
+                        </Text>
+                        
+                        {mobileVisibleColumns.map((col, index) => (
+                          <Text key={index} size="xs" c="#a1a1a1">
+                            {typeof col.accessor === 'function' 
+                              ? React.isValidElement(col.accessor(doc)) 
+                                ? col.header 
+                                : String(col.accessor(doc) || '')
+                              : String(doc[col.accessor] || '')}
+                          </Text>
+                        ))}
+                      </Flex>
+                      
+                      <Flex justify="flex-end" mt="xs">
+                        <Group>
+                          {onSendEmail && (
+                            <ActionIcon 
+                              variant="subtle"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEmailClick(doc._id, e);
+                              }}
+                              style={{
+                                color: '#ffffff',
+                              }}
+                            >
+                              <Mail size={14} />
+                            </ActionIcon>
+                          )}
+                          {onDelete && (
+                            <ActionIcon 
+                              variant="subtle"
+                              size="sm"
+                              color="red"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(doc._id, e);
+                              }}
+                            >
+                              <Trash size={14} />
+                            </ActionIcon>
+                          )}
+                        </Group>
+                      </Flex>
+                    </Box>
+                  </Flex>
+                </Box>
+              ))}
             </Stack>
-          </div>
-        </Card>
-      </Stack>
+          ) : (
+            <Box p="xl" style={{ textAlign: 'center' }}>
+              <Text c="#a1a1a1">{noDataMessage}</Text>
+            </Box>
+          )}
+        </Box>
+      </MediaQuery>
 
-      {onSendEmail && (
-        <Modal
-          opened={emailModalOpen}
-          onClose={() => setEmailModalOpen(false)}
-          title="Send to Email"
-          centered
-        >
-          <Stack>
-            <TextInput
-              label="Email Address"
-              placeholder="Enter email address"
-              value={emailAddress}
-              onChange={(e) => setEmailAddress(e.target.value)}
-              required
-            />
-            <Group justify="flex-end">
-              <Button variant="outline" onClick={() => setEmailModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                color="indigo" 
-                onClick={handleSendEmail} 
-                leftSection={<Send size={16} />}
-                loading={sendingEmail}
-                disabled={!emailAddress}
-              >
-                Send
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
-      )}
-    </>
+      {/* Email Modal */}
+      <Modal
+        opened={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        title="Send to Email"
+        centered
+        styles={{
+          header: { backgroundColor: '#000000', color: '#ffffff' },
+          body: { backgroundColor: '#000000', color: '#ffffff' },
+          close: { color: '#ffffff' },
+        }}
+      >
+        <Box>
+          <TextInput
+            label="Email Address"
+            placeholder="Enter email address"
+            value={emailAddress}
+            onChange={(e) => setEmailAddress(e.target.value)}
+            required
+            styles={{
+              input: {
+                backgroundColor: '#0d0d0d',
+                borderColor: '#2b2b2b',
+                color: '#ffffff',
+              },
+              label: {
+                color: '#ffffff',
+              },
+            }}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="outline"
+              onClick={() => setEmailModalOpen(false)}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              leftSection={<Send size={16} />}
+              loading={sendingEmail}
+              disabled={!emailAddress}
+              styles={{
+                root: {
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#e0e0e0',
+                  },
+                },
+              }}
+            >
+              Send
+            </Button>
+          </Group>
+        </Box>
+      </Modal>
+    </Box>
   );
 };
 
