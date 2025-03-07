@@ -1,10 +1,11 @@
 import React from 'react';
 import { Box, Text, Paper, Loader, Alert, Button, Progress } from '@mantine/core';
 import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import Markdoc from '@markdoc/markdoc';
+import { renderers } from '@markdoc/markdoc';
 
 // Define component props interface
-interface DocumentMarkdownRendererProps {
+interface DocumentMarkdocRendererProps {
   data?: {
     title?: string;
     abstract?: string;
@@ -22,27 +23,53 @@ interface DocumentMarkdownRendererProps {
   processingStatus?: string;
 }
 
-// Custom styles to ensure markdown content is visible
-const markdownStyles = {
-  color: '#000000',
-  backgroundColor: '#ffffff',
-  borderRadius: '8px',
-  position: 'relative' as const,
-  '& .markdown-content': {
-    color: '#000000',
-    fontSize: '16px',
-    lineHeight: 1.7,
-  },
+// Custom config for Markdoc
+const config = {
+  nodes: {
+    heading: {
+      render: 'Heading',
+      attributes: {
+        level: { type: Number, required: true },
+        id: { type: String }
+      }
+    },
+    paragraph: {
+      render: 'Paragraph'
+    },
+    link: {
+      render: 'Link',
+      attributes: {
+        href: { type: String, required: true },
+        title: { type: String }
+      }
+    }
+  }
 };
 
-function DocumentMarkdownRenderer({
+// Custom components for rendering
+const components = {
+  Heading: ({ level, children }) => {
+    const HeadingTag = `h${level}`;
+    return React.createElement(HeadingTag, { style: { color: '#000000' } }, children);
+  },
+  Paragraph: ({ children }) => (
+    <p style={{ color: '#000000', marginBottom: '1rem' }}>{children}</p>
+  ),
+  Link: ({ href, children }) => (
+    <a href={href} style={{ color: '#0066cc', textDecoration: 'underline' }}>
+      {children}
+    </a>
+  )
+};
+
+function DocumentMarkdocRenderer({
   data,
   markdown,
   isLoading,
   errorMessage,
   onRefresh,
   processingStatus
-}: DocumentMarkdownRendererProps) {
+}: DocumentMarkdocRendererProps) {
   
   // Check if the document is still processing
   const isProcessing = processingStatus && 
@@ -88,6 +115,18 @@ function DocumentMarkdownRenderer({
     );
   }
   
+  // Render markdown content using Markdoc
+  const renderMarkdoc = (content: string) => {
+    // Parse the markdown content
+    const ast = Markdoc.parse(content);
+    
+    // Transform AST using config
+    const content_ast = Markdoc.transform(ast, config);
+    
+    // Render the content
+    return renderers.react(content_ast, React, { components });
+  };
+  
   // If markdown content is directly provided, render it instead of generating
   if (markdown) {
     return (
@@ -102,29 +141,29 @@ function DocumentMarkdownRenderer({
           backgroundColor: '#ffffff',
           borderRadius: '8px'
         }}
-        className="markdown-container"
+        className="markdoc-container"
       >
         <style jsx global>{`
-          .markdown-container p, 
-          .markdown-container h1, 
-          .markdown-container h2, 
-          .markdown-container h3, 
-          .markdown-container h4, 
-          .markdown-container h5, 
-          .markdown-container h6, 
-          .markdown-container li, 
-          .markdown-container a, 
-          .markdown-container span, 
-          .markdown-container div {
+          .markdoc-container p, 
+          .markdoc-container h1, 
+          .markdoc-container h2, 
+          .markdoc-container h3, 
+          .markdoc-container h4, 
+          .markdoc-container h5, 
+          .markdoc-container h6, 
+          .markdoc-container li, 
+          .markdoc-container a, 
+          .markdoc-container span, 
+          .markdoc-container div {
             color: #000000;
           }
         `}</style>
-        <Box className="markdown-content" style={{ 
+        <Box className="markdoc-content" style={{ 
           fontSize: '16px', 
           lineHeight: 1.7, 
           color: '#000000' 
         }}>
-          <ReactMarkdown>{markdown}</ReactMarkdown>
+          {renderMarkdoc(markdown)}
         </Box>
       </Paper>
     );
@@ -241,7 +280,7 @@ function DocumentMarkdownRenderer({
     return md;
   };
 
-  // Render the generated markdown
+  // Render the generated markdown using Markdoc
   const markdownContent = generateMarkdown();
   
   return (
@@ -256,32 +295,32 @@ function DocumentMarkdownRenderer({
         backgroundColor: '#ffffff',
         borderRadius: '8px'
       }}
-      className="markdown-container"
+      className="markdoc-container"
     >
       <style jsx global>{`
-        .markdown-container p, 
-        .markdown-container h1, 
-        .markdown-container h2, 
-        .markdown-container h3, 
-        .markdown-container h4, 
-        .markdown-container h5, 
-        .markdown-container h6, 
-        .markdown-container li, 
-        .markdown-container a, 
-        .markdown-container span, 
-        .markdown-container div {
+        .markdoc-container p, 
+        .markdoc-container h1, 
+        .markdoc-container h2, 
+        .markdoc-container h3, 
+        .markdoc-container h4, 
+        .markdoc-container h5, 
+        .markdoc-container h6, 
+        .markdoc-container li, 
+        .markdoc-container a, 
+        .markdoc-container span, 
+        .markdoc-container div {
           color: #000000;
         }
       `}</style>
-      <Box className="markdown-content" style={{ 
+      <Box className="markdoc-content" style={{ 
         fontSize: '16px', 
         lineHeight: 1.7, 
         color: '#000000' 
       }}>
-        <ReactMarkdown>{markdownContent}</ReactMarkdown>
+        {renderMarkdoc(markdownContent)}
       </Box>
     </Paper>
   );
 }
 
-export default DocumentMarkdownRenderer;
+export default DocumentMarkdocRenderer;
