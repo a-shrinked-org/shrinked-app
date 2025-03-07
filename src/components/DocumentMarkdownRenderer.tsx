@@ -1,4 +1,14 @@
-import React from 'react';
+// Apply Mantine styling to the rendered HTML
+  const getStyledHtml = (renderedHtml: string): React.ReactElement => {
+    return (
+      <div 
+        className="markdoc-content"
+        dangerouslySetInnerHTML={{ 
+          __html: renderedHtml 
+        }}
+      />
+    );
+  };import React from 'react';
 import { Box, Text, Paper, Loader, Alert, Button, Progress, Title, Stack } from '@mantine/core';
 import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import Markdoc from '@markdoc/markdoc';
@@ -75,19 +85,31 @@ function DocumentMarkdocRenderer({
     );
   }
   
-  // Clean and properly format references in the markdown content
-  const preprocessMarkdown = (content: string) => {
-    // First, create anchor targets for references
-    let processed = content.replace(
+  // Convert markdown citations to HTML links
+  const processReferences = (html: string): string => {
+    // Clean up any direct reference markup
+    let processed = html;
+    
+    // Replace `[[number]](#ts-number)` with citation links
+    processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
-      (match, num, id) => `<a id="ts-${id}" class="ref-target"></a>`
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
     
-    // Then handle references in text
+    // Replace explicit HTML anchors with proper citation links
     processed = processed.replace(
-      /\[\[([^\]]+)\]\]\(#ts-(\d+)\)/g,
-      (match, text, id) => `${text} <a href="#ts-${id}" class="citation-ref">[${id}]</a>`
+      /<a id="ts-(\d+)" class="ref-target"><\/a>\[(\d+)\]/g,
+      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
     );
+    
+    // Handle any remaining plain text reference patterns
+    processed = processed.replace(
+      /<a id="ts-(\d+)"[^>]*><\/a>\[(\d+)\]/g,
+      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
+    );
+    
+    // Clean up any reference artifacts
+    processed = processed.replace(/\{#ref-ts-\d+\}/g, '');
     
     return processed;
   };
@@ -424,10 +446,14 @@ function DocumentMarkdocRenderer({
           margin-bottom: 0.5rem;
         }
       `}</style>
-      <div
-        className="markdoc-content"
-        dangerouslySetInnerHTML={{ __html: renderMarkdoc(markdownContent) }}
-      />
+      {markdownContent ? (
+        <div
+          className="markdoc-content"
+          dangerouslySetInnerHTML={{ 
+            __html: processReferences(renderMarkdoc(markdownContent)) 
+          }}
+        />
+      ) : null}
     </Paper>
   );
 }
