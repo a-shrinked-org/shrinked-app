@@ -1,6 +1,6 @@
 "use client";
 
-import { useNavigation, useGetIdentity, useDataProvider } from "@refinedev/core";
+import { useList, useNavigation, useGetIdentity, useDataProvider } from "@refinedev/core";
 import React, { useState, useCallback, useEffect } from "react";
 import { 
   Stack, 
@@ -121,7 +121,7 @@ export default function JobList() {
         });
       }
     }
-  }, [error, refetch]);
+  }, [error, refetch, refreshToken]);
 
   useEffect(() => {
     if (identity?.token) refetch();
