@@ -280,13 +280,13 @@ const DocumentsTable = <T extends ProcessedDocument>({
               fontSize: '12px',
             }}
           >
-            <Box>/title</Box>
-            {showStatus && <Box>/status</Box>}
-            <Box>/date</Box>
+            <Box style={{ textAlign: 'left' }}>/title</Box>
+            {showStatus && <Box style={{ textAlign: 'left' }}>/status</Box>}
+            <Box style={{ textAlign: 'left' }}>/date</Box>
             {visibleColumns.map((col, index) => (
-              <Box key={index}>/{col.header.toLowerCase()}</Box>
+              <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
             ))}
-            <Box style={{ textAlign: 'right' }}>/actions</Box>
+            <Box style={{ textAlign: 'left' }}>/actions</Box>
           </Box>
 
           {/* Table Content */}
@@ -335,19 +335,19 @@ const DocumentsTable = <T extends ProcessedDocument>({
                   </Box>
                   
                   {showStatus && (
-                    <Box style={{ display: 'flex', alignItems: 'center' }}>
+                    <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
                       <Text size="sm" c={getStatusTextColor(doc.status)}>
                         {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
                       </Text>
                     </Box>
                   )}
                   
-                  <Box style={{ display: 'flex', alignItems: 'center' }}>
+                  <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
                     <Text size="sm">{formatDate(doc.createdAt)}</Text>
                   </Box>
                   
                   {visibleColumns.map((col, index) => (
-                    <Box key={index} style={{ display: 'flex', alignItems: 'center', paddingRight: '8px' }}>
+                    <Box key={index} style={{ display: 'flex', alignItems: 'center', paddingRight: '8px', textAlign: 'left' }}>
                       {typeof col.accessor === 'function' ? (
                         col.accessor(doc)
                       ) : (
@@ -362,7 +362,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                     </Box>
                   ))}
                   
-                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                     <Group>
                       {onView && (
                         <Tooltip label="View Document">
@@ -509,7 +509,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                         ))}
                       </Flex>
                       
-                      <Flex justify="flex-end" mt="xs">
+                      <Flex justify="flex-start" mt="xs">
                         <Group>
                           {onSendEmail && (
                             <ActionIcon 

@@ -60,12 +60,14 @@ export default function ProcessingList() {
     }
   });
 
+  // Fetch job IDs for documents - using the documentOperations approach from the original code
   useEffect(() => {
     console.log("Raw data from useList in ProcessingList:", data);
     if (data?.data && Array.isArray(data.data)) {
       const validDocs = data.data.filter(doc => doc && doc._id && doc.createdAt) as ProcessedDocument[];
       console.log("Filtered valid documents:", validDocs);
       if (validDocs.length > 0) {
+        // Use the documentOperations utility to fetch job IDs
         documentOperations.fetchJobIdsForDocs(validDocs, API_CONFIG.API_URL)
           .then(mapping => {
             console.log("Doc to Job mapping:", mapping);
@@ -80,39 +82,44 @@ export default function ProcessingList() {
     }
   }, [data]);
 
-  useEffect(() => {
-    if (error) {
-      console.error("Error fetching documents:", error);
-      authUtils.handleAuthError(error);
-      if (error.status === 401 || error.status === 403) {
-        authUtils.refreshToken().then(success => {
-          if (success) refetch();
-        });
-      }
+  // If documentOperations is not available, implement the fetch job IDs manually
+  const fetchJobIdsManually = async (documents: ProcessedDocument[]) => {
+    const mapping: Record<string, string> = {};
+    
+    // Process documents in small batches to avoid too many concurrent requests
+    const batchSize = 5;
+    const docBatches = [];
+    
+    for (let i = 0; i < documents.length; i += batchSize) {
+      docBatches.push(documents.slice(i, i + batchSize));
     }
-  }, [error, refetch]);
-
-  useEffect(() => {
-    if (identity?.id) {
-      console.log("Refetching with user ID:", identity.id);
-      refetch();
+    
+    for (const batch of docBatches) {
+      // Create a batch of promises for parallel execution
+      const promises = batch.map(async (doc) => {
+        try {
+          const response = await authUtils.fetchWithAuth(
+            `${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`
+          );
+}
+          
+          if (response.ok) {
+            const jobData = await response.json();
+            if (jobData._id) {
+              mapping[doc._id] = jobData._id;
+              console.log(`Mapped document ${doc._id} to job ${jobData._id}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching job ID for document ${doc._id}:`, error);
+        }
+      });
+      
+      // Wait for this batch to complete before moving to the next
+      await Promise.all(promises);
     }
-  }, [identity, refetch]);
-
-  // Prepare documents with consistent data for the table
-  const prepareDocuments = (documents: ProcessedDocument[]): ProcessedDocument[] => {
-    return documents.map(doc => ({
-      ...doc,
-      // Ensure each document has a proper title and description for two-line display
-      title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
-      description: doc.description || doc.output?.description || 'No description available',
-    }));
-  };
-
-  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const jobId = docToJobMapping[doc._id] || doc._id;
-    window.open(`/jobs/show/${jobId}`, '_blank');
+    
+    return mapping;
   };
 
   const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
@@ -180,4 +187,40 @@ export default function ProcessingList() {
       showStatus={false}
     />
   );
-}
+
+  useEffect(() => {
+    if (error) {
+      console.error("Error fetching documents:", error);
+      authUtils.handleAuthError(error);
+      if (error.status === 401 || error.status === 403) {
+        authUtils.refreshToken().then(success => {
+          if (success) refetch();
+        });
+      }
+    }
+  }, [error, refetch]);
+
+  useEffect(() => {
+    if (identity?.id) {
+      console.log("Refetching with user ID:", identity.id);
+      refetch();
+    }
+  }, [identity, refetch]);
+
+  // Prepare documents with consistent data for the table
+  const prepareDocuments = (documents: ProcessedDocument[]): ProcessedDocument[] => {
+    return documents.map(doc => ({
+      ...doc,
+      // Ensure each document has a proper title and description for two-line display
+      title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
+      description: doc.description || doc.output?.description || 'No description available',
+    }));
+  };
+
+  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    // Use the jobId from mapping or default to doc._id
+    const jobId = docToJobMapping[doc._id] || doc._id;
+    console.log(`Opening job ${jobId} for document ${doc._id}`);
+    window.open(`/jobs/show/${jobId}`, '_blank');
+  };
