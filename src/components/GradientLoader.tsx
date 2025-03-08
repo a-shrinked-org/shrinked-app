@@ -5,7 +5,6 @@ import { Box } from "@mantine/core";
 import React from "react";
 import { keyframes } from "@emotion/react";
 
-// Define the gradient animation
 const gradientAnimation = keyframes`
   0% {
     background-position: 0% 50%;
@@ -21,8 +20,8 @@ const gradientAnimation = keyframes`
 interface GradientLoaderProps {
   width?: string | number;
   height?: string | number;
-  intervalRate?: number; // Animation speed in ms
-  progress?: number; // Optional fixed progress (0-100)
+  intervalRate?: number;
+  progress?: number;
 }
 
 export const GradientLoader: React.FC<GradientLoaderProps> = ({
@@ -44,26 +43,26 @@ export const GradientLoader: React.FC<GradientLoaderProps> = ({
         if (prev >= 100) return 0;
         return prev + 10;
       });
-    }, intervalRate / 10); // Divide by 10 for smoother steps
+    }, intervalRate / 10);
 
     return () => clearInterval(interval);
   }, [intervalRate, progress]);
 
   return (
     <Box
-      sx={{
-        width,
-        height,
-        background: "var(--mantine-color-dark-6)", // Base background from your theme
+      w={width}
+      h={height}
+      bg="var(--mantine-color-dark-6)"
+      style={{
         borderRadius: 2,
         overflow: "hidden",
       }}
     >
       <Box
-        sx={{
-          width: `${Math.min(currentProgress, 100)}%`,
-          height: "100%",
-          background: "linear-gradient(90deg, var(--mantine-color-blue-7) 0%, var(--mantine-color-blue-4) 50%, var(--mantine-color-blue-7) 100%)",
+        w={`${Math.min(currentProgress, 100)}%`}
+        h="100%"
+        bg="linear-gradient(90deg, var(--mantine-color-blue-7) 0%, var(--mantine-color-blue-4) 50%, var(--mantine-color-blue-7) 100%)"
+        style={{
           backgroundSize: "200% 100%",
           animation: `${gradientAnimation} 2s ease infinite`,
           transition: "width 0.3s ease",

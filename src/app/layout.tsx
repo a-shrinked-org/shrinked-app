@@ -10,6 +10,7 @@ import { IconWrapper } from '@/utils/ui-utils';
 // Import Geist fonts
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import { GradientLoader } from "@/components/GradientLoader";
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
@@ -240,7 +241,7 @@ function LoadingFallback() {
       color: '#fff',
       fontFamily: GeistMono.style.fontFamily,
     }}>
-      Loading...
+      <GradientLoader width={300} height={4} />
     </div>
   );
 }

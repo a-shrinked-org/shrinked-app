@@ -1,8 +1,10 @@
+// pages/index.tsx
 "use client";
 
 import { Authenticated, useIsAuthenticated } from "@refinedev/core";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { GradientLoader } from "@/components/GradientLoader"; // Adjust path as needed
 
 export default function IndexPage() {
   const router = useRouter();
@@ -21,7 +23,7 @@ export default function IndexPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div>Loading...</div>
+        <GradientLoader width={200} height={4} />
       </div>
     );
   }
