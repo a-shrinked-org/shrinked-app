@@ -115,7 +115,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
               DEVELOP DYNAMIC CONTEXT SOURCES<br />
               WITH STRUCTURED DATA, ENABLING<br />
               CITATION FOR AI SYSTEMS<br />
-              EXACTLY WHERE IT'S NEEDED.
+              EXACTLY WHERE IT&apos;S NEEDED.
             </Text>
             <Link href="#" style={{ textDecoration: 'none' }}>
               <Text size="xs" c="#ffffff" mt="xs" style={{ textDecoration: 'underline' }}>
