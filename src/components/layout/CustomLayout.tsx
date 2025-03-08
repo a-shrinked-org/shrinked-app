@@ -117,9 +117,9 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
               CITATION FOR AI SYSTEMS<br />
               EXACTLY WHERE IT'S NEEDED.
             </Text>
-            <Link href="#" style={{ textDecoration: 'none' }}>
+            <Link href="#" style={{ textDecoration: 'underline'' }}>
               <Text size="xs" c="#ffffff" mt="xs" style={{ textDecoration: 'underline' }}>
-                learn more ❯
+                Learn more
               </Text>
             </Link>
           </Box>
