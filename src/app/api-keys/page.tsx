@@ -200,16 +200,8 @@ export default function ApiKeysList() {
         error={error}
         title="API Keys"
         noDataMessage="No API keys found."
+        onAddNew={() => setIsCreateModalOpen(true)}
       />
-
-      <Group p="md" justify="flex-end">
-        <Button 
-          leftSection={<Plus size={16} />} 
-          onClick={() => setIsCreateModalOpen(true)}
-        >
-          Create API Key
-        </Button>
-      </Group>
 
       <Modal
         opened={isCreateModalOpen}
@@ -242,7 +234,7 @@ export default function ApiKeysList() {
         size="lg"
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won't be able to view it again.
+          Keep a record of the key below. You won&apos;t be able to view it again.
         </Alert>
         
         <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
@@ -272,7 +264,7 @@ export default function ApiKeysList() {
         
         <Group justify="center" mt="xl">
           <Button onClick={closeSuccessModal}>
-            I've saved my API key
+            I&apos;ve saved my API key
           </Button>
         </Group>
       </Modal>
