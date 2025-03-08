@@ -43,8 +43,8 @@ export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [docToJobMapping, setDocToJobMapping] = useState<Record<string, string>>({});
   
-  // Updated to include description field for second line display
-  const requestedFields = '_id,title,createdAt,description,output,fileName';
+  // Updated to include all required fields
+  const requestedFields = '_id,title,createdAt,description,output,fileName,jobId,status';
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
@@ -60,27 +60,59 @@ export default function ProcessingList() {
     }
   });
 
-  // Fetch job IDs for documents
+  console.log("Full response data:", data);
+
+  // Generate fallback IDs for documents that don't have _id
+  const processDocuments = (documents: any[] = []): ProcessedDocument[] => {
+    return documents.map((doc, index) => {
+      // If document doesn't have _id, generate a fallback ID
+      const docWithId = {
+        ...doc,
+        _id: doc._id || `temp-id-${index}`,
+        createdAt: doc.createdAt || new Date().toISOString()
+      };
+      
+      // If document has a jobId, add it to the mapping
+      if (doc.jobId && doc._id) {
+        setDocToJobMapping(prev => ({
+          ...prev,
+          [doc._id]: doc.jobId
+        }));
+      }
+      
+      return docWithId as ProcessedDocument;
+    });
+  };
+
+  // Fetch job IDs for documents that don't have jobId field
   useEffect(() => {
     console.log("Raw data from useList in ProcessingList:", data);
     if (data?.data && Array.isArray(data.data)) {
-      const validDocs = data.data.filter(doc => doc && doc._id && doc.createdAt) as ProcessedDocument[];
-      console.log("Filtered valid documents:", validDocs);
-      if (validDocs.length > 0) {
+      // Prepare documents with IDs first
+      const processedDocs = processDocuments(data.data);
+      console.log("Processed documents with IDs:", processedDocs);
+      
+      // Filter documents that have an _id but no jobId mapping yet
+      const docsNeedingJobIds = processedDocs.filter(
+        doc => doc._id && !doc._id.startsWith('temp-id-') && !docToJobMapping[doc._id]
+      );
+      
+      if (docsNeedingJobIds.length > 0) {
+        console.log("Fetching job IDs for documents:", docsNeedingJobIds.length);
+        
         // Use the documentOperations utility to fetch job IDs
-        documentOperations.fetchJobIdsForDocs(validDocs, API_CONFIG.API_URL)
+        documentOperations.fetchJobIdsForDocs(docsNeedingJobIds, API_CONFIG.API_URL)
           .then(mapping => {
             console.log("Doc to Job mapping:", mapping);
-            setDocToJobMapping(mapping);
+            setDocToJobMapping(prev => ({
+              ...prev,
+              ...mapping
+            }));
           })
           .catch(err => console.error("Failed to fetch job mappings:", err));
-      } else {
-        console.log("No valid documents with _id and createdAt found");
       }
-    } else {
-      console.log("No valid data.data array found:", data);
     }
-  }, [data]);
+  }, [data, docToJobMapping]);
 
   useEffect(() => {
     if (error) {
@@ -102,8 +134,8 @@ export default function ProcessingList() {
   }, [identity, refetch]);
 
   // Prepare documents with consistent data for the table
-  const prepareDocuments = (documents: ProcessedDocument[]): ProcessedDocument[] => {
-    return documents.map(doc => ({
+  const prepareDocuments = (documents: any[] = []): ProcessedDocument[] => {
+    return processDocuments(documents).map(doc => ({
       ...doc,
       // Ensure each document has a proper title and description for two-line display
       title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
@@ -114,30 +146,40 @@ export default function ProcessingList() {
   const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     // Use the jobId from mapping or default to doc._id
-    const jobId = docToJobMapping[doc._id] || doc._id;
+    const jobId = docToJobMapping[doc._id] || doc.jobId || doc._id;
     console.log(`Opening job ${jobId} for document ${doc._id}`);
     window.open(`/jobs/show/${jobId}`, '_blank');
   };
 
   const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
-    if (result.success) {
-      alert("Document sent successfully");
-    } else {
-      alert("Failed to send document: " + (result.error?.message || "Unknown error"));
+    try {
+      const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
+      if (result.success) {
+        alert("Document sent successfully");
+      } else {
+        alert("Failed to send document: " + (result.error?.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error sending email:", error);
+      alert("Failed to send document: Unknown error");
     }
   };
 
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this document?")) {
-      const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
-      if (result.success) {
-        alert("Document deleted successfully");
-        refetch();
-      } else {
-        alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
+      try {
+        const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
+        if (result.success) {
+          alert("Document deleted successfully");
+          refetch();
+        } else {
+          alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
+        }
+      } catch (error) {
+        console.error("Error deleting document:", error);
+        alert("Failed to delete document: Unknown error");
       }
     }
   };
@@ -169,9 +211,12 @@ export default function ProcessingList() {
     );
   }
 
+  const preparedData = prepareDocuments(data?.data || []);
+  console.log("Prepared documents for display:", preparedData);
+
   return (
     <DocumentsTable<ProcessedDocument>
-      data={prepareDocuments(data?.data || [])}
+      data={preparedData}
       docToJobMapping={docToJobMapping}
       onView={handleViewDocument}
       onSendEmail={handleSendEmail}
