@@ -70,16 +70,16 @@ export default function ApiKeysList() {
   console.log("API URL used for list:", `${API_CONFIG.API_URL}/users/${userId}/api-keys`); // Fixed typo: removed extra quote
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: userId ? `users/${userId}/api-keys` : "", // Correct syntax: no extra quotes
+    resource: "users/api-keys",
     queryOptions: {
-      enabled: !!userId && !!authUtils.isAuthenticated(),
+      enabled: !!authUtils.isAuthenticated(),
     },
     pagination: {
       pageSize: 100,
     },
     meta: {
       headers: authUtils.getAuthHeaders(),
-      url: userId ? `${API_CONFIG.API_URL}/users/${userId}/api-keys` : ""
+      url: `${API_CONFIG.API_URL}/users/api-keys`
     }
   });
 
