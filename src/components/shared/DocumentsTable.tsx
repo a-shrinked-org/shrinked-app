@@ -72,23 +72,26 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   noDataMessage?: string;
 }
 
-const DocumentsTable = <T extends ProcessedDocument>({ 
-  data, 
-  docToJobMapping = {},
-  onView, 
-  onSendEmail, 
-  onDelete,
-  onRowClick,
-  formatDate,
-  isLoading = false,
-  onRefresh,
-  onAddNew,
-  error,
-  title = "DOCUMENTS",
-  extraColumns = [],
-  showStatus = true,
-  noDataMessage = "No documents found."
-}: DocumentsTableProps<T>) => {
+// Fix the syntax by properly declaring the generic component
+function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<T>) {
+  const { 
+    data, 
+    docToJobMapping = {},
+    onView, 
+    onSendEmail, 
+    onDelete,
+    onRowClick,
+    formatDate,
+    isLoading = false,
+    onRefresh,
+    onAddNew,
+    error,
+    title = "DOCUMENTS",
+    extraColumns = [],
+    showStatus = true,
+    noDataMessage = "No documents found."
+  } = props;
+
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
@@ -436,13 +439,6 @@ const DocumentsTable = <T extends ProcessedDocument>({
                           </Tooltip>
                         )}
                       </Group>
-        </Box>
-      </Modal>
-    </Box>
-  );
-};
-
-export default DocumentsTable;
                     </Box>
                   </Box>
                 );
@@ -648,3 +644,10 @@ export default DocumentsTable;
               Send
             </Button>
           </Group>
+        </Box>
+      </Modal>
+    </Box>
+  );
+}
+
+export default DocumentsTable;
