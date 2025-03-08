@@ -49,25 +49,25 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
     { 
       label: 'JOB LIST', 
       href: '/jobs', 
-      active: pathname === '/jobs' || pathname?.startsWith('/jobs/'),
+      active: pathname === '/jobs' || (pathname !== null && pathname.startsWith('/jobs/')),
       clickable: true
     },
     { 
       label: 'DOC STORE', 
       href: '/output',
-      active: pathname === '/output' || pathname?.startsWith('/output/'),
+      active: pathname === '/output' || (pathname !== null && pathname.startsWith('/output/')),
       clickable: true
     },
     { 
       label: 'API KEYS', 
       href: '/api-keys',
-      active: pathname === '/api-keys' || pathname?.startsWith('/api-keys/'),
+      active: pathname === '/api-keys' || (pathname !== null && pathname.startsWith('/api-keys/')),
       clickable: true
     },
     { 
       label: 'SCHEDULED', 
       href: '/scheduled',
-      active: pathname === '/scheduled' || pathname?.startsWith('/scheduled/'),
+      active: pathname === '/scheduled' || (pathname !== null && pathname.startsWith('/scheduled/')),
       clickable: true
     },
   ];
