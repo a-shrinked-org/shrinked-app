@@ -204,22 +204,29 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   // Define visible columns for different screen sizes
   const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
   
-  // Calculate grid template columns - fixing spacing issues
+  // Calculate grid template columns with improved alignment
   const getGridTemplateColumns = () => {
-    // First column (title) is 45%, status is 10%, date is 15%
-    // Remaining columns equally share 20%, and actions get 10%
     const columnsCount = visibleColumns.length;
     
-    if (columnsCount === 0) {
-      return `45% ${showStatus ? '10% ' : ''}15% 30%`;
+    // Determine if we're in the processing list (fewer columns) or jobs list (more columns)
+    const isProcessingList = columnsCount === 0 && !showStatus;
+    
+    if (isProcessingList) {
+      // For processing list: title gets more space, date and actions get fixed widths
+      return "60% 15% 25%";
+    } else if (columnsCount === 0) {
+      // For other views with just status: title gets space, status and date get fixed widths, actions gets more
+      return `50% ${showStatus ? '10% ' : ''}15% 25%`;
+    } else {
+      // For job list with extra columns: more balanced approach
+      // Title still gets priority, other columns are more evenly distributed
+      const extraColWidth = Math.max(8, 25 / columnsCount); // Minimum 8% width
+      
+      return `45% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%) 15%`;
     }
-    
-    // Calculate equal width for extra columns
-    const extraColWidth = 20 / columnsCount;
-    
-    return `45% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%) 10%`;
   };
 
+  // For debugging
   const traceDataIds = () => {
     console.log("Document IDs in table:", data.map(doc => ({
       id: doc._id,
@@ -308,6 +315,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
               {data.map((doc) => {
                 // Ensure each doc has a unique identifier
                 const uniqueId = doc._id || `fallback-${Math.random()}`;
+                const isProcessingList = visibleColumns.length === 0 && !showStatus;
                 
                 return (
                   <Box
@@ -324,7 +332,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     style={{ 
                       display: 'grid',
                       gridTemplateColumns: getGridTemplateColumns(),
-                      padding: '1.5rem',
+                      padding: isProcessingList ? '1rem 1.5rem' : '1.5rem', // Shorter rows for processing list
                       borderBottom: '1px solid #2b2b2b',
                       cursor: onRowClick ? 'pointer' : 'default',
                       transition: 'background-color 0.2s ease-in-out',
@@ -347,12 +355,13 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                         }}>
                           {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
                         </Text>
+                        {/* Always show description line with fallbacks for consistency */}
                         <Text size="xs" c="#a1a1a1" style={{ 
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis'
                         }}>
-                          {doc.description || doc.output?.description || '...'}
+                          {doc.description || doc.output?.description || 'No description available'}
                         </Text>
                       </Box>
                     </Box>
@@ -370,7 +379,13 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                     
                     {visibleColumns.map((col, index) => (
-                      <Box key={index} style={{ display: 'flex', alignItems: 'center', paddingRight: '8px', textAlign: 'left' }}>
+                      <Box key={index} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        paddingRight: '8px', 
+                        textAlign: 'left',
+                        maxWidth: '100%' // Keep content within column
+                      }}>
                         {typeof col.accessor === 'function' ? (
                           col.accessor(doc)
                         ) : (
@@ -449,6 +464,79 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
               <Text c="#a1a1a1">{noDataMessage}</Text>
             </Box>
           )}
+        </Box>
+      )}
+
+      {/* Email Modal */}
+      <Modal
+        opened={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        title="Send to Email"
+        centered
+        styles={{
+          header: { backgroundColor: '#000000', color: '#ffffff' },
+          body: { backgroundColor: '#000000', color: '#ffffff' },
+          close: { color: '#ffffff' },
+        }}
+      >
+        <Box>
+          <TextInput
+            label="Email Address"
+            placeholder="Enter email address"
+            value={emailAddress}
+            onChange={(e) => setEmailAddress(e.target.value)}
+            required
+            styles={{
+              input: {
+                backgroundColor: '#0d0d0d',
+                borderColor: '#2b2b2b',
+                color: '#ffffff',
+              },
+              label: {
+                color: '#ffffff',
+              },
+            }}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="outline"
+              onClick={() => setEmailModalOpen(false)}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              leftSection={<Send size={16} />}
+              loading={sendingEmail}
+              disabled={!emailAddress}
+              styles={{
+                root: {
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#e0e0e0',
+                  },
+                },
+              }}
+            >
+              Send
+            </Button>
+          </Group>
+        </Box>
+      </Modal>
+    </Box>
+  );
+}
+
+export default DocumentsTable;1a1">{noDataMessage}</Text>
+            </Box>
+          )}
         </>
       ) : (
         // Mobile View
@@ -458,6 +546,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
               {data.map((doc) => {
                 // Ensure each doc has a unique identifier
                 const uniqueId = doc._id || `fallback-${Math.random()}`;
+                const isProcessingList = visibleColumns.length === 0 && !showStatus;
                 
                 return (
                   <Box
@@ -466,7 +555,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     onMouseEnter={() => setHoveredRow(uniqueId)}
                     onMouseLeave={() => setHoveredRow(null)}
                     style={{ 
-                      padding: '1rem',
+                      padding: isProcessingList ? '0.75rem 1rem' : '1rem',
                       borderBottom: '1px solid #2b2b2b',
                       cursor: onRowClick ? 'pointer' : 'default',
                       backgroundColor: getRowBackground(uniqueId, doc.status),
@@ -497,7 +586,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                               WebkitLineClamp: 2,
                               WebkitBoxOrient: 'vertical',
                             }}>
-                              {doc.description || doc.output?.description || '...'}
+                              {doc.description || doc.output?.description || 'No description available'}
                             </Text>
                           </Box>
                           <ActionIcon 
@@ -577,77 +666,4 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
             </Stack>
           ) : (
             <Box p="xl" style={{ textAlign: 'center' }}>
-              <Text c="#a1a1a1">{noDataMessage}</Text>
-            </Box>
-          )}
-        </Box>
-      )}
-
-      {/* Email Modal */}
-      <Modal
-        opened={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        title="Send to Email"
-        centered
-        styles={{
-          header: { backgroundColor: '#000000', color: '#ffffff' },
-          body: { backgroundColor: '#000000', color: '#ffffff' },
-          close: { color: '#ffffff' },
-        }}
-      >
-        <Box>
-          <TextInput
-            label="Email Address"
-            placeholder="Enter email address"
-            value={emailAddress}
-            onChange={(e) => setEmailAddress(e.target.value)}
-            required
-            styles={{
-              input: {
-                backgroundColor: '#0d0d0d',
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-              },
-              label: {
-                color: '#ffffff',
-              },
-            }}
-          />
-          <Group justify="flex-end" mt="md">
-            <Button
-              variant="outline"
-              onClick={() => setEmailModalOpen(false)}
-              styles={{
-                root: {
-                  borderColor: '#2b2b2b',
-                  color: '#ffffff',
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSendEmail}
-              leftSection={<Send size={16} />}
-              loading={sendingEmail}
-              disabled={!emailAddress}
-              styles={{
-                root: {
-                  backgroundColor: '#ffffff',
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#e0e0e0',
-                  },
-                },
-              }}
-            >
-              Send
-            </Button>
-          </Group>
-        </Box>
-      </Modal>
-    </Box>
-  );
-}
-
-export default DocumentsTable;
+              <Text c="#a1a
