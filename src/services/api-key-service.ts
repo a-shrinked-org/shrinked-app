@@ -5,56 +5,43 @@ export interface ApiKey {
   id: string;
   name: string;
   key: string;
-  userId: string;
+  userId?: string;
   createdAt?: string;
 }
 
 export const ApiKeyService = {
   async getApiKeys(): Promise<ApiKey[]> {
 	try {
-	  // The API keys are part of the user profile according to your implementation
 	  const response = await authUtils.apiRequest(
-		`${API_CONFIG.API_URL}/users/profile`
+		`${API_CONFIG.API_URL}/users/api-keys`
 	  );
 
 	  if (!response.ok) {
 		if (response.status === 404) {
 		  return [];
 		}
-		throw new Error(`Error fetching profile: ${response.status}`);
+		throw new Error(`Error fetching API keys: ${response.status}`);
 	  }
 
-	  const profileData = await response.json();
+	  const data = await response.json();
 	  
-	  // Check if apiKeys exists in the profile data
-	  if (!profileData.apiKeys || !Array.isArray(profileData.apiKeys)) {
-		console.log("No API keys found in profile data");
+	  if (!Array.isArray(data.data)) {
+		console.log("No API keys found in response");
 		return [];
 	  }
 	  
-	  // Transform the API keys array into the format expected by the UI
-	  const formattedApiKeys: ApiKey[] = profileData.apiKeys.map((key: string, index: number) => {
-		return {
-		  id: key, // Use the key itself as the ID
-		  name: `API Key ${index + 1}`, // Generate a name since we don't have one
-		  key: key,
-		  userId: profileData.userId || profileData._id
-		};
-	  });
-	  
-	  console.log(`Transformed ${formattedApiKeys.length} API keys from profile data`);
-	  return formattedApiKeys;
+	  return data.data;
 	} catch (error) {
-	  console.error('Error fetching API keys from profile:', error);
+	  console.error('Error fetching API keys:', error);
 	  throw error;
 	}
   },
 
-  async createApiKey(userId: string, name: string): Promise<ApiKey> {
+  async createApiKey(name: string): Promise<ApiKey> {
 	try {
-	  // This matches the Postman collection endpoint: POST /users/:userId/api-key
+	  // Correct endpoint is POST /users/api-keys
 	  const response = await authUtils.apiRequest(
-		`${API_CONFIG.API_URL}/users/${userId}/api-key`, 
+		`${API_CONFIG.API_URL}/users/api-keys`, 
 		{
 		  method: 'POST',
 		  body: JSON.stringify({ name })
@@ -67,11 +54,6 @@ export const ApiKeyService = {
 
 	  const data = await response.json();
 	  
-	  // Add a name field if not present in the response
-	  if (!data.name && name) {
-		data.name = name;
-	  }
-	  
 	  return data;
 	} catch (error) {
 	  console.error('Error creating API key:', error);
@@ -79,9 +61,9 @@ export const ApiKeyService = {
 	}
   },
 
-  async deleteApiKey(keyId: string): Promise<void> {
+  async deleteApiKey(keyId: string): Promise<boolean> {
 	try {
-	  // This matches the Postman collection endpoint: DELETE /users/api-key/:keyId
+	  // This matches the endpoint: DELETE /users/api-key/:keyId
 	  const response = await authUtils.apiRequest(
 		`${API_CONFIG.API_URL}/users/api-key/${keyId}`,
 		{
@@ -89,9 +71,7 @@ export const ApiKeyService = {
 		}
 	  );
 
-	  if (!response.ok) {
-		throw new Error(`Error deleting API key: ${response.status}`);
-	  }
+	  return response.ok;
 	} catch (error) {
 	  console.error('Error deleting API key:', error);
 	  throw error;
@@ -100,7 +80,7 @@ export const ApiKeyService = {
 
   async regenerateApiKey(keyId: string): Promise<ApiKey> {
 	try {
-	  // This matches the Postman collection endpoint: POST /users/api-key/:keyId/regenerate
+	  // If your API supports this endpoint
 	  const response = await authUtils.apiRequest(
 		`${API_CONFIG.API_URL}/users/api-key/${keyId}/regenerate`,
 		{

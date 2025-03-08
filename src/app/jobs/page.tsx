@@ -11,18 +11,22 @@ import {
   Badge, 
   Alert,
   Select,
-  Modal
+  Modal,
+  Box,
+  Flex
 } from '@mantine/core';
 import { 
   Info, 
   RefreshCw, 
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
-import { useAuth, authUtils, API_CONFIG } from "@/utils/authUtils"; // Added authUtils import
+import { useAuth, authUtils, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
+import { GeistMono } from 'geist/font/mono';
 
 interface Identity {
   token?: string;
@@ -41,7 +45,7 @@ interface Job extends ProcessedDocument {
 }
 
 const formatScenarioName = (scenario: string) => {
-  if (!scenario) return 'Unknown';
+  if (!scenario) return 'Default';
   if (scenario.includes('SINGLE_FILE_DEFAULT') || scenario.includes('PLATOGRAM')) {
     return 'Default';
   }
@@ -73,7 +77,7 @@ export default function JobList() {
       pageSize,
     },
     meta: {
-      headers: getAuthHeaders(), // Use authUtils.getAuthHeaders
+      headers: getAuthHeaders(),
       url: `${API_CONFIG.API_URL}/jobs`
     }
   });
@@ -86,7 +90,7 @@ export default function JobList() {
   useEffect(() => {
     if (error) {
       console.error("Error fetching jobs:", error);
-      authUtils.handleAuthError(error); // Now works with authUtils imported
+      authUtils.handleAuthError(error);
       if (error.status === 401 || error.status === 403) {
         refreshToken().then(success => {
           if (success) refetch();
@@ -103,12 +107,16 @@ export default function JobList() {
     show("jobs", doc._id); // Navigate to /jobs/show/:id
   };
 
+  const handleCreateJob = () => {
+    create("jobs");
+  };
+
   const checkStatus = useCallback(async () => {
     setIsLoadingStatus(true);
     setStatusResult(null);
     setIsStatusModalOpen(true);
     try {
-      const response = await fetchWithAuth(`${API_CONFIG.API_URL}/health`); // Use fetchWithAuth
+      const response = await fetchWithAuth(`${API_CONFIG.API_URL}/health`);
       const status = await response.text();
       setStatusResult(status || "Service is operational.");
     } catch (error) {
@@ -121,7 +129,7 @@ export default function JobList() {
   const formatJobData = (jobs: Job[]): Job[] => {
     return jobs.map(job => ({
       _id: job._id,
-      title: `${job.jobName} (ID: ${job._id.substring(0, 8)}...)`,
+      title: job.jobName || 'Short Generated Summary Headline for a File',
       createdAt: job.createdAt,
       status: job.status,
       fileName: job.jobName,
@@ -131,29 +139,21 @@ export default function JobList() {
       isPublic: job.isPublic,
       createPage: job.createPage,
       link: job.link,
+      type: job.type || 'MP3',
+      logic: formatScenarioName(job.scenario || ''),
+      description: 'Here is a detailed burger recipe that you can follow to...'
     }));
   };
 
   const extraColumns: ExtraColumn<Job>[] = [
     {
+      header: "Type",
+      accessor: (doc: Job) => doc.type || 'MP3'
+    },
+    {
       header: "Logic",
-      accessor: (doc: Job) => formatScenarioName(doc.scenario || '')
-    },
-    {
-      header: "Public",
-      accessor: (doc: Job) => (
-        <Badge color={doc.isPublic ? "green" : "gray"} variant="light">
-          {doc.isPublic ? "Yes" : "No"}
-        </Badge>
-      )
-    },
-    {
-      header: "Page",
-      accessor: (doc: Job) => (
-        <Badge color={doc.createPage ? "green" : "gray"} variant="light">
-          {doc.createPage ? "Yes" : "No"}
-        </Badge>
-      )
+      accessor: "logic",
+      hideOnMobile: true
     }
   ];
 
@@ -185,71 +185,95 @@ export default function JobList() {
         isLoading={isLoading}
         onRefresh={refetch}
         error={error}
-        title="Jobs List"
+        title={`JOBS LIST [${data?.data?.length || 0}]`}
         extraColumns={extraColumns}
+        onAddNew={handleCreateJob}
       />
       
-      <Stack gap="md" p="md">
-        <Group justify="space-between">
-          <Button variant="light" onClick={checkStatus} leftSection={<Info size={16} />}>
-            Check Server Status
-          </Button>
-          <Group>
+      {/* Pagination controls - using a more subtle style that doesn't interfere with the main table design */}
+      {pageCount > 1 && (
+        <Box style={{ 
+          backgroundColor: '#000000', 
+          padding: '16px', 
+          borderTop: '1px solid #2b2b2b',
+          margin: 0
+        }}>
+          <Flex justify="center" align="center" gap="md">
             <Button 
-              variant="light"
+              variant="subtle"
               disabled={!canPreviousPage}
               onClick={() => setPageIndex(pageIndex - 1)}
-              leftSection={<ChevronLeft size={18} />}
+              leftSection={<ChevronLeft size={16} />}
+              styles={{
+                root: {
+                  color: '#a1a1a1',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
             >
               Previous
             </Button>
-            <Text>
-              Page <strong>{pageIndex + 1} of {pageCount || 1}</strong>
+            <Text c="#a1a1a1" size="sm">
+              Page {pageIndex + 1} of {pageCount}
             </Text>
             <Button
-              variant="light"
+              variant="subtle"
               disabled={!canNextPage}
               onClick={() => setPageIndex(pageIndex + 1)}
-              rightSection={<ChevronRight size={18} />}
+              rightSection={<ChevronRight size={16} />}
+              styles={{
+                root: {
+                  color: '#a1a1a1',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
             >
               Next
             </Button>
-            <Select
-              value={pageSize.toString()}
-              onChange={(value) => setPageSize(Number(value))}
-              data={['10', '20', '30', '40', '50'].map(size => ({
-                value: size,
-                label: `${size} records per page`,
-              }))}
-            />
-            <Button onClick={() => create("jobs")}>
-              Create Job
-            </Button>
-          </Group>
-        </Group>
+          </Flex>
+        </Box>
+      )}
 
-        <Modal
-          opened={isStatusModalOpen}
-          onClose={() => setIsStatusModalOpen(false)}
-          title="Server Status"
-        >
-          {isLoadingStatus ? (
-            <LoadingOverlay visible />
-          ) : (
-            <>
-              <Text>{statusResult || "No status information available."}</Text>
-              <Button 
-                mt="md" 
-                leftSection={<RefreshCw size={16} />}
-                onClick={checkStatus}
-                loading={isLoadingStatus}
-              >
-                Refresh Status
-              </Button>
-            </>
-          )}
-        </Modal>
-      </Stack>
+      <Modal
+        opened={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        title="Server Status"
+        styles={{
+          header: { backgroundColor: '#000000', color: '#ffffff' },
+          body: { backgroundColor: '#000000', color: '#ffffff' },
+          close: { color: '#ffffff' },
+        }}
+      >
+        {isLoadingStatus ? (
+          <LoadingOverlay visible />
+        ) : (
+          <>
+            <Text>{statusResult || "No status information available."}</Text>
+            <Button 
+              mt="md" 
+              leftSection={<RefreshCw size={16} />}
+              onClick={checkStatus}
+              loading={isLoadingStatus}
+              styles={{
+                root: {
+                  backgroundColor: 'transparent',
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#2b2b2b',
+                  },
+                },
+              }}
+            >
+              Refresh Status
+            </Button>
+          </>
+        )}
+      </Modal>
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useGetIdentity, useList } from "@refinedev/core";
+import { useList } from "@refinedev/core";
 import React, { useState, useEffect } from "react";
 import {
   Stack,
@@ -10,7 +10,6 @@ import {
   Text,
   TextInput,
   LoadingOverlay,
-  ActionIcon,
   CopyButton,
   Alert,
   Box,
@@ -20,8 +19,6 @@ import {
   Trash,
   Copy,
   Check,
-  Plus,
-  Key,
   AlertCircle,
 } from 'lucide-react';
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
@@ -29,13 +26,6 @@ import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
-
-interface Identity {
-  token?: string;
-  email?: string;
-  name?: string;
-  userId?: string;
-}
 
 interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
@@ -49,25 +39,9 @@ export default function ApiKeysList() {
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { data: identity, isLoading: isIdentityLoading } = useGetIdentity<Identity>();
-
-  const userId = React.useMemo(() => {
-    if (identity?.userId) return identity.userId;
-    if (typeof window !== "undefined") {
-      const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
-      if (userStr) {
-        try {
-          const userData = JSON.parse(userStr);
-          return userData.id || userData.userId || userData._id;
-        } catch (e) {
-          console.error("Error parsing user data from localStorage", e);
-        }
-      }
-    }
-    return null;
-  }, [identity?.userId]);
-
-  console.log("API URL used for list:", `${API_CONFIG.API_URL}/users/${userId}/api-keys`); // Fixed typo: removed extra quote
+  // API URL for listing API keys
+  const apiKeysUrl = `${API_CONFIG.API_URL}/users/api-keys`;
+  console.log("API URL used for list:", apiKeysUrl);
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
     resource: "users/api-keys",
@@ -79,7 +53,7 @@ export default function ApiKeysList() {
     },
     meta: {
       headers: authUtils.getAuthHeaders(),
-      url: `${API_CONFIG.API_URL}/users/api-keys`
+      url: apiKeysUrl
     }
   });
 
@@ -96,10 +70,10 @@ export default function ApiKeysList() {
   }, [error, refetch]);
 
   useEffect(() => {
-    if (userId && authUtils.isAuthenticated()) {
+    if (authUtils.isAuthenticated()) {
       refetch();
     }
-  }, [userId, refetch]);
+  }, [refetch]);
 
   const handleViewDocument = (apiKey: ExtendedApiKey) => {
     console.log("Viewing API key:", apiKey);
@@ -109,10 +83,8 @@ export default function ApiKeysList() {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this API key?")) {
       try {
-        const response = await authUtils.fetchWithAuth(`${API_CONFIG.API_URL}/users/api-key/${id}`, {
-          method: 'DELETE',
-        });
-        if (response.status === 200) {
+        const success = await ApiKeyService.deleteApiKey(id);
+        if (success) {
           alert("API key deleted successfully");
           refetch();
         }
@@ -128,11 +100,11 @@ export default function ApiKeysList() {
   };
 
   const handleCreateApiKey = async () => {
-    if (!keyName || !userId) return;
+    if (!keyName) return;
 
     setIsLoading(true);
     try {
-      const newKey = await ApiKeyService.createApiKey(userId, keyName);
+      const newKey = await ApiKeyService.createApiKey(keyName);
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
@@ -166,7 +138,7 @@ export default function ApiKeysList() {
     }));
   };
 
-  if (isIdentityLoading || (isLoadingKeys && userId)) {
+  if (isLoadingKeys && authUtils.isAuthenticated()) {
     return (
       <Stack p="md" style={{ position: 'relative', minHeight: '200px' }}>
         <LoadingOverlay visible={true} />

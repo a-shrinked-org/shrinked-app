@@ -13,10 +13,9 @@ import {
   TextInput,
   Flex,
   Loader,
-  Stack,
-  useMantineColorScheme
+  Stack
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks'; // Use this instead of MediaQuery component
+import { useMediaQuery } from '@mantine/hooks';
 import { 
   Eye, 
   Mail, 
@@ -52,7 +51,7 @@ export interface ProcessedDocument {
 export interface ExtraColumn<T extends ProcessedDocument> {
   header: string;
   accessor: keyof T | ((doc: T) => React.ReactNode);
-  hideOnMobile?: boolean; // Option to hide column on mobile
+  hideOnMobile?: boolean;
 }
 
 interface DocumentsTableProps<T extends ProcessedDocument> {
@@ -94,6 +93,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
   const [emailAddress, setEmailAddress] = useState("");
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   
   // Use useMediaQuery instead of MediaQuery component
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -163,9 +163,22 @@ const DocumentsTable = <T extends ProcessedDocument>({
     }
   };
 
+  const getRowBackground = (id: string, status?: string) => {
+    if (hoveredRow === id) {
+      return "#111111";
+    }
+    if (status?.toLowerCase() === 'error') {
+      return "rgba(244, 67, 54, 0.05)"; // Very subtle red
+    }
+    if (status?.toLowerCase() === 'completed') {
+      return "rgba(24, 90, 47, 0.05)"; // Very subtle green
+    }
+    return "transparent";
+  };
+
   if (isLoading) {
     return (
-      <Box p="xl" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+      <Box p="xl" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', backgroundColor: '#000000' }}>
         <Loader color="#ffffff" />
       </Box>
     );
@@ -173,7 +186,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
 
   if (error) {
     return (
-      <Box p="md">
+      <Box p="md" style={{ backgroundColor: '#000000' }}>
         <Alert 
           icon={<AlertCircle size={16} />} 
           title="Error loading data" 
@@ -193,7 +206,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
     <Box style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
       {/* Header */}
       <Flex justify="space-between" align="center" p="md" style={{ borderBottom: '1px solid #2b2b2b' }}>
-        <Text size="lg" fw={700}>{title}</Text>
+        <Text size="sm" fw={700} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
         <Group>
           {onRefresh && (
             <Button
@@ -231,7 +244,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                 },
               }}
             >
-              <Text size="xs">ADD NEW</Text>
+              <Text size="xs">ADD NEW JOB</Text>
             </Button>
           )}
         </Group>
@@ -267,16 +280,16 @@ const DocumentsTable = <T extends ProcessedDocument>({
                 <Box
                   key={doc._id}
                   onClick={() => onRowClick && onRowClick(doc)}
+                  onMouseEnter={() => setHoveredRow(doc._id)}
+                  onMouseLeave={() => setHoveredRow(null)}
                   style={{ 
                     display: 'grid',
                     gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${visibleColumns.length > 0 ? `repeat(${visibleColumns.length}, 1fr)` : ''} 15%`,
                     padding: '1.5rem',
                     borderBottom: '1px solid #2b2b2b',
                     cursor: onRowClick ? 'pointer' : 'default',
-                    transition: 'background-color 0.2s',
-                    '&:hover': {
-                      backgroundColor: '#0d0d0d',
-                    },
+                    transition: 'background-color 0.2s ease-in-out',
+                    backgroundColor: getRowBackground(doc._id, doc.status),
                   }}
                 >
                   <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -406,10 +419,14 @@ const DocumentsTable = <T extends ProcessedDocument>({
                 <Box
                   key={doc._id}
                   onClick={() => onRowClick && onRowClick(doc)}
+                  onMouseEnter={() => setHoveredRow(doc._id)}
+                  onMouseLeave={() => setHoveredRow(null)}
                   style={{ 
                     padding: '1rem',
                     borderBottom: '1px solid #2b2b2b',
                     cursor: onRowClick ? 'pointer' : 'default',
+                    backgroundColor: getRowBackground(doc._id, doc.status),
+                    transition: 'background-color 0.2s ease-in-out',
                   }}
                 >
                   <Flex align="stretch" gap="md">
