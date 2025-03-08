@@ -72,7 +72,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   noDataMessage?: string;
 }
 
-// Fix the syntax by properly declaring the generic component
+// Changed from generic expression to function declaration
 function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<T>) {
   const { 
     data, 
@@ -237,7 +237,320 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   // Call this to debug
   traceDataIds();
 
-  // Render either desktop or mobile view based on screen size
+  const renderDesktopView = () => (
+    <>
+      {/* Table Header */}
+      <Box 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: getGridTemplateColumns(),
+          padding: '1rem 1.5rem',
+          borderBottom: '1px solid #2b2b2b',
+          color: '#a1a1a1',
+          fontSize: '12px',
+        }}
+      >
+        <Box style={{ textAlign: 'left' }}>/title</Box>
+        {showStatus && <Box style={{ textAlign: 'left' }}>/status</Box>}
+        <Box style={{ textAlign: 'left' }}>/date</Box>
+        {visibleColumns.map((col, index) => (
+          <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
+        ))}
+        <Box style={{ textAlign: 'left' }}>/actions</Box>
+      </Box>
+
+      {/* Table Content */}
+      {data && data.length > 0 ? (
+        <Box style={{ overflow: 'auto' }}>
+          {data.map((doc) => {
+            // Ensure each doc has a unique identifier
+            const uniqueId = doc._id || `fallback-${Math.random()}`;
+            const isProcessingList = visibleColumns.length === 0 && !showStatus;
+            
+            return (
+              <Box
+                key={uniqueId}
+                onClick={() => onRowClick && onRowClick(doc)}
+                onMouseEnter={() => {
+                  console.log(`Mouse entering row with ID: ${uniqueId}`);
+                  setHoveredRow(uniqueId);
+                }}
+                onMouseLeave={() => {
+                  console.log(`Mouse leaving row with ID: ${uniqueId}`);
+                  setHoveredRow(null);
+                }}
+                style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: getGridTemplateColumns(),
+                  padding: isProcessingList ? '1rem 1.5rem' : '1.5rem', // Shorter rows for processing list
+                  borderBottom: '1px solid #2b2b2b',
+                  cursor: onRowClick ? 'pointer' : 'default',
+                  transition: 'background-color 0.2s ease-in-out',
+                  backgroundColor: getRowBackground(uniqueId, doc.status),
+                }}
+              >
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <Box style={{ 
+                    height: '12px', 
+                    width: '12px', 
+                    borderRadius: '50%', 
+                    backgroundColor: getRowIndicatorColor(doc.status),
+                    flexShrink: 0
+                  }} />
+                  <Box style={{ overflow: 'hidden' }}>
+                    <Text size="md" fw={500} style={{ 
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+                    </Text>
+                    {/* Always show description line with fallbacks for consistency */}
+                    <Text size="xs" c="#a1a1a1" style={{ 
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {doc.description || doc.output?.description || 'No description available'}
+                    </Text>
+                  </Box>
+                </Box>
+                
+                {showStatus && (
+                  <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                    <Text size="sm" c={getStatusTextColor(doc.status)}>
+                      {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
+                    </Text>
+                  </Box>
+                )}
+                
+                <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                  <Text size="sm">{formatDate(doc.createdAt)}</Text>
+                </Box>
+                
+                {visibleColumns.map((col, index) => (
+                  <Box key={index} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    paddingRight: '8px', 
+                    textAlign: 'left',
+                    maxWidth: '100%' // Keep content within column
+                  }}>
+                    {typeof col.accessor === 'function' ? (
+                      col.accessor(doc)
+                    ) : (
+                      <Text size="sm" style={{ 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {String(doc[col.accessor] || '')}
+                      </Text>
+                    )}
+                  </Box>
+                ))}
+                
+                <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                  <Group>
+                    {onView && (
+                      <Tooltip label="View Document">
+                        <ActionIcon 
+                          variant="subtle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView(doc, e);
+                          }}
+                          style={{
+                            color: '#ffffff',
+                            '&:hover': { backgroundColor: '#2b2b2b' }
+                          }}
+                        >
+                          <Eye size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                    {onSendEmail && (
+                      <Tooltip label="Send to Email">
+                        <ActionIcon 
+                          variant="subtle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEmailClick(doc._id, e);
+                          }}
+                          style={{
+                            color: '#ffffff',
+                            '&:hover': { backgroundColor: '#2b2b2b' }
+                          }}
+                        >
+                          <Mail size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                    {onDelete && (
+                      <Tooltip label="Delete">
+                        <ActionIcon 
+                          variant="subtle"
+                          color="red"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(doc._id, e);
+                          }}
+                          style={{
+                            '&:hover': { backgroundColor: '#2b2b2b' }
+                          }}
+                        >
+                          <Trash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
+      ) : (
+        <Box p="xl" style={{ textAlign: 'center' }}>
+          <Text c="#a1a1a1">{noDataMessage}</Text>
+        </Box>
+      )}
+    </>
+  );
+
+  const renderMobileView = () => (
+    <Box>
+      {data && data.length > 0 ? (
+        <Stack gap={0}>
+          {data.map((doc) => {
+            // Ensure each doc has a unique identifier
+            const uniqueId = doc._id || `fallback-${Math.random()}`;
+            const isProcessingList = visibleColumns.length === 0 && !showStatus;
+            
+            return (
+              <Box
+                key={uniqueId}
+                onClick={() => onRowClick && onRowClick(doc)}
+                onMouseEnter={() => setHoveredRow(uniqueId)}
+                onMouseLeave={() => setHoveredRow(null)}
+                style={{ 
+                  padding: isProcessingList ? '0.75rem 1rem' : '1rem',
+                  borderBottom: '1px solid #2b2b2b',
+                  cursor: onRowClick ? 'pointer' : 'default',
+                  backgroundColor: getRowBackground(uniqueId, doc.status),
+                  transition: 'background-color 0.2s ease-in-out',
+                }}
+              >
+                <Flex align="stretch" gap="md">
+                  <Box style={{ 
+                    width: '8px', 
+                    borderRadius: '4px', 
+                    backgroundColor: getRowIndicatorColor(doc.status),
+                    alignSelf: 'stretch',
+                    flexShrink: 0
+                  }} />
+                  <Box style={{ flex: 1 }}>
+                    <Flex justify="space-between" align="flex-start">
+                      <Box style={{ flex: 1 }}>
+                        <Text size="md" fw={500} style={{ 
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+                        </Text>
+                        <Text size="xs" c="#a1a1a1" mb="xs" style={{
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                        }}>
+                          {doc.description || doc.output?.description || 'No description available'}
+                        </Text>
+                      </Box>
+                      <ActionIcon 
+                        variant="subtle"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onView && onView(doc, e);
+                        }}
+                        style={{
+                          color: '#ffffff',
+                          marginLeft: '8px'
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </ActionIcon>
+                    </Flex>
+                    
+                    <Flex gap="md" wrap="wrap" mt="xs">
+                      {showStatus && (
+                        <Text size="xs" c={getStatusTextColor(doc.status)}>
+                          {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
+                        </Text>
+                      )}
+                      
+                      <Text size="xs" c="#a1a1a1">
+                        {formatDate(doc.createdAt)}
+                      </Text>
+                      
+                      {visibleColumns.map((col, index) => (
+                        <Text key={index} size="xs" c="#a1a1a1">
+                          {typeof col.accessor === 'function' 
+                            ? React.isValidElement(col.accessor(doc)) 
+                              ? col.header 
+                              : String(col.accessor(doc) || '')
+                            : String(doc[col.accessor] || '')}
+                        </Text>
+                      ))}
+                    </Flex>
+                    
+                    <Flex justify="flex-start" mt="xs">
+                      <Group>
+                        {onSendEmail && (
+                          <ActionIcon 
+                            variant="subtle"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEmailClick(doc._id, e);
+                            }}
+                            style={{
+                              color: '#ffffff',
+                            }}
+                          >
+                            <Mail size={14} />
+                          </ActionIcon>
+                        )}
+                        {onDelete && (
+                          <ActionIcon 
+                            variant="subtle"
+                            size="sm"
+                            color="red"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(doc._id, e);
+                            }}
+                          >
+                            <Trash size={14} />
+                          </ActionIcon>
+                        )}
+                      </Group>
+                    </Flex>
+                  </Box>
+                </Flex>
+              </Box>
+            );
+          })}
+        </Stack>
+      ) : (
+        <Box p="xl" style={{ textAlign: 'center' }}>
+          <Text c="#a1a1a1">{noDataMessage}</Text>
+        </Box>
+      )}
+    </Box>
+  );
+
+  // Render the component
   return (
     <Box style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
       {/* Header */}
@@ -286,186 +599,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
         </Group>
       </Flex>
 
-      {!isMobile ? (
-        // Desktop View
-        <>
-          {/* Table Header */}
-          <Box 
-            style={{ 
-              display: 'grid', 
-              gridTemplateColumns: getGridTemplateColumns(),
-              padding: '1rem 1.5rem',
-              borderBottom: '1px solid #2b2b2b',
-              color: '#a1a1a1',
-              fontSize: '12px',
-            }}
-          >
-            <Box style={{ textAlign: 'left' }}>/title</Box>
-            {showStatus && <Box style={{ textAlign: 'left' }}>/status</Box>}
-            <Box style={{ textAlign: 'left' }}>/date</Box>
-            {visibleColumns.map((col, index) => (
-              <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
-            ))}
-            <Box style={{ textAlign: 'left' }}>/actions</Box>
-          </Box>
-
-          {/* Table Content */}
-          {data && data.length > 0 ? (
-            <Box style={{ overflow: 'auto' }}>
-              {data.map((doc) => {
-                // Ensure each doc has a unique identifier
-                const uniqueId = doc._id || `fallback-${Math.random()}`;
-                const isProcessingList = visibleColumns.length === 0 && !showStatus;
-                
-                return (
-                  <Box
-                    key={uniqueId}
-                    onClick={() => onRowClick && onRowClick(doc)}
-                    onMouseEnter={() => {
-                      console.log(`Mouse entering row with ID: ${uniqueId}`);
-                      setHoveredRow(uniqueId);
-                    }}
-                    onMouseLeave={() => {
-                      console.log(`Mouse leaving row with ID: ${uniqueId}`);
-                      setHoveredRow(null);
-                    }}
-                    style={{ 
-                      display: 'grid',
-                      gridTemplateColumns: getGridTemplateColumns(),
-                      padding: isProcessingList ? '1rem 1.5rem' : '1.5rem', // Shorter rows for processing list
-                      borderBottom: '1px solid #2b2b2b',
-                      cursor: onRowClick ? 'pointer' : 'default',
-                      transition: 'background-color 0.2s ease-in-out',
-                      backgroundColor: getRowBackground(uniqueId, doc.status),
-                    }}
-                  >
-                    <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <Box style={{ 
-                        height: '12px', 
-                        width: '12px', 
-                        borderRadius: '50%', 
-                        backgroundColor: getRowIndicatorColor(doc.status),
-                        flexShrink: 0
-                      }} />
-                      <Box style={{ overflow: 'hidden' }}>
-                        <Text size="md" fw={500} style={{ 
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
-                        </Text>
-                        {/* Always show description line with fallbacks for consistency */}
-                        <Text size="xs" c="#a1a1a1" style={{ 
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {doc.description || doc.output?.description || 'No description available'}
-                        </Text>
-                      </Box>
-                    </Box>
-                    
-                    {showStatus && (
-                      <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
-                        <Text size="sm" c={getStatusTextColor(doc.status)}>
-                          {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
-                        </Text>
-                      </Box>
-                    )}
-                    
-                    <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
-                      <Text size="sm">{formatDate(doc.createdAt)}</Text>
-                    </Box>
-                    
-                    {visibleColumns.map((col, index) => (
-                      <Box key={index} style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        paddingRight: '8px', 
-                        textAlign: 'left',
-                        maxWidth: '100%' // Keep content within column
-                      }}>
-                        {typeof col.accessor === 'function' ? (
-                          col.accessor(doc)
-                        ) : (
-                          <Text size="sm" style={{ 
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {String(doc[col.accessor] || '')}
-                          </Text>
-                        )}
-                      </Box>
-                    ))}
-                    
-                    <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                      <Group>
-                        {onView && (
-                          <Tooltip label="View Document">
-                            <ActionIcon 
-                              variant="subtle"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onView(doc, e);
-                              }}
-                              style={{
-                                color: '#ffffff',
-                                '&:hover': { backgroundColor: '#2b2b2b' }
-                              }}
-                            >
-                              <Eye size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        )}
-                        {onSendEmail && (
-                          <Tooltip label="Send to Email">
-                            <ActionIcon 
-                              variant="subtle"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEmailClick(doc._id, e);
-                              }}
-                              style={{
-                                color: '#ffffff',
-                                '&:hover': { backgroundColor: '#2b2b2b' }
-                              }}
-                            >
-                              <Mail size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        )}
-                        {onDelete && (
-                          <Tooltip label="Delete">
-                            <ActionIcon 
-                              variant="subtle"
-                              color="red"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(doc._id, e);
-                              }}
-                              style={{
-                                '&:hover': { backgroundColor: '#2b2b2b' }
-                              }}
-                            >
-                              <Trash size={16} />
-                            </ActionIcon>
-                          </Tooltip>
-                        )}
-                      </Group>
-                    </Box>
-                  </Box>
-                );
-              })}
-            </Box>
-          ) : (
-            <Box p="xl" style={{ textAlign: 'center' }}>
-              <Text c="#a1a1a1">{noDataMessage}</Text>
-            </Box>
-          )}
-        </Box>
-      )}
+      {/* Render either desktop or mobile view based on screen size */}
+      {!isMobile ? renderDesktopView() : renderMobileView()}
 
       {/* Email Modal */}
       <Modal
@@ -534,136 +669,4 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   );
 }
 
-export default DocumentsTable;1a1">{noDataMessage}</Text>
-            </Box>
-          )}
-        </>
-      ) : (
-        // Mobile View
-        <Box>
-          {data && data.length > 0 ? (
-            <Stack gap={0}>
-              {data.map((doc) => {
-                // Ensure each doc has a unique identifier
-                const uniqueId = doc._id || `fallback-${Math.random()}`;
-                const isProcessingList = visibleColumns.length === 0 && !showStatus;
-                
-                return (
-                  <Box
-                    key={uniqueId}
-                    onClick={() => onRowClick && onRowClick(doc)}
-                    onMouseEnter={() => setHoveredRow(uniqueId)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                    style={{ 
-                      padding: isProcessingList ? '0.75rem 1rem' : '1rem',
-                      borderBottom: '1px solid #2b2b2b',
-                      cursor: onRowClick ? 'pointer' : 'default',
-                      backgroundColor: getRowBackground(uniqueId, doc.status),
-                      transition: 'background-color 0.2s ease-in-out',
-                    }}
-                  >
-                    <Flex align="stretch" gap="md">
-                      <Box style={{ 
-                        width: '8px', 
-                        borderRadius: '4px', 
-                        backgroundColor: getRowIndicatorColor(doc.status),
-                        alignSelf: 'stretch',
-                        flexShrink: 0
-                      }} />
-                      <Box style={{ flex: 1 }}>
-                        <Flex justify="space-between" align="flex-start">
-                          <Box style={{ flex: 1 }}>
-                            <Text size="md" fw={500} style={{ 
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis'
-                            }}>
-                              {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
-                            </Text>
-                            <Text size="xs" c="#a1a1a1" mb="xs" style={{
-                              overflow: 'hidden',
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                            }}>
-                              {doc.description || doc.output?.description || 'No description available'}
-                            </Text>
-                          </Box>
-                          <ActionIcon 
-                            variant="subtle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onView && onView(doc, e);
-                            }}
-                            style={{
-                              color: '#ffffff',
-                              marginLeft: '8px'
-                            }}
-                          >
-                            <ChevronRight size={16} />
-                          </ActionIcon>
-                        </Flex>
-                        
-                        <Flex gap="md" wrap="wrap" mt="xs">
-                          {showStatus && (
-                            <Text size="xs" c={getStatusTextColor(doc.status)}>
-                              {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
-                            </Text>
-                          )}
-                          
-                          <Text size="xs" c="#a1a1a1">
-                            {formatDate(doc.createdAt)}
-                          </Text>
-                          
-                          {visibleColumns.map((col, index) => (
-                            <Text key={index} size="xs" c="#a1a1a1">
-                              {typeof col.accessor === 'function' 
-                                ? React.isValidElement(col.accessor(doc)) 
-                                  ? col.header 
-                                  : String(col.accessor(doc) || '')
-                                : String(doc[col.accessor] || '')}
-                            </Text>
-                          ))}
-                        </Flex>
-                        
-                        <Flex justify="flex-start" mt="xs">
-                          <Group>
-                            {onSendEmail && (
-                              <ActionIcon 
-                                variant="subtle"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEmailClick(doc._id, e);
-                                }}
-                                style={{
-                                  color: '#ffffff',
-                                }}
-                              >
-                                <Mail size={14} />
-                              </ActionIcon>
-                            )}
-                            {onDelete && (
-                              <ActionIcon 
-                                variant="subtle"
-                                size="sm"
-                                color="red"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDelete(doc._id, e);
-                                }}
-                              >
-                                <Trash size={14} />
-                              </ActionIcon>
-                            )}
-                          </Group>
-                        </Flex>
-                      </Box>
-                    </Flex>
-                  </Box>
-                );
-              })}
-            </Stack>
-          ) : (
-            <Box p="xl" style={{ textAlign: 'center' }}>
-              <Text c="#a1a
+export default DocumentsTable;
