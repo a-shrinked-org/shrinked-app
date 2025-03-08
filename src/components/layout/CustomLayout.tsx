@@ -111,17 +111,15 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           {/* Updated App Description */}
           <Box mb={48}>
             <Text size="xs" c="#d9d9d9" lh={1.2}>
-              CONVERT ANY AUDIO OR VIDEO INTO<br />
-              STRUCTURED DOCUMENTS THROUGH<br />
-              OUR INTUITIVE EDITOR. MAKE YOUR<br />
-              CONTEXT PRIVATE OR PUBLIC,<br />
-              COLLABORATE WITH TEAMMATES, AND<br />
-              ACCESS ORIGINAL SOURCES<br />
-              DIRECTLY FROM ANY QUERY.
+              BUILD WITH SHRINKED.<br />
+              DEVELOP DYNAMIC CONTEXT SOURCES<br />
+              WITH STRUCTURED DATA, ENABLING<br />
+              CITATION FOR AI SYSTEMS<br />
+              EXACTLY WHERE IT'S NEEDED.
             </Text>
             <Link href="#" style={{ textDecoration: 'none' }}>
               <Text size="xs" c="#ffffff" mt="xs" style={{ textDecoration: 'underline' }}>
-                LEARN MORE ABOUT CONTEXT LAYER
+                learn more ❯
               </Text>
             </Link>
           </Box>
