@@ -401,7 +401,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
         // Mobile View
         <Box>
           {data && data.length > 0 ? (
-            <Stack spacing={0}>
+            <Stack gap={0}>
               {data.map((doc) => (
                 <Box
                   key={doc._id}
