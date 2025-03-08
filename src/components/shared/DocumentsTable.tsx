@@ -200,6 +200,22 @@ const DocumentsTable = <T extends ProcessedDocument>({
 
   // Define visible columns for different screen sizes
   const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
+  
+  // Calculate grid template columns - fixing spacing issues
+  const getGridTemplateColumns = () => {
+    // First column (title) is 45%, status is 10%, date is 15%
+    // Remaining columns equally share 20%, and actions get 10%
+    const columnsCount = visibleColumns.length;
+    
+    if (columnsCount === 0) {
+      return `45% ${showStatus ? '10% ' : ''}15% 30%`;
+    }
+    
+    // Calculate equal width for extra columns
+    const extraColWidth = 20 / columnsCount;
+    
+    return `45% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%) 10%`;
+  };
 
   // Render either desktop or mobile view based on screen size
   return (
@@ -257,7 +273,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
           <Box 
             style={{ 
               display: 'grid', 
-              gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${visibleColumns.length > 0 ? `repeat(${visibleColumns.length}, 1fr)` : ''} 15%`, 
+              gridTemplateColumns: getGridTemplateColumns(),
               padding: '1rem 1.5rem',
               borderBottom: '1px solid #2b2b2b',
               color: '#a1a1a1',
@@ -275,7 +291,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
 
           {/* Table Content */}
           {data && data.length > 0 ? (
-            <Box>
+            <Box style={{ overflow: 'auto' }}>
               {data.map((doc) => (
                 <Box
                   key={doc._id}
@@ -284,7 +300,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                   onMouseLeave={() => setHoveredRow(null)}
                   style={{ 
                     display: 'grid',
-                    gridTemplateColumns: `60% ${showStatus ? '10% ' : ''}15% ${visibleColumns.length > 0 ? `repeat(${visibleColumns.length}, 1fr)` : ''} 15%`,
+                    gridTemplateColumns: getGridTemplateColumns(),
                     padding: '1.5rem',
                     borderBottom: '1px solid #2b2b2b',
                     cursor: onRowClick ? 'pointer' : 'default',
@@ -301,7 +317,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                       flexShrink: 0
                     }} />
                     <Box style={{ overflow: 'hidden' }}>
-                      <Text size="sm" fw={500} style={{ 
+                      <Text size="md" fw={500} style={{ 
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis'
@@ -331,7 +347,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                   </Box>
                   
                   {visibleColumns.map((col, index) => (
-                    <Box key={index} style={{ display: 'flex', alignItems: 'center' }}>
+                    <Box key={index} style={{ display: 'flex', alignItems: 'center', paddingRight: '8px' }}>
                       {typeof col.accessor === 'function' ? (
                         col.accessor(doc)
                       ) : (
@@ -440,7 +456,7 @@ const DocumentsTable = <T extends ProcessedDocument>({
                     <Box style={{ flex: 1 }}>
                       <Flex justify="space-between" align="flex-start">
                         <Box style={{ flex: 1 }}>
-                          <Text size="sm" fw={500} style={{ 
+                          <Text size="md" fw={500} style={{ 
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis'

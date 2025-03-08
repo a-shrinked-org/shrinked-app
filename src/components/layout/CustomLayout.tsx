@@ -14,6 +14,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useLogout, useGetIdentity } from "@refinedev/core";
 import { GeistMono } from 'geist/font/mono';
+import Link from 'next/link';
 
 interface Identity {
   id?: string;
@@ -79,19 +80,21 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         flexDirection: 'column',
       }}>
         <Box p="md">
-          {/* Logo */}
-          <Flex align="center" gap="xs" mb="xl">
-            <Box w={24} h={24} style={{ 
-              border: '1px solid #ffffff', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center' 
-            }}>
-              <Text size="xs">◻</Text>
-            </Box>
-            <Text fw={700}>SHRINKED.AI</Text>
-            <Text c="#a1a1a1" ml="md">ID: [number]</Text>
-          </Flex>
+          {/* Logo - Now clickable and links to app.shrinked.ai */}
+          <Link href="https://app.shrinked.ai" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Flex align="center" gap="xs" mb="xl" style={{ cursor: 'pointer' }}>
+              <Box w={24} h={24} style={{ 
+                border: '1px solid #ffffff', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center' 
+              }}>
+                <Text size="xs">◻</Text>
+              </Box>
+              <Text fw={700}>SHRINKED.AI</Text>
+              <Text c="#a1a1a1" ml="md">ID: [number]</Text>
+            </Flex>
+          </Link>
 
           {/* Studio Description */}
           <Box mb={48}>

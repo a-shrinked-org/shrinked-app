@@ -20,11 +20,31 @@ interface Identity {
   id?: string;
 }
 
+// Helper function to format the date consistently across the application
+const formatProcessingDate = (dateString: string) => {
+  if (!dateString) return "";
+  
+  try {
+    // Parse the date string to ensure consistency
+    const date = new Date(dateString);
+    
+    // Format as "MMM DD" (e.g., "MAR 04")
+    const month = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    const day = date.getDate().toString().padStart(2, '0');
+    
+    return `${month} ${day}`;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return dateString; // Return original if parsing fails
+  }
+};
+
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [docToJobMapping, setDocToJobMapping] = useState<Record<string, string>>({});
   
-  const requestedFields = '_id,title,createdAt';
+  // Updated to include description field for second line display
+  const requestedFields = '_id,title,createdAt,description,output,fileName';
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
@@ -78,6 +98,16 @@ export default function ProcessingList() {
       refetch();
     }
   }, [identity, refetch]);
+
+  // Prepare documents with consistent data for the table
+  const prepareDocuments = (documents: ProcessedDocument[]): ProcessedDocument[] => {
+    return documents.map(doc => ({
+      ...doc,
+      // Ensure each document has a proper title and description for two-line display
+      title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
+      description: doc.description || doc.output?.description || 'No description available',
+    }));
+  };
 
   const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -137,17 +167,16 @@ export default function ProcessingList() {
 
   return (
     <DocumentsTable<ProcessedDocument>
-      data={data?.data || []}
+      data={prepareDocuments(data?.data || [])}
       docToJobMapping={docToJobMapping}
       onView={handleViewDocument}
       onSendEmail={handleSendEmail}
       onDelete={handleDelete}
-      formatDate={formatDate}
+      formatDate={formatProcessingDate} // Using the consistent date formatter
       isLoading={isLoading}
       onRefresh={handleRefresh}
       error={error}
-      title="Doc Store"
+      title="DOC STORE"
       showStatus={false}
     />
   );
-}
