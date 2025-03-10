@@ -171,7 +171,7 @@ export const authUtils = {
 		}
 
 		// Based on the Postman collection, refreshToken should be sent in the request body
-		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.REFRESH}`, {
+		const response = await fetch(`/api/auth-proxy/refresh`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
@@ -325,36 +325,46 @@ export const authUtils = {
 	
 	try {
 	  // Add timeout to prevent hanging requests
-	  const controller = new AbortController();
-	  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-	  
-	  const response = await fetch(url, {
-		...options,
-		headers,
-		signal: options.signal || controller.signal,
-		mode: 'cors'
-	  });
-	  
-	  clearTimeout(timeoutId);
-	  
-	  // If unauthorized (401) or forbidden (403), try to refresh token and retry
-	  if ((response.status === 401 || response.status === 403) && retryCount < MAX_RETRIES) {
-		const refreshSuccess = await authUtils.refreshToken();
-		if (refreshSuccess) {
-		  // Retry with new token
-		  return authUtils.apiRequest(url, options, retryCount + 1);
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+		
+		// Check if this is an API URL that needs to be proxied
+		let requestUrl = url;
+		if (url.startsWith(API_CONFIG.API_URL)) {
+		  // Replace API URL with proxy URL
+		  const relativePath = url.substring(API_CONFIG.API_URL.length);
+		  if (relativePath.startsWith('/auth')) {
+			requestUrl = `/api/auth-proxy${relativePath.substring(5)}`;
+		  }
 		}
-	  }
-	  
-	  return response;
-	} catch (error) {
-	  // Handle abort errors differently - they're often intentional
-	  if (error instanceof DOMException && error.name === 'AbortError') {
-		console.log("Request was aborted:", url);
-	  } else {
-		console.error("API request error:", error);
-	  }
-	  throw error;
+		
+		const response = await fetch(url, {
+			...options,
+			headers,
+			signal: options.signal || controller.signal,
+			mode: 'cors'
+		});
+		
+		clearTimeout(timeoutId);
+		
+		// If unauthorized (401) or forbidden (403), try to refresh token and retry
+		if ((response.status === 401 || response.status === 403) && retryCount < MAX_RETRIES) {
+			const refreshSuccess = await authUtils.refreshToken();
+			if (refreshSuccess) {
+			// Retry with new token
+			return authUtils.apiRequest(url, options, retryCount + 1);
+			}
+		}
+		
+		return response;
+		} catch (error) {
+		// Handle abort errors differently - they're often intentional
+		if (error instanceof DOMException && error.name === 'AbortError') {
+			console.log("Request was aborted:", url);
+		} else {
+			console.error("API request error:", error);
+		}
+		throw error;
 	}
   },
 
