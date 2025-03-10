@@ -177,6 +177,7 @@ export const authUtils = {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ refreshToken }),
+		  mode: 'cors',
 		});
 
 		if (!response.ok) {
@@ -330,7 +331,8 @@ export const authUtils = {
 	  const response = await fetch(url, {
 		...options,
 		headers,
-		signal: options.signal || controller.signal
+		signal: options.signal || controller.signal,
+		mode: 'cors'
 	  });
 	  
 	  clearTimeout(timeoutId);
@@ -379,6 +381,7 @@ export const authUtils = {
 		method: 'GET',
 		headers: {
 		  'Content-Type': 'application/json',
+		  mode: 'cors'
 		},
 		signal: controller.signal
 	  });
