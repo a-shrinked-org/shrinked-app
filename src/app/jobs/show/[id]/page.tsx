@@ -11,7 +11,9 @@ import {
   ActionIcon,
   Badge,
   Alert,
-  Code
+  Code,
+  Flex, 
+  Collapse
 } from '@mantine/core';
 import { 
   ArrowLeft, 
@@ -25,6 +27,7 @@ import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
+import { GeistMono } from 'geist/font/mono';
 
 interface Identity {
   token?: string;
@@ -425,36 +428,54 @@ export default function JobShow() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
+      {/* Main content column */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Header bar */}
+        <div style={{ 
+          padding: '16px 24px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: '1px solid #2B2B2B'
+        }}>
           <Button 
-            variant="outline" 
+            variant="subtle" 
             leftSection={<ArrowLeft size={16} />}
             onClick={() => list('jobs')}
             styles={{
               root: {
-                backgroundColor: '#131313',
-                borderColor: '#202020',
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
                 color: '#ffffff',
                 '&:hover': {
-                  backgroundColor: '#202020',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 },
               },
             }}
           >
-            Back to Jobs
+            Back to Job List
           </Button>
-          <Group gap="xs">
+          <Group gap="sm">
             <Button 
-              variant="outline"
+              variant="subtle"
               leftSection={<Share size={16} />}
               styles={{
                 root: {
-                  backgroundColor: '#131313',
-                  borderColor: '#202020',
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
                   color: '#ffffff',
                   '&:hover': {
-                    backgroundColor: '#202020',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
                   },
                 },
               }}
@@ -462,341 +483,407 @@ export default function JobShow() {
               Share
             </Button>
             <Button 
-              variant="outline"
-              leftSection={<Download size={16} />}
-              onClick={handleDownloadPDF}
+              variant="filled"
               styles={{
                 root: {
-                  backgroundColor: '#131313',
-                  borderColor: '#202020',
-                  color: '#ffffff',
-                  '&:hover': {
-                    backgroundColor: '#202020',
-                  },
-                },
-              }}
-            >
-              Download PDF
-            </Button>
-            <Button 
-              styles={{
-                root: {
-                  backgroundColor: '#ffffff',
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F5A623',
                   color: '#000000',
                   '&:hover': {
-                    backgroundColor: '#d9d9d9',
+                    backgroundColor: '#E09612',
                   },
                 },
               }}
             >
               Use in a job
             </Button>
-            <ActionIcon 
-              variant="subtle" 
-              styles={{
-                root: {
-                  color: '#ffffff',
-                  '&:hover': {
-                    backgroundColor: '#202020',
-                  },
-                },
-              }}
-            >
-              <MoreVertical size={20} />
-            </ActionIcon>
           </Group>
         </div>
-
-        <div style={{ padding: '24px' }}>
-          <Text size="3xl" fw={700} style={{ fontFamily: 'serif' }}>
+  
+        {/* Title section */}
+        <div style={{ padding: '30px 24px 24px' }}>
+          <Badge 
+            size="sm"
+            variant="filled"
+            styles={{
+              root: {
+                backgroundColor: '#2B2B2B',
+                color: '#A1A1A1',
+                textTransform: 'uppercase',
+                fontSize: '11px',
+                fontFamily: GeistMono.style.fontFamily,
+                marginBottom: '8px',
+              }
+            }}
+          >
+            {record?.isPublic ? 'Public' : 'Private'}
+          </Badge>
+          <Text 
+            size="28px" 
+            fw={600} 
+            style={{ 
+              fontFamily: 'serif',
+              lineHeight: 1.2
+            }}
+          >
             {processingDoc?.title || record?.jobName || 'Untitled Job'}
           </Text>
-          <Text c="dimmed" mt="xs">
+          <Text c="dimmed" mt="xs" size="sm">
             {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
              record?.link ? getFilenameFromLink(record.link) : 
              'No source file'}
           </Text>
         </div>
-
-        <div style={{ padding: '24px', flex: 1 }}>
-          <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
-            <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
-              <Tabs.Tab 
-                value="preview"
-                styles={{
-                  tab: {
-                    backgroundColor: 'transparent',
-                    color: '#a1a1a1',
-                    '&[data-active]': {
-                      borderBottom: '2px solid #ffffff',
-                      color: '#ffffff',
+  
+        {/* Main content area */}
+        <div style={{ 
+          padding: '0 24px',
+          display: 'flex',
+          justifyContent: 'center',
+          flex: 1
+        }}>
+          <div style={{ 
+            maxWidth: '750px', 
+            width: '100%',
+            margin: '0 auto'
+          }}>
+            <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
+              <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
+                <Tabs.Tab 
+                  value="preview"
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
                     },
-                  },
-                }}
-              >
-                Preview
-              </Tabs.Tab>
-              <Tabs.Tab 
-                value="json"
-                styles={{
-                  tab: {
-                    backgroundColor: 'transparent',
-                    color: '#a1a1a1',
-                    '&[data-active]': {
-                      borderBottom: '2px solid #ffffff',
-                      color: '#ffffff',
-                    },
-                  },
-                }}
-              >
-                JSON
-              </Tabs.Tab>
-              <Tabs.Tab 
-                value="question" 
-                disabled
-                rightSection={
-                  <Badge 
-                    style={{ backgroundColor: '#291e3f', color: '#9e8bc3' }}
-                    size="xs"
-                  >
-                    Coming soon
-                  </Badge>
-                }
-                styles={{
-                  tab: {
-                    backgroundColor: 'transparent',
-                    color: '#a1a1a1',
-                    '&[data-active]': {
-                      borderBottom: '2px solid #ffffff',
-                      color: '#ffffff',
-                    },
-                  },
-                }}
-              >
-                Ask a question
-              </Tabs.Tab>
-            </Tabs.List>
-            
-            <Tabs.Panel value="preview" pt="md">
-              {isDocLoading ? (
-                <Box style={{ position: 'relative', minHeight: '300px' }}>
-                  <LoadingOverlay visible={true} />
-                </Box>
-              ) : errorMessage ? (
-                <Alert 
-                  icon={<AlertCircle size={16} />}
-                  color="red"
-                  title="Error"
-                  mb="md"
-                >
-                  {errorMessage}
-                  <Button 
-                    leftSection={<RefreshCw size={16} />}
-                    mt="sm"
-                    onClick={manualRefetch}
-                    variant="light"
-                    size="sm"
-                  >
-                    Try again
-                  </Button>
-                </Alert>
-              ) : markdownContent ? (
-                // Pass the markdown content directly to the renderer
-                <DocumentMarkdownRenderer 
-                  markdown={markdownContent}
-                  isLoading={false}
-                  errorMessage={null}
-                  onRefresh={manualRefetch}
-                  processingStatus={processingDoc?.status || record?.status}
-                />
-              ) : processingDoc?.status?.toLowerCase() === 'processing' || 
-                 processingDoc?.status?.toLowerCase() === 'in_progress' || 
-                 processingDoc?.status?.toLowerCase() === 'pending' || 
-                 record?.status?.toLowerCase() === 'processing' || 
-                 record?.status?.toLowerCase() === 'in_progress' || 
-                 record?.status?.toLowerCase() === 'pending' ? (
-                // Show the processing state UI
-                <DocumentMarkdownRenderer 
-                  isLoading={false}
-                  errorMessage={null}
-                  onRefresh={manualRefetch}
-                  processingStatus="processing"
-                />
-              ) : (
-                <Alert 
-                  icon={<AlertCircle size={16} />}
-                  color="yellow"
-                  title="No Content"
-                  mb="md"
-                >
-                  No content available to display.
-                  <Button 
-                    leftSection={<RefreshCw size={16} />}
-                    mt="sm"
-                    onClick={manualRefetch}
-                    variant="light"
-                    size="sm"
-                  >
-                    Refresh
-                  </Button>
-                </Alert>
-              )}
-            </Tabs.Panel>
-
-            <Tabs.Panel value="json" pt="md">
-              <div style={{ 
-                backgroundColor: 'white', 
-                padding: '32px', 
-                borderRadius: 8,
-                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                width: '100%'
-              }}>
-                <Code
-                  block
-                  style={{
-                    backgroundColor: '#1a1a1a',
-                    color: '#e0e0e0',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    overflow: 'auto',
-                    maxHeight: '70vh',
-                    fontSize: '0.9rem',
-                    fontFamily: 'monospace',
-                    lineHeight: 1.5,
-                    border: '1px solid #333',
-                    width: '100%',
-                    maxWidth: '100%',
-                    wordBreak: 'break-word',
-                    whiteSpace: 'pre-wrap'
                   }}
                 >
-                  {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}
-                </Code>
-              </div>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="question" pt="md">
-              <div style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
-                Question interface would appear here
-              </div>
-            </Tabs.Panel>
-          </Tabs>
+                  Preview
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="json"
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                >
+                  JSON
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="question" 
+                  disabled
+                  rightSection={
+                    <Badge 
+                      style={{ backgroundColor: '#291e3f', color: '#9e8bc3' }}
+                      size="xs"
+                    >
+                      Coming soon
+                    </Badge>
+                  }
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                >
+                  Ask a question
+                </Tabs.Tab>
+              </Tabs.List>
+              
+              <Tabs.Panel value="preview" pt="md">
+                {isDocLoading ? (
+                  <Box style={{ position: 'relative', minHeight: '300px' }}>
+                    <LoadingOverlay visible={true} />
+                  </Box>
+                ) : errorMessage ? (
+                  <Alert 
+                    icon={<AlertCircle size={16} />}
+                    color="red"
+                    title="Error"
+                    mb="md"
+                  >
+                    {errorMessage}
+                    <Button 
+                      leftSection={<RefreshCw size={16} />}
+                      mt="sm"
+                      onClick={manualRefetch}
+                      variant="light"
+                      size="sm"
+                    >
+                      Try again
+                    </Button>
+                  </Alert>
+                ) : markdownContent ? (
+                  // Pass the markdown content directly to the renderer
+                  <DocumentMarkdownRenderer 
+                    markdown={markdownContent}
+                    isLoading={false}
+                    errorMessage={null}
+                    onRefresh={manualRefetch}
+                    processingStatus={processingDoc?.status || record?.status}
+                  />
+                ) : processingDoc?.status?.toLowerCase() === 'processing' || 
+                   processingDoc?.status?.toLowerCase() === 'in_progress' || 
+                   processingDoc?.status?.toLowerCase() === 'pending' || 
+                   record?.status?.toLowerCase() === 'processing' || 
+                   record?.status?.toLowerCase() === 'in_progress' || 
+                   record?.status?.toLowerCase() === 'pending' ? (
+                  // Show the processing state UI
+                  <DocumentMarkdownRenderer 
+                    isLoading={false}
+                    errorMessage={null}
+                    onRefresh={manualRefetch}
+                    processingStatus="processing"
+                  />
+                ) : (
+                  <Alert 
+                    icon={<AlertCircle size={16} />}
+                    color="yellow"
+                    title="No Content"
+                    mb="md"
+                  >
+                    No content available to display.
+                    <Button 
+                      leftSection={<RefreshCw size={16} />}
+                      mt="sm"
+                      onClick={manualRefetch}
+                      variant="light"
+                      size="sm"
+                    >
+                      Refresh
+                    </Button>
+                  </Alert>
+                )}
+              </Tabs.Panel>
+  
+              <Tabs.Panel value="json" pt="md">
+                <div style={{ 
+                  backgroundColor: 'white', 
+                  padding: '32px', 
+                  borderRadius: 8,
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                  width: '100%'
+                }}>
+                  <Code
+                    block
+                    style={{
+                      backgroundColor: '#1a1a1a',
+                      color: '#e0e0e0',
+                      padding: '16px',
+                      borderRadius: '8px',
+                      overflow: 'auto',
+                      maxHeight: '70vh',
+                      fontSize: '0.9rem',
+                      fontFamily: 'monospace',
+                      lineHeight: 1.5,
+                      border: '1px solid #333',
+                      width: '100%',
+                      maxWidth: '100%',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}
+                  </Code>
+                </div>
+              </Tabs.Panel>
+  
+              <Tabs.Panel value="question" pt="md">
+                <div style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
+                  Question interface would appear here
+                </div>
+              </Tabs.Panel>
+            </Tabs>
+          </div>
         </div>
       </div>
-
-      <div style={{ width: '384px', borderLeft: '1px solid #202020', padding: '1.5rem' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <Text c="dimmed" mb="xs">
-            Created
-          </Text>
-          <Text>{identity?.name || 'Unknown User'}</Text>
-          {processingDoc?.createdAt && (
-            <Text size="sm" c="dimmed" mt="4px">
-              {new Date(processingDoc.createdAt).toLocaleString()}
+  
+      {/* Right sidebar */}
+      <div style={{ 
+        width: '384px', 
+        borderLeft: '1px solid #2B2B2B', 
+        padding: '1.5rem',
+        backgroundColor: '#000000'
+      }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div>
+            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+              Created
             </Text>
-          )}
+            <Text>{identity?.name || 'Unknown User'}</Text>
+            {processingDoc?.createdAt && (
+              <Text size="sm" c="dimmed" mt="4px">
+                {new Date(processingDoc.createdAt).toLocaleString()}
+              </Text>
+            )}
+          </div>
+      
+          <div>
+            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+              Duration
+            </Text>
+            <Text>{formatDuration(record?.totalDuration)}</Text>
+          </div>
+      
+          <div>
+            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+              Tokens
+            </Text>
+            <Text>{record?.totalTokenUsage || 'N/A'}</Text>
+          </div>
+      
+          <div>
+            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+              Language
+            </Text>
+            <Text>
+              {record?.lang === 'en' ? 'English' : 
+               record?.lang === 'uk' ? 'Ukrainian' : 
+               record?.lang || 'Unknown'}
+            </Text>
+          </div>
         </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <Text c="dimmed" mb="xs">
-            Duration
-          </Text>
-          <Text>{formatDuration(record?.totalDuration)}</Text>
-        </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <Text c="dimmed" mb="xs">
-            Status
-          </Text>
-          <Text>
-            {processingDoc?.status 
-              ? formatText(processingDoc.status) 
-              : record?.status 
-                ? formatText(record.status) 
-                : 'Unknown'}
-          </Text>
-        </div>
-
-        <div style={{ marginBottom: '2rem' }}>
-          <Text c="dimmed" mb="xs">
-            Language
-          </Text>
-          <Text>
-            {record?.lang === 'en' ? 'English' : 
-             record?.lang === 'uk' ? 'Ukrainian' : 
-             record?.lang || 'Unknown'}
-          </Text>
-        </div>
-
-        <div style={{ marginBottom: '1.5rem' }}>
-          <Text c="dimmed" mb="md">
+      
+        <div style={{ marginTop: '2rem' }}>
+          <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
             Logic steps / events
           </Text>
-
+          
           <div style={{ position: 'relative' }}>
+            {/* Vertical connecting line */}
             <div style={{ 
               position: 'absolute', 
-              left: '1rem', 
-              top: '1rem', 
-              bottom: '1rem', 
-              width: '2px', 
-              backgroundColor: '#202020' 
+              left: '24px', 
+              top: '0', 
+              bottom: '0', 
+              width: '1px', 
+              backgroundColor: '#2B2B2B' 
             }} />
-
+          
             {record?.steps?.map((step, index) => {
-              let bgOuterColor = '#202020';
-              let bgInnerColor = '#2b2b2b';
-              let bgCardColor = '#202020';
+              // Determine step status colors
+              const isCompleted = step.status?.toLowerCase() === 'completed';
+              const isError = step.status?.toLowerCase().includes('error') || 
+                              step.status?.toLowerCase().includes('failed');
+              const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
               
-              if (step.status?.toLowerCase() === 'completed') {
-                bgOuterColor = '#1a2516';
-                bgInnerColor = '#102d1d';
-                bgCardColor = '#2a392f';
-              } else if (step.status?.toLowerCase().includes('error') || 
-                         step.status?.toLowerCase().includes('failed')) {
-                bgOuterColor = '#251313';
-                bgInnerColor = '#3b1b1b';
-                bgCardColor = '#3b1b1b';
-              }
+              // Determine if step should be collapsible
+              const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
               
               return (
-                <div key={index} style={{ marginBottom: '2rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                    <div 
-                      style={{ 
-                        width: '32px', 
-                        height: '32px',
-                        backgroundColor: bgOuterColor, 
-                        borderRadius: '50%', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        position: 'relative', 
-                        zIndex: 10 
-                      }}
-                    >
-                      <div style={{ width: '16px', height: '16px', backgroundColor: bgInnerColor, borderRadius: '50%' }} />
-                    </div>
-                    <div 
-                      style={{ 
-                        marginLeft: '1rem', 
-                        padding: '0.75rem', 
-                        backgroundColor: bgCardColor, 
-                        borderRadius: '8px', 
-                        flex: 1
-                      }}
-                    >
-                      <Text fw={500} c="white">
-                        {formatText(step.name) || `Step ${index + 1}`}
+                <div key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
+                  {/* Step container */}
+                  <div style={{ 
+                    backgroundColor: '#000000',
+                    border: '1px solid #2B2B2B',
+                    borderRadius: '4px',
+                    padding: '12px',
+                    marginLeft: '48px',
+                    position: 'relative'
+                  }}>
+                    {/* Connecting line with dots */}
+                    <div style={{ 
+                      position: 'absolute',
+                      left: '-48px',
+                      top: '50%',
+                      width: '48px',
+                      height: '1px',
+                      backgroundColor: '#2B2B2B'
+                    }} />
+                    
+                    {/* Left dot */}
+                    <div style={{ 
+                      position: 'absolute',
+                      left: '-48px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B'
+                    }} />
+                    
+                    {/* Right dot (on the step) */}
+                    <div style={{ 
+                      position: 'absolute',
+                      left: '-1px',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B'
+                    }} />
+                    
+                    {/* Step header */}
+                    <Flex justify="space-between" align="center">
+                      <Text 
+                        style={{ 
+                          fontFamily: GeistMono.style.fontFamily, 
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        {formatText(step.name)}
                       </Text>
-                      <Text c="dimmed" size="sm">
-                        {step.status ? formatText(step.status) : 'No status'}
-                      </Text>
-                    </div>
-                    {step.totalDuration && (
-                      <Text style={{ marginLeft: '0.5rem', color: '#757575', fontSize: '0.875rem' }}>
-                        {formatDuration(step.totalDuration)}
-                      </Text>
+                      
+                      <Group spacing="sm">
+                        {step.totalDuration && (
+                          <Text 
+                            style={{ 
+                              color: '#2B2B2B', 
+                              fontSize: '12px',
+                              fontFamily: GeistMono.style.fontFamily,
+                            }}
+                          >
+                            {formatDuration(step.totalDuration)}
+                          </Text>
+                        )}
+                        
+                        {/* Status indicator */}
+                        <div style={{ 
+                          width: '8px', 
+                          height: '8px', 
+                          borderRadius: '50%',
+                          backgroundColor: isCompleted ? '#3DC28B' : 
+                                          isError ? '#FF4F56' : 
+                                          '#F5A623'
+                        }} />
+                      </Group>
+                    </Flex>
+                    
+                    {/* Collapsible content for processing step */}
+                    {isCollapsible && (
+                      <Collapse in={true}>
+                        <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
+                          <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
+                            {JSON.stringify(step.data, null, 2)}
+                          </Text>
+                        </Box>
+                      </Collapse>
                     )}
                   </div>
                 </div>
@@ -804,39 +891,57 @@ export default function JobShow() {
             })}
             
             {(!record?.steps || record.steps.length === 0) && (
-              <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                  <div 
+              <div style={{ marginBottom: '1rem', position: 'relative' }}>
+                <div style={{ 
+                  backgroundColor: '#000000',
+                  border: '1px solid #2B2B2B',
+                  borderRadius: '4px',
+                  padding: '12px',
+                  marginLeft: '48px',
+                  position: 'relative'
+                }}>
+                  <div style={{ 
+                    position: 'absolute',
+                    left: '-48px',
+                    top: '50%',
+                    width: '48px',
+                    height: '1px',
+                    backgroundColor: '#2B2B2B'
+                  }} />
+                  
+                  <div style={{ 
+                    position: 'absolute',
+                    left: '-48px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#000000',
+                    border: '1px solid #2B2B2B'
+                  }} />
+                  
+                  <div style={{ 
+                    position: 'absolute',
+                    left: '-1px',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#000000',
+                    border: '1px solid #2B2B2B'
+                  }} />
+                  
+                  <Text 
                     style={{ 
-                      width: '32px', 
-                      height: '32px',
-                      backgroundColor: '#202020', 
-                      borderRadius: '50%', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      position: 'relative', 
-                      zIndex: 10 
+                      fontFamily: GeistMono.style.fontFamily, 
+                      fontSize: '14px',
+                      color: '#A1A1A1',
                     }}
                   >
-                    <div style={{ width: '16px', height: '16px', backgroundColor: '#2b2b2b', borderRadius: '50%' }} />
-                  </div>
-                  <div 
-                    style={{ 
-                      marginLeft: '1rem', 
-                      padding: '0.75rem', 
-                      backgroundColor: '#202020', 
-                      borderRadius: '8px', 
-                      flex: 1
-                    }}
-                  >
-                    <Text fw={500} c="white">
-                      No steps available
-                    </Text>
-                    <Text c="dimmed" size="sm">
-                      Processing information unavailable
-                    </Text>
-                  </div>
+                    No steps available
+                  </Text>
                 </div>
               </div>
             )}
@@ -845,4 +950,3 @@ export default function JobShow() {
       </div>
     </div>
   );
-}

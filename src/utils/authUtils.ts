@@ -60,6 +60,9 @@ const parseJwt = (token: string): any => {
 };
 
 export const authUtils = {
+  // Storage for pending operations
+  _pendingOperations: [] as Array<() => Promise<void>>,
+
   // Get tokens with proper error handling
   getAccessToken: (): string | null => {
 	try {
@@ -230,7 +233,6 @@ export const authUtils = {
   },
 
   // Silent refresh timer setup
-  // In authUtils.ts, modify the setupRefreshTimer function:
   setupRefreshTimer: (forceCheck: boolean = false): void => {
 	// Clear any existing timer
 	if (window._refreshTimerId) {
@@ -308,6 +310,67 @@ export const authUtils = {
 	}
   },
 
+  // Network status checker function
+  checkNetworkStatus: (): boolean => {
+	if (!navigator.onLine) {
+	  console.log("[AUTH] Network appears to be offline");
+	  return false;
+	}
+	return true;
+  },
+
+  // Add operation to pending queue
+  queueOfflineOperation: (operation: () => Promise<void>): void => {
+	console.log("[AUTH] Queuing operation for when network is available");
+	authUtils._pendingOperations.push(operation);
+  },
+
+  // Process all pending operations
+  processPendingOperations: async (): Promise<void> => {
+	if (authUtils._pendingOperations.length === 0) return;
+	
+	console.log(`[AUTH] Processing ${authUtils._pendingOperations.length} pending operations`);
+	
+	// Get all operations and clear the queue
+	const operations = [...authUtils._pendingOperations];
+	authUtils._pendingOperations = [];
+	
+	// Execute operations in sequence
+	for (const operation of operations) {
+	  try {
+		await operation();
+	  } catch (error) {
+		console.error("[AUTH] Error processing queued operation:", error);
+	  }
+	}
+  },
+
+  // Setup network status event listeners
+  setupNetworkListeners: (onlineCallback?: () => void, offlineCallback?: () => void): () => void => {
+	const handleOnline = () => {
+	  console.log("[AUTH] Network connection restored");
+	  // Process any pending operations
+	  authUtils.processPendingOperations();
+	  // Call additional callback if provided
+	  if (onlineCallback) onlineCallback();
+	};
+	
+	const handleOffline = () => {
+	  console.log("[AUTH] Network connection lost");
+	  // Call additional callback if provided
+	  if (offlineCallback) offlineCallback();
+	};
+	
+	window.addEventListener('online', handleOnline);
+	window.addEventListener('offline', handleOffline);
+	
+	// Return cleanup function
+	return () => {
+	  window.removeEventListener('online', handleOnline);
+	  window.removeEventListener('offline', handleOffline);
+	};
+  },
+
   // Centralized API request handler with improved error handling
   apiRequest: async (url: string, options: RequestInit = {}, retryCount = 0): Promise<Response> => {
 	const MAX_RETRIES = 1;
@@ -353,6 +416,24 @@ export const authUtils = {
 		console.error("API request error:", error);
 	  }
 	  throw error;
+	}
+  },
+
+  // Enhanced fetchWithAuth that includes retry logic
+  fetchWithRetry: async (url: string, options: RequestInit = {}, retries = 2): Promise<Response> => {
+	try {
+	  const response = await authUtils.apiRequest(url, options);
+	  return response;
+	} catch (error) {
+	  if (retries <= 0) throw error;
+	  
+	  // If we're offline, don't retry immediately
+	  if (!navigator.onLine) throw error;
+	  
+	  console.log(`Request failed, retrying... (${retries} attempts left)`);
+	  // Wait before retry with exponential backoff
+	  await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, 2 - retries)));
+	  return authUtils.fetchWithRetry(url, options, retries - 1);
 	}
   },
 
@@ -478,6 +559,7 @@ export const useAuth = () => {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   
   // Initialize token refresh on component mount
   useEffect(() => {
@@ -496,13 +578,22 @@ export const useAuth = () => {
 	  setIsLoading(false);
 	};
 	
+	// Setup network listeners
+	const cleanup = authUtils.setupNetworkListeners(
+	  // Online callback
+	  () => setIsOffline(false),
+	  // Offline callback
+	  () => setIsOffline(true)
+	);
+	
 	initializeAuth();
 	
-	// Cleanup function to clear timer on unmount
+	// Cleanup function to clear timer and event listeners on unmount
 	return () => {
 	  if (window._refreshTimerId) {
 		clearTimeout(window._refreshTimerId);
 	  }
+	  cleanup();
 	};
   }, []);
   
@@ -559,22 +650,108 @@ export const useAuth = () => {
 	}
   }, [handleAuthError]);
   
+  // Enhanced fetch with retry
+  const fetchWithRetry = useCallback(async (url: string, options: RequestInit = {}, retries = 2) => {
+	try {
+	  const response = await authUtils.fetchWithRetry(url, options, retries);
+	  return response;
+	} catch (error) {
+	  handleAuthError(error);
+	  throw error;
+	}
+  }, [handleAuthError]);
+  
+  // Network status check
+  const checkNetworkStatus = useCallback(() => {
+	return authUtils.checkNetworkStatus();
+  }, []);
+  
+  // Queue operation for when back online
+  const queueOfflineOperation = useCallback((operation: () => Promise<void>) => {
+	authUtils.queueOfflineOperation(operation);
+  }, []);
+  
+  // Process pending operations
+  const processPendingOperations = useCallback(async () => {
+	return authUtils.processPendingOperations();
+  }, []);
+  
+  // Setup network listeners
+  const setupNetworkListeners = useCallback((onlineCallback?: () => void, offlineCallback?: () => void) => {
+	return authUtils.setupNetworkListeners(onlineCallback, offlineCallback);
+  }, []);
+  
   return {
 	isAuthenticated,
 	isLoading,
+	isOffline,
 	refreshToken,
 	handleAuthError,
 	getAccessToken,
 	getAuthHeaders,
 	fetchWithAuth,
+	fetchWithRetry,
+	checkNetworkStatus,
+	queueOfflineOperation,
+	processPendingOperations,
+	setupNetworkListeners,
 	login: async (email: string, password: string) => {
-	  // Implementation would be moved from customAuthProvider
-	  // This gives components a simpler interface for auth operations
+	  try {
+		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+		  },
+		  body: JSON.stringify({ email, password }),
+		});
+  
+		if (!response.ok) {
+		  const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
+		  return { success: false, error: errorData };
+		}
+  
+		const data = await response.json();
+		if (data.accessToken && data.refreshToken) {
+		  authUtils.saveTokens(data.accessToken, data.refreshToken);
+		  setIsAuthenticated(true);
+		  return { success: true, data };
+		} else {
+		  return { 
+			success: false, 
+			error: { message: 'Invalid response format from server' } 
+		  };
+		}
+	  } catch (error) {
+		console.error('Login error:', error);
+		return { 
+		  success: false, 
+		  error: { message: error instanceof Error ? error.message : 'Unknown error' } 
+		};
+	  }
 	},
 	logout: async () => {
-	  await authUtils.clearAuthStorage();
-	  setIsAuthenticated(false);
-	  router.push('/login');
+	  // Attempt to notify the server but don't wait for response
+	  try {
+		if (navigator.onLine) {
+		  const refreshToken = authUtils.getRefreshToken();
+		  if (refreshToken) {
+			fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
+			  method: 'POST',
+			  headers: {
+				'Content-Type': 'application/json',
+			  },
+			  body: JSON.stringify({ refreshToken }),
+			}).catch(() => {
+			  // Ignore errors during logout
+			});
+		  }
+		}
+	  } finally {
+		// Always clear local storage
+		await authUtils.clearAuthStorage();
+		setIsAuthenticated(false);
+		router.push('/login');
+	  }
 	}
   };
 };
