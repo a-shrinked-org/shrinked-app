@@ -179,6 +179,35 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     return "transparent";
   };
 
+  // Determine if we have any actions
+  const hasActions = !!(onView || onSendEmail || onDelete);
+
+  // Calculate grid template columns with improved alignment
+  const getGridTemplateColumns = () => {
+    const columnsCount = visibleColumns.length;
+    
+    // Determine if we're in the processing list (fewer columns) or jobs list (more columns)
+    const isProcessingList = columnsCount === 0 && !showStatus;
+    
+    if (isProcessingList) {
+      // For processing list: title gets more space, date and actions get fixed widths
+      return hasActions ? "60% 15% 25%" : "70% 30%";
+    } else if (columnsCount === 0) {
+      // For other views with just status: title gets space, status and date get fixed widths
+      return hasActions 
+        ? `50% ${showStatus ? '10% ' : ''}15% 25%` 
+        : `60% ${showStatus ? '15% ' : ''}25%`;
+    } else {
+      // For job list with extra columns: more balanced approach
+      // Title still gets priority, other columns are more evenly distributed
+      const extraColWidth = Math.max(8, 25 / columnsCount); // Minimum 8% width
+      
+      return hasActions 
+        ? `45% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%) 15%`
+        : `50% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%)`;
+    }
+  };
+
   if (isLoading) {
     return (
       <Box p="xl" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', backgroundColor: '#000000' }}>
@@ -203,39 +232,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
 
   // Define visible columns for different screen sizes
   const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
-  
-  // Calculate grid template columns with improved alignment
-  const getGridTemplateColumns = () => {
-    const columnsCount = visibleColumns.length;
-    
-    // Determine if we're in the processing list (fewer columns) or jobs list (more columns)
-    const isProcessingList = columnsCount === 0 && !showStatus;
-    
-    if (isProcessingList) {
-      // For processing list: title gets more space, date and actions get fixed widths
-      return "60% 15% 25%";
-    } else if (columnsCount === 0) {
-      // For other views with just status: title gets space, status and date get fixed widths, actions gets more
-      return `50% ${showStatus ? '10% ' : ''}15% 25%`;
-    } else {
-      // For job list with extra columns: more balanced approach
-      // Title still gets priority, other columns are more evenly distributed
-      const extraColWidth = Math.max(8, 25 / columnsCount); // Minimum 8% width
-      
-      return `45% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%) 15%`;
-    }
-  };
-
-  // For debugging
-  const traceDataIds = () => {
-    console.log("Document IDs in table:", data.map(doc => ({
-      id: doc._id,
-      title: doc.title
-    })));
-  };
-
-  // Call this to debug
-  traceDataIds();
 
   const renderDesktopView = () => (
     <>
@@ -248,6 +244,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           borderBottom: '1px solid #2b2b2b',
           color: '#a1a1a1',
           fontSize: '12px',
+          width: '100%',
+          maxWidth: '100%',
+          overflowX: 'hidden'
         }}
       >
         <Box style={{ textAlign: 'left' }}>/title</Box>
@@ -256,12 +255,12 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
         {visibleColumns.map((col, index) => (
           <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
         ))}
-        <Box style={{ textAlign: 'left' }}>/actions</Box>
+        {hasActions && <Box style={{ textAlign: 'left' }}>/actions</Box>}
       </Box>
 
       {/* Table Content */}
       {data && data.length > 0 ? (
-        <Box style={{ overflow: 'auto' }}>
+        <Box style={{ overflow: 'auto', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
           {data.map((doc) => {
             // Ensure each doc has a unique identifier
             const uniqueId = doc._id || `fallback-${Math.random()}`;
@@ -271,14 +270,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
               <Box
                 key={uniqueId}
                 onClick={() => onRowClick && onRowClick(doc)}
-                onMouseEnter={() => {
-                  console.log(`Mouse entering row with ID: ${uniqueId}`);
-                  setHoveredRow(uniqueId);
-                }}
-                onMouseLeave={() => {
-                  console.log(`Mouse leaving row with ID: ${uniqueId}`);
-                  setHoveredRow(null);
-                }}
+                onMouseEnter={() => setHoveredRow(uniqueId)}
+                onMouseLeave={() => setHoveredRow(null)}
                 style={{ 
                   display: 'grid',
                   gridTemplateColumns: getGridTemplateColumns(),
@@ -287,6 +280,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                   cursor: onRowClick ? 'pointer' : 'default',
                   transition: 'background-color 0.2s ease-in-out',
                   backgroundColor: getRowBackground(uniqueId, doc.status),
+                  width: '100%',
+                  maxWidth: '100%'
                 }}
               >
                 <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -350,61 +345,63 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                   </Box>
                 ))}
                 
-                <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                  <Group>
-                    {onView && (
-                      <Tooltip label="View Document">
-                        <ActionIcon 
-                          variant="subtle"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onView(doc, e);
-                          }}
-                          style={{
-                            color: '#ffffff',
-                            '&:hover': { backgroundColor: '#2b2b2b' }
-                          }}
-                        >
-                          <Eye size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                    {onSendEmail && (
-                      <Tooltip label="Send to Email">
-                        <ActionIcon 
-                          variant="subtle"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEmailClick(doc._id, e);
-                          }}
-                          style={{
-                            color: '#ffffff',
-                            '&:hover': { backgroundColor: '#2b2b2b' }
-                          }}
-                        >
-                          <Mail size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                    {onDelete && (
-                      <Tooltip label="Delete">
-                        <ActionIcon 
-                          variant="subtle"
-                          color="red"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(doc._id, e);
-                          }}
-                          style={{
-                            '&:hover': { backgroundColor: '#2b2b2b' }
-                          }}
-                        >
-                          <Trash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                  </Group>
-                </Box>
+                {hasActions && (
+                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                    <Group>
+                      {onView && (
+                        <Tooltip label="View Document">
+                          <ActionIcon 
+                            variant="subtle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onView(doc, e);
+                            }}
+                            style={{
+                              color: '#ffffff',
+                              '&:hover': { backgroundColor: '#2b2b2b' }
+                            }}
+                          >
+                            <Eye size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                      {onSendEmail && (
+                        <Tooltip label="Send to Email">
+                          <ActionIcon 
+                            variant="subtle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEmailClick(doc._id, e);
+                            }}
+                            style={{
+                              color: '#ffffff',
+                              '&:hover': { backgroundColor: '#2b2b2b' }
+                            }}
+                          >
+                            <Mail size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                      {onDelete && (
+                        <Tooltip label="Delete">
+                          <ActionIcon 
+                            variant="subtle"
+                            color="red"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(doc._id, e);
+                            }}
+                            style={{
+                              '&:hover': { backgroundColor: '#2b2b2b' }
+                            }}
+                          >
+                            <Trash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Group>
+                  </Box>
+                )}
               </Box>
             );
           })}
@@ -467,19 +464,21 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                           {doc.description || doc.output?.description || 'No description available'}
                         </Text>
                       </Box>
-                      <ActionIcon 
-                        variant="subtle"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onView && onView(doc, e);
-                        }}
-                        style={{
-                          color: '#ffffff',
-                          marginLeft: '8px'
-                        }}
-                      >
-                        <ChevronRight size={16} />
-                      </ActionIcon>
+                      {onRowClick && (
+                        <ActionIcon 
+                          variant="subtle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onView && onView(doc, e);
+                          }}
+                          style={{
+                            color: '#ffffff',
+                            marginLeft: '8px'
+                          }}
+                        >
+                          <ChevronRight size={16} />
+                        </ActionIcon>
+                      )}
                     </Flex>
                     
                     <Flex gap="md" wrap="wrap" mt="xs">
@@ -504,38 +503,40 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                       ))}
                     </Flex>
                     
-                    <Flex justify="flex-start" mt="xs">
-                      <Group>
-                        {onSendEmail && (
-                          <ActionIcon 
-                            variant="subtle"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEmailClick(doc._id, e);
-                            }}
-                            style={{
-                              color: '#ffffff',
-                            }}
-                          >
-                            <Mail size={14} />
-                          </ActionIcon>
-                        )}
-                        {onDelete && (
-                          <ActionIcon 
-                            variant="subtle"
-                            size="sm"
-                            color="red"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDelete(doc._id, e);
-                            }}
-                          >
-                            <Trash size={14} />
-                          </ActionIcon>
-                        )}
-                      </Group>
-                    </Flex>
+                    {(onSendEmail || onDelete) && (
+                      <Flex justify="flex-start" mt="xs">
+                        <Group>
+                          {onSendEmail && (
+                            <ActionIcon 
+                              variant="subtle"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEmailClick(doc._id, e);
+                              }}
+                              style={{
+                                color: '#ffffff',
+                              }}
+                            >
+                              <Mail size={14} />
+                            </ActionIcon>
+                          )}
+                          {onDelete && (
+                            <ActionIcon 
+                              variant="subtle"
+                              size="sm"
+                              color="red"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(doc._id, e);
+                              }}
+                            >
+                              <Trash size={14} />
+                            </ActionIcon>
+                          )}
+                        </Group>
+                      </Flex>
+                    )}
                   </Box>
                 </Flex>
               </Box>
@@ -552,7 +553,14 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
 
   // Render the component
   return (
-    <Box style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
+    <Box style={{ 
+      backgroundColor: '#000000', 
+      color: '#ffffff', 
+      minHeight: '100vh',
+      width: '100%',
+      maxWidth: '100vw',
+      overflowX: 'hidden'
+    }}>
       {/* Header */}
       <Flex justify="space-between" align="center" p="md" style={{ borderBottom: '1px solid #2b2b2b' }}>
         <Text size="sm" fw={700} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
@@ -579,16 +587,21 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           )}
           {onAddNew && (
             <Button
-              variant="outline"
+              variant="filled"
               onClick={onAddNew}
               rightSection={<Plus size={16} />}
               styles={{
                 root: {
-                  backgroundColor: 'transparent',
-                  borderColor: '#2b2b2b',
-                  color: '#ffffff',
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
                   '&:hover': {
-                    backgroundColor: '#2b2b2b',
+                    backgroundColor: '#E09612',
                   },
                 },
               }}
@@ -600,7 +613,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       </Flex>
 
       {/* Render either desktop or mobile view based on screen size */}
-      {!isMobile ? renderDesktopView() : renderMobileView()}
+      <Box style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+        {!isMobile ? renderDesktopView() : renderMobileView()}
+      </Box>
 
       {/* Email Modal */}
       <Modal
