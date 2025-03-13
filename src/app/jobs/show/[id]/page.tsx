@@ -767,13 +767,15 @@ export default function JobShow() {
             Logic steps / events
           </Text>
           
+          // Update the logic steps mapping part:
+          
           <div style={{ position: 'relative' }}>
-            {/* Vertical connecting line */}
+            {/* Vertical connecting line should only be behind the dots */}
             <div style={{ 
               position: 'absolute', 
               left: '24px', 
-              top: '0', 
-              bottom: '0', 
+              top: '24px', 
+              bottom: record?.steps && record.steps.length > 0 ? '24px' : '0', 
               width: '1px', 
               backgroundColor: '#2B2B2B' 
             }} />
@@ -788,6 +790,9 @@ export default function JobShow() {
               // Determine if step should be collapsible
               const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
               
+              // Determine if this is the last step - no connector needed after
+              const isLastStep = index === (record?.steps?.length || 0) - 1;
+              
               return (
                 <div key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
                   {/* Step container */}
@@ -799,41 +804,43 @@ export default function JobShow() {
                     marginLeft: '48px',
                     position: 'relative'
                   }}>
-                    {/* Connecting line with dots */}
+                    {/* Horizontal connecting line */}
                     <div style={{ 
                       position: 'absolute',
-                      left: '-48px',
+                      left: '-24px',
                       top: '50%',
-                      width: '48px',
+                      width: '24px',
                       height: '1px',
                       backgroundColor: '#2B2B2B'
                     }} />
                     
-                    {/* Left dot */}
+                    {/* Circle on the vertical line */}
                     <div style={{ 
                       position: 'absolute',
-                      left: '-48px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: '#000000',
-                      border: '1px solid #2B2B2B'
-                    }} />
-                    
-                    {/* Right dot (on the step) */}
-                    <div style={{ 
-                      position: 'absolute',
-                      left: '-1px',
+                      left: '-24px',
                       top: '50%',
                       transform: 'translate(-50%, -50%)',
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
                       backgroundColor: '#000000',
-                      border: '1px solid #2B2B2B'
+                      border: '1px solid #2B2B2B',
+                      zIndex: 2
                     }} />
+                    
+                    {/* Add vertical connector to next step (if not last) */}
+                    {!isLastStep && (
+                      <div style={{ 
+                        position: 'absolute',
+                        left: '-24px',
+                        top: 'calc(50% + 4px)', // Start below the current dot
+                        height: '48px', // Vertical height to reach next step
+                        width: '1px',
+                        backgroundColor: '#2B2B2B',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1
+                      }} />
+                    )}
                     
                     {/* Step header */}
                     <Flex justify="space-between" align="center">

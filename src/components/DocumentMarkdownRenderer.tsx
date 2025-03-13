@@ -1,47 +1,4 @@
-// Post-process HTML to fix references and styling
-  const processReferences = (html: string): string => {
-    // Clean up any direct reference markup
-    let processed = html;
-    
-    // Replace `[[number]](#ts-number)` with citation links
-    processed = processed.replace(
-      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
-      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
-    );
-    
-    // Replace explicit HTML anchors with proper citation links
-    processed = processed.replace(
-      /<a id="ts-(\d+)" class="ref-target"><\/a>\[(\d+)\]/g,
-      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
-    );
-    
-    // Handle any remaining plain text reference patterns
-    processed = processed.replace(
-      /<a id="ts-(\d+)"[^>]*><\/a>\[(\d+)\]/g,
-      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
-    );
-    
-    // Handle markdown-style links with ts- references
-    processed = processed.replace(
-      /\[(\d+)\]\(#ts-(\d+)\)/g,
-      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
-    );
-    
-    // Clean up any reference artifacts
-    processed = processed.replace(/\{#ref-ts-\d+\}/g, '');
-    
-    return processed;
-  };  // Apply Mantine styling to the rendered HTML
-  const getStyledHtml = (renderedHtml: string): React.ReactElement => {
-    return (
-      <div 
-        className="markdoc-content"
-        dangerouslySetInnerHTML={{ 
-          __html: renderedHtml 
-        }}
-      />
-    );
-  };import React from 'react';
+import React from 'react';
 import { Box, Text, Paper, Loader, Alert, Button, Progress, Title, Stack } from '@mantine/core';
 import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import Markdoc from '@markdoc/markdoc';
@@ -118,6 +75,41 @@ function DocumentMarkdocRenderer({
     );
   }
   
+  // Post-process HTML to fix references and styling
+  const processReferences = (html: string): string => {
+    // Clean up any direct reference markup
+    let processed = html;
+    
+    // Replace `[[number]](#ts-number)` with citation links
+    processed = processed.replace(
+      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
+    );
+    
+    // Replace explicit HTML anchors with proper citation links
+    processed = processed.replace(
+      /<a id="ts-(\d+)" class="ref-target"><\/a>\[(\d+)\]/g,
+      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
+    );
+    
+    // Handle any remaining plain text reference patterns
+    processed = processed.replace(
+      /<a id="ts-(\d+)"[^>]*><\/a>\[(\d+)\]/g,
+      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
+    );
+    
+    // Handle markdown-style links with ts- references
+    processed = processed.replace(
+      /\[(\d+)\]\(#ts-(\d+)\)/g,
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
+    );
+    
+    // Clean up any reference artifacts
+    processed = processed.replace(/\{#ref-ts-\d+\}/g, '');
+    
+    return processed;
+  };
+  
   // Convert markdown citations to HTML links - Simple preprocessing
   const preprocessMarkdown = (content: string): string => {
     // Process different citation formats
@@ -148,7 +140,6 @@ function DocumentMarkdocRenderer({
       let html = Markdoc.renderers.html(contentAst);
       
       // Apply heading styles by replacing h1-h6 tags with appropriate Mantine Title classes
-      // (We'll add custom CSS to style these)
       html = html
         .replace(/<h1([^>]*)>(.*?)<\/h1>/g, '<div class="mantine-title-h1"$1>$2</div>')
         .replace(/<h2([^>]*)>(.*?)<\/h2>/g, '<div class="mantine-title-h2"$1>$2</div>')
@@ -175,14 +166,18 @@ function DocumentMarkdocRenderer({
         className="markdoc-container"
       >
         <style jsx global>{`
-          /* Mantine title styles */
+          /* Standard heading styles with system fonts */
+          .mantine-title-h1, .mantine-title-h2, .mantine-title-h3, .mantine-title-h4, .mantine-title-h5, .mantine-title-h6 {
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            color: #000000;
+          }
+          
           .mantine-title-h1 {
             font-size: 2.25rem;
             font-weight: 700;
             line-height: 1.3;
             margin-top: 2rem;
             margin-bottom: 1rem;
-            color: #000000;
           }
           
           .mantine-title-h2 {
@@ -191,7 +186,6 @@ function DocumentMarkdocRenderer({
             line-height: 1.35;
             margin-top: 1.75rem;
             margin-bottom: 0.75rem;
-            color: #000000;
           }
           
           .mantine-title-h3 {
@@ -200,7 +194,6 @@ function DocumentMarkdocRenderer({
             line-height: 1.4;
             margin-top: 1.5rem;
             margin-bottom: 0.75rem;
-            color: #000000;
           }
           
           .mantine-title-h4 {
@@ -209,6 +202,30 @@ function DocumentMarkdocRenderer({
             line-height: 1.45;
             margin-top: 1.25rem;
             margin-bottom: 0.5rem;
+          }
+          
+          .mantine-title-h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            line-height: 1.5;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+          }
+          
+          .mantine-title-h6 {
+            font-size: 1rem;
+            font-weight: 600;
+            line-height: 1.5;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+          }
+          
+          /* General text styling */
+          .markdoc-container p {
+            margin-bottom: 1rem;
+            line-height: 1.7;
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+            font-size: 1rem;
             color: #000000;
           }
           
@@ -216,20 +233,11 @@ function DocumentMarkdocRenderer({
           .citation-ref {
             color: #0066cc;
             text-decoration: none;
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
           }
           
           .citation-ref:hover {
             text-decoration: underline;
-          }
-          
-          /* General text styling */
-          .markdoc-container p {
-            margin-bottom: 1rem;
-            line-height: 1.7;
-          }
-          
-          .markdoc-container a {
-            color: #0066cc;
           }
           
           /* Reference target styling */
@@ -241,10 +249,59 @@ function DocumentMarkdocRenderer({
           .markdoc-container ul, .markdoc-container ol {
             margin-bottom: 1rem;
             padding-left: 2rem;
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
           }
           
           .markdoc-container li {
             margin-bottom: 0.5rem;
+          }
+          
+          /* Tables */
+          .markdoc-container table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          }
+          
+          .markdoc-container th, .markdoc-container td {
+            border: 1px solid #e0e0e0;
+            padding: 8px 12px;
+            text-align: left;
+          }
+          
+          .markdoc-container th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+          }
+          
+          /* Code blocks */
+          .markdoc-container pre, .markdoc-container code {
+            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+            background-color: #f5f5f5;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+          }
+          
+          .markdoc-container pre {
+            padding: 1em;
+            overflow-x: auto;
+            line-height: 1.5;
+          }
+          
+          .markdoc-container pre code {
+            background-color: transparent;
+            padding: 0;
+          }
+          
+          /* Blockquotes */
+          .markdoc-container blockquote {
+            border-left: 4px solid #e0e0e0;
+            margin-left: 0;
+            padding-left: 1em;
+            color: #555;
+            font-style: italic;
           }
         `}</style>
         <div 
@@ -378,75 +435,78 @@ function DocumentMarkdocRenderer({
       className="markdoc-container"
     >
       <style jsx global>{`
-        /* Mantine title styles */
+        /* Standard heading styles with system fonts */
+        .mantine-title-h1, .mantine-title-h2, .mantine-title-h3, .mantine-title-h4, .mantine-title-h5, .mantine-title-h6 {
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          color: #000000;
+        }
+        
         .mantine-title-h1 {
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 2.25rem;
           font-weight: 700;
           line-height: 1.3;
           margin-top: 2rem;
           margin-bottom: 1rem;
-          color: #000000;
         }
         
         .mantine-title-h2 {
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 1.875rem;
           font-weight: 600;
           line-height: 1.35;
           margin-top: 1.75rem;
           margin-bottom: 0.75rem;
-          color: #000000;
         }
         
         .mantine-title-h3 {
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 1.5rem;
           font-weight: 600;
           line-height: 1.4;
           margin-top: 1.5rem;
           margin-bottom: 0.75rem;
-          color: #000000;
         }
         
         .mantine-title-h4 {
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
           font-size: 1.25rem;
           font-weight: 600;
           line-height: 1.45;
           margin-top: 1.25rem;
           margin-bottom: 0.5rem;
-          color: #000000;
         }
         
-        /* Citation reference styling */
-        .citation-ref {
-          color: #228be6;
-          text-decoration: none;
-          font-weight: normal;
+        .mantine-title-h5 {
+          font-size: 1.1rem;
+          font-weight: 600;
+          line-height: 1.5;
+          margin-top: 1.25rem;
+          margin-bottom: 0.5rem;
         }
         
-        .citation-ref:hover {
-          text-decoration: underline;
-        }
-        
-        /* Reference target styling */
-        .ref-target {
-          display: inline;
-          position: relative;
+        .mantine-title-h6 {
+          font-size: 1rem;
+          font-weight: 600;
+          line-height: 1.5;
+          margin-top: 1.25rem;
+          margin-bottom: 0.5rem;
         }
         
         /* General text styling */
         .markdoc-container p {
           margin-bottom: 1rem;
           line-height: 1.7;
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
           font-size: 1rem;
           color: #000000;
         }
         
-        .markdoc-container a {
+        /* Citation reference styling */
+        .citation-ref {
           color: #0066cc;
+          text-decoration: none;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .citation-ref:hover {
+          text-decoration: underline;
         }
         
         /* Reference target styling */
@@ -458,10 +518,59 @@ function DocumentMarkdocRenderer({
         .markdoc-container ul, .markdoc-container ol {
           margin-bottom: 1rem;
           padding-left: 2rem;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
         
         .markdoc-container li {
           margin-bottom: 0.5rem;
+        }
+        
+        /* Tables */
+        .markdoc-container table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 1rem;
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .markdoc-container th, .markdoc-container td {
+          border: 1px solid #e0e0e0;
+          padding: 8px 12px;
+          text-align: left;
+        }
+        
+        .markdoc-container th {
+          background-color: #f5f5f5;
+          font-weight: 600;
+        }
+        
+        /* Code blocks */
+        .markdoc-container pre, .markdoc-container code {
+          font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+          background-color: #f5f5f5;
+          padding: 0.2em 0.4em;
+          border-radius: 3px;
+          font-size: 0.9em;
+        }
+        
+        .markdoc-container pre {
+          padding: 1em;
+          overflow-x: auto;
+          line-height: 1.5;
+        }
+        
+        .markdoc-container pre code {
+          background-color: transparent;
+          padding: 0;
+        }
+        
+        /* Blockquotes */
+        .markdoc-container blockquote {
+          border-left: 4px solid #e0e0e0;
+          margin-left: 0;
+          padding-left: 1em;
+          color: #555;
+          font-style: italic;
         }
       `}</style>
       {markdownContent ? (
