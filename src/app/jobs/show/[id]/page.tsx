@@ -427,86 +427,93 @@ export default function JobShow() {
   const combinedData = processingDoc?.output || record?.output || {};
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
+  <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
+    {/* Header bar - now spans the entire width */}
+    <div style={{ 
+      padding: '16px 24px', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      borderBottom: '1px solid #2B2B2B'
+    }}>
+      <Button 
+        variant="subtle" 
+        leftSection={<ArrowLeft size={16} />}
+        onClick={() => list('jobs')}
+        styles={{
+          root: {
+            fontFamily: GeistMono.style.fontFamily,
+            fontSize: '14px',
+            fontWeight: 400,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            padding: '8px 16px',
+            backgroundColor: 'transparent',
+            color: '#ffffff',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            },
+          },
+        }}
+      >
+        Back to Job List
+      </Button>
+      <Group gap="sm">
+        <Button 
+          variant="subtle"
+          leftSection={<Share size={16} />}
+          styles={{
+            root: {
+              fontFamily: GeistMono.style.fontFamily,
+              fontSize: '14px',
+              fontWeight: 400,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              padding: '8px 16px',
+              backgroundColor: 'transparent',
+              color: '#ffffff',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              },
+            },
+          }}
+        >
+          Share
+        </Button>
+        <Button 
+          variant="filled"
+          styles={{
+            root: {
+              fontFamily: GeistMono.style.fontFamily,
+              fontSize: '14px',
+              fontWeight: 400,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              padding: '8px 16px',
+              backgroundColor: '#F5A623',
+              color: '#000000',
+              '&:hover': {
+                backgroundColor: '#E09612',
+              },
+            },
+          }}
+        >
+          Use in a job
+        </Button>
+      </Group>
+    </div>
+  
+    {/* Main content container with sidebar */}
+    <div style={{ display: 'flex', flex: 1 }}>
       {/* Main content column */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Header bar */}
+        {/* Title section - centered and max-width limited */}
         <div style={{ 
-          padding: '16px 24px', 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          borderBottom: '1px solid #2B2B2B'
+          maxWidth: '750px',
+          margin: '0 auto',
+          width: '100%',
+          padding: '30px 24px 24px' 
         }}>
-          <Button 
-            variant="subtle" 
-            leftSection={<ArrowLeft size={16} />}
-            onClick={() => list('jobs')}
-            styles={{
-              root: {
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: '14px',
-                fontWeight: 400,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                padding: '8px 16px',
-                backgroundColor: 'transparent',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                },
-              },
-            }}
-          >
-            Back to Job List
-          </Button>
-          <Group gap="sm">
-            <Button 
-              variant="subtle"
-              leftSection={<Share size={16} />}
-              styles={{
-                root: {
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  },
-                },
-              }}
-            >
-              Share
-            </Button>
-            <Button 
-              variant="filled"
-              styles={{
-                root: {
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E09612',
-                  },
-                },
-              }}
-            >
-              Use in a job
-            </Button>
-          </Group>
-        </div>
-  
-        {/* Title section */}
-        <div style={{ padding: '30px 24px 24px' }}>
           <Badge 
             size="sm"
             variant="filled"
@@ -527,7 +534,7 @@ export default function JobShow() {
             size="28px" 
             fw={600} 
             style={{ 
-              fontFamily: 'serif',
+              fontFamily: 'Geist, sans-serif',
               lineHeight: 1.2
             }}
           >
@@ -542,15 +549,15 @@ export default function JobShow() {
   
         {/* Main content area */}
         <div style={{ 
-          padding: '0 24px',
+          flex: 1,
           display: 'flex',
           justifyContent: 'center',
-          flex: 1
         }}>
           <div style={{ 
             maxWidth: '750px', 
             width: '100%',
-            margin: '0 auto'
+            margin: '0 auto',
+            padding: '0 24px 24px'
           }}>
             <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
               <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
@@ -727,45 +734,36 @@ export default function JobShow() {
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           <div>
-            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
-              Created
-            </Text>
-            <Text>{identity?.name || 'Unknown User'}</Text>
-            {processingDoc?.createdAt && (
-              <Text size="sm" c="dimmed" mt="4px">
-                {new Date(processingDoc.createdAt).toLocaleString()}
-              </Text>
-            )}
-          </div>
-      
-          <div>
-            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
               Duration
             </Text>
             <Text>{formatDuration(record?.totalDuration)}</Text>
           </div>
       
           <div>
-            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
               Tokens
             </Text>
             <Text>{record?.totalTokenUsage || 'N/A'}</Text>
           </div>
-      
-          <div>
-            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
-              Language
-            </Text>
-            <Text>
-              {record?.lang === 'en' ? 'English' : 
-               record?.lang === 'uk' ? 'Ukrainian' : 
-               record?.lang || 'Unknown'}
-            </Text>
-          </div>
+          
+          {/* Language from UPLOAD_FILE step */}
+          {record?.steps?.find(step => step.name === "UPLOAD_FILE")?.data?.lang && (
+            <div>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Language
+              </Text>
+              <Text>
+                {record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'en' ? 'English' : 
+                 record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'uk' ? 'Ukrainian' : 
+                 record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang || 'Unknown'}
+              </Text>
+            </div>
+          )}
         </div>
       
         <div style={{ marginTop: '2rem' }}>
-          <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase' }}>
+          <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
             Logic steps / events
           </Text>
           
@@ -949,5 +947,6 @@ export default function JobShow() {
         </div>
       </div>
     </div>
+  </div>
   );
 }
