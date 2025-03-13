@@ -850,7 +850,7 @@ export default function JobShow() {
                         {formatText(step.name)}
                       </Text>
                       
-                      <Group spacing="sm">
+                      <Group gap="sm">
                         {step.totalDuration && (
                           <Text 
                             style={{ 
