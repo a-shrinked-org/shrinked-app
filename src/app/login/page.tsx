@@ -382,7 +382,7 @@ export default function Login() {
     >
       <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
         <Title order={2} ta="center" mb="md">
-          Your first deploy is just a sign-up away.
+          Your conversation insights are just a sign-up away.
         </Title>
 
         {error && (
