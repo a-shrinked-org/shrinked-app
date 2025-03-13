@@ -767,7 +767,7 @@ export default function JobShow() {
             Logic steps / events
           </Text>
           
-          // Update the logic steps mapping part:
+          {/* Update the logic steps mapping part: */}
           
           <div style={{ position: 'relative' }}>
             {/* Vertical connecting line should only be behind the dots */}
@@ -781,16 +781,14 @@ export default function JobShow() {
             }} />
           
             {record?.steps?.map((step, index) => {
-              // Determine step status colors
+              
               const isCompleted = step.status?.toLowerCase() === 'completed';
               const isError = step.status?.toLowerCase().includes('error') || 
                               step.status?.toLowerCase().includes('failed');
               const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
               
-              // Determine if step should be collapsible
               const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
               
-              // Determine if this is the last step - no connector needed after
               const isLastStep = index === (record?.steps?.length || 0) - 1;
               
               return (
