@@ -32,11 +32,11 @@ export default function Login() {
   const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
   const [step, setStep] = useState<"email" | "password" | "verification-sent">("email");
-  
+
   // Loading states
   const [emailPasswordLoading, setEmailPasswordLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  
+
   // Action type reference
   const actionTypeRef = useRef<"google" | "email" | null>(null);
 
@@ -51,54 +51,56 @@ export default function Login() {
     setEmailPasswordLoading(false);
     actionTypeRef.current = "google";
     setGoogleLoading(true);
-    
+
     setTimeout(() => {
       if (actionTypeRef.current === "google") {
         setGoogleLoading(false);
         actionTypeRef.current = null;
       }
     }, 5000);
-    
+
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    setInfo("");
-    
+    setInfo();
+
     setGoogleLoading(false);
     actionTypeRef.current = "email";
     setEmailPasswordLoading(true);
-  
+
     if (!formData.email) {
       setError("Please enter your email");
       setEmailPasswordLoading(false);
       actionTypeRef.current = null;
       return;
     }
-  
+
     if (step === "email") {
       login(
         { email: formData.email, password: "" },
         {
           onSuccess: (response) => {
             if (actionTypeRef.current !== "email") return;
-            
+
             if (response && response.success === true) {
               setStep("password");
               setEmailPasswordLoading(false);
               actionTypeRef.current = null;
               return;
-            } 
-            
-            if (response && 
-                typeof response === 'object' && 
-                'error' in response && 
-                typeof response.error === 'object' && 
-                response.error !== null && 
-                'name' in response.error && 
-                response.error.name === "RegistrationRequired") {
+            }
+
+            if (
+              response &&
+              typeof response === "object" &&
+              "error" in response &&
+              typeof response.error === "object" &&
+              response.error !== null &&
+              "name" in response.error &&
+              response.error.name === "RegistrationRequired"
+            ) {
               handleRegistrationFlow();
             } else {
               setError("Unable to verify email status. Please try again.");
@@ -108,42 +110,44 @@ export default function Login() {
           },
           onError: (error: any) => {
             if (actionTypeRef.current !== "email") return;
-            
-            let errorName = '';
-            let errorMessage = '';
-            
-            if (typeof error === 'object' && error !== null) {
-              if ('name' in error && typeof error.name === 'string') {
+
+            let errorName = "";
+            let errorMessage = "";
+
+            if (typeof error === "object" && error !== null) {
+              if ("name" in error && typeof error.name === "string") {
                 errorName = error.name;
               }
-              
-              if ('message' in error && typeof error.message === 'string') {
+
+              if ("message" in error && typeof error.message === "string") {
                 errorMessage = error.message;
               }
-              
-              if ('error' in error && typeof error.error === 'object' && error.error !== null) {
-                if ('name' in error.error && typeof error.error.name === 'string') {
+
+              if ("error" in error && typeof error.error === "object" && error.error !== null) {
+                if ("name" in error.error && typeof error.error.name === "string") {
                   errorName = errorName || error.error.name;
                 }
-                if ('message' in error.error && typeof error.error.message === 'string') {
+                if ("message" in error.error && typeof error.error.message === "string") {
                   errorMessage = errorMessage || error.error.message;
                 }
               }
             }
-            
-            if (errorName === "RegistrationRequired" || 
-                (errorMessage && errorMessage.includes("not found"))) {
+
+            if (
+              errorName === "RegistrationRequired" ||
+              (errorMessage && errorMessage.includes("not found"))
+            ) {
               handleRegistrationFlow();
             } else {
-              if (typeof error === 'object' && error !== null) {
-                if ('message' in error && typeof error.message === 'string') {
+              if (typeof error === "object" && error !== null) {
+                if ("message" in error && typeof error.message === "string") {
                   setError(error.message);
                 } else if (
-                  'error' in error && 
-                  typeof error.error === 'object' && 
+                  "error" in error &&
+                  typeof error.error === "object" &&
                   error.error !== null &&
-                  'message' in error.error && 
-                  typeof error.error.message === 'string'
+                  "message" in error.error &&
+                  typeof error.error.message === "string"
                 ) {
                   setError(error.error.message);
                 } else {
@@ -152,11 +156,11 @@ export default function Login() {
               } else {
                 setError("An error occurred");
               }
-              
+
               setEmailPasswordLoading(false);
               actionTypeRef.current = null;
             }
-          }
+          },
         }
       );
     } else if (step === "password") {
@@ -166,12 +170,12 @@ export default function Login() {
         actionTypeRef.current = null;
         return;
       }
-      
+
       login(
-        { 
-          email: formData.email, 
+        {
+          email: formData.email,
           password: formData.password,
-          skipEmailCheck: true
+          skipEmailCheck: true,
         },
         {
           onSuccess: () => {
@@ -180,16 +184,16 @@ export default function Login() {
           },
           onError: (error: any) => {
             if (actionTypeRef.current !== "email") return;
-            
-            if (typeof error === 'object' && error !== null) {
-              if ('message' in error && typeof error.message === 'string') {
+
+            if (typeof error === "object" && error !== null) {
+              if ("message" in error && typeof error.message === "string") {
                 setError(error.message);
               } else if (
-                'error' in error && 
-                typeof error.error === 'object' && 
+                "error" in error &&
+                typeof error.error === "object" &&
                 error.error !== null &&
-                'message' in error.error && 
-                typeof error.error.message === 'string'
+                "message" in error.error &&
+                typeof error.error.message === "string"
               ) {
                 setError(error.error.message);
               } else {
@@ -198,10 +202,10 @@ export default function Login() {
             } else {
               setError("Invalid email or password");
             }
-            
+
             setEmailPasswordLoading(false);
             actionTypeRef.current = null;
-          }
+          },
         }
       );
     }
@@ -209,10 +213,10 @@ export default function Login() {
 
   const handleRegistrationFlow = () => {
     login(
-      { 
+      {
         email: formData.email,
         password: "",
-        providerName: "register"
+        providerName: "register",
       },
       {
         onSuccess: () => {
@@ -223,16 +227,16 @@ export default function Login() {
         },
         onError: (regError) => {
           if (actionTypeRef.current !== "email") return;
-          
-          if (typeof regError === 'object' && regError !== null) {
-            if ('message' in regError && typeof regError.message === 'string') {
+
+          if (typeof regError === "object" && regError !== null) {
+            if ("message" in regError && typeof regError.message === "string") {
               setError(regError.message);
             } else if (
-              'error' in regError && 
-              typeof regError.error === 'object' && 
+              "error" in regError &&
+              typeof regError.error === "object" &&
               regError.error !== null &&
-              'message' in regError.error && 
-              typeof regError.error.message === 'string'
+              "message" in regError.error &&
+              typeof regError.error.message === "string"
             ) {
               setError(regError.error.message);
             } else {
@@ -241,10 +245,10 @@ export default function Login() {
           } else {
             setError("Failed to register with this email");
           }
-          
+
           setEmailPasswordLoading(false);
           actionTypeRef.current = null;
-        }
+        },
       }
     );
   };
@@ -254,17 +258,20 @@ export default function Login() {
   // Custom Google icon
   const GoogleIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" baseProfile="basic">
-      <polygon fill="#26659f" points="17,15 17,18 22,18 22,24 26,24 26,22 28,22 28,15"/>
-      <polygon fill="#91c14b" points="20,22 20,24 15,24 15,22 11,22 11,19 6,19 6,24 8,24 8,26 11,26 11,28 22,28 22,26 24,26 24,22"/>
-      <polygon fill="#e41e2f" points="25,8 25,6 22,6 22,4 11,4 11,6 8,6 8,8 6,8 6,13 11,13 11,11 13,11 13,9 20,9 20,11 23,11 23,13 25,13 25,11 27,11 27,8"/>
-      <rect width="5" height="10" x="4" y="11" fill="#fcc201"/>
+      <polygon fill="#26659f" points="17,15 17,18 22,18 22,24 26,24 26,22 28,22 28,15" />
+      <polygon fill="#91c14b" points="20,22 20,24 15,24 15,22 11,22 11,19 6,19 6,24 8,24 8,26 11,26 11,28 22,28 22,26 24,26 24,22" />
+      <polygon fill="#e41e2f" points="25,8 25,6 22,6 22,4 11,4 11,6 8,6 8,8 6,8 6,13 11,13 11,11 13,11 13,9 20,9 20,11 23,11 23,13 25,13 25,11 27,11 27,8" />
+      <rect width="5" height="10" x="4" y="11" fill="#fcc201" />
     </svg>
   );
 
   // Custom Arrow icon
   const ArrowIcon = () => (
     <svg width="16" height="9" viewBox="0 0 16 9" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M9.99945 0.755964L11.4975 0.769965L15.1375 4.40997L11.4975 8.06397L10.0135 8.06397L13.6535 4.42396L9.99945 0.755964ZM0.0734497 3.86397L14.4375 3.86396L14.4375 4.95596L0.0734498 4.95597L0.0734497 3.86397Z" fill={isButtonActive ? "#000000" : "#A1A1A1"}/>
+      <path
+        d="M9.99945 0.755964L11.4975 0.769965L15.1375 4.40997L11.4975 8.06397L10.0135 8.06397L13.6535 4.42396L9.99945 0.755964ZM0.0734497 3.86397L14.4375 3.86396L14.4375 4.95596L0.0734498 4.95597L0.0734497 3.86397Z"
+        fill={isButtonActive ? "#000000" : "#A1A1A1"}
+      />
     </svg>
   );
 
@@ -275,7 +282,7 @@ export default function Login() {
         size="xs"
         px={{ base: "sm", md: "xl" }}
         style={{
-          backgroundColor: "#0D0D0D",
+          backgroundColor: "#0D0D0D", // Uniform background
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -287,19 +294,20 @@ export default function Login() {
           <Group justify="center" mb="md">
             <Mailbox size={64} color="#F5A623" />
           </Group>
-          
+
           <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction" }}>
             Check your email
           </Title>
-          
+
           <Text ta="center" mb="xl">
-            We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and click the link to complete your registration.
+            We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
+            click the link to complete your registration.
           </Text>
-          
+
           <Text size="sm" ta="center" mb="md" c="dimmed">
             Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
           </Text>
-          
+
           <Button
             variant="subtle"
             fullWidth
@@ -316,7 +324,7 @@ export default function Login() {
             Back to login
           </Button>
         </Card>
-        
+
         <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
           <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
             <Group justify="center">
@@ -346,8 +354,9 @@ export default function Login() {
       size="xs"
       px={{ base: "sm", md: "xl" }}
       style={{
-        backgroundColor: "#0D0D0D", // Fixed main background
+        backgroundColor: "#0D0D0D", // Uniform background
         minHeight: "100vh",
+        width: "100vw", // Ensure full width
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -359,21 +368,21 @@ export default function Login() {
         p="xl"
         withBorder
         style={{
-          backgroundColor: "#000000", // Fixed card background
+          backgroundColor: "#000000", // Login card background
           border: "1px solid #2B2B2B", // Fixed border
-          maxWidth: "100%"
+          maxWidth: "100%",
         }}
       >
         <Box mb="xl" style={{ textAlign: "center" }}>
-          <Image 
-            src="/images/computer.jpg" 
-            alt="Computer" 
-            width={200} 
-            height={120} 
-            style={{ margin: "0 auto" }} 
+          <Image
+            src="/images/computer.jpg"
+            alt="Computer"
+            width={200}
+            height={120}
+            style={{ margin: "0 auto" }}
           />
         </Box>
-        
+
         <Title
           order={1}
           ta="center"
@@ -381,7 +390,7 @@ export default function Login() {
           style={{
             fontFamily: "Redaction 20",
             fontSize: "4rem",
-            lineHeight: "1.2" // Fixed line height
+            lineHeight: "1.2", // Fixed line height
           }}
         >
           Welcome
@@ -393,21 +402,22 @@ export default function Login() {
           style={{
             fontFamily: "Redaction 20",
             fontSize: "4rem",
-            lineHeight: "1.2" // Fixed line height
+            lineHeight: "1.2", // Fixed line height
           }}
         >
           to Shrinked
         </Title>
-        
+
         <Text ta="center" mb="xl" size="sm" style={{ color: "#AAAAAA" }}>
-          Sign in or create an account to build<br />
+          Sign in or create an account to build
+          <br />
           with the Shrinked protocol
         </Text>
-  
+
         {/* Error/Info Alerts */}
         {error && <Alert color="red" mb="md" title="Error">{error}</Alert>}
         {info && <Alert color="blue" mb="md" title="Info">{info}</Alert>}
-  
+
         <Button
           fullWidth
           variant="filled"
@@ -422,22 +432,22 @@ export default function Login() {
             height: "44px",
           }}
           styles={{
-            root: { '&:hover': { backgroundColor: '#BBBBBB' } }
+            root: { "&:hover": { backgroundColor: "#BBBBBB" } },
           }}
         >
           CONTINUE WITH GOOGLE
         </Button>
-  
-        <Divider 
-          label="OR" 
-          labelPosition="center" 
-          my="md" 
+
+        <Divider
+          label="OR"
+          labelPosition="center"
+          my="md"
           styles={{
-            label: { color: '#AAAAAA' },
-            root: { borderColor: '#333333' }
+            label: { color: "#AAAAAA" },
+            root: { borderColor: "#333333" },
           }}
         />
-  
+
         <form onSubmit={handleEmailSubmit}>
           <TextInput
             placeholder="M@EXAMPLE.COM"
@@ -448,14 +458,14 @@ export default function Login() {
             mb="md"
             disabled={emailPasswordLoading || step === "password"}
             styles={{
-              input: { 
-                backgroundColor: "#1A1A1A", 
+              input: {
+                backgroundColor: "#1A1A1A",
                 color: "#FFFFFF",
                 textTransform: "uppercase",
                 border: "none",
-                height: "44px"
+                height: "44px",
               },
-              wrapper: { backgroundColor: "#1A1A1A", border: "none" }
+              wrapper: { backgroundColor: "#1A1A1A", border: "none" },
             }}
           />
           {step === "password" && (
@@ -469,13 +479,13 @@ export default function Login() {
               mb="md"
               disabled={emailPasswordLoading}
               styles={{
-                input: { 
-                  backgroundColor: "#1A1A1A", 
+                input: {
+                  backgroundColor: "#1A1A1A",
                   color: "#FFFFFF",
                   border: "none",
-                  height: "44px"
+                  height: "44px",
                 },
-                wrapper: { backgroundColor: "#1A1A1A", border: "none" }
+                wrapper: { backgroundColor: "#1A1A1A", border: "none" },
               }}
             />
           )}
@@ -490,8 +500,8 @@ export default function Login() {
               height: "44px",
               border: "none",
               display: "flex",
-              alignItems: "center", // Fixed vertical alignment
-              padding: "0 16px"
+              alignItems: "center",
+              padding: "0 16px",
             }}
           >
             <Group justify="space-between" style={{ width: "100%" }}>
@@ -500,10 +510,17 @@ export default function Login() {
             </Group>
           </Button>
         </form>
-        
+
         <Text size="xs" ta="center" mt="xl" style={{ color: "#666666" }}>
-          By continuing, you agree to Shrinked <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>Usage Policy</Text>,
-          <br />and acknowledge their <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>Privacy Policy</Text>.
+          By continuing, you agree to Shrinked{" "}
+          <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>
+            Usage Policy
+          </Text>
+          ,<br />and acknowledge their{" "}
+          <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>
+            Privacy Policy
+          </Text>
+          .
         </Text>
       </Card>
     </Container>
