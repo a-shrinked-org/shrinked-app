@@ -354,11 +354,11 @@ export default function Login() {
         alignItems: "center",
       }}
     >
-      <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
+      <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#000000", maxWidth: "100%" }}>
         {/* Computer Image */}
         <Box mb="xl" style={{ textAlign: "center" }}>
           <Image 
-            src="/api/placeholder/200/120" 
+            src="/images/computer.jpg" 
             alt="Computer" 
             width={200} 
             height={120} 
@@ -367,10 +367,10 @@ export default function Login() {
         </Box>
         
         {/* Welcome Title */}
-        <Title order={1} ta="center" mb="xs" style={{ fontFamily: "Redaction", fontSize: "2.5rem" }}>
+        <Title order={1} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
           Welcome
         </Title>
-        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction", fontSize: "2rem" }}>
+        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
           to Shrinked
         </Title>
         
