@@ -1,4 +1,4 @@
-/* login-styles.css with responsive improvements */
+/* login-styles.css with improved sizing and proportions */
 
 /* Global selectors to override Mantine styles */
 .login-page-container .mantine-Container-root {
@@ -13,7 +13,7 @@
   max-width: 440px;
 }
 
-/* Responsive title styling */
+/* Title styling with better desktop proportions */
 .login-page-container .mantine-Title-root {
   font-family: "Redaction 20", serif !important;
   color: #FFFFFF !important;
@@ -21,27 +21,27 @@
   line-height: 1;
 }
 
-/* Desktop title size */
-@media (min-width: 768px) {
-  .login-page-container .mantine-Title-root {
-    font-size: 4.5rem !important;
-  }
-  
-  .login-page-container .computer-image {
-    width: 240px !important;
-    height: 140px !important;
-  }
-}
-
-/* Tablet title size */
-@media (min-width: 480px) and (max-width: 767px) {
+/* Desktop title size (adjusted to be smaller) */
+@media (min-width: 1024px) {
   .login-page-container .mantine-Title-root {
     font-size: 3.5rem !important;
   }
   
   .login-page-container .computer-image {
-    width: 200px !important;
-    height: 120px !important;
+    width: 300px !important;
+    height: 180px !important;
+  }
+}
+
+/* Tablet title size */
+@media (min-width: 480px) and (max-width: 1023px) {
+  .login-page-container .mantine-Title-root {
+    font-size: 3rem !important;
+  }
+  
+  .login-page-container .computer-image {
+    width: 240px !important;
+    height: 140px !important;
   }
 }
 
@@ -115,21 +115,29 @@
   color: #AAAAAA;
 }
 
-.login-page-container .footer-text, .login-page-container .footer-text a {
+/* Improved footer text styling */
+.login-page-container .footer-text, 
+.login-page-container .footer-text a {
   color: #666666 !important;
-  font-size: 0.75rem;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
 }
 
 .login-page-container .footer-text {
   margin-top: 16px !important;
+  white-space: normal !important;
+  text-align: center !important;
+  display: block !important;
+  width: 100% !important;
 }
 
 .login-page-container .footer-link {
   text-decoration: underline;
   color: #888888 !important;
+  white-space: nowrap !important;
 }
 
-/* Image centering and responsiveness */
+/* Image centering and improved proportions */
 .login-page-container .image-container {
   text-align: center;
   margin-bottom: 2rem;
@@ -141,4 +149,13 @@
   max-width: 100%;
   height: auto;
   object-fit: contain;
+}
+
+/* Subtitle/description text */
+.login-page-container .subtitle-text {
+  font-size: 14px !important;
+  color: #AAAAAA !important;
+  line-height: 1.5 !important;
+  text-align: center !important;
+  margin-bottom: 2rem !important;
 }

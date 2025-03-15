@@ -64,10 +64,11 @@ export default function Login() {
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
+  // Other handlers remain the same...
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    setInfo(""); // Fixed: Added empty string as argument
+    setInfo(""); 
 
     setGoogleLoading(false);
     actionTypeRef.current = "email";
@@ -376,8 +377,8 @@ export default function Login() {
               src="/images/computer.jpg"
               alt="Computer"
               className="computer-image"
-              width={240}
-              height={140}
+              width={300}
+              height={180}
             />
           </div>
 
@@ -396,9 +397,8 @@ export default function Login() {
             to Shrinked
           </Title>
 
-          <Text ta="center" mb="xl" size="sm">
-            Sign in or create an account to build
-            <br />
+          <Text ta="center" mb="xl" size="sm" className="subtitle-text">
+            Sign in or create an account to build<br />
             with the Shrinked protocol
           </Text>
 
@@ -463,17 +463,10 @@ export default function Login() {
             </div>
           </form>
 
-          <Text className="footer-text" ta="center" mt="xl">
-            By continuing, you agree to Shrinked{" "}
-            <Text component="span" className="footer-link">
-              Usage Policy
-            </Text>
-            ,<br />and acknowledge their{" "}
-            <Text component="span" className="footer-link">
-              Privacy Policy
-            </Text>
-            .
-          </Text>
+          <div className="footer-text">
+            By continuing, you agree to Shrinked <span className="footer-link">Usage Policy</span>, 
+            and acknowledge their <span className="footer-link">Privacy Policy</span>.
+          </div>
         </Card>
       </Container>
     </div>
