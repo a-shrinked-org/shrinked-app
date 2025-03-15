@@ -1,0 +1,67 @@
+/* verify-styles.css - Matching the login page dark styling */
+
+.verify-page-container .mantine-Container-root {
+  background-color: #0D0D0D;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.verify-page-container .mantine-Card-root {
+  background-color: #000000 !important;
+  border: 0.5px solid #2B2B2B !important;
+  border-radius: 8px !important;
+  width: 100%;
+  max-width: 440px;
+}
+
+.verify-page-container .mantine-Title-root {
+  font-family: "Redaction 20", serif !important;
+  color: #FFFFFF !important;
+  font-weight: 400 !important;
+  line-height: 1;
+  font-size: 2.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.verify-page-container .mantine-Text-root {
+  color: #AAAAAA !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  text-align: center !important;
+}
+
+.verify-page-container .mantine-TextInput-label {
+  color: #AAAAAA !important;
+}
+
+.verify-page-container .mantine-TextInput-input {
+  background-color: #1A1A1A !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  height: 44px !important;
+}
+
+.verify-page-container .mantine-TextInput-wrapper {
+  background-color: #1A1A1A !important;
+  border: none !important;
+}
+
+.verify-page-container .mantine-Button-root {
+  background-color: #F5A623 !important;
+  color: #000000 !important;
+  height: 44px !important;
+  text-transform: uppercase !important;
+  border: none !important;
+}
+
+.verify-page-container .success-icon {
+  background-color: #F5A623 !important;
+}
+
+/* For the success page */
+.verify-page-container .success-message {
+  margin-bottom: 1rem !important;
+}

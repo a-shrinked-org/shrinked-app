@@ -140,7 +140,7 @@
 /* Image centering and improved proportions */
 .login-page-container .image-container {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0;
   display: flex;
   justify-content: center;
 }

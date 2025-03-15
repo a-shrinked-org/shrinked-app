@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_CONFIG, authUtils } from "@/utils/authUtils";
+import "@/styles/callback-styles.css";
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -95,22 +96,12 @@ export default function AuthCallback() {
 
   if (error) {
 	return (
-	  <div style={{ 
-		display: 'flex', 
-		justifyContent: 'center', 
-		alignItems: 'center', 
-		height: '100vh',
-		fontFamily: 'system-ui, sans-serif'
-	  }}>
-		<div style={{ textAlign: 'center' }}>
-		  <p style={{ color: 'red', fontSize: '16px', marginBottom: '12px' }}>
+	  <div className="callback-container error-container">
+		<div className="callback-content">
+		  <p className="error-message">
 			{error}
 		  </p>
-		  <a href="/login" style={{ 
-			color: '#D87A16', 
-			textDecoration: 'none', 
-			fontSize: '14px' 
-		  }}>
+		  <a href="/login" className="return-link">
 			Return to login
 		  </a>
 		</div>
@@ -120,29 +111,12 @@ export default function AuthCallback() {
 
   // Just the bar and nothing else
   return (
-	<div style={{ 
-	  display: 'flex', 
-	  justifyContent: 'center', 
-	  alignItems: 'center', 
-	  height: '100vh',
-	  background: 'white'
-	}}>
-	  <div style={{ 
-		width: '300px',
-		height: '4px',
-		background: 'var(--theme-border-subdued, #e0e0e0)',
-		whiteSpace: 'nowrap',
-		textAlign: 'left',
-		verticalAlign: 'bottom',
-		overflow: 'hidden',
-		position: 'relative'
-	  }}>
-		<div style={{ 
-		  height: '100%',
-		  width: `${Math.min(progress, 100)}%`,
-		  background: '#D87A16',
-		  transition: 'width 0.2s ease-in-out'
-		}}></div>
+	<div className="callback-container">
+	  <div className="progress-container">
+		<div 
+		  className="progress-bar"
+		  style={{ width: `${Math.min(progress, 100)}%` }}
+		></div>
 	  </div>
 	</div>
   );
