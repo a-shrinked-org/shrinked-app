@@ -288,7 +288,7 @@ export default function Login() {
             <Mailbox size={64} color="#F5A623" />
           </Group>
           
-          <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction 20" }}>
+          <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction" }}>
             Check your email
           </Title>
           
@@ -367,10 +367,10 @@ export default function Login() {
         </Box>
         
         {/* Welcome Title */}
-        <Title order={1} ta="center" mb="xs" style={{ fontFamily: "Redaction", fontSize: "2.5rem" }}>
+        <Title order={1} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
           Welcome
         </Title>
-        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction", fontSize: "2rem" }}>
+        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
           to Shrinked
         </Title>
         
