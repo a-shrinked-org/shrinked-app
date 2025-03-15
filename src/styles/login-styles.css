@@ -76,9 +76,12 @@
   color: #AAAAAA;
 }
 
-.login-page-container .footer-text {
+.login-page-container .footer-text, .login-page-container .footer-text a {
   color: #666666 !important;
   font-size: 0.75rem;
+}
+.login-page-container .footer-text {
+  margin-top:10px !important;
 }
 
 .login-page-container .footer-link {
