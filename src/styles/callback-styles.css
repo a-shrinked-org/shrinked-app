@@ -1,12 +1,22 @@
-/* callback-styles.css */
+/* callback-styles.css - Updated to match design requirements */
+
+/* Reset body margin and ensure full coverage */
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #0D0D0D;
+}
 
 .callback-container {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  width: 100%;
+  width: 100vw;
   background-color: #0D0D0D;
+  margin: 0;
+  padding: 0;
 }
 
 .progress-container {
@@ -34,30 +44,36 @@
 .callback-content {
   text-align: center;
   padding: 20px;
-  background-color: #000000;
-  border: 0.5px solid #2B2B2B;
-  border-radius: 8px;
+  background-color: rgba(40, 0, 0, 0.7);
+  border: 0.5px solid #3A0000;
+  border-radius: 4px;
   max-width: 400px;
+  font-family: "Geist Mono", monospace;
 }
 
 .error-message {
   color: #FF4D4F;
   font-size: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
+  font-family: "Geist Mono", monospace;
+  text-align: left;
 }
 
 .return-link {
-  color: #F5A623;
+  color: #000000;
   text-decoration: none;
   font-size: 14px;
   display: inline-block;
-  padding: 6px 12px;
-  margin-top: 8px;
-  border: 1px solid #F5A623;
+  padding: 10px 16px;
+  background-color: #F5A623;
+  border: none;
   border-radius: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
   transition: background-color 0.2s;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .return-link:hover {
-  background-color: rgba(245, 166, 35, 0.1);
+  background-color: #E69917;
 }

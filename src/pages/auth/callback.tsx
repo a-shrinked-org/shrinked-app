@@ -14,12 +14,21 @@ export default function AuthCallback() {
   const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
+	// Add Geist Mono font if needed
+	const link = document.createElement('link');
+	link.rel = 'stylesheet';
+	link.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap';
+	document.head.appendChild(link);
+	
 	// Simple progress animation
 	const progressInterval = setInterval(() => {
 	  setProgress(prev => (prev + 10) % 110);
 	}, 150);
 
-	return () => clearInterval(progressInterval);
+	return () => {
+	  clearInterval(progressInterval);
+	  document.head.removeChild(link);
+	};
   }, []);
 
   useEffect(() => {
@@ -98,11 +107,11 @@ export default function AuthCallback() {
 	return (
 	  <div className="callback-container error-container">
 		<div className="callback-content">
-		  <p className="error-message">
+		  <div className="error-message">
 			{error}
-		  </p>
+		  </div>
 		  <a href="/login" className="return-link">
-			Return to login
+			RETURN TO LOGIN
 		  </a>
 		</div>
 	  </div>
