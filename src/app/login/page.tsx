@@ -65,7 +65,7 @@ export default function Login() {
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    setInfo();
+    setInfo(""); // Fixed: Added empty string as argument
 
     setGoogleLoading(false);
     actionTypeRef.current = "email";
