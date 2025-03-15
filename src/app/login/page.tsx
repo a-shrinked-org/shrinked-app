@@ -13,8 +13,13 @@ import {
   SimpleGrid,
   Group,
   Text,
+  Box,
+  Image,
 } from "@mantine/core";
-import { Chrome, Book, Code, Rocket, Mailbox } from "lucide-react";
+import { Book, Code, Rocket, Mailbox } from "lucide-react";
+
+// Import CSS for custom fonts
+import "../styles/fonts.css";
 
 interface FormData {
   email: string;
@@ -28,11 +33,11 @@ export default function Login() {
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
   const [step, setStep] = useState<"email" | "password" | "verification-sent">("email");
   
-  // Completely separate loading states with useRef to ensure they don't interfere
+  // Loading states
   const [emailPasswordLoading, setEmailPasswordLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   
-  // Use refs to track which button triggered the action
+  // Action type reference
   const actionTypeRef = useRef<"google" | "email" | null>(null);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -43,16 +48,10 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
-    // Clear any existing loading states first
     setEmailPasswordLoading(false);
-    
-    // Set action type
     actionTypeRef.current = "google";
-    
-    // Set only Google loading
     setGoogleLoading(true);
     
-    // Set a timeout to restore the button if the redirect fails
     setTimeout(() => {
       if (actionTypeRef.current === "google") {
         setGoogleLoading(false);
@@ -68,13 +67,8 @@ export default function Login() {
     setError("");
     setInfo("");
     
-    // Clear any existing loading states first
     setGoogleLoading(false);
-    
-    // Set action type
     actionTypeRef.current = "email";
-    
-    // Set only email/password loading
     setEmailPasswordLoading(true);
   
     if (!formData.email) {
@@ -85,25 +79,18 @@ export default function Login() {
     }
   
     if (step === "email") {
-      console.log("Checking email:", formData.email);
       login(
         { email: formData.email, password: "" },
         {
           onSuccess: (response) => {
-            // Only process if we're still in email mode
             if (actionTypeRef.current !== "email") return;
             
-            console.log("Email check response:", response);
-            
             if (response && response.success === true) {
-              console.log("Email exists, showing password field");
               setStep("password");
               setEmailPasswordLoading(false);
               actionTypeRef.current = null;
               return;
             } 
-            
-            console.log("Unexpected success response structure:", response);
             
             if (response && 
                 typeof response === 'object' && 
@@ -120,11 +107,7 @@ export default function Login() {
             }
           },
           onError: (error: any) => {
-            // Only process if we're still in email mode
             if (actionTypeRef.current !== "email") return;
-            
-            console.log("Email check result:", error);
-            console.log("Error object structure:", JSON.stringify(error, null, 2));
             
             let errorName = '';
             let errorMessage = '';
@@ -150,32 +133,26 @@ export default function Login() {
             
             if (errorName === "RegistrationRequired" || 
                 (errorMessage && errorMessage.includes("not found"))) {
-              console.log("Email not found, initiating registration flow");
               handleRegistrationFlow();
             } else {
-              console.error("Login error:", error);
-              
               if (typeof error === 'object' && error !== null) {
                 if ('message' in error && typeof error.message === 'string') {
                   setError(error.message);
-                  setEmailPasswordLoading(false);
-                  actionTypeRef.current = null;
-                  return;
-                }
-                
-                if ('error' in error && 
-                    typeof error.error === 'object' && 
-                    error.error !== null &&
-                    'message' in error.error && 
-                    typeof error.error.message === 'string') {
+                } else if (
+                  'error' in error && 
+                  typeof error.error === 'object' && 
+                  error.error !== null &&
+                  'message' in error.error && 
+                  typeof error.error.message === 'string'
+                ) {
                   setError(error.error.message);
-                  setEmailPasswordLoading(false);
-                  actionTypeRef.current = null;
-                  return;
+                } else {
+                  setError("An error occurred");
                 }
+              } else {
+                setError("An error occurred");
               }
               
-              setError("An error occurred");
               setEmailPasswordLoading(false);
               actionTypeRef.current = null;
             }
@@ -190,7 +167,6 @@ export default function Login() {
         return;
       }
       
-      console.log("Attempting login with password");
       login(
         { 
           email: formData.email, 
@@ -199,39 +175,30 @@ export default function Login() {
         },
         {
           onSuccess: () => {
-            // Only process if we're still in email mode
             if (actionTypeRef.current !== "email") return;
-            
-            console.log("Login successful");
             // Keep loading on successful login since we're redirecting
           },
           onError: (error: any) => {
-            // Only process if we're still in email mode
             if (actionTypeRef.current !== "email") return;
-            
-            console.error("Login error:", error);
             
             if (typeof error === 'object' && error !== null) {
               if ('message' in error && typeof error.message === 'string') {
                 setError(error.message);
-                setEmailPasswordLoading(false);
-                actionTypeRef.current = null;
-                return;
-              }
-              
-              if ('error' in error && 
-                  typeof error.error === 'object' && 
-                  error.error !== null &&
-                  'message' in error.error && 
-                  typeof error.error.message === 'string') {
+              } else if (
+                'error' in error && 
+                typeof error.error === 'object' && 
+                error.error !== null &&
+                'message' in error.error && 
+                typeof error.error.message === 'string'
+              ) {
                 setError(error.error.message);
-                setEmailPasswordLoading(false);
-                actionTypeRef.current = null;
-                return;
+              } else {
+                setError("Invalid email or password");
               }
+            } else {
+              setError("Invalid email or password");
             }
             
-            setError("Invalid email or password");
             setEmailPasswordLoading(false);
             actionTypeRef.current = null;
           }
@@ -241,7 +208,6 @@ export default function Login() {
   };
 
   const handleRegistrationFlow = () => {
-    // We know we're in email flow here
     login(
       { 
         email: formData.email,
@@ -249,42 +215,33 @@ export default function Login() {
         providerName: "register"
       },
       {
-        onSuccess: (data) => {
-          // Only process if we're still in email mode
+        onSuccess: () => {
           if (actionTypeRef.current !== "email") return;
-          
-          console.log("Registration initiated successfully", data);
           setStep("verification-sent");
           setEmailPasswordLoading(false);
           actionTypeRef.current = null;
         },
         onError: (regError) => {
-          // Only process if we're still in email mode
           if (actionTypeRef.current !== "email") return;
-          
-          console.error("Registration error:", regError);
           
           if (typeof regError === 'object' && regError !== null) {
             if ('message' in regError && typeof regError.message === 'string') {
               setError(regError.message);
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-              return;
-            }
-            
-            if ('error' in regError && 
-                typeof regError.error === 'object' && 
-                regError.error !== null &&
-                'message' in regError.error && 
-                typeof regError.error.message === 'string') {
+            } else if (
+              'error' in regError && 
+              typeof regError.error === 'object' && 
+              regError.error !== null &&
+              'message' in regError.error && 
+              typeof regError.error.message === 'string'
+            ) {
               setError(regError.error.message);
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-              return;
+            } else {
+              setError("Failed to register with this email");
             }
+          } else {
+            setError("Failed to register with this email");
           }
           
-          setError("Failed to register with this email");
           setEmailPasswordLoading(false);
           actionTypeRef.current = null;
         }
@@ -294,7 +251,24 @@ export default function Login() {
 
   const isButtonActive = step === "email" ? !!formData.email.trim() : !!formData.password.trim();
 
-  // Render verification sent UI when in verification-sent step
+  // Custom Google icon
+  const GoogleIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" baseProfile="basic">
+      <polygon fill="#26659f" points="17,15 17,18 22,18 22,24 26,24 26,22 28,22 28,15"/>
+      <polygon fill="#91c14b" points="20,22 20,24 15,24 15,22 11,22 11,19 6,19 6,24 8,24 8,26 11,26 11,28 22,28 22,26 24,26 24,22"/>
+      <polygon fill="#e41e2f" points="25,8 25,6 22,6 22,4 11,4 11,6 8,6 8,8 6,8 6,13 11,13 11,11 13,11 13,9 20,9 20,11 23,11 23,13 25,13 25,11 27,11 27,8"/>
+      <rect width="5" height="10" x="4" y="11" fill="#fcc201"/>
+    </svg>
+  );
+
+  // Custom Arrow icon
+  const ArrowIcon = () => (
+    <svg width="16" height="9" viewBox="0 0 16 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9.99945 0.755964L11.4975 0.769965L15.1375 4.40997L11.4975 8.06397L10.0135 8.06397L13.6535 4.42396L9.99945 0.755964ZM0.0734497 3.86397L14.4375 3.86396L14.4375 4.95596L0.0734498 4.95597L0.0734497 3.86397Z" fill={isButtonActive ? "#000000" : "#A1A1A1"}/>
+    </svg>
+  );
+
+  // Verification sent UI
   if (step === "verification-sent") {
     return (
       <Container
@@ -311,10 +285,10 @@ export default function Login() {
       >
         <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
           <Group justify="center" mb="md">
-            <Mailbox size={64} color="#D87A16" />
+            <Mailbox size={64} color="#F5A623" />
           </Group>
           
-          <Title order={2} ta="center" mb="md">
+          <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction 20" }}>
             Check your email
           </Title>
           
@@ -337,7 +311,7 @@ export default function Login() {
               setEmailPasswordLoading(false);
               setGoogleLoading(false);
             }}
-            style={{ color: "#D87A16" }}
+            style={{ color: "#F5A623" }}
           >
             Back to login
           </Button>
@@ -381,9 +355,29 @@ export default function Login() {
       }}
     >
       <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
-        <Title order={2} ta="center" mb="md">
-          Your conversation insights are just a sign-up away.
+        {/* Computer Image */}
+        <Box mb="xl" style={{ textAlign: "center" }}>
+          <Image 
+            src="/api/placeholder/200/120" 
+            alt="Computer" 
+            width={200} 
+            height={120} 
+            style={{ margin: "0 auto" }} 
+          />
+        </Box>
+        
+        {/* Welcome Title */}
+        <Title order={1} ta="center" mb="xs" style={{ fontFamily: "Redaction", fontSize: "2.5rem" }}>
+          Welcome
         </Title>
+        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction", fontSize: "2rem" }}>
+          to Shrinked
+        </Title>
+        
+        <Text ta="center" mb="xl" size="sm">
+          Sign in or create an account to build<br />
+          with the Shrinked protocol
+        </Text>
 
         {error && (
           <Alert color="red" mb="md" title="Error">
@@ -401,23 +395,22 @@ export default function Login() {
           variant="filled"
           onClick={handleGoogleLogin}
           loading={googleLoading}
-          leftSection={<Chrome size={20} />}
+          leftSection={<GoogleIcon />}
           mb="md"
           style={{
-            backgroundColor: "#4285F4",
-            color: "#FFFFFF",
-            borderColor: "transparent",
+            backgroundColor: "#FFFFFF",
+            color: "#000000",
+            border: "1px solid #DDDDDD",
           }}
         >
-          Sign in with Google
+          CONTINUE WITH GOOGLE
         </Button>
 
-        <Divider label="Or continue with email" labelPosition="center" my="lg" />
+        <Divider label="OR" labelPosition="center" my="md" />
 
         <form onSubmit={handleEmailSubmit}>
           <TextInput
-            label="Your work email"
-            placeholder="you@example.com"
+            placeholder="M@EXAMPLE.COM"
             name="email"
             value={formData.email}
             onChange={handleInputChange}
@@ -425,13 +418,15 @@ export default function Login() {
             mb="md"
             disabled={emailPasswordLoading || step === "password"}
             styles={{
-              input: { backgroundColor: "#333333", color: "#FFFFFF" },
-              label: { color: "#333333" },
+              input: { 
+                backgroundColor: "#333333", 
+                color: "#FFFFFF",
+                textTransform: "uppercase"
+              }
             }}
           />
           {step === "password" && (
             <TextInput
-              label="Password"
               type="password"
               placeholder="Enter your password"
               name="password"
@@ -441,8 +436,7 @@ export default function Login() {
               mb="md"
               disabled={emailPasswordLoading}
               styles={{
-                input: { backgroundColor: "#333333", color: "#FFFFFF" },
-                label: { color: "#333333" },
+                input: { backgroundColor: "#333333", color: "#FFFFFF" }
               }}
             />
           )}
@@ -451,37 +445,22 @@ export default function Login() {
             fullWidth
             loading={emailPasswordLoading}
             disabled={!isButtonActive || emailPasswordLoading}
+            rightSection={<ArrowIcon />}
             style={{
-              backgroundColor: isButtonActive ? "#D87A16" : "#666666",
-              color: "#FFFFFF",
+              backgroundColor: isButtonActive ? "#F5A623" : "#333333",
+              color: isButtonActive ? "#000000" : "#FFFFFF",
               opacity: isButtonActive ? 1 : 0.6,
             }}
           >
-            {step === "email" ? "Continue" : "Sign In"}
+            CONTINUE WITH EMAIL
           </Button>
         </form>
+        
+        <Text size="xs" ta="center" mt="xl" c="dimmed">
+          By continuing, you agree to Shrinked <Text component="span" style={{ textDecoration: "underline" }}>Usage Policy</Text>,
+          <br />and acknowledge their <Text component="span" style={{ textDecoration: "underline" }}>Privacy Policy</Text>.
+        </Text>
       </Card>
-
-      <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
-        <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
-          <Group justify="center">
-            <Book size={24} color="#333333" />
-            <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
-          </Group>
-        </Card>
-        <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
-          <Group justify="center">
-            <Code size={24} color="#333333" />
-            <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
-          </Group>
-        </Card>
-        <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
-          <Group justify="center">
-            <Rocket size={24} color="#333333" />
-            <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
-          </Group>
-        </Card>
-      </SimpleGrid>
     </Container>
   );
 }
