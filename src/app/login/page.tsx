@@ -371,15 +371,15 @@ export default function Login() {
           p="xl"
           withBorder
         >
-          <Box mb="xl" style={{ textAlign: "center" }}>
+          <div className="image-container">
             <Image
               src="/images/computer.jpg"
               alt="Computer"
+              className="computer-image"
               width={240}
               height={140}
-              style={{ margin: "0 auto" }}
             />
-          </Box>
+          </div>
 
           <Title
             order={1}
