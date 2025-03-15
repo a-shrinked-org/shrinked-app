@@ -15,11 +15,78 @@ import {
   Text,
   Box,
   Image,
+  MantineProvider,
+  createTheme,
 } from "@mantine/core";
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
 
 // Import CSS for custom fonts
 import "@/styles/fonts.css";
+
+// Create a theme override to specifically target elements on this page
+const theme = createTheme({
+  components: {
+    Card: {
+      styles: {
+        root: {
+          backgroundColor: "#000000 !important",
+          border: "0.5px solid #2B2B2B !important",
+          borderRadius: "8px !important",
+        }
+      }
+    },
+    TextInput: {
+      styles: {
+        input: {
+          backgroundColor: "#1A1A1A !important",
+          color: "#FFFFFF !important",
+          border: "none !important",
+          height: "44px !important",
+          "&::placeholder": {
+            color: "#666666 !important"
+          }
+        },
+        wrapper: {
+          backgroundColor: "#1A1A1A !important",
+          border: "none !important"
+        }
+      }
+    },
+    Button: {
+      styles: {
+        root: {
+          textTransform: "uppercase !important",
+          fontWeight: 500,
+          letterSpacing: "0.03em",
+          height: "44px !important",
+          border: "none !important",
+          "&:hover": {
+            backgroundColor: "#BBBBBB !important"
+          }
+        }
+      }
+    },
+    Divider: {
+      styles: {
+        root: {
+          borderColor: "#333333 !important"
+        },
+        label: {
+          color: "#AAAAAA !important"
+        }
+      }
+    },
+    Title: {
+      styles: {
+        root: {
+          fontFamily: "'Redaction 20', serif !important",
+          color: "#FFFFFF !important",
+          fontWeight: "400 !important"
+        }
+      }
+    }
+  }
+});
 
 interface FormData {
   email: string;
@@ -275,88 +342,14 @@ export default function Login() {
     </svg>
   );
 
-  // Verification sent UI
-  if (step === "verification-sent") {
-    return (
-      <Container
-        size="xs"
-        px={{ base: "sm", md: "xl" }}
-        style={{
-          backgroundColor: "#0D0D0D", // Uniform background
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
-          <Group justify="center" mb="md">
-            <Mailbox size={64} color="#F5A623" />
-          </Group>
-
-          <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction" }}>
-            Check your email
-          </Title>
-
-          <Text ta="center" mb="xl">
-            We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
-            click the link to complete your registration.
-          </Text>
-
-          <Text size="sm" ta="center" mb="md" c="dimmed">
-            Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
-          </Text>
-
-          <Button
-            variant="subtle"
-            fullWidth
-            onClick={() => {
-              setStep("email");
-              setInfo("");
-              setError("");
-              actionTypeRef.current = null;
-              setEmailPasswordLoading(false);
-              setGoogleLoading(false);
-            }}
-            style={{ color: "#F5A623" }}
-          >
-            Back to login
-          </Button>
-        </Card>
-
-        <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
-          <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
-            <Group justify="center">
-              <Book size={24} color="#333333" />
-              <Text size="sm" style={{ color: "#333333" }}>Resources</Text>
-            </Group>
-          </Card>
-          <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
-            <Group justify="center">
-              <Code size={24} color="#333333" />
-              <Text size="sm" style={{ color: "#333333" }}>Guides</Text>
-            </Group>
-          </Card>
-          <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#F5F5F5" }}>
-            <Group justify="center">
-              <Rocket size={24} color="#333333" />
-              <Text size="sm" style={{ color: "#333333" }}>Examples</Text>
-            </Group>
-          </Card>
-        </SimpleGrid>
-      </Container>
-    );
-  }
-
-  return (
+  const LoginContent = () => (
     <Container
       size="xs"
       px={{ base: "sm", md: "xl" }}
       style={{
-        backgroundColor: "#0D0D0D", // Uniform background
+        backgroundColor: "#0D0D0D", 
         minHeight: "100vh",
-        width: "100vw", // Ensure full width
+        width: "100%",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -368,8 +361,8 @@ export default function Login() {
         p="xl"
         withBorder
         style={{
-          backgroundColor: "#000000", // Login card background
-          border: "1px solid #2B2B2B", // Fixed border
+          backgroundColor: "#000000", 
+          border: "0.5px solid #2B2B2B",
           maxWidth: "100%",
         }}
       >
@@ -377,8 +370,8 @@ export default function Login() {
           <Image
             src="/images/computer.jpg"
             alt="Computer"
-            width={200}
-            height={120}
+            width={240}
+            height={140}
             style={{ margin: "0 auto" }}
           />
         </Box>
@@ -386,11 +379,13 @@ export default function Login() {
         <Title
           order={1}
           ta="center"
-          mb="md"
           style={{
             fontFamily: "Redaction 20",
-            fontSize: "4rem",
-            lineHeight: "1.2", // Fixed line height
+            fontSize: "4.5rem",
+            lineHeight: "1",
+            marginBottom: "0px",
+            color: "#FFFFFF",
+            fontWeight: 400,
           }}
         >
           Welcome
@@ -401,8 +396,10 @@ export default function Login() {
           mb="md"
           style={{
             fontFamily: "Redaction 20",
-            fontSize: "4rem",
-            lineHeight: "1.2", // Fixed line height
+            fontSize: "4.5rem",
+            lineHeight: "1",
+            color: "#FFFFFF",
+            fontWeight: 400,
           }}
         >
           to Shrinked
@@ -430,6 +427,8 @@ export default function Login() {
             color: "#000000",
             border: "none",
             height: "44px",
+            textTransform: "uppercase",
+            fontWeight: 500,
           }}
           styles={{
             root: { "&:hover": { backgroundColor: "#BBBBBB" } },
@@ -489,26 +488,35 @@ export default function Login() {
               }}
             />
           )}
-          <Button
-            type="submit"
-            fullWidth
-            loading={emailPasswordLoading}
-            disabled={!isButtonActive || emailPasswordLoading}
-            style={{
-              backgroundColor: isButtonActive ? "#F5A623" : "#333333",
-              color: isButtonActive ? "#000000" : "#AAAAAA",
-              height: "44px",
-              border: "none",
-              display: "flex",
-              alignItems: "center",
-              padding: "0 16px",
-            }}
-          >
-            <Group justify="space-between" style={{ width: "100%" }}>
-              <span style={{ flex: 1, textAlign: "center" }}>CONTINUE WITH EMAIL</span>
+          <div style={{ position: "relative" }}>
+            <Button
+              type="submit"
+              fullWidth
+              loading={emailPasswordLoading}
+              disabled={!isButtonActive || emailPasswordLoading}
+              style={{
+                backgroundColor: isButtonActive ? "#F5A623" : "#333333",
+                color: isButtonActive ? "#000000" : "#AAAAAA",
+                height: "44px",
+                border: "none",
+                textTransform: "uppercase",
+                fontWeight: 500,
+              }}
+            >
+              CONTINUE WITH EMAIL
+            </Button>
+            <div 
+              style={{ 
+                position: "absolute", 
+                right: "16px", 
+                top: "50%", 
+                transform: "translateY(-50%)",
+                pointerEvents: "none"
+              }}
+            >
               <ArrowIcon />
-            </Group>
-          </Button>
+            </div>
+          </div>
         </form>
 
         <Text size="xs" ta="center" mt="xl" style={{ color: "#666666" }}>
@@ -524,5 +532,96 @@ export default function Login() {
         </Text>
       </Card>
     </Container>
+  );
+
+  // Verification sent UI
+  if (step === "verification-sent") {
+    return (
+      <MantineProvider theme={theme}>
+        <Container
+          size="xs"
+          px={{ base: "sm", md: "xl" }}
+          style={{
+            backgroundColor: "#0D0D0D",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Card radius="md" p="xl" withBorder style={{ 
+            backgroundColor: "#000000", 
+            border: "0.5px solid #2B2B2B",
+            maxWidth: "100%" 
+          }}>
+            <Group justify="center" mb="md">
+              <Mailbox size={64} color="#F5A623" />
+            </Group>
+            
+            <Title order={2} ta="center" mb="md" style={{ 
+              fontFamily: "Redaction 20", 
+              color: "#FFFFFF",
+              fontWeight: 400
+            }}>
+              Check your email
+            </Title>
+            
+            <Text ta="center" mb="xl" style={{ color: "#AAAAAA" }}>
+              We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
+              click the link to complete your registration.
+            </Text>
+            
+            <Text size="sm" ta="center" mb="md" style={{ color: "#666666" }}>
+              Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
+            </Text>
+            
+            <Button
+              variant="subtle"
+              fullWidth
+              onClick={() => {
+                setStep("email");
+                setInfo("");
+                setError("");
+                actionTypeRef.current = null;
+                setEmailPasswordLoading(false);
+                setGoogleLoading(false);
+              }}
+              style={{ color: "#F5A623" }}
+            >
+              Back to login
+            </Button>
+          </Card>
+          
+          <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
+            <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#000000", border: "0.5px solid #2B2B2B" }}>
+              <Group justify="center">
+                <Book size={24} color="#AAAAAA" />
+                <Text size="sm" style={{ color: "#AAAAAA" }}>Resources</Text>
+              </Group>
+            </Card>
+            <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#000000", border: "0.5px solid #2B2B2B" }}>
+              <Group justify="center">
+                <Code size={24} color="#AAAAAA" />
+                <Text size="sm" style={{ color: "#AAAAAA" }}>Guides</Text>
+              </Group>
+            </Card>
+            <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#000000", border: "0.5px solid #2B2B2B" }}>
+              <Group justify="center">
+                <Rocket size={24} color="#AAAAAA" />
+                <Text size="sm" style={{ color: "#AAAAAA" }}>Examples</Text>
+              </Group>
+            </Card>
+          </SimpleGrid>
+        </Container>
+      </MantineProvider>
+    );
+  }
+
+  // Wrap main content in MantineProvider with custom theme
+  return (
+    <MantineProvider theme={theme}>
+      <LoginContent />
+    </MantineProvider>
   );
 }
