@@ -346,7 +346,7 @@ export default function Login() {
       size="xs"
       px={{ base: "sm", md: "xl" }}
       style={{
-        backgroundColor: "transparent",
+        backgroundColor: "#0D0D0D", // Fixed main background
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
@@ -354,8 +354,16 @@ export default function Login() {
         alignItems: "center",
       }}
     >
-      <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
-        {/* Computer Image */}
+      <Card
+        radius="md"
+        p="xl"
+        withBorder
+        style={{
+          backgroundColor: "#000000", // Fixed card background
+          border: "1px solid #2B2B2B", // Fixed border
+          maxWidth: "100%"
+        }}
+      >
         <Box mb="xl" style={{ textAlign: "center" }}>
           <Image 
             src="/images/computer.jpg" 
@@ -366,11 +374,28 @@ export default function Login() {
           />
         </Box>
         
-        {/* Welcome Title */}
-        <Title order={1} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
+        <Title
+          order={1}
+          ta="center"
+          mb="md"
+          style={{
+            fontFamily: "Redaction 20",
+            fontSize: "4rem",
+            lineHeight: "1.2" // Fixed line height
+          }}
+        >
           Welcome
         </Title>
-        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
+        <Title
+          order={2}
+          ta="center"
+          mb="md"
+          style={{
+            fontFamily: "Redaction 20",
+            fontSize: "4rem",
+            lineHeight: "1.2" // Fixed line height
+          }}
+        >
           to Shrinked
         </Title>
         
@@ -378,18 +403,11 @@ export default function Login() {
           Sign in or create an account to build<br />
           with the Shrinked protocol
         </Text>
-
-        {error && (
-          <Alert color="red" mb="md" title="Error">
-            {error}
-          </Alert>
-        )}
-        {info && (
-          <Alert color="blue" mb="md" title="Info">
-            {info}
-          </Alert>
-        )}
-
+  
+        {/* Error/Info Alerts */}
+        {error && <Alert color="red" mb="md" title="Error">{error}</Alert>}
+        {info && <Alert color="blue" mb="md" title="Info">{info}</Alert>}
+  
         <Button
           fullWidth
           variant="filled"
@@ -404,30 +422,22 @@ export default function Login() {
             height: "44px",
           }}
           styles={{
-            root: {
-              '&:hover': {
-                backgroundColor: '#BBBBBB'
-              }
-            }
+            root: { '&:hover': { backgroundColor: '#BBBBBB' } }
           }}
         >
           CONTINUE WITH GOOGLE
         </Button>
-
+  
         <Divider 
           label="OR" 
           labelPosition="center" 
           my="md" 
           styles={{
-            label: {
-              color: '#AAAAAA'
-            },
-            root: {
-              borderColor: '#333333'
-            }
+            label: { color: '#AAAAAA' },
+            root: { borderColor: '#333333' }
           }}
         />
-
+  
         <form onSubmit={handleEmailSubmit}>
           <TextInput
             placeholder="M@EXAMPLE.COM"
@@ -445,10 +455,7 @@ export default function Login() {
                 border: "none",
                 height: "44px"
               },
-              wrapper: {
-                backgroundColor: "#1A1A1A",
-                border: "none"
-              }
+              wrapper: { backgroundColor: "#1A1A1A", border: "none" }
             }}
           />
           {step === "password" && (
@@ -463,15 +470,12 @@ export default function Login() {
               disabled={emailPasswordLoading}
               styles={{
                 input: { 
-                backgroundColor: "#1A1A1A", 
-                color: "#FFFFFF",
-                border: "none",
-                height: "44px"
-              },
-              wrapper: {
-                backgroundColor: "#1A1A1A",
-                border: "none"
-              }
+                  backgroundColor: "#1A1A1A", 
+                  color: "#FFFFFF",
+                  border: "none",
+                  height: "44px"
+                },
+                wrapper: { backgroundColor: "#1A1A1A", border: "none" }
               }}
             />
           )}
@@ -480,20 +484,20 @@ export default function Login() {
             fullWidth
             loading={emailPasswordLoading}
             disabled={!isButtonActive || emailPasswordLoading}
-            rightSection={<span style={{ display: 'flex', alignItems: 'center' }}><ArrowIcon /></span>}
             style={{
               backgroundColor: isButtonActive ? "#F5A623" : "#333333",
               color: isButtonActive ? "#000000" : "#AAAAAA",
-              opacity: isButtonActive ? 1 : 1,
               height: "44px",
               border: "none",
               display: "flex",
-              justifyContent: "space-between",
-              paddingLeft: "16px",
-              paddingRight: "16px"
+              alignItems: "center", // Fixed vertical alignment
+              padding: "0 16px"
             }}
           >
-            <span style={{ flex: 1, textAlign: 'center' }}>CONTINUE WITH EMAIL</span>
+            <Group justify="space-between" style={{ width: "100%" }}>
+              <span style={{ flex: 1, textAlign: "center" }}>CONTINUE WITH EMAIL</span>
+              <ArrowIcon />
+            </Group>
           </Button>
         </form>
         
