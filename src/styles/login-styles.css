@@ -1,0 +1,87 @@
+/* login-styles.css */
+
+/* Global selectors to override Mantine styles */
+.login-page-container .mantine-Container-root {
+  background-color: #0D0D0D;
+}
+
+.login-page-container .mantine-Card-root {
+  background-color: #000000 !important;
+  border: 0.5px solid #2B2B2B !important;
+  border-radius: 8px !important;
+}
+
+.login-page-container .mantine-Title-root {
+  font-family: "Redaction 20", serif !important;
+  color: #FFFFFF !important;
+  font-weight: 400 !important;
+  font-size: 4.5rem;
+  line-height: 1;
+}
+
+.login-page-container .mantine-TextInput-input {
+  background-color: #1A1A1A !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  height: 44px !important;
+}
+
+.login-page-container .mantine-TextInput-wrapper {
+  background-color: #1A1A1A !important;
+  border: none !important;
+}
+
+.login-page-container .google-button {
+  background-color: #AAAAAA !important;
+  color: #000000 !important;
+  height: 44px !important;
+  text-transform: uppercase !important;
+  border: none !important;
+}
+
+.login-page-container .email-button {
+  height: 44px !important;
+  text-transform: uppercase !important;
+  position: relative !important;
+  border: none !important;
+}
+
+.login-page-container .email-button-active {
+  background-color: #F5A623 !important;
+  color: #000000 !important;
+}
+
+.login-page-container .email-button-inactive {
+  background-color: #333333 !important;
+  color: #AAAAAA !important;
+}
+
+.login-page-container .arrow-container {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.login-page-container .mantine-Divider-root {
+  border-top-color: #333333 !important;
+}
+
+.login-page-container .mantine-Divider-label {
+  color: #AAAAAA !important;
+}
+
+.login-page-container .mantine-Text-root {
+  color: #AAAAAA;
+}
+
+.login-page-container .footer-text {
+  color: #666666 !important;
+  font-size: 0.75rem;
+}
+
+.login-page-container .footer-link {
+  text-decoration: underline;
+  color: #888888 !important;
+}

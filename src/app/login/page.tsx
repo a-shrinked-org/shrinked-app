@@ -15,78 +15,13 @@ import {
   Text,
   Box,
   Image,
-  MantineProvider,
-  createTheme,
 } from "@mantine/core";
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
 
-// Import CSS for custom fonts
+// Import CSS for custom fonts and global styles
 import "@/styles/fonts.css";
-
-// Create a theme override to specifically target elements on this page
-const theme = createTheme({
-  components: {
-    Card: {
-      styles: {
-        root: {
-          backgroundColor: "#000000 !important",
-          border: "0.5px solid #2B2B2B !important",
-          borderRadius: "8px !important",
-        }
-      }
-    },
-    TextInput: {
-      styles: {
-        input: {
-          backgroundColor: "#1A1A1A !important",
-          color: "#FFFFFF !important",
-          border: "none !important",
-          height: "44px !important",
-          "&::placeholder": {
-            color: "#666666 !important"
-          }
-        },
-        wrapper: {
-          backgroundColor: "#1A1A1A !important",
-          border: "none !important"
-        }
-      }
-    },
-    Button: {
-      styles: {
-        root: {
-          textTransform: "uppercase !important",
-          fontWeight: 500,
-          letterSpacing: "0.03em",
-          height: "44px !important",
-          border: "none !important",
-          "&:hover": {
-            backgroundColor: "#BBBBBB !important"
-          }
-        }
-      }
-    },
-    Divider: {
-      styles: {
-        root: {
-          borderColor: "#333333 !important"
-        },
-        label: {
-          color: "#AAAAAA !important"
-        }
-      }
-    },
-    Title: {
-      styles: {
-        root: {
-          fontFamily: "'Redaction 20', serif !important",
-          color: "#FFFFFF !important",
-          fontWeight: "400 !important"
-        }
-      }
-    }
-  }
-});
+// Import login styles that we created
+import "@/styles/login-styles.css";
 
 interface FormData {
   email: string;
@@ -342,207 +277,14 @@ export default function Login() {
     </svg>
   );
 
-  const LoginContent = () => (
-    <Container
-      size="xs"
-      px={{ base: "sm", md: "xl" }}
-      style={{
-        backgroundColor: "#0D0D0D", 
-        minHeight: "100vh",
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Card
-        radius="md"
-        p="xl"
-        withBorder
-        style={{
-          backgroundColor: "#000000", 
-          border: "0.5px solid #2B2B2B",
-          maxWidth: "100%",
-        }}
-      >
-        <Box mb="xl" style={{ textAlign: "center" }}>
-          <Image
-            src="/images/computer.jpg"
-            alt="Computer"
-            width={240}
-            height={140}
-            style={{ margin: "0 auto" }}
-          />
-        </Box>
-
-        <Title
-          order={1}
-          ta="center"
-          style={{
-            fontFamily: "Redaction 20",
-            fontSize: "4.5rem",
-            lineHeight: "1",
-            marginBottom: "0px",
-            color: "#FFFFFF",
-            fontWeight: 400,
-          }}
-        >
-          Welcome
-        </Title>
-        <Title
-          order={2}
-          ta="center"
-          mb="md"
-          style={{
-            fontFamily: "Redaction 20",
-            fontSize: "4.5rem",
-            lineHeight: "1",
-            color: "#FFFFFF",
-            fontWeight: 400,
-          }}
-        >
-          to Shrinked
-        </Title>
-
-        <Text ta="center" mb="xl" size="sm" style={{ color: "#AAAAAA" }}>
-          Sign in or create an account to build
-          <br />
-          with the Shrinked protocol
-        </Text>
-
-        {/* Error/Info Alerts */}
-        {error && <Alert color="red" mb="md" title="Error">{error}</Alert>}
-        {info && <Alert color="blue" mb="md" title="Info">{info}</Alert>}
-
-        <Button
-          fullWidth
-          variant="filled"
-          onClick={handleGoogleLogin}
-          loading={googleLoading}
-          leftSection={<GoogleIcon />}
-          mb="md"
-          style={{
-            backgroundColor: "#AAAAAA",
-            color: "#000000",
-            border: "none",
-            height: "44px",
-            textTransform: "uppercase",
-            fontWeight: 500,
-          }}
-          styles={{
-            root: { "&:hover": { backgroundColor: "#BBBBBB" } },
-          }}
-        >
-          CONTINUE WITH GOOGLE
-        </Button>
-
-        <Divider
-          label="OR"
-          labelPosition="center"
-          my="md"
-          styles={{
-            label: { color: "#AAAAAA" },
-            root: { borderColor: "#333333" },
-          }}
-        />
-
-        <form onSubmit={handleEmailSubmit}>
-          <TextInput
-            placeholder="M@EXAMPLE.COM"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            required
-            mb="md"
-            disabled={emailPasswordLoading || step === "password"}
-            styles={{
-              input: {
-                backgroundColor: "#1A1A1A",
-                color: "#FFFFFF",
-                textTransform: "uppercase",
-                border: "none",
-                height: "44px",
-              },
-              wrapper: { backgroundColor: "#1A1A1A", border: "none" },
-            }}
-          />
-          {step === "password" && (
-            <TextInput
-              type="password"
-              placeholder="Enter your password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-              mb="md"
-              disabled={emailPasswordLoading}
-              styles={{
-                input: {
-                  backgroundColor: "#1A1A1A",
-                  color: "#FFFFFF",
-                  border: "none",
-                  height: "44px",
-                },
-                wrapper: { backgroundColor: "#1A1A1A", border: "none" },
-              }}
-            />
-          )}
-          <div style={{ position: "relative" }}>
-            <Button
-              type="submit"
-              fullWidth
-              loading={emailPasswordLoading}
-              disabled={!isButtonActive || emailPasswordLoading}
-              style={{
-                backgroundColor: isButtonActive ? "#F5A623" : "#333333",
-                color: isButtonActive ? "#000000" : "#AAAAAA",
-                height: "44px",
-                border: "none",
-                textTransform: "uppercase",
-                fontWeight: 500,
-              }}
-            >
-              CONTINUE WITH EMAIL
-            </Button>
-            <div 
-              style={{ 
-                position: "absolute", 
-                right: "16px", 
-                top: "50%", 
-                transform: "translateY(-50%)",
-                pointerEvents: "none"
-              }}
-            >
-              <ArrowIcon />
-            </div>
-          </div>
-        </form>
-
-        <Text size="xs" ta="center" mt="xl" style={{ color: "#666666" }}>
-          By continuing, you agree to Shrinked{" "}
-          <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>
-            Usage Policy
-          </Text>
-          ,<br />and acknowledge their{" "}
-          <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>
-            Privacy Policy
-          </Text>
-          .
-        </Text>
-      </Card>
-    </Container>
-  );
-
   // Verification sent UI
   if (step === "verification-sent") {
     return (
-      <MantineProvider theme={theme}>
+      <div className="login-page-container">
         <Container
           size="xs"
           px={{ base: "sm", md: "xl" }}
           style={{
-            backgroundColor: "#0D0D0D",
             minHeight: "100vh",
             display: "flex",
             flexDirection: "column",
@@ -550,29 +292,21 @@ export default function Login() {
             alignItems: "center",
           }}
         >
-          <Card radius="md" p="xl" withBorder style={{ 
-            backgroundColor: "#000000", 
-            border: "0.5px solid #2B2B2B",
-            maxWidth: "100%" 
-          }}>
+          <Card radius="md" p="xl" withBorder>
             <Group justify="center" mb="md">
               <Mailbox size={64} color="#F5A623" />
             </Group>
             
-            <Title order={2} ta="center" mb="md" style={{ 
-              fontFamily: "Redaction 20", 
-              color: "#FFFFFF",
-              fontWeight: 400
-            }}>
+            <Title order={2} ta="center" mb="md">
               Check your email
             </Title>
             
-            <Text ta="center" mb="xl" style={{ color: "#AAAAAA" }}>
+            <Text ta="center" mb="xl">
               We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
               click the link to complete your registration.
             </Text>
             
-            <Text size="sm" ta="center" mb="md" style={{ color: "#666666" }}>
+            <Text size="sm" ta="center" mb="md" className="footer-text">
               Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
             </Text>
             
@@ -594,34 +328,154 @@ export default function Login() {
           </Card>
           
           <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
-            <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#000000", border: "0.5px solid #2B2B2B" }}>
+            <Card radius="md" p="sm" withBorder>
               <Group justify="center">
                 <Book size={24} color="#AAAAAA" />
-                <Text size="sm" style={{ color: "#AAAAAA" }}>Resources</Text>
+                <Text size="sm" className="footer-text">Resources</Text>
               </Group>
             </Card>
-            <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#000000", border: "0.5px solid #2B2B2B" }}>
+            <Card radius="md" p="sm" withBorder>
               <Group justify="center">
                 <Code size={24} color="#AAAAAA" />
-                <Text size="sm" style={{ color: "#AAAAAA" }}>Guides</Text>
+                <Text size="sm" className="footer-text">Guides</Text>
               </Group>
             </Card>
-            <Card radius="md" p="sm" withBorder style={{ backgroundColor: "#000000", border: "0.5px solid #2B2B2B" }}>
+            <Card radius="md" p="sm" withBorder>
               <Group justify="center">
                 <Rocket size={24} color="#AAAAAA" />
-                <Text size="sm" style={{ color: "#AAAAAA" }}>Examples</Text>
+                <Text size="sm" className="footer-text">Examples</Text>
               </Group>
             </Card>
           </SimpleGrid>
         </Container>
-      </MantineProvider>
+      </div>
     );
   }
 
-  // Wrap main content in MantineProvider with custom theme
   return (
-    <MantineProvider theme={theme}>
-      <LoginContent />
-    </MantineProvider>
+    <div className="login-page-container">
+      <Container
+        size="xs"
+        px={{ base: "sm", md: "xl" }}
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <Card
+          radius="md"
+          p="xl"
+          withBorder
+        >
+          <Box mb="xl" style={{ textAlign: "center" }}>
+            <Image
+              src="/images/computer.jpg"
+              alt="Computer"
+              width={240}
+              height={140}
+              style={{ margin: "0 auto" }}
+            />
+          </Box>
+
+          <Title
+            order={1}
+            ta="center" 
+            mb={0}
+          >
+            Welcome
+          </Title>
+          <Title
+            order={2}
+            ta="center"
+            mb="md"
+          >
+            to Shrinked
+          </Title>
+
+          <Text ta="center" mb="xl" size="sm">
+            Sign in or create an account to build
+            <br />
+            with the Shrinked protocol
+          </Text>
+
+          {/* Error/Info Alerts */}
+          {error && <Alert color="red" mb="md" title="Error">{error}</Alert>}
+          {info && <Alert color="blue" mb="md" title="Info">{info}</Alert>}
+
+          <Button
+            fullWidth
+            variant="filled"
+            onClick={handleGoogleLogin}
+            loading={googleLoading}
+            leftSection={<GoogleIcon />}
+            className="google-button"
+            mb="md"
+          >
+            CONTINUE WITH GOOGLE
+          </Button>
+
+          <Divider
+            label="OR"
+            labelPosition="center"
+            my="md"
+          />
+
+          <form onSubmit={handleEmailSubmit}>
+            <TextInput
+              placeholder="M@EXAMPLE.COM"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              mb="md"
+              disabled={emailPasswordLoading || step === "password"}
+            />
+            {step === "password" && (
+              <TextInput
+                type="password"
+                placeholder="Enter your password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                mb="md"
+                disabled={emailPasswordLoading}
+              />
+            )}
+            
+            <div style={{ position: "relative" }}>
+              <Button
+                type="submit"
+                fullWidth
+                loading={emailPasswordLoading}
+                disabled={!isButtonActive || emailPasswordLoading}
+                className={`email-button ${isButtonActive ? 'email-button-active' : 'email-button-inactive'}`}
+              >
+                CONTINUE WITH EMAIL
+              </Button>
+              <div className="arrow-container">
+                <ArrowIcon />
+              </div>
+            </div>
+          </form>
+
+          <Text className="footer-text" ta="center" mt="xl">
+            By continuing, you agree to Shrinked{" "}
+            <Text component="span" className="footer-link">
+              Usage Policy
+            </Text>
+            ,<br />and acknowledge their{" "}
+            <Text component="span" className="footer-link">
+              Privacy Policy
+            </Text>
+            .
+          </Text>
+        </Card>
+      </Container>
+    </div>
   );
 }
