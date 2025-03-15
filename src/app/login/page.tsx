@@ -19,7 +19,7 @@ import {
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
 
 // Import CSS for custom fonts
-import "../styles/fonts.css";
+import "@/styles/fonts.css";
 
 interface FormData {
   email: string;
