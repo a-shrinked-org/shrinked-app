@@ -19,7 +19,7 @@ import {
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
 
 // Import CSS for custom fonts
-import "@/styles/fonts.css";
+import "../styles/fonts.css";
 
 interface FormData {
   email: string;
@@ -275,7 +275,7 @@ export default function Login() {
         size="xs"
         px={{ base: "sm", md: "xl" }}
         style={{
-          backgroundColor: "transparent",
+          backgroundColor: "#0D0D0D",
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -354,7 +354,7 @@ export default function Login() {
         alignItems: "center",
       }}
     >
-      <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#000000", maxWidth: "100%" }}>
+      <Card radius="md" p="xl" withBorder style={{ backgroundColor: "#F5F5F5", maxWidth: "100%" }}>
         {/* Computer Image */}
         <Box mb="xl" style={{ textAlign: "center" }}>
           <Image 
@@ -367,14 +367,14 @@ export default function Login() {
         </Box>
         
         {/* Welcome Title */}
-        <Title order={1} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
+        <Title order={1} ta="center" mb="xs" style={{ fontFamily: "Redaction", fontSize: "2.5rem" }}>
           Welcome
         </Title>
-        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction 20", fontSize: "4rem" }}>
+        <Title order={2} ta="center" mb="md" style={{ fontFamily: "Redaction", fontSize: "2rem" }}>
           to Shrinked
         </Title>
         
-        <Text ta="center" mb="xl" size="sm">
+        <Text ta="center" mb="xl" size="sm" style={{ color: "#AAAAAA" }}>
           Sign in or create an account to build<br />
           with the Shrinked protocol
         </Text>
@@ -398,15 +398,35 @@ export default function Login() {
           leftSection={<GoogleIcon />}
           mb="md"
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#AAAAAA",
             color: "#000000",
-            border: "1px solid #DDDDDD",
+            border: "none",
+            height: "44px",
+          }}
+          styles={{
+            root: {
+              '&:hover': {
+                backgroundColor: '#BBBBBB'
+              }
+            }
           }}
         >
           CONTINUE WITH GOOGLE
         </Button>
 
-        <Divider label="OR" labelPosition="center" my="md" />
+        <Divider 
+          label="OR" 
+          labelPosition="center" 
+          my="md" 
+          styles={{
+            label: {
+              color: '#AAAAAA'
+            },
+            root: {
+              borderColor: '#333333'
+            }
+          }}
+        />
 
         <form onSubmit={handleEmailSubmit}>
           <TextInput
@@ -419,9 +439,15 @@ export default function Login() {
             disabled={emailPasswordLoading || step === "password"}
             styles={{
               input: { 
-                backgroundColor: "#333333", 
+                backgroundColor: "#1A1A1A", 
                 color: "#FFFFFF",
-                textTransform: "uppercase"
+                textTransform: "uppercase",
+                border: "none",
+                height: "44px"
+              },
+              wrapper: {
+                backgroundColor: "#1A1A1A",
+                border: "none"
               }
             }}
           />
@@ -436,7 +462,16 @@ export default function Login() {
               mb="md"
               disabled={emailPasswordLoading}
               styles={{
-                input: { backgroundColor: "#333333", color: "#FFFFFF" }
+                input: { 
+                backgroundColor: "#1A1A1A", 
+                color: "#FFFFFF",
+                border: "none",
+                height: "44px"
+              },
+              wrapper: {
+                backgroundColor: "#1A1A1A",
+                border: "none"
+              }
               }}
             />
           )}
@@ -445,20 +480,26 @@ export default function Login() {
             fullWidth
             loading={emailPasswordLoading}
             disabled={!isButtonActive || emailPasswordLoading}
-            rightSection={<ArrowIcon />}
+            rightSection={<span style={{ display: 'flex', alignItems: 'center' }}><ArrowIcon /></span>}
             style={{
               backgroundColor: isButtonActive ? "#F5A623" : "#333333",
-              color: isButtonActive ? "#000000" : "#FFFFFF",
-              opacity: isButtonActive ? 1 : 0.6,
+              color: isButtonActive ? "#000000" : "#AAAAAA",
+              opacity: isButtonActive ? 1 : 1,
+              height: "44px",
+              border: "none",
+              display: "flex",
+              justifyContent: "space-between",
+              paddingLeft: "16px",
+              paddingRight: "16px"
             }}
           >
-            CONTINUE WITH EMAIL
+            <span style={{ flex: 1, textAlign: 'center' }}>CONTINUE WITH EMAIL</span>
           </Button>
         </form>
         
-        <Text size="xs" ta="center" mt="xl" c="dimmed">
-          By continuing, you agree to Shrinked <Text component="span" style={{ textDecoration: "underline" }}>Usage Policy</Text>,
-          <br />and acknowledge their <Text component="span" style={{ textDecoration: "underline" }}>Privacy Policy</Text>.
+        <Text size="xs" ta="center" mt="xl" style={{ color: "#666666" }}>
+          By continuing, you agree to Shrinked <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>Usage Policy</Text>,
+          <br />and acknowledge their <Text component="span" style={{ textDecoration: "underline", color: "#888888" }}>Privacy Policy</Text>.
         </Text>
       </Card>
     </Container>
