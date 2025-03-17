@@ -14,16 +14,15 @@ import {
   Tabs,
   LoadingOverlay,
   Modal,
+  ActionIcon
 } from "@mantine/core";
 import {
-  CircleDot,
-  Circle as CircleIcon,
+  Edit,
+  FileSearch,
   Upload,
   Download,
-  FileScan,
 } from 'lucide-react';
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { GeistMono } from 'geist/font/mono';
@@ -114,7 +113,7 @@ Info to use on the recipient and their company:
     }
   ];
 
-  // Custom columns for the Logic table - no date column
+  // Custom columns for the Logic table
   const logicColumns = [
     {
       header: "Jobs",
@@ -125,7 +124,46 @@ Info to use on the recipient and their company:
     {
       header: "Steps",
       accessor: (doc: LogicDocument) => (
-        <Text size="sm">{doc.steps}</Text>
+        <Group gap="xs">
+          <Button
+            variant="outline"
+            size="xs"
+            styles={{
+              root: {
+                borderColor: "#2b2b2b",
+                color: "#ffffff",
+                textTransform: "uppercase",
+                padding: "4px 8px",
+                fontSize: "10px",
+                fontWeight: "bold",
+                '&:hover': {
+                  backgroundColor: "#2b2b2b",
+                },
+              },
+            }}
+          >
+            UPLOAD
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
+            styles={{
+              root: {
+                borderColor: "#2b2b2b",
+                color: "#ffffff",
+                textTransform: "uppercase",
+                padding: "4px 8px",
+                fontSize: "10px",
+                fontWeight: "bold",
+                '&:hover': {
+                  backgroundColor: "#2b2b2b",
+                },
+              },
+            }}
+          >
+            EXPORT
+          </Button>
+        </Group>
       ),
     },
   ];
@@ -136,33 +174,41 @@ Info to use on the recipient and their company:
     setIsDetailsModalOpen(true);
   };
 
-  // Handle job creation
-  const handleCreateJob = () => {
-    if (selectedLogic?.isDefault) {
-      // Navigate to jobs/create page
-      window.location.href = "/jobs/create";
-    }
+  // Handle navigation to create job
+  const handleNavigateToCreateJob = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.location.href = "/jobs/create";
   };
 
-  // Custom status indicator for logic items
-  const renderStatusIcon = (doc: LogicDocument) => (
-    <Box style={{ marginRight: '8px', display: 'inline-flex', alignItems: 'center' }}>
-      {doc.isDefault ? (
-        <CircleDot size={16} color="#ffffff" />
-      ) : (
-        <CircleIcon size={16} color="#ffffff" style={{ fill: 'transparent' }} />
-      )}
-    </Box>
-  );
-
-  // Custom row renderer with status icon for default/coming soon status
+  // Custom row renderer with status indicator for default/coming soon status
   const renderTitleWithBadge = (doc: LogicDocument) => (
     <Flex direction="column" gap={4}>
       <Flex align="center">
-        {renderStatusIcon(doc)}
+        {/* Status indicator - filled white circle for default, outlined for others */}
+        {doc.isDefault ? (
+          <div style={{ 
+            width: '16px', 
+            height: '16px', 
+            borderRadius: '50%', 
+            backgroundColor: '#ffffff', 
+            marginRight: '8px' 
+          }}/>
+        ) : (
+          <div style={{ 
+            width: '16px', 
+            height: '16px', 
+            borderRadius: '50%', 
+            border: '1.5px solid #ffffff', 
+            marginRight: '8px',
+            backgroundColor: 'transparent'
+          }}/>
+        )}
+
         <Text size="md" fw={500} mr="xs">
           {doc.title}
         </Text>
+        
+        {/* Badge indicators */}
         {doc.isDefault && (
           <Badge color="blue" variant="filled" size="sm">Default</Badge>
         )}
@@ -170,6 +216,7 @@ Info to use on the recipient and their company:
           <Badge color="gray" variant="filled" size="sm">Coming soon</Badge>
         )}
       </Flex>
+      
       <Text size="xs" c="#a1a1a1" ml={24}>
         {doc.description}
       </Text>
@@ -179,40 +226,37 @@ Info to use on the recipient and their company:
   // Custom actions for the logic items
   const renderActions = (doc: LogicDocument) => (
     <Group gap="xs">
-      <Button
-        variant="outline"
-        size="xs"
-        leftSection={<Upload size={14} />}
-        disabled={doc.isComingSoon}
-        styles={{
-          root: {
-            borderColor: "#2b2b2b",
-            color: "#ffffff",
-            '&:hover': {
-              backgroundColor: "#2b2b2b",
-            },
-          },
+      {/* Edit action - active only for default logic */}
+      <ActionIcon
+        variant="subtle"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (doc.isDefault) {
+            window.location.href = "/jobs/create";
+          }
+        }}
+        disabled={!doc.isDefault}
+        style={{
+          color: doc.isDefault ? '#ffffff' : '#555555',
+          opacity: doc.isDefault ? 1 : 0.5,
+          cursor: doc.isDefault ? 'pointer' : 'default'
         }}
       >
-        UPLOAD
-      </Button>
-      <Button
-        variant="outline"
-        size="xs"
-        leftSection={<Download size={14} />}
-        disabled={doc.isComingSoon}
-        styles={{
-          root: {
-            borderColor: "#2b2b2b",
-            color: "#ffffff",
-            '&:hover': {
-              backgroundColor: "#2b2b2b",
-            },
-          },
+        <Edit size={16} />
+      </ActionIcon>
+      
+      {/* Scan document action - always disabled for now */}
+      <ActionIcon
+        variant="subtle"
+        disabled={true}
+        style={{
+          color: '#555555',
+          opacity: 0.5,
+          cursor: 'default'
         }}
       >
-        EXPORT
-      </Button>
+        <FileSearch size={16} />
+      </ActionIcon>
     </Group>
   );
 
