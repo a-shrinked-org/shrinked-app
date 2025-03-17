@@ -91,7 +91,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     title = "DOCUMENTS",
     extraColumns = [],
     showStatus = true,
-    noDataMessage = "No documents found."
+    noDataMessage = "No documents found.",
+    titleRenderer,
+    actionsRenderer
   } = props;
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -182,7 +184,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   };
 
   // Determine if we have any actions
-  const hasActions = !!(onView || onSendEmail || onDelete);
+  const hasActions = !!(onView || onSendEmail || onDelete || actionsRenderer);
 
   // Calculate grid template columns with improved alignment
   const getGridTemplateColumns = () => {
@@ -235,66 +237,67 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   // Define visible columns for different screen sizes
   const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
 
-  const renderDesktopView = () => (
-    <>
-      {/* Table Header */}
-      <Box 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: getGridTemplateColumns(),
-          padding: '1rem 1.5rem',
-          borderBottom: '1px solid #2b2b2b',
-          color: '#a1a1a1',
-          fontSize: '12px',
-          width: '100%',
-          maxWidth: '100%',
-          overflowX: 'hidden'
-        }}
-      >
-        <Box style={{ textAlign: 'left' }}>/title</Box>
-        {showStatus && <Box style={{ textAlign: 'left' }}>/status</Box>}
-        <Box style={{ textAlign: 'left' }}>/date</Box>
-        {visibleColumns.map((col, index) => (
-          <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
-        ))}
-        {hasActions && <Box style={{ textAlign: 'left' }}>/actions</Box>}
-      </Box>
+  const renderDesktopView = () => {
+    return (
+      <>
+        {/* Table Header */}
+        <Box 
+          style={{ 
+            display: 'grid', 
+            gridTemplateColumns: getGridTemplateColumns(),
+            padding: '1rem 1.5rem',
+            borderBottom: '1px solid #2b2b2b',
+            color: '#a1a1a1',
+            fontSize: '12px',
+            width: '100%',
+            maxWidth: '100%',
+            overflowX: 'hidden'
+          }}
+        >
+          <Box style={{ textAlign: 'left' }}>/title</Box>
+          {showStatus && <Box style={{ textAlign: 'left' }}>/status</Box>}
+          <Box style={{ textAlign: 'left' }}>/date</Box>
+          {visibleColumns.map((col, index) => (
+            <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
+          ))}
+          {hasActions && <Box style={{ textAlign: 'left' }}>/actions</Box>}
+        </Box>
 
-      {/* Table Content */}
-      {data && data.length > 0 ? (
-        <Box style={{ overflow: 'auto', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
-          {data.map((doc) => {
-            // Ensure each doc has a unique identifier
-            const uniqueId = doc._id || `fallback-${Math.random()}`;
-            const isProcessingList = visibleColumns.length === 0 && !showStatus;
-            
-            return (
-              <Box
-                key={uniqueId}
-                onClick={() => onRowClick && onRowClick(doc)}
-                onMouseEnter={() => setHoveredRow(uniqueId)}
-                onMouseLeave={() => setHoveredRow(null)}
-                style={{ 
-                  display: 'grid',
-                  gridTemplateColumns: getGridTemplateColumns(),
-                  padding: isProcessingList ? '1rem 1.5rem' : '1.5rem', // Shorter rows for processing list
-                  borderBottom: '1px solid #2b2b2b',
-                  cursor: onRowClick ? 'pointer' : 'default',
-                  transition: 'background-color 0.2s ease-in-out',
-                  backgroundColor: getRowBackground(uniqueId, doc.status),
-                  width: '100%',
-                  maxWidth: '100%'
-                }}
-              >
-                <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <Box style={{ 
-                    height: '12px', 
-                    width: '12px', 
-                    borderRadius: '50%', 
-                    backgroundColor: getRowIndicatorColor(doc.status),
-                    flexShrink: 0
-                  }} />
-                  <Box style={{ overflow: 'hidden' }}>
+        {/* Table Content */}
+        {data && data.length > 0 ? (
+          <Box style={{ overflow: 'auto', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+            {data.map((doc) => {
+              // Ensure each doc has a unique identifier
+              const uniqueId = doc._id || `fallback-${Math.random()}`;
+              const isProcessingList = visibleColumns.length === 0 && !showStatus;
+              
+              return (
+                <Box
+                  key={uniqueId}
+                  onClick={() => onRowClick && onRowClick(doc)}
+                  onMouseEnter={() => setHoveredRow(uniqueId)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  style={{ 
+                    display: 'grid',
+                    gridTemplateColumns: getGridTemplateColumns(),
+                    padding: isProcessingList ? '1rem 1.5rem' : '1.5rem', // Shorter rows for processing list
+                    borderBottom: '1px solid #2b2b2b',
+                    cursor: onRowClick ? 'pointer' : 'default',
+                    transition: 'background-color 0.2s ease-in-out',
+                    backgroundColor: getRowBackground(uniqueId, doc.status),
+                    width: '100%',
+                    maxWidth: '100%'
+                  }}
+                >
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <Box style={{ 
+                      height: '12px', 
+                      width: '12px', 
+                      borderRadius: '50%', 
+                      backgroundColor: getRowIndicatorColor(doc.status),
+                      flexShrink: 0
+                    }} />
+                    <Box style={{ overflow: 'hidden' }}>
                       {titleRenderer ? titleRenderer(doc) : (
                         <>
                           <Text size="md" fw={500} style={{ 
@@ -315,110 +318,112 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                       )}
                     </Box>
                   </Box>
-                
-                {showStatus && (
-                  <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
-                    <Text size="sm" c={getStatusTextColor(doc.status)}>
-                      {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
-                    </Text>
-                  </Box>
-                )}
-                
-                <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
-                  <Text size="sm">{formatDate(doc.createdAt)}</Text>
-                </Box>
-                
-                {visibleColumns.map((col, index) => (
-                  <Box key={index} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    paddingRight: '8px', 
-                    textAlign: 'left',
-                    maxWidth: '100%' // Keep content within column
-                  }}>
-                    {typeof col.accessor === 'function' ? (
-                      col.accessor(doc)
-                    ) : (
-                      <Text size="sm" style={{ 
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        {String(doc[col.accessor] || '')}
+                  
+                  {showStatus && (
+                    <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                      <Text size="sm" c={getStatusTextColor(doc.status)}>
+                        {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
                       </Text>
-                    )}
+                    </Box>
+                  )}
+                  
+                  <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                    <Text size="sm">{formatDate(doc.createdAt)}</Text>
                   </Box>
-                ))}
-                
-                {hasActions && (
-                <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                  {actionsRenderer ? actionsRenderer(doc) : (
-                    <Group>
-                      {onView && (
-                        <Tooltip label="View Document">
-                          <ActionIcon 
-                            variant="subtle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onView(doc, e);
-                            }}
-                            style={{
-                              color: '#ffffff',
-                              '&:hover': { backgroundColor: '#2b2b2b' }
-                            }}
-                          >
-                            <Eye size={16} />
-                          </ActionIcon>
-                        </Tooltip>
+                  
+                  {visibleColumns.map((col, index) => (
+                    <Box key={index} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      paddingRight: '8px', 
+                      textAlign: 'left',
+                      maxWidth: '100%' // Keep content within column
+                    }}>
+                      {typeof col.accessor === 'function' ? (
+                        col.accessor(doc)
+                      ) : (
+                        <Text size="sm" style={{ 
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {String(doc[col.accessor] || '')}
+                        </Text>
                       )}
-                      {onSendEmail && (
-                        <Tooltip label="Send to Email">
-                          <ActionIcon 
-                            variant="subtle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEmailClick(doc._id, e);
-                            }}
-                            style={{
-                              color: '#ffffff',
-                              '&:hover': { backgroundColor: '#2b2b2b' }
-                            }}
-                          >
-                            <Mail size={16} />
-                          </ActionIcon>
-                        </Tooltip>
+                    </Box>
+                  ))}
+                  
+                  {hasActions && (
+                    <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                      {actionsRenderer ? actionsRenderer(doc) : (
+                        <Group>
+                          {onView && (
+                            <Tooltip label="View Document">
+                              <ActionIcon 
+                                variant="subtle"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onView(doc, e);
+                                }}
+                                style={{
+                                  color: '#ffffff',
+                                  '&:hover': { backgroundColor: '#2b2b2b' }
+                                }}
+                              >
+                                <Eye size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          {onSendEmail && (
+                            <Tooltip label="Send to Email">
+                              <ActionIcon 
+                                variant="subtle"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEmailClick(doc._id, e);
+                                }}
+                                style={{
+                                  color: '#ffffff',
+                                  '&:hover': { backgroundColor: '#2b2b2b' }
+                                }}
+                              >
+                                <Mail size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          {onDelete && (
+                            <Tooltip label="Delete">
+                              <ActionIcon 
+                                variant="subtle"
+                                color="red"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDelete(doc._id, e);
+                                }}
+                                style={{
+                                  '&:hover': { backgroundColor: '#2b2b2b' }
+                                }}
+                              >
+                                <Trash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                        </Group>
                       )}
-                      {onDelete && (
-                        <Tooltip label="Delete">
-                          <ActionIcon 
-                            variant="subtle"
-                            color="red"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDelete(doc._id, e);
-                            }}
-                            style={{
-                              '&:hover': { backgroundColor: '#2b2b2b' }
-                            }}
-                          >
-                            <Trash size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
-                    </Group>
-                  </Box>
-                )}
-              </Box>
-            );
-          })}
-        </Box>
-      ) : (
-        <Box p="xl" style={{ textAlign: 'center' }}>
-          <Text c="#a1a1a1">{noDataMessage}</Text>
-        </Box>
-      )}
-    </>
-  );
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        ) : (
+          <Box p="xl" style={{ textAlign: 'center' }}>
+            <Text c="#a1a1a1">{noDataMessage}</Text>
+          </Box>
+        )}
+      </>
+    );
+  };
 
   const renderMobileView = () => (
     <Box>
@@ -454,21 +459,25 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                   <Box style={{ flex: 1 }}>
                     <Flex justify="space-between" align="flex-start">
                       <Box style={{ flex: 1 }}>
-                        <Text size="md" fw={500} style={{ 
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
-                        </Text>
-                        <Text size="xs" c="#a1a1a1" mb="xs" style={{
-                          overflow: 'hidden',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                        }}>
-                          {doc.description || doc.output?.description || 'No description available'}
-                        </Text>
+                        {titleRenderer ? titleRenderer(doc) : (
+                          <>
+                            <Text size="md" fw={500} style={{ 
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+                            </Text>
+                            <Text size="xs" c="#a1a1a1" mb="xs" style={{
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}>
+                              {doc.description || doc.output?.description || 'No description available'}
+                            </Text>
+                          </>
+                        )}
                       </Box>
                       {onRowClick && (
                         <ActionIcon 
@@ -509,38 +518,40 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                       ))}
                     </Flex>
                     
-                    {(onSendEmail || onDelete) && (
+                    {(onSendEmail || onDelete || actionsRenderer) && (
                       <Flex justify="flex-start" mt="xs">
-                        <Group>
-                          {onSendEmail && (
-                            <ActionIcon 
-                              variant="subtle"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEmailClick(doc._id, e);
-                              }}
-                              style={{
-                                color: '#ffffff',
-                              }}
-                            >
-                              <Mail size={14} />
-                            </ActionIcon>
-                          )}
-                          {onDelete && (
-                            <ActionIcon 
-                              variant="subtle"
-                              size="sm"
-                              color="red"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(doc._id, e);
-                              }}
-                            >
-                              <Trash size={14} />
-                            </ActionIcon>
-                          )}
-                        </Group>
+                        {actionsRenderer ? actionsRenderer(doc) : (
+                          <Group>
+                            {onSendEmail && (
+                              <ActionIcon 
+                                variant="subtle"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEmailClick(doc._id, e);
+                                }}
+                                style={{
+                                  color: '#ffffff',
+                                }}
+                              >
+                                <Mail size={14} />
+                              </ActionIcon>
+                            )}
+                            {onDelete && (
+                              <ActionIcon 
+                                variant="subtle"
+                                size="sm"
+                                color="red"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDelete(doc._id, e);
+                                }}
+                              >
+                                <Trash size={14} />
+                              </ActionIcon>
+                            )}
+                          </Group>
+                        )}
                       </Flex>
                     )}
                   </Box>
