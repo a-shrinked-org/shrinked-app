@@ -70,6 +70,8 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   extraColumns?: ExtraColumn<T>[];
   showStatus?: boolean;
   noDataMessage?: string;
+  titleRenderer?: (doc: T) => React.ReactNode;
+  actionsRenderer?: (doc: T) => React.ReactNode;
 }
 
 // Changed from generic expression to function declaration
@@ -293,23 +295,26 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     flexShrink: 0
                   }} />
                   <Box style={{ overflow: 'hidden' }}>
-                    <Text size="md" fw={500} style={{ 
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
-                    </Text>
-                    {/* Always show description line with fallbacks for consistency */}
-                    <Text size="xs" c="#a1a1a1" style={{ 
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {doc.description || doc.output?.description || 'No description available'}
-                    </Text>
+                      {titleRenderer ? titleRenderer(doc) : (
+                        <>
+                          <Text size="md" fw={500} style={{ 
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+                          </Text>
+                          <Text size="xs" c="#a1a1a1" style={{ 
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {doc.description || doc.output?.description || 'No description available'}
+                          </Text>
+                        </>
+                      )}
+                    </Box>
                   </Box>
-                </Box>
                 
                 {showStatus && (
                   <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
@@ -346,7 +351,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                 ))}
                 
                 {hasActions && (
-                  <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                  {actionsRenderer ? actionsRenderer(doc) : (
                     <Group>
                       {onView && (
                         <Tooltip label="View Document">

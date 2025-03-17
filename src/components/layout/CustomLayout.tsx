@@ -59,6 +59,12 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
       clickable: true
     },
     { 
+      label: 'LOGIC', 
+      href: '/logic',
+      active: pathname === '/logic' || (pathname !== null && pathname.startsWith('/logic/')),
+      clickable: true
+    },
+    { 
       label: 'API KEYS', 
       href: '/api-keys',
       active: pathname === '/api-keys' || (pathname !== null && pathname.startsWith('/api-keys/')),

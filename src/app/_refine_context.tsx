@@ -373,6 +373,13 @@ const App = (props: React.PropsWithChildren<{}>) => {
                 canDelete: true,
               },
             },
+            {
+              name: "logic",
+              list: "/logic",
+              meta: {
+                canDelete: false,
+              },
+            },
           ]}
           options={{
             syncWithLocation: true,
