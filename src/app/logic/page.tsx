@@ -266,17 +266,17 @@ Info to use on the recipient and their company:
       />
 
       {/* Logic Details Modal */}
+      {/* Logic Details Modal - Refined to match design precisely */}
       <Modal
         opened={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
         title={null} // Remove default title, we'll add custom title
-        size="md" // Reduce modal size to approximately 480px
         centered
         styles={{
           header: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            borderBottom: '1px solid #2b2b2b',
+            borderBottom: 'none', // Remove separator
             padding: '20px 24px 0',
           },
           body: { 
@@ -294,13 +294,14 @@ Info to use on the recipient and their company:
             padding: 0,
           },
           content: {
+            width: '480px',
             maxWidth: '480px',
           },
         }}
       >
         <Box>
           {/* Custom Title and Description */}
-          <Text fw={700} size="lg" style={{ fontFamily: GeistMono.style.fontFamily, marginBottom: '8px' }}>
+          <Text fw={700} size="lg" mb="8px">
             Edit logic template
           </Text>
           <Text size="md" mb="lg" style={{ color: '#ffffff', fontSize: '16px' }}>
@@ -311,12 +312,13 @@ Info to use on the recipient and their company:
           <Box 
             style={{ 
               padding: '12px', 
-              backgroundColor: '#1a1a1a', 
+              backgroundColor: '#000000', // Black background
               borderRadius: '4px',
               marginBottom: '24px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              border: '0.5px solid #2B2B2B', // 0.5px outline
             }}
           >
             <Text fw={700} style={{ fontFamily: GeistMono.style.fontFamily, fontSize: '14px' }}>
@@ -336,18 +338,19 @@ Info to use on the recipient and their company:
           </Text>
           <Box 
             p="md" 
-            bg="#0d0d0d" 
+            bg="#000000" // Black background
             style={{ 
               borderRadius: '4px', 
               marginBottom: '20px',
               height: '180px', // Reduced height
               overflowY: 'auto',
+              border: '0.5px solid #2B2B2B', // 0.5px outline
               // Custom scrollbar styling
               '&::-webkit-scrollbar': {
                 width: '6px',
               },
               '&::-webkit-scrollbar-track': {
-                background: '#0d0d0d',
+                background: '#000000',
               },
               '&::-webkit-scrollbar-thumb': {
                 background: '#2b2b2b',
@@ -365,25 +368,38 @@ Info to use on the recipient and their company:
             Model
           </Text>
           <Group grow mb="lg">
-            {selectedLogic?.availableModels?.map((model, index) => (
-              <Button 
-                key={index}
-                variant={activeTab === model.toLowerCase().replace(' ', '-') ? "filled" : "outline"}
-                onClick={() => setActiveTab(model.toLowerCase().replace(' ', '-'))}
-                styles={{
-                  root: {
-                    backgroundColor: activeTab === model.toLowerCase().replace(' ', '-') ? "#F5A623" : "transparent",
-                    borderColor: "#2b2b2b",
-                    color: activeTab === model.toLowerCase().replace(' ', '-') ? "#000000" : "#777777", // Darker text for inactive
-                    '&:hover': {
-                      backgroundColor: activeTab === model.toLowerCase().replace(' ', '-') ? "#E09612" : "#2b2b2b",
+            {selectedLogic?.availableModels?.map((model, index) => {
+              const isActive = activeTab === model.toLowerCase().replace(' ', '-');
+              const isSonnet = model.toLowerCase().includes('sonnet');
+              
+              return (
+                <Button 
+                  key={index}
+                  variant={isActive ? "filled" : "outline"}
+                  onClick={() => setActiveTab(model.toLowerCase().replace(' ', '-'))}
+                  styles={{
+                    root: {
+                      backgroundColor: isActive 
+                        ? (isSonnet ? "#EAA944" : "#2B2B2B") // EAA944 for Sonnet, 2B2B2B for others
+                        : "transparent",
+                      borderColor: "#2b2b2b",
+                      color: isActive ? "#000000" : "#777777", // Black text for active
+                      height: '44px', // 44px height
+                      fontFamily: GeistMono.style.fontFamily,
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      '&:hover': {
+                        backgroundColor: isActive 
+                          ? (isSonnet ? "#EAA944" : "#2B2B2B") 
+                          : "#2b2b2b",
+                      },
                     },
-                  },
-                }}
-              >
-                {model}
-              </Button>
-            ))}
+                  }}
+                >
+                  {model}
+                </Button>
+              );
+            })}
           </Group>
       
           {/* Additional Steps */}
@@ -393,13 +409,17 @@ Info to use on the recipient and their company:
           <Group mb="xl">
             <Button
               variant="outline"
-              size="xs"
-              leftSection={<Upload size={14} />}
+              size="compact-xs" // Smaller size
+              leftSection={<Upload size={12} />}
               styles={{
                 root: {
+                  height: '20px', // 20px height
+                  padding: '0 8px',
                   borderColor: "#2b2b2b",
+                  borderWidth: '1px',
                   color: "#ffffff",
-                  fontSize: '14px',
+                  fontSize: '12px',
+                  fontWeight: 500,
                 },
               }}
             >
@@ -407,13 +427,17 @@ Info to use on the recipient and their company:
             </Button>
             <Button
               variant="outline"
-              size="xs"
-              leftSection={<Download size={14} />}
+              size="compact-xs" // Smaller size
+              leftSection={<Download size={12} />}
               styles={{
                 root: {
+                  height: '20px', // 20px height
+                  padding: '0 8px',
                   borderColor: "#2b2b2b",
+                  borderWidth: '1px',
                   color: "#ffffff",
-                  fontSize: '14px',
+                  fontSize: '12px',
+                  fontWeight: 500,
                 },
               }}
             >
@@ -428,11 +452,12 @@ Info to use on the recipient and their company:
             onClick={handleNavigateToCreateJob}
             styles={{
               root: {
-                backgroundColor: selectedLogic?.isDefault ? "#333333" : "#2b2b2b", // Darker background
-                color: selectedLogic?.isDefault ? "#ffffff" : "#5c5c5c", // White text for active
+                backgroundColor: selectedLogic?.isDefault ? "#333333" : "#2b2b2b",
+                color: selectedLogic?.isDefault ? "#ffffff" : "#5c5c5c",
+                height: '44px', // 44px height
                 '&:hover': {
-                  backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b", // White bg on hover
-                  color: selectedLogic?.isDefault ? "#000000" : "#5c5c5c", // Black text on hover
+                  backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b",
+                  color: selectedLogic?.isDefault ? "#000000" : "#5c5c5c",
                 },
                 transition: 'all 0.2s ease',
                 fontFamily: GeistMono.style.fontFamily,
