@@ -280,13 +280,13 @@ Info to use on the recipient and their company:
           body: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            padding: '14px 30px', // Fixed: Removed semicolon
+            padding: '22px 30px', // Fixed: Removed semicolon
           },
           inner: {
             padding: 0,
           },
           content: {
-            maxWidth: '500px',
+            maxWidth: '520px',
             borderRadius: '10px', // 10px corner radius
             border: '0.5px solid #2B2B2B', // 0.5px border with #2B2B2B color
             overflow: 'hidden',
@@ -310,16 +310,16 @@ Info to use on the recipient and their company:
           </Flex>
       
           {/* Subtitle */}
-          <Text size="md" mb="lg" style={{ color: '#ffffff', fontSize: '14px' }}>
+          <Text size="md" mb="lg" style={{ color: '#A1A1A1', fontSize: '14px' }}>
             Wrap text with &#123;&#123; &#125;&#125; to make part of the task editable, use [[]] to make a source reference.
           </Text>
       
           {/* Logic Title with Badge in Fake Input Field */}
           <Box 
             style={{ 
-              padding: '12px', 
+              padding: '12px 16px', 
               backgroundColor: '#000000', // Black background
-              borderRadius: '4px',
+              borderRadius: '6px',
               marginBottom: '24px',
               display: 'flex',
               alignItems: 'center',
@@ -346,7 +346,7 @@ Info to use on the recipient and their company:
             p="md" 
             bg="#000000" // Black background
             style={{ 
-              borderRadius: '4px', 
+              borderRadius: '6px', 
               marginBottom: '20px',
               height: '180px', // Reduced height
               overflowY: 'auto',
@@ -389,11 +389,11 @@ Info to use on the recipient and their company:
                         ? "#EAA944" 
                         : "#2B2B2B",
                       borderColor: "#2b2b2b",
-                      color: isSonnet ? "#000000" : "#777777",
+                      color: isSonnet ? "#000000" : "#000000",
                       height: '44px', // 44px height
                       fontFamily: GeistMono.style.fontFamily,
                       fontSize: '14px',
-                      fontWeight: 700,
+                      fontWeight: 500,
                     },
                   }}
                 >
@@ -417,7 +417,7 @@ Info to use on the recipient and their company:
                   padding: '0 8px',
                   borderColor: "#2b2b2b",
                   borderWidth: '1px',
-                  color: "#ffffff",
+                  color: "#A1A1A1",
                   fontSize: '12px',
                   fontWeight: 500,
                 },
@@ -460,7 +460,7 @@ Info to use on the recipient and their company:
                 },
                 transition: 'all 0.2s ease',
                 fontFamily: GeistMono.style.fontFamily,
-                fontWeight: 700,
+                fontWeight: 500,
               },
             }}
           >
