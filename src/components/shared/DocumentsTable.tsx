@@ -46,6 +46,8 @@ export interface ProcessedDocument {
     description?: string;
   };
   description?: string;
+  isDefault?: boolean;
+  isComingSoon?: boolean;
 }
 
 export interface ExtraColumn<T extends ProcessedDocument> {
@@ -53,6 +55,8 @@ export interface ExtraColumn<T extends ProcessedDocument> {
   accessor: keyof T | ((doc: T) => React.ReactNode);
   hideOnMobile?: boolean;
 }
+
+export type StatusIndicatorStyle = 'default' | 'whiteFilled' | 'whiteOutlined';
 
 interface DocumentsTableProps<T extends ProcessedDocument> {
   data: T[];
@@ -74,6 +78,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   actionsRenderer?: (doc: T) => React.ReactNode;
   showDate?: boolean;
   customGridTemplate?: string;
+  statusIndicatorStyle?: StatusIndicatorStyle;
 }
 
 // Changed from generic expression to function declaration
@@ -97,7 +102,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     noDataMessage = "No documents found.",
     titleRenderer,
     actionsRenderer,
-    customGridTemplate
+    customGridTemplate,
+    statusIndicatorStyle = 'default'
   } = props;
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -159,6 +165,75 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     }
   };
 
+  const getRowBackground = (id: string, status?: string) => {
+    if (hoveredRow === id) {
+      return "#111111";
+    }
+    if (status?.toLowerCase() === 'error') {
+      return "rgba(244, 67, 54, 0.05)"; // Very subtle red
+    }
+    if (status?.toLowerCase() === 'completed') {
+      return "rgba(24, 90, 47, 0.05)"; // Very subtle green
+    }
+    return "transparent";
+  };
+
+  // New function to render the appropriate status indicator based on style
+  const renderStatusIndicator = (doc: T) => {
+    // Default colored indicator for normal documents
+    if (statusIndicatorStyle === 'default') {
+      return (
+        <Box style={{ 
+          height: '12px', 
+          width: '12px', 
+          borderRadius: '50%', 
+          backgroundColor: getRowIndicatorColor(doc.status),
+          flexShrink: 0
+        }} />
+      );
+    }
+    
+    // Logic page-specific indicators
+    if (statusIndicatorStyle === 'whiteFilled') {
+      const isActive = doc.isDefault;
+      return (
+        <Box style={{ 
+          height: '12px', 
+          width: '12px', 
+          borderRadius: '50%', 
+          backgroundColor: isActive ? '#ffffff' : 'transparent',
+          border: !isActive ? '1.5px solid #ffffff' : 'none',
+          flexShrink: 0
+        }} />
+      );
+    }
+    
+    if (statusIndicatorStyle === 'whiteOutlined') {
+      return (
+        <Box style={{ 
+          height: '12px', 
+          width: '12px', 
+          borderRadius: '50%', 
+          backgroundColor: 'transparent',
+          border: '1.5px solid #ffffff',
+          flexShrink: 0
+        }} />
+      );
+    }
+    
+    // Fallback to default indicator
+    return (
+      <Box style={{ 
+        height: '12px', 
+        width: '12px', 
+        borderRadius: '50%', 
+        backgroundColor: getRowIndicatorColor(doc.status),
+        flexShrink: 0
+      }} />
+    );
+  };
+
+  // Get row indicator color (used for default style)
   const getRowIndicatorColor = (status?: string) => {
     if (!status) return "#ffffff";
     
@@ -172,19 +247,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       default:
         return "#f4a522"; // Orange for other cases
     }
-  };
-
-  const getRowBackground = (id: string, status?: string) => {
-    if (hoveredRow === id) {
-      return "#111111";
-    }
-    if (status?.toLowerCase() === 'error') {
-      return "rgba(244, 67, 54, 0.05)"; // Very subtle red
-    }
-    if (status?.toLowerCase() === 'completed') {
-      return "rgba(24, 90, 47, 0.05)"; // Very subtle green
-    }
-    return "transparent";
   };
 
   // Determine if we have any actions
@@ -301,13 +363,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                   }}
                 >
                   <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <Box style={{ 
-                      height: '12px', 
-                      width: '12px', 
-                      borderRadius: '50%', 
-                      backgroundColor: getRowIndicatorColor(doc.status),
-                      flexShrink: 0
-                    }} />
+                    {/* Use the new status indicator renderer */}
+                    {renderStatusIndicator(doc)}
                     <Box style={{ overflow: 'hidden' }}>
                       {titleRenderer ? titleRenderer(doc) : (
                         <>
@@ -462,13 +519,28 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                 }}
               >
                 <Flex align="stretch" gap="md">
-                  <Box style={{ 
-                    width: '8px', 
-                    borderRadius: '4px', 
-                    backgroundColor: getRowIndicatorColor(doc.status),
-                    alignSelf: 'stretch',
-                    flexShrink: 0
-                  }} />
+                  {/* Adapt for mobile view too */}
+                  {statusIndicatorStyle === 'default' ? (
+                    <Box style={{ 
+                      width: '8px', 
+                      borderRadius: '4px', 
+                      backgroundColor: getRowIndicatorColor(doc.status),
+                      alignSelf: 'stretch',
+                      flexShrink: 0
+                    }} />
+                  ) : (
+                    <Box style={{ 
+                      width: '8px', 
+                      borderRadius: '4px', 
+                      backgroundColor: statusIndicatorStyle === 'whiteFilled' && doc.isDefault ? 
+                        '#ffffff' : 'transparent',
+                      border: (statusIndicatorStyle === 'whiteOutlined' || 
+                              (statusIndicatorStyle === 'whiteFilled' && !doc.isDefault)) ? 
+                        '1.5px solid #ffffff' : 'none',
+                      alignSelf: 'stretch',
+                      flexShrink: 0
+                    }} />
+                  )}
                   <Box style={{ flex: 1 }}>
                     <Flex justify="space-between" align="flex-start">
                       <Box style={{ flex: 1 }}>

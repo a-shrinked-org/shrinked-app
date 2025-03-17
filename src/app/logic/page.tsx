@@ -18,7 +18,7 @@ import {
 } from "@mantine/core";
 import {
   Edit,
-  FileSearch,
+  FileText,
   Upload,
   Download,
 } from 'lucide-react';
@@ -81,7 +81,6 @@ export default function LogicList() {
       fileName: "competitor-analysis",
       description: "Designed to help manage sales processes and maximize customer engagement.",
       createdAt: new Date().toISOString(),
-      status: "active",
       jobsCount: realJobsCount,
       steps: 3,
       isDefault: true,
@@ -103,7 +102,6 @@ Info to use on the recipient and their company:
       fileName: "competitor-analysis-alt",
       description: "Designed to help manage sales processes and maximize customer engagement.",
       createdAt: new Date().toISOString(),
-      status: "inactive",
       jobsCount: 0,
       steps: 0,
       isDefault: false,
@@ -180,37 +178,14 @@ Info to use on the recipient and their company:
     window.location.href = "/jobs/create";
   };
 
-  // Custom row renderer with status indicator for default/coming soon status
+  // Simple title renderer to show badges
   const renderTitleWithBadge = (doc: LogicDocument) => (
     <Flex direction="column" gap={4}>
       <Flex align="center">
-        {/* Replace the colored circle with white circles */}
-        {doc.isDefault ? (
-          // Filled white circle for default
-          <div style={{ 
-            width: '16px', 
-            height: '16px', 
-            borderRadius: '50%', 
-            backgroundColor: '#ffffff',
-            marginRight: '8px'
-          }}/>
-        ) : (
-          // Outlined white circle for others
-          <div style={{ 
-            width: '16px', 
-            height: '16px', 
-            borderRadius: '50%', 
-            border: '1.5px solid #ffffff',
-            backgroundColor: 'transparent',
-            marginRight: '8px'
-          }}/>
-        )}
-  
         <Text size="md" fw={500} mr="xs">
           {doc.title}
         </Text>
         
-        {/* Badge indicators */}
         {doc.isDefault && (
           <Badge color="blue" variant="filled" size="sm">Default</Badge>
         )}
@@ -219,7 +194,7 @@ Info to use on the recipient and their company:
         )}
       </Flex>
       
-      <Text size="xs" c="#a1a1a1" ml={24}>
+      <Text size="xs" c="#a1a1a1">
         {doc.description}
       </Text>
     </Flex>
@@ -241,7 +216,7 @@ Info to use on the recipient and their company:
         <Edit size={16} />
       </ActionIcon>
       
-      {/* File scan icon - active only for default logic */}
+      {/* File text icon - active only for default logic */}
       <ActionIcon
         variant="subtle"
         onClick={(e) => {
@@ -257,7 +232,7 @@ Info to use on the recipient and their company:
           cursor: doc.isDefault ? 'pointer' : 'default'
         }}
       >
-        <FileSearch size={16} />
+        <FileText size={16} />
       </ActionIcon>
     </Group>
   );
@@ -278,14 +253,16 @@ Info to use on the recipient and their company:
         extraColumns={logicColumns}
         noDataMessage="No logic templates found."
         showStatus={false}
-        // Override title renderer
+        // Use the updated title renderer - simpler now!
         titleRenderer={(doc) => renderTitleWithBadge(doc)}
-        // Override actions renderer
+        // Keep the same action renderer
         actionsRenderer={(doc) => renderActions(doc)}
         // Don't show date column
         showDate={false}
         // Custom grid template
         customGridTemplate={getCustomGridTemplate()}
+        // Set the new status indicator style
+        statusIndicatorStyle="whiteFilled"
       />
 
       {/* Logic Details Modal */}
