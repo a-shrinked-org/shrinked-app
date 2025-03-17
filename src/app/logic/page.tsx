@@ -269,52 +269,41 @@ Info to use on the recipient and their company:
       <Modal
         opened={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
-        closeButtonProps={{
-          style: {
-            position: 'relative', // Change position to relative
-            top: 'auto',
-            right: 'auto',
-            float: 'right', // Float to right
-            marginTop: '16px', // Align with title
-            color: '#ffffff'
-          }
-        }}
-        title={null} // Remove default title, we'll add custom title
+        withCloseButton={false} // Remove the default close button
+        title={null} // Remove default title
         centered
         styles={{
           header: { 
-            backgroundColor: '#000000', 
-            color: '#ffffff',
-            borderBottom: 'none', // Remove separator
-            padding: '16px 24px 0',
-            display: 'flex',
-            justifyContent: 'flex-end', // Move close button to right
+            display: 'none', // Hide default header completely
           },
           body: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            padding: '0 24px 24px',
-          },
-          close: { 
-            color: '#ffffff',
-            '&:hover': {
-              backgroundColor: '#1a1a1a',
-            }
+            padding: '24px',
           },
           inner: {
             padding: 0,
           },
           content: {
-            width: '480px',
-            maxWidth: '480px',
+            maxWidth: '500px',
+            borderRadius: '10px', // 10px corner radius
+            border: '0.5px solid #2B2B2B', // 0.5px border with #2B2B2B color
+            overflow: 'hidden',
           },
         }}
       >
         <Box>
-          {/* Custom Title and Description - using GeistSans (default) */}
-          <Text fw={700} size="lg" mb="8px">
-            Edit logic template
-          </Text>
+          {/* Custom header with properly aligned title and close button */}
+          <Flex justify="space-between" align="center" mb="16px">
+            <Text fw={700} size="lg">
+              Edit logic template
+            </Text>
+            <ActionIcon onClick={() => setIsDetailsModalOpen(false)} variant="transparent" color="#ffffff">
+              <X size={18} />
+            </ActionIcon>
+          </Flex>
+      
+          {/* Subtitle */}
           <Text size="md" mb="lg" style={{ color: '#ffffff', fontSize: '16px' }}>
             Wrap text with &#123;&#123; &#125;&#125; to make part of the task editable, use [[]] to make a source reference.
           </Text>
@@ -381,21 +370,20 @@ Info to use on the recipient and their company:
           </Text>
           <Group grow mb="lg">
             {selectedLogic?.availableModels?.map((model, index) => {
-              const isActive = model.toLowerCase().includes('sonnet') ? 
-                true : activeTab === model.toLowerCase().replace(' ', '-');
+              const isSonnet = model.toLowerCase().includes('sonnet');
               
               return (
                 <Button 
                   key={index}
-                  variant={isActive ? "filled" : "outline"}
+                  variant={isSonnet ? "filled" : "outline"}
                   onClick={() => setActiveTab(model.toLowerCase().replace(' ', '-'))}
                   styles={{
                     root: {
-                      backgroundColor: model.toLowerCase().includes('sonnet') 
+                      backgroundColor: isSonnet 
                         ? "#EAA944" 
                         : "#2B2B2B",
                       borderColor: "#2b2b2b",
-                      color: model.toLowerCase().includes('sonnet') ? "#000000" : "#777777",
+                      color: isSonnet ? "#000000" : "#777777",
                       height: '44px', // 44px height
                       fontFamily: GeistMono.style.fontFamily,
                       fontSize: '14px',
