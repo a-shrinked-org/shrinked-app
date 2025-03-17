@@ -269,45 +269,99 @@ Info to use on the recipient and their company:
       <Modal
         opened={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
-        title={
-          <Text fw={700} style={{ fontFamily: GeistMono.style.fontFamily }}>
-            {selectedLogic?.isDefault ? "Edit logic template" : "Logic template"}
-          </Text>
-        }
-        size="lg"
+        title={null} // Remove default title, we'll add custom title
+        size="md" // Reduce modal size to approximately 480px
+        centered
         styles={{
           header: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            borderBottom: '1px solid #2b2b2b'
+            borderBottom: '1px solid #2b2b2b',
+            padding: '20px 24px 0',
           },
           body: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            padding: '20px'
+            padding: '0 24px 24px',
           },
-          close: { color: '#ffffff' }
+          close: { 
+            color: '#ffffff',
+            '&:hover': {
+              backgroundColor: '#1a1a1a',
+            }
+          },
+          inner: {
+            padding: 0,
+          },
+          content: {
+            maxWidth: '480px',
+          },
         }}
       >
         <Box>
-          <Text size="sm" mb="lg">
+          {/* Custom Title and Description */}
+          <Text fw={700} size="lg" style={{ fontFamily: GeistMono.style.fontFamily, marginBottom: '8px' }}>
+            Edit logic template
+          </Text>
+          <Text size="md" mb="lg" style={{ color: '#ffffff', fontSize: '16px' }}>
             Wrap text with &#123;&#123; &#125;&#125; to make part of the task editable, use [[]] to make a source reference.
           </Text>
-
-          <Text fw={700} style={{ fontFamily: GeistMono.style.fontFamily }} mb="md">
-            {selectedLogic?.title?.toUpperCase()}
-          </Text>
-
-          <Text fw={500} size="sm" mb="xs">
+      
+          {/* Logic Title with Badge in Fake Input Field */}
+          <Box 
+            style={{ 
+              padding: '12px', 
+              backgroundColor: '#1a1a1a', 
+              borderRadius: '4px',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}
+          >
+            <Text fw={700} style={{ fontFamily: GeistMono.style.fontFamily, fontSize: '14px' }}>
+              {selectedLogic?.title?.toUpperCase()}
+            </Text>
+            {selectedLogic?.isDefault && (
+              <Badge color="blue" variant="filled" size="sm">Default</Badge>
+            )}
+            {selectedLogic?.isComingSoon && (
+              <Badge color="gray" variant="filled" size="sm">Coming soon</Badge>
+            )}
+          </Box>
+      
+          {/* Instructions Section */}
+          <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
             Instructions
           </Text>
-          <Box p="md" bg="#0d0d0d" style={{ borderRadius: '4px', marginBottom: '20px' }}>
-            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
+          <Box 
+            p="md" 
+            bg="#0d0d0d" 
+            style={{ 
+              borderRadius: '4px', 
+              marginBottom: '20px',
+              height: '180px', // Reduced height
+              overflowY: 'auto',
+              // Custom scrollbar styling
+              '&::-webkit-scrollbar': {
+                width: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: '#0d0d0d',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#2b2b2b',
+                borderRadius: '3px',
+              },
+            }}
+          >
+            <Text size="sm" style={{ whiteSpace: 'pre-wrap', fontSize: '14px' }}>
               {selectedLogic?.instructions}
             </Text>
           </Box>
-
-          <Text fw={500} size="sm" mb="xs">
+      
+          {/* Model Selection */}
+          <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
             Model
           </Text>
           <Group grow mb="lg">
@@ -320,7 +374,7 @@ Info to use on the recipient and their company:
                   root: {
                     backgroundColor: activeTab === model.toLowerCase().replace(' ', '-') ? "#F5A623" : "transparent",
                     borderColor: "#2b2b2b",
-                    color: activeTab === model.toLowerCase().replace(' ', '-') ? "#000000" : "#ffffff",
+                    color: activeTab === model.toLowerCase().replace(' ', '-') ? "#000000" : "#777777", // Darker text for inactive
                     '&:hover': {
                       backgroundColor: activeTab === model.toLowerCase().replace(' ', '-') ? "#E09612" : "#2b2b2b",
                     },
@@ -331,8 +385,9 @@ Info to use on the recipient and their company:
               </Button>
             ))}
           </Group>
-
-          <Text fw={500} size="sm" mb="xs">
+      
+          {/* Additional Steps */}
+          <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
             Additional Steps
           </Text>
           <Group mb="xl">
@@ -344,6 +399,7 @@ Info to use on the recipient and their company:
                 root: {
                   borderColor: "#2b2b2b",
                   color: "#ffffff",
+                  fontSize: '14px',
                 },
               }}
             >
@@ -357,24 +413,30 @@ Info to use on the recipient and their company:
                 root: {
                   borderColor: "#2b2b2b",
                   color: "#ffffff",
+                  fontSize: '14px',
                 },
               }}
             >
               EXPORT
             </Button>
           </Group>
-
+      
+          {/* Run New Job Button */}
           <Button
             fullWidth
             disabled={!selectedLogic?.isDefault}
             onClick={handleNavigateToCreateJob}
             styles={{
               root: {
-                backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b",
-                color: selectedLogic?.isDefault ? "#000000" : "#5c5c5c",
+                backgroundColor: selectedLogic?.isDefault ? "#333333" : "#2b2b2b", // Darker background
+                color: selectedLogic?.isDefault ? "#ffffff" : "#5c5c5c", // White text for active
                 '&:hover': {
-                  backgroundColor: selectedLogic?.isDefault ? "#e0e0e0" : "#2b2b2b",
+                  backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b", // White bg on hover
+                  color: selectedLogic?.isDefault ? "#000000" : "#5c5c5c", // Black text on hover
                 },
+                transition: 'all 0.2s ease',
+                fontFamily: GeistMono.style.fontFamily,
+                fontWeight: 700,
               },
             }}
           >
