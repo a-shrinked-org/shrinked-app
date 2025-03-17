@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import { useList } from "@refinedev/core";
+import React, { useState, useEffect } from "react";
 import {
   Stack,
   Button,
   Group,
-  Modal,
   Text,
   Badge,
   Box,
@@ -13,16 +13,16 @@ import {
   Flex,
   Tabs,
   LoadingOverlay,
+  Modal,
+  ActionIcon
 } from "@mantine/core";
 import {
-  FileScan,
-  Plus,
+  Edit,
+  FileSearch,
   Upload,
   Download,
-  ExternalLink,
 } from 'lucide-react';
-import { authUtils } from "@/utils/authUtils";
-import { IconWrapper } from "@/utils/ui-utils";
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { GeistMono } from 'geist/font/mono';
@@ -42,6 +42,36 @@ export default function LogicList() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedLogic, setSelectedLogic] = useState<LogicDocument | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>("claude-3.7-sonnet");
+  const [isLoading, setIsLoading] = useState(false);
+  const [realJobsCount, setRealJobsCount] = useState(0);
+
+  // Fetch real jobs count for the default logic
+  useEffect(() => {
+    const fetchJobsCount = async () => {
+      try {
+        // Check if authenticated
+        if (!authUtils.isAuthenticated()) return;
+
+        setIsLoading(true);
+        // Get jobs to count how many use the default logic
+        const response = await fetch(`${API_CONFIG.API_URL}/jobs`, {
+          headers: authUtils.getAuthHeaders()
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Count jobs with default logic
+          setRealJobsCount(data.data?.length || 3); // Fallback to 3 if no data
+        }
+      } catch (error) {
+        console.error("Error fetching jobs count:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchJobsCount();
+  }, []);
 
   // Hardcoded data for logic templates
   const mockLogicData: LogicDocument[] = [
@@ -52,7 +82,7 @@ export default function LogicList() {
       description: "Designed to help manage sales processes and maximize customer engagement.",
       createdAt: new Date().toISOString(),
       status: "active",
-      jobsCount: 3,
+      jobsCount: realJobsCount,
       steps: 3,
       isDefault: true,
       isComingSoon: false,
@@ -73,7 +103,7 @@ Info to use on the recipient and their company:
       fileName: "competitor-analysis-alt",
       description: "Designed to help manage sales processes and maximize customer engagement.",
       createdAt: new Date().toISOString(),
-      status: "active",
+      status: "inactive",
       jobsCount: 0,
       steps: 0,
       isDefault: false,
@@ -94,7 +124,46 @@ Info to use on the recipient and their company:
     {
       header: "Steps",
       accessor: (doc: LogicDocument) => (
-        <Text size="sm">{doc.steps}</Text>
+        <Group gap="xs">
+          <Button
+            variant="outline"
+            size="xs"
+            styles={{
+              root: {
+                borderColor: "#2b2b2b",
+                color: "#ffffff",
+                textTransform: "uppercase",
+                padding: "4px 8px",
+                fontSize: "10px",
+                fontWeight: "bold",
+                '&:hover': {
+                  backgroundColor: "#2b2b2b",
+                },
+              },
+            }}
+          >
+            UPLOAD
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
+            styles={{
+              root: {
+                borderColor: "#2b2b2b",
+                color: "#ffffff",
+                textTransform: "uppercase",
+                padding: "4px 8px",
+                fontSize: "10px",
+                fontWeight: "bold",
+                '&:hover': {
+                  backgroundColor: "#2b2b2b",
+                },
+              },
+            }}
+          >
+            EXPORT
+          </Button>
+        </Group>
       ),
     },
   ];
@@ -113,42 +182,90 @@ Info to use on the recipient and their company:
     }
   };
 
-  // Custom row renderer with badge for default/coming soon status
+  // Custom row renderer with status indicator for default/coming soon status
   const renderTitleWithBadge = (doc: LogicDocument) => (
-    <Flex align="center" gap="sm">
-      <Text size="md" fw={500}>
-        {doc.title}
+    <Flex direction="column" gap={4}>
+      <Flex align="center">
+        {/* Status indicator - filled white circle for default, outlined for others */}
+        {doc.isDefault ? (
+          <div style={{ 
+            width: '16px', 
+            height: '16px', 
+            borderRadius: '50%', 
+            backgroundColor: '#ffffff', 
+            marginRight: '8px' 
+          }}/>
+        ) : (
+          <div style={{ 
+            width: '16px', 
+            height: '16px', 
+            borderRadius: '50%', 
+            border: '1.5px solid #ffffff', 
+            marginRight: '8px',
+            backgroundColor: 'transparent'
+          }}/>
+        )}
+
+        <Text size="md" fw={500} mr="xs">
+          {doc.title}
+        </Text>
+        
+        {/* Badge indicators */}
+        {doc.isDefault && (
+          <Badge color="blue" variant="filled" size="sm">Default</Badge>
+        )}
+        {doc.isComingSoon && (
+          <Badge color="gray" variant="filled" size="sm">Coming soon</Badge>
+        )}
+      </Flex>
+      
+      <Text size="xs" c="#a1a1a1" ml={24}>
+        {doc.description}
       </Text>
-      {doc.isDefault && (
-        <Badge color="blue" variant="filled" size="sm">Default</Badge>
-      )}
-      {doc.isComingSoon && (
-        <Badge color="gray" variant="filled" size="sm">Coming soon</Badge>
-      )}
     </Flex>
   );
 
   // Custom actions for the logic items
   const renderActions = (doc: LogicDocument) => (
     <Group gap="xs">
-      <Button
-        variant="outline"
-        size="xs"
-        leftSection={<Upload size={14} />}
-        disabled={doc.isComingSoon}
+      {/* Edit action - active only for default logic */}
+      <ActionIcon
+        variant="subtle"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (doc.isDefault) {
+            window.location.href = "/jobs/create";
+          }
+        }}
+        disabled={!doc.isDefault}
+        style={{
+          color: doc.isDefault ? '#ffffff' : '#555555',
+          opacity: doc.isDefault ? 1 : 0.5,
+          cursor: doc.isDefault ? 'pointer' : 'default'
+        }}
       >
-        UPLOAD
-      </Button>
-      <Button
-        variant="outline"
-        size="xs"
-        leftSection={<Download size={14} />}
-        disabled={doc.isComingSoon}
+        <Edit size={16} />
+      </ActionIcon>
+      
+      {/* Scan document action - always disabled for now */}
+      <ActionIcon
+        variant="subtle"
+        disabled={true}
+        style={{
+          color: '#555555',
+          opacity: 0.5,
+          cursor: 'default'
+        }}
       >
-        EXPORT
-      </Button>
+        <FileSearch size={16} />
+      </ActionIcon>
     </Group>
   );
+
+  // Grid template columns for logic table
+  const getCustomGridTemplate = () => {
+    return "65% 10% 10% 15%"; // title, jobs, steps, actions
+  };
 
   return (
     <>
@@ -156,16 +273,19 @@ Info to use on the recipient and their company:
         data={mockLogicData}
         onRowClick={handleLogicClick}
         formatDate={formatDate}
-        isLoading={false}
+        isLoading={isLoading}
         title="PROCESSING LOGIC"
         extraColumns={logicColumns}
         noDataMessage="No logic templates found."
         showStatus={false}
-        onAddNew={() => {}}
         // Override title renderer
         titleRenderer={(doc) => renderTitleWithBadge(doc)}
         // Override actions renderer
         actionsRenderer={(doc) => renderActions(doc)}
+        // Don't show date column
+        showDate={false}
+        // Custom grid template
+        customGridTemplate={getCustomGridTemplate()}
       />
 
       {/* Logic Details Modal */}
