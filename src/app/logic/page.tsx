@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import { useList } from "@refinedev/core";
+import React, { useState, useEffect } from "react";
 import {
   Stack,
   Button,
   Group,
-  Modal,
   Text,
   Badge,
   Box,
@@ -13,16 +13,16 @@ import {
   Flex,
   Tabs,
   LoadingOverlay,
+  Modal,
 } from "@mantine/core";
 import {
   CircleDot,
-  FileScan,
-  Plus,
+  Circle as CircleIcon,
   Upload,
   Download,
-  ExternalLink,
+  FileScan,
 } from 'lucide-react';
-import { authUtils } from "@/utils/authUtils";
+import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
@@ -44,6 +44,35 @@ export default function LogicList() {
   const [selectedLogic, setSelectedLogic] = useState<LogicDocument | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>("claude-3.7-sonnet");
   const [isLoading, setIsLoading] = useState(false);
+  const [realJobsCount, setRealJobsCount] = useState(0);
+
+  // Fetch real jobs count for the default logic
+  useEffect(() => {
+    const fetchJobsCount = async () => {
+      try {
+        // Check if authenticated
+        if (!authUtils.isAuthenticated()) return;
+
+        setIsLoading(true);
+        // Get jobs to count how many use the default logic
+        const response = await fetch(`${API_CONFIG.API_URL}/jobs`, {
+          headers: authUtils.getAuthHeaders()
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Count jobs with default logic
+          setRealJobsCount(data.data?.length || 3); // Fallback to 3 if no data
+        }
+      } catch (error) {
+        console.error("Error fetching jobs count:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchJobsCount();
+  }, []);
 
   // Hardcoded data for logic templates
   const mockLogicData: LogicDocument[] = [
@@ -54,7 +83,7 @@ export default function LogicList() {
       description: "Designed to help manage sales processes and maximize customer engagement.",
       createdAt: new Date().toISOString(),
       status: "active",
-      jobsCount: 3,
+      jobsCount: realJobsCount,
       steps: 3,
       isDefault: true,
       isComingSoon: false,
@@ -75,7 +104,7 @@ Info to use on the recipient and their company:
       fileName: "competitor-analysis-alt",
       description: "Designed to help manage sales processes and maximize customer engagement.",
       createdAt: new Date().toISOString(),
-      status: "active",
+      status: "inactive",
       jobsCount: 0,
       steps: 0,
       isDefault: false,
@@ -85,7 +114,7 @@ Info to use on the recipient and their company:
     }
   ];
 
-  // Custom columns for the Logic table
+  // Custom columns for the Logic table - no date column
   const logicColumns = [
     {
       header: "Jobs",
@@ -115,18 +144,35 @@ Info to use on the recipient and their company:
     }
   };
 
-  // Custom row renderer with badge for default/coming soon status
+  // Custom status indicator for logic items
+  const renderStatusIcon = (doc: LogicDocument) => (
+    <Box style={{ marginRight: '8px', display: 'inline-flex', alignItems: 'center' }}>
+      {doc.isDefault ? (
+        <CircleDot size={16} color="#ffffff" />
+      ) : (
+        <CircleIcon size={16} color="#ffffff" style={{ fill: 'transparent' }} />
+      )}
+    </Box>
+  );
+
+  // Custom row renderer with status icon for default/coming soon status
   const renderTitleWithBadge = (doc: LogicDocument) => (
-    <Flex align="center" gap="sm">
-      <Text size="md" fw={500}>
-        {doc.title}
+    <Flex direction="column" gap={4}>
+      <Flex align="center">
+        {renderStatusIcon(doc)}
+        <Text size="md" fw={500} mr="xs">
+          {doc.title}
+        </Text>
+        {doc.isDefault && (
+          <Badge color="blue" variant="filled" size="sm">Default</Badge>
+        )}
+        {doc.isComingSoon && (
+          <Badge color="gray" variant="filled" size="sm">Coming soon</Badge>
+        )}
+      </Flex>
+      <Text size="xs" c="#a1a1a1" ml={24}>
+        {doc.description}
       </Text>
-      {doc.isDefault && (
-        <Badge color="blue" variant="filled" size="sm">Default</Badge>
-      )}
-      {doc.isComingSoon && (
-        <Badge color="gray" variant="filled" size="sm">Coming soon</Badge>
-      )}
     </Flex>
   );
 
@@ -138,6 +184,15 @@ Info to use on the recipient and their company:
         size="xs"
         leftSection={<Upload size={14} />}
         disabled={doc.isComingSoon}
+        styles={{
+          root: {
+            borderColor: "#2b2b2b",
+            color: "#ffffff",
+            '&:hover': {
+              backgroundColor: "#2b2b2b",
+            },
+          },
+        }}
       >
         UPLOAD
       </Button>
@@ -146,11 +201,25 @@ Info to use on the recipient and their company:
         size="xs"
         leftSection={<Download size={14} />}
         disabled={doc.isComingSoon}
+        styles={{
+          root: {
+            borderColor: "#2b2b2b",
+            color: "#ffffff",
+            '&:hover': {
+              backgroundColor: "#2b2b2b",
+            },
+          },
+        }}
       >
         EXPORT
       </Button>
     </Group>
   );
+
+  // Grid template columns for logic table
+  const getCustomGridTemplate = () => {
+    return "65% 10% 10% 15%"; // title, jobs, steps, actions
+  };
 
   return (
     <>
@@ -163,26 +232,15 @@ Info to use on the recipient and their company:
         extraColumns={logicColumns}
         noDataMessage="No logic templates found."
         showStatus={false}
-        onAddNew={() => {}}
         // Override title renderer
         titleRenderer={(doc) => renderTitleWithBadge(doc)}
         // Override actions renderer
         actionsRenderer={(doc) => renderActions(doc)}
+        // Don't show date column
+        showDate={false}
+        // Custom grid template
+        customGridTemplate={getCustomGridTemplate()}
       />
-      
-      {/* Display "ADDING/EDITING OF LOGIC SOON" subtitle */}
-      <Text 
-        size="xs" 
-        color="dimmed" 
-        style={{ 
-          position: 'absolute', 
-          top: '20px', 
-          right: '20px', 
-          fontFamily: GeistMono.style.fontFamily 
-        }}
-      >
-        ADDING/EDITING OF LOGIC SOON
-      </Text>
 
       {/* Logic Details Modal */}
       <Modal

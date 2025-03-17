@@ -72,6 +72,8 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   noDataMessage?: string;
   titleRenderer?: (doc: T) => React.ReactNode;
   actionsRenderer?: (doc: T) => React.ReactNode;
+  showDate?: boolean;
+  customGridTemplate?: string;
 }
 
 // Changed from generic expression to function declaration
@@ -91,9 +93,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     title = "DOCUMENTS",
     extraColumns = [],
     showStatus = true,
+    showDate = true,
     noDataMessage = "No documents found.",
     titleRenderer,
-    actionsRenderer
+    actionsRenderer,
+    customGridTemplate
   } = props;
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -188,6 +192,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
 
   // Calculate grid template columns with improved alignment
   const getGridTemplateColumns = () => {
+    // If custom grid template is provided, use it
+    if (customGridTemplate) {
+      return customGridTemplate;
+    }
+    
     const columnsCount = visibleColumns.length;
     
     // Determine if we're in the processing list (fewer columns) or jobs list (more columns)
@@ -195,20 +204,22 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     
     if (isProcessingList) {
       // For processing list: title gets more space, date and actions get fixed widths
-      return hasActions ? "60% 15% 25%" : "70% 30%";
+      return hasActions ? 
+        `60% ${showDate ? '15% ' : ''}${hasActions ? '25%' : ''}` : 
+        `70% ${showDate ? '30%' : ''}`;
     } else if (columnsCount === 0) {
       // For other views with just status: title gets space, status and date get fixed widths
       return hasActions 
-        ? `50% ${showStatus ? '10% ' : ''}15% 25%` 
-        : `60% ${showStatus ? '15% ' : ''}25%`;
+        ? `50% ${showStatus ? '10% ' : ''}${showDate ? '15% ' : ''}25%` 
+        : `60% ${showStatus ? '15% ' : ''}${showDate ? '25%' : ''}`;
     } else {
       // For job list with extra columns: more balanced approach
       // Title still gets priority, other columns are more evenly distributed
       const extraColWidth = Math.max(8, 25 / columnsCount); // Minimum 8% width
       
       return hasActions 
-        ? `45% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%) 15%`
-        : `50% ${showStatus ? '10% ' : ''}15% repeat(${columnsCount}, ${extraColWidth}%)`;
+        ? `45% ${showStatus ? '10% ' : ''}${showDate ? '15% ' : ''}repeat(${columnsCount}, ${extraColWidth}%) 15%`
+        : `50% ${showStatus ? '10% ' : ''}${showDate ? '15% ' : ''}repeat(${columnsCount}, ${extraColWidth}%)`;
     }
   };
 
@@ -256,7 +267,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
         >
           <Box style={{ textAlign: 'left' }}>/title</Box>
           {showStatus && <Box style={{ textAlign: 'left' }}>/status</Box>}
-          <Box style={{ textAlign: 'left' }}>/date</Box>
+          {showDate && <Box style={{ textAlign: 'left' }}>/date</Box>}
           {visibleColumns.map((col, index) => (
             <Box key={index} style={{ textAlign: 'left' }}>/{col.header.toLowerCase()}</Box>
           ))}
@@ -327,9 +338,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                   )}
                   
-                  <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
-                    <Text size="sm">{formatDate(doc.createdAt)}</Text>
-                  </Box>
+                  {showDate && (
+                    <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                      <Text size="sm">{formatDate(doc.createdAt)}</Text>
+                    </Box>
+                  )}
                   
                   {visibleColumns.map((col, index) => (
                     <Box key={index} style={{ 
@@ -503,9 +516,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                         </Text>
                       )}
                       
-                      <Text size="xs" c="#a1a1a1">
-                        {formatDate(doc.createdAt)}
-                      </Text>
+                      {showDate && (
+                        <Text size="xs" c="#a1a1a1">
+                          {formatDate(doc.createdAt)}
+                        </Text>
+                      )}
                       
                       {visibleColumns.map((col, index) => (
                         <Text key={index} size="xs" c="#a1a1a1">

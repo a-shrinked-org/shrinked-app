@@ -23,10 +23,10 @@ function RedirectToLogin() {
   return <LoadingFallback />;
 }
 
-export default function ApiKeysLayout({ children }: React.PropsWithChildren) {
+export default function LogicLayout({ children }: React.PropsWithChildren) {
   return (
     <Authenticated
-      key="api-keys-layout"
+      key="logic-layout"
       v3LegacyAuthProviderCompatible
       loading={<LoadingFallback />}
       fallback={<RedirectToLogin />}
