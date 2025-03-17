@@ -266,10 +266,19 @@ Info to use on the recipient and their company:
       />
 
       {/* Logic Details Modal */}
-      {/* Logic Details Modal - Refined to match design precisely */}
       <Modal
         opened={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
+        closeButtonProps={{
+          style: {
+            position: 'relative', // Change position to relative
+            top: 'auto',
+            right: 'auto',
+            float: 'right', // Float to right
+            marginTop: '16px', // Align with title
+            color: '#ffffff'
+          }
+        }}
         title={null} // Remove default title, we'll add custom title
         centered
         styles={{
@@ -277,7 +286,9 @@ Info to use on the recipient and their company:
             backgroundColor: '#000000', 
             color: '#ffffff',
             borderBottom: 'none', // Remove separator
-            padding: '20px 24px 0',
+            padding: '16px 24px 0',
+            display: 'flex',
+            justifyContent: 'flex-end', // Move close button to right
           },
           body: { 
             backgroundColor: '#000000', 
@@ -300,7 +311,7 @@ Info to use on the recipient and their company:
         }}
       >
         <Box>
-          {/* Custom Title and Description */}
+          {/* Custom Title and Description - using GeistSans (default) */}
           <Text fw={700} size="lg" mb="8px">
             Edit logic template
           </Text>
@@ -332,7 +343,7 @@ Info to use on the recipient and their company:
             )}
           </Box>
       
-          {/* Instructions Section */}
+          {/* Instructions Section - using GeistSans (default) */}
           <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
             Instructions
           </Text>
@@ -353,8 +364,9 @@ Info to use on the recipient and their company:
                 background: '#000000',
               },
               '&::-webkit-scrollbar-thumb': {
-                background: '#2b2b2b',
+                background: '#0C0C0C',
                 borderRadius: '3px',
+                border: '0.5px solid #2B2B2B',
               },
             }}
           >
@@ -369,8 +381,8 @@ Info to use on the recipient and their company:
           </Text>
           <Group grow mb="lg">
             {selectedLogic?.availableModels?.map((model, index) => {
-              const isActive = activeTab === model.toLowerCase().replace(' ', '-');
-              const isSonnet = model.toLowerCase().includes('sonnet');
+              const isActive = model.toLowerCase().includes('sonnet') ? 
+                true : activeTab === model.toLowerCase().replace(' ', '-');
               
               return (
                 <Button 
@@ -379,20 +391,15 @@ Info to use on the recipient and their company:
                   onClick={() => setActiveTab(model.toLowerCase().replace(' ', '-'))}
                   styles={{
                     root: {
-                      backgroundColor: isActive 
-                        ? (isSonnet ? "#EAA944" : "#2B2B2B") // EAA944 for Sonnet, 2B2B2B for others
-                        : "transparent",
+                      backgroundColor: model.toLowerCase().includes('sonnet') 
+                        ? "#EAA944" 
+                        : "#2B2B2B",
                       borderColor: "#2b2b2b",
-                      color: isActive ? "#000000" : "#777777", // Black text for active
+                      color: model.toLowerCase().includes('sonnet') ? "#000000" : "#777777",
                       height: '44px', // 44px height
                       fontFamily: GeistMono.style.fontFamily,
                       fontSize: '14px',
                       fontWeight: 700,
-                      '&:hover': {
-                        backgroundColor: isActive 
-                          ? (isSonnet ? "#EAA944" : "#2B2B2B") 
-                          : "#2b2b2b",
-                      },
                     },
                   }}
                 >
@@ -410,7 +417,6 @@ Info to use on the recipient and their company:
             <Button
               variant="outline"
               size="compact-xs" // Smaller size
-              leftSection={<Upload size={12} />}
               styles={{
                 root: {
                   height: '20px', // 20px height
@@ -428,7 +434,6 @@ Info to use on the recipient and their company:
             <Button
               variant="outline"
               size="compact-xs" // Smaller size
-              leftSection={<Download size={12} />}
               styles={{
                 root: {
                   height: '20px', // 20px height
