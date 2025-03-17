@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_CONFIG, authUtils } from "@/utils/authUtils";
-import { GeistMono } from 'geist/font/mono';
 import "@/styles/callback-styles.css";
 
 export default function AuthCallback() {
@@ -15,6 +14,12 @@ export default function AuthCallback() {
   const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
+	// Add Geist Mono font if needed
+	const link = document.createElement('link');
+	link.rel = 'stylesheet';
+	link.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap';
+	document.head.appendChild(link);
+	
 	// Simple progress animation
 	const progressInterval = setInterval(() => {
 	  setProgress(prev => (prev + 10) % 110);
@@ -22,6 +27,7 @@ export default function AuthCallback() {
 
 	return () => {
 	  clearInterval(progressInterval);
+	  document.head.removeChild(link);
 	};
   }, []);
 
@@ -99,7 +105,7 @@ export default function AuthCallback() {
 
   if (error) {
 	return (
-	  <div className="callback-container error-container" style={{ fontFamily: GeistMono.style.fontFamily }}>
+	  <div className="callback-container error-container">
 		<div className="callback-content">
 		  <div className="error-message">
 			{error}
