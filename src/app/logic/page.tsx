@@ -388,7 +388,7 @@ Info to use on the recipient and their company:
           <Button
             fullWidth
             disabled={!selectedLogic?.isDefault}
-            onClick={handleCreateJob}
+            onClick={handleNavigateToCreateJob}
             styles={{
               root: {
                 backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b",
