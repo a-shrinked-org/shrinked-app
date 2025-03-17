@@ -27,6 +27,7 @@ import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { GeistMono } from 'geist/font/mono';
+import { GeistSans } from 'geist/font/sans'; // Added GeistSans import
 
 // Extended document interface to include Logic-specific fields
 interface LogicDocument extends ProcessedDocument {
@@ -309,8 +310,12 @@ Info to use on the recipient and their company:
             </ActionIcon>
           </Flex>
       
-          {/* Subtitle */}
-          <Text size="md" mb="lg" style={{ color: '#A1A1A1', fontSize: '14px' }}>
+          {/* Subtitle - Applied GeistSans */}
+          <Text size="md" mb="lg" style={{ 
+            color: '#A1A1A1', 
+            fontSize: '14px',
+            fontFamily: GeistSans.style.fontFamily 
+          }}>
             Wrap text with &#123;&#123; &#125;&#125; to make part of the task editable, use [[]] to make a source reference.
           </Text>
       
@@ -338,7 +343,7 @@ Info to use on the recipient and their company:
             )}
           </Box>
       
-          {/* Instructions Section - using GeistSans (default) */}
+          {/* Instructions Section - using GeistSans */}
           <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
             Instructions
           </Text>
@@ -365,7 +370,11 @@ Info to use on the recipient and their company:
               },
             }}
           >
-            <Text size="sm" style={{ whiteSpace: 'pre-wrap', fontSize: '14px' }}>
+            <Text size="sm" style={{ 
+              whiteSpace: 'pre-wrap', 
+              fontSize: '14px',
+              fontFamily: GeistSans.style.fontFamily 
+            }}>
               {selectedLogic?.instructions}
             </Text>
           </Box>
@@ -434,7 +443,7 @@ Info to use on the recipient and their company:
                   padding: '0 8px',
                   borderColor: "#2b2b2b",
                   borderWidth: '1px',
-                  color: "#ffffff",
+                  color: "#A1A1A1",
                   fontSize: '12px',
                   fontWeight: 500,
                 },
