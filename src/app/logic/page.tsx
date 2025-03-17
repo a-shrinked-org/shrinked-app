@@ -280,7 +280,7 @@ Info to use on the recipient and their company:
           body: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            padding: '24px',
+            padding: '14px 30px;',
           },
           inner: {
             padding: 0,
@@ -296,16 +296,16 @@ Info to use on the recipient and their company:
         <Box>
           {/* Custom header with properly aligned title and close button */}
           <Flex justify="space-between" align="center" mb="16px">
-            <Text fw={700} size="lg">
+            <Text fw={500} size="md">
               Edit logic template
             </Text>
-            <ActionIcon onClick={() => setIsDetailsModalOpen(false)} variant="transparent" color="#ffffff">
+            <ActionIcon onClick={() => setIsDetailsModalOpen(false)} variant="transparent" color="#ffffff" style={{ margin-right: '-10px', margin-top: '-10px' }}>
               <X size={18} />
             </ActionIcon>
           </Flex>
       
           {/* Subtitle */}
-          <Text size="md" mb="lg" style={{ color: '#ffffff', fontSize: '16px' }}>
+          <Text size="md" mb="lg" style={{ color: '#ffffff', fontSize: '14px' }}>
             Wrap text with &#123;&#123; &#125;&#125; to make part of the task editable, use [[]] to make a source reference.
           </Text>
       
@@ -322,7 +322,7 @@ Info to use on the recipient and their company:
               border: '0.5px solid #2B2B2B', // 0.5px outline
             }}
           >
-            <Text fw={700} style={{ fontFamily: GeistMono.style.fontFamily, fontSize: '14px' }}>
+            <Text fw={500} style={{ fontFamily: GeistMono.style.fontFamily, fontSize: '14px' }}>
               {selectedLogic?.title?.toUpperCase()}
             </Text>
             {selectedLogic?.isDefault && (
@@ -448,6 +448,7 @@ Info to use on the recipient and their company:
               root: {
                 backgroundColor: selectedLogic?.isDefault ? "#333333" : "#2b2b2b",
                 color: selectedLogic?.isDefault ? "#ffffff" : "#5c5c5c",
+                padding-bottom:
                 height: '44px', // 44px height
                 '&:hover': {
                   backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b",
