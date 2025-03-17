@@ -21,6 +21,7 @@ import {
   FileText,
   Upload,
   Download,
+  X,
 } from 'lucide-react';
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
