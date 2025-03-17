@@ -266,7 +266,7 @@ Info to use on the recipient and their company:
         statusIndicatorStyle="whiteFilled"
       />
 
-      {/* Logic Details Modal */}
+      {/* Lo  gic Details Modal */}
       <Modal
         opened={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
@@ -299,7 +299,12 @@ Info to use on the recipient and their company:
             <Text fw={500} size="md">
               Edit logic template
             </Text>
-            <ActionIcon onClick={() => setIsDetailsModalOpen(false)} variant="transparent" color="#ffffff" style={{ margin-right: '-10px', margin-top: '-10px' }}>
+            <ActionIcon 
+              onClick={() => setIsDetailsModalOpen(false)} 
+              variant="transparent" 
+              color="#ffffff" 
+              style={{ marginRight: '-10px', marginTop: '-10px' }} // Fixed: Used camelCase
+            >
               <X size={18} />
             </ActionIcon>
           </Flex>
