@@ -266,7 +266,7 @@ Info to use on the recipient and their company:
         statusIndicatorStyle="whiteFilled"
       />
 
-      {/* Lo  gic Details Modal */}
+      {/* Logic Details Modal */}
       <Modal
         opened={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
@@ -280,7 +280,7 @@ Info to use on the recipient and their company:
           body: { 
             backgroundColor: '#000000', 
             color: '#ffffff',
-            padding: '14px 30px;',
+            padding: '14px 30px', // Fixed: Removed semicolon
           },
           inner: {
             padding: 0,
@@ -453,7 +453,6 @@ Info to use on the recipient and their company:
               root: {
                 backgroundColor: selectedLogic?.isDefault ? "#333333" : "#2b2b2b",
                 color: selectedLogic?.isDefault ? "#ffffff" : "#5c5c5c",
-                padding-bottom:
                 height: '44px', // 44px height
                 '&:hover': {
                   backgroundColor: selectedLogic?.isDefault ? "#ffffff" : "#2b2b2b",
