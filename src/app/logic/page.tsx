@@ -184,26 +184,28 @@ Info to use on the recipient and their company:
   const renderTitleWithBadge = (doc: LogicDocument) => (
     <Flex direction="column" gap={4}>
       <Flex align="center">
-        {/* Status indicator - filled white circle for default, outlined for others */}
+        {/* Replace the colored circle with white circles */}
         {doc.isDefault ? (
+          // Filled white circle for default
           <div style={{ 
             width: '16px', 
             height: '16px', 
             borderRadius: '50%', 
-            backgroundColor: '#ffffff', 
-            marginRight: '8px' 
+            backgroundColor: '#ffffff',
+            marginRight: '8px'
           }}/>
         ) : (
+          // Outlined white circle for others
           <div style={{ 
             width: '16px', 
             height: '16px', 
             borderRadius: '50%', 
-            border: '1.5px solid #ffffff', 
-            marginRight: '8px',
-            backgroundColor: 'transparent'
+            border: '1.5px solid #ffffff',
+            backgroundColor: 'transparent',
+            marginRight: '8px'
           }}/>
         )}
-
+  
         <Text size="md" fw={500} mr="xs">
           {doc.title}
         </Text>
@@ -222,11 +224,24 @@ Info to use on the recipient and their company:
       </Text>
     </Flex>
   );
-
+  
   // Custom actions for the logic items
   const renderActions = (doc: LogicDocument) => (
     <Group gap="xs">
-      {/* Edit action - active only for default logic */}
+      {/* Edit icon - always disabled */}
+      <ActionIcon
+        variant="subtle"
+        disabled={true}
+        style={{
+          color: '#555555',
+          opacity: 0.5,
+          cursor: 'default'
+        }}
+      >
+        <Edit size={16} />
+      </ActionIcon>
+      
+      {/* File scan icon - active only for default logic */}
       <ActionIcon
         variant="subtle"
         onClick={(e) => {
@@ -240,19 +255,6 @@ Info to use on the recipient and their company:
           color: doc.isDefault ? '#ffffff' : '#555555',
           opacity: doc.isDefault ? 1 : 0.5,
           cursor: doc.isDefault ? 'pointer' : 'default'
-        }}
-      >
-        <Edit size={16} />
-      </ActionIcon>
-      
-      {/* Scan document action - always disabled for now */}
-      <ActionIcon
-        variant="subtle"
-        disabled={true}
-        style={{
-          color: '#555555',
-          opacity: 0.5,
-          cursor: 'default'
         }}
       >
         <FileSearch size={16} />
