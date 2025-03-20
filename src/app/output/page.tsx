@@ -124,7 +124,7 @@ export default function ProcessingList() {
     console.log("View document clicked for:", doc._id);
     
     // First check if we already have a jobId either from the doc or our mapping
-    let jobId = docToJobMapping[doc._id] || doc.jobId;
+    let jobId: string | undefined = docToJobMapping[doc._id] || doc.jobId;
     console.log("Initial jobId found:", jobId);
     
     // If we don't have a jobId yet, fetch it only for this document
@@ -146,13 +146,17 @@ export default function ProcessingList() {
           console.log("Job data received:", jobData);
           
           if (jobData && jobData._id) {
-            jobId = jobData._id;
+            const fetchedJobId: string = jobData._id;
+            jobId = fetchedJobId;
             console.log("Job ID found:", jobId);
             
-            // Update mapping
+            // Update mapping with a type-safe approach
             setDocToJobMapping(prev => {
               const newMapping = { ...prev };
-              newMapping[doc._id] = jobId;
+              // Only assign if jobId is definitely a string
+              if (typeof fetchedJobId === 'string') {
+                newMapping[doc._id] = fetchedJobId;
+              }
               return newMapping;
             });
           } else {
