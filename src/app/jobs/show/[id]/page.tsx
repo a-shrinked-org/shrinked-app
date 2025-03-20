@@ -169,10 +169,10 @@ export default function JobShow() {
     try {
       console.log('Attempting to fetch markdown with ID:', documentId);
       
-      // Use the API proxy for PDF endpoint
-      const response = await fetch(`/api/auth-proxy/pdf/${documentId}/markdown?includeReferences=true`, {
-        headers: getAuthHeaders(),
-      });
+      // Use fetchWithAuth instead of direct fetch with getAuthHeaders
+      const response = await fetchWithAuth(
+        `${API_CONFIG.API_URL}/pdf/${documentId}/markdown?includeReferences=true`
+      );
   
       if (!response.ok) {
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
@@ -188,7 +188,7 @@ export default function JobShow() {
     } finally {
       isLoadingMarkdown.current = false;
     }
-  }, [documentId, markdownContent, getAuthHeaders]);
+  }, [documentId, markdownContent, fetchWithAuth]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
