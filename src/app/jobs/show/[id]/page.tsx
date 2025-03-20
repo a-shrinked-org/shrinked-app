@@ -152,19 +152,6 @@ export default function JobShow() {
            jobData.steps?.find(step => step.data?.resultId)?.data?.resultId ||
            null;
   }, []);
-  
-  const ensureValidToken = useCallback(async () => {
-    // First try to get the existing token
-    const token = getAccessToken();
-    
-    if (!token) {
-      // No token, try to refresh
-      const refreshSuccess = await refreshToken();
-      return refreshSuccess ? getAccessToken() : null;
-    }
-    
-    return token;
-  }, [getAccessToken, refreshToken]);
 
   // Improved fetchMarkdownContent function with retry mechanism
   const fetchMarkdownContent = useCallback(async (forceRefresh = false) => {
