@@ -121,7 +121,7 @@ export default function JobShow() {
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
 
-  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth } = useAuth();
+  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
 
   // Set the document ID based on available data
   useEffect(() => {
@@ -152,14 +152,26 @@ export default function JobShow() {
            jobData.steps?.find(step => step.data?.resultId)?.data?.resultId ||
            null;
   }, []);
+  
+  const ensureValidToken = useCallback(async () => {
+    // First try to get the existing token
+    const token = getAccessToken();
+    
+    if (!token) {
+      // No token, try to refresh
+      const refreshSuccess = await refreshToken();
+      return refreshSuccess ? getAccessToken() : null;
+    }
+    
+    return token;
+  }, [getAccessToken, refreshToken]);
 
-  // Fetch markdown content from backend endpoint with improved caching and request tracking
-  // Fix for the fetchMarkdownContent function in page.tsx
-  const fetchMarkdownContent = useCallback(async () => {
+  // Improved fetchMarkdownContent function with retry mechanism
+  const fetchMarkdownContent = useCallback(async (forceRefresh = false) => {
     if (!documentId) return;
     
-    // Don't make the request if we already have content
-    if (markdownContent) return;
+    // Skip if we already have content and not forcing refresh
+    if (markdownContent && !forceRefresh) return;
     
     // Track if a request is already in progress
     if (isLoadingMarkdown.current) return;
@@ -171,13 +183,17 @@ export default function JobShow() {
     try {
       console.log('Attempting to fetch markdown with ID:', documentId);
       
-      // Get current access token
-      const token = getAccessToken();
+      // Ensure we have a valid token
+      const token = await ensureValidToken();
       
+      if (!token) {
+        throw new Error('Authentication failed - unable to get valid token');
+      }
+  
       // Update to use the correct API route with proper authentication
       const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
         headers: {
-          'Authorization': `Bearer ${token || ''}`
+          'Authorization': `Bearer ${token}`
         },
         cache: 'no-store' // Prevent caching issues
       });
@@ -201,10 +217,22 @@ export default function JobShow() {
             }
             
             const markdown = await retryResponse.text();
+            
+            // Check if content is empty
+            if (!markdown || markdown.trim() === '') {
+              throw new Error('No content available yet - document may still be processing');
+            }
+            
             setMarkdownContent(markdown);
             console.log('Fetched markdown content successfully using ID after token refresh:', documentId);
+            console.log('Markdown content length:', markdown.length);
+            setIsLoadingDoc(false);
+            isLoadingMarkdown.current = false;
             return;
           }
+        } else if (response.status === 404) {
+          // If 404, content might not be ready yet - trigger a retry after delay
+          throw new Error('Content not available yet - retrying in 2 seconds');
         }
         
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
@@ -212,16 +240,47 @@ export default function JobShow() {
   
       // The response should be the markdown text directly
       const markdown = await response.text();
+      
+      // Check if content is empty or very short (likely not complete)
+      if (!markdown || markdown.trim() === '') {
+        // Set up a timed retry
+        setTimeout(() => {
+          console.log('Empty content received, retrying fetch');
+          isLoadingMarkdown.current = false;
+          fetchMarkdownContent(true);
+        }, 2000); // Retry after 2 seconds
+        
+        throw new Error('No content available yet - document may still be processing');
+      }
+      
       setMarkdownContent(markdown);
       console.log('Fetched markdown content successfully using ID:', documentId);
+      console.log('Markdown content length:', markdown.length);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
-      setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
+      
+      // Check if this is a "not ready yet" error which we want to retry
+      if (error instanceof Error && 
+          (error.message.includes('not available yet') || 
+           error.message.includes('still be processing'))) {
+        
+        // Set up a retry after a delay
+        setTimeout(() => {
+          console.log('Retrying fetch after delay');
+          isLoadingMarkdown.current = false;
+          fetchMarkdownContent(true);
+        }, 2000); // Retry after 2 seconds
+        
+        setErrorMessage(`${error.message} - will retry automatically...`);
+      } else {
+        // For other errors, show the error message
+        setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
+      }
     } finally {
       isLoadingMarkdown.current = false;
       setIsLoadingDoc(false);
     }
-  }, [documentId, markdownContent, refreshToken, getAccessToken]);
+  }, [documentId, markdownContent, refreshToken, getAccessToken, ensureValidToken]);
   
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
@@ -365,12 +424,99 @@ export default function JobShow() {
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
   // Effect to load markdown content when tab changes to preview
+  // Modified useEffect to handle auto-retry for empty content
   useEffect(() => {
-    if (activeTab === "preview" && !markdownContent && documentId && !isLoadingMarkdown.current) {
-      // Only fetch markdown if we have a documentId and are in preview mode
-      fetchMarkdownContent();
+    if (activeTab === "preview" && documentId && !isLoadingMarkdown.current) {
+      // Check if we need to fetch or retry
+      if (!markdownContent || markdownContent.trim() === '') {
+        console.log("Preview tab active, fetching markdown content");
+        fetchMarkdownContent();
+      }
     }
   }, [activeTab, documentId, markdownContent, fetchMarkdownContent]);
+  
+  // Modified render logic for the preview tab
+  const renderPreviewContent = () => {
+    if (isDocLoading) {
+      return (
+        <Box style={{ position: 'relative', minHeight: '300px' }}>
+          <LoadingOverlay visible={true} />
+        </Box>
+      );
+    }
+    
+    if (errorMessage) {
+      return (
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          color="red" 
+          title="Error"
+          mb="md"
+        >
+          {errorMessage}
+          <Button 
+            leftSection={<RefreshCw size={16} />}
+            mt="sm"
+            onClick={manualRefetch}
+            variant="light"
+            size="sm"
+          >
+            Try again
+          </Button>
+        </Alert>
+      );
+    }
+    
+    if (markdownContent && markdownContent.trim() !== '') {
+      return (
+        <DocumentMarkdownRenderer 
+          markdown={markdownContent}
+          isLoading={false}
+          errorMessage={null}
+          onRefresh={manualRefetch}
+          processingStatus={processingDoc?.status || record?.status}
+        />
+      );
+    }
+    
+    // Show processing state if document is still processing
+    if (processingDoc?.status?.toLowerCase() === 'processing' || 
+        processingDoc?.status?.toLowerCase() === 'in_progress' || 
+        processingDoc?.status?.toLowerCase() === 'pending' || 
+        record?.status?.toLowerCase() === 'processing' || 
+        record?.status?.toLowerCase() === 'in_progress' || 
+        record?.status?.toLowerCase() === 'pending') {
+      return (
+        <DocumentMarkdownRenderer 
+          isLoading={false}
+          errorMessage={null}
+          onRefresh={manualRefetch}
+          processingStatus="processing"
+        />
+      );
+    }
+    
+    // Default no-content state
+    return (
+      <Alert 
+        icon={<AlertCircle size={16} />}
+        color="yellow"
+        title="Content Unavailable"
+        mb="md"
+      >
+        No content is available to display yet. The document may still be processing.
+        <Button 
+          leftSection={<RefreshCw size={16} />}
+          mt="sm"
+          onClick={manualRefetch}
+          variant="light"
+          size="sm"
+        >
+          Refresh
+        </Button>
+      </Alert>
+    );
+  };
 
   // Debounced refetch to prevent multiple rapid calls
   const debouncedRefetch = useCallback(
@@ -395,9 +541,25 @@ export default function JobShow() {
     [activeTab, documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]
   );
 
-  const manualRefetch = () => {
-    debouncedRefetch();
-  };
+  // Improved manual refetch function
+  const manualRefetch = useCallback(() => {
+    setErrorMessage(null);
+    
+    // Clear content states to force a fresh fetch
+    setMarkdownContent(null);
+    
+    if (processingDocId) {
+      console.log("Manual refresh: fetching processing document");
+      getProcessingDocument();
+    }
+    
+    // Always fetch markdown when we have a document ID
+    if (documentId) {
+      console.log("Manual refresh: fetching markdown content");
+      // Pass true to force refresh
+      fetchMarkdownContent(true);
+    }
+  }, [documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]);
 
   const formatDuration = (durationInMs?: number) => {
     if (!durationInMs) return "N/A";

@@ -15,21 +15,8 @@ export async function GET(
   const cookieStore = cookies();
   const accessToken = cookieStore.get('access_token')?.value;
   
-  // Get user token from localStorage as fallback (in localStorage via authUtils)
-  let userToken = '';
-  try {
-	if (typeof window !== 'undefined') {
-	  userToken = localStorage.getItem('access_token') || '';
-	}
-  } catch (e) {
-	console.error('Error accessing localStorage:', e);
-  }
-  
-  // Use either the cookie token or the localStorage token
-  const token = accessToken || userToken;
-  
-  if (!token) {
-	console.error('No authentication token found');
+  if (!accessToken) {
+	console.error('No authentication token found in cookies');
 	return NextResponse.json(
 	  { error: 'Authentication required' },
 	  { status: 401 }
@@ -80,7 +67,7 @@ export async function GET(
 	// Create headers with authorization
 	const headers: HeadersInit = {
 	  'Content-Type': 'application/json',
-	  'Authorization': `Bearer ${token}`
+	  'Authorization': `Bearer ${accessToken}`
 	};
 	
 	// Forward the request to the API
@@ -102,6 +89,16 @@ export async function GET(
 	// Handle different response types
 	if (responseType === 'text') {
 	  const text = await response.text();
+	  
+	  // If the content is empty, return 404 to trigger retry
+	  if (!text || text.trim() === '') {
+		console.log('Empty markdown content received, returning 404');
+		return NextResponse.json(
+		  { error: 'Content not available yet' },
+		  { status: 404 }
+		);
+	  }
+	  
 	  return new NextResponse(text, {
 		headers: {
 		  'Content-Type': 'text/markdown',
