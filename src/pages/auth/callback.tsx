@@ -48,21 +48,30 @@ export default function AuthCallback() {
 		  return;
 		}
 
+		// Clear any existing auth data first
+		authUtils.clearAuthStorage();
+
+		console.log("OAuth callback: Processing code", code.substring(0, 5) + "...");
+
 		// Exchange the code for tokens
-		const response = await fetch(`${API_CONFIG.API_URL}/auth/exchange`, {
+		const response = await fetch(`/api/auth-proxy/exchange`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ code }),
+		  credentials: 'include'
 		});
 
 		if (!response.ok) {
-		  const errorData = await response.json();
+		  console.error("OAuth error response:", response.status);
+		  const errorData = await response.json().catch(() => ({}));
+		  console.error("OAuth error details:", errorData);
 		  throw new Error(errorData.message || `Failed to exchange code: ${response.status}`);
 		}
 
 		const data = await response.json();
+		console.log("OAuth tokens received successfully");
 
 		// Save tokens
 		authUtils.saveTokens(data.accessToken, data.refreshToken);

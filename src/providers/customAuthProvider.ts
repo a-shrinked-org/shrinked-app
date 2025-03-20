@@ -228,7 +228,10 @@ class AuthProviderClass implements AuthProvider {
 		  }
   
 		  const loginData = await loginResponse.json();
-		  debug.log('login', `Login successful, saving tokens`);
+		  debug.log('login', `Login successful, clearing previous auth data and saving tokens`);
+		  
+		  // Clear any existing auth data first
+		  authUtils.clearAuthStorage();
 		  
 		  // Save tokens - this now also stores token metadata
 		  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
@@ -326,7 +329,10 @@ class AuthProviderClass implements AuthProvider {
 		}
   
 		const loginData = await loginResponse.json();
-		debug.log('login', `Login successful, saving tokens`);
+		debug.log('login', `Login successful, clearing previous auth data and saving tokens`);
+		
+		// Clear any existing auth data first
+		authUtils.clearAuthStorage();
 		
 		// Save tokens - this now also stores token metadata
 		authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
@@ -758,6 +764,10 @@ class AuthProviderClass implements AuthProvider {
 	  
 	  // Register the user with the Shrinked API
 	  debug.log('verifyEmail', `Making registration API request through proxy`);
+	  
+	  // First clear any existing auth data
+	  authUtils.clearAuthStorage();
+	  
 	  const registerResponse = await fetch(`/api/auth-proxy/register`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },

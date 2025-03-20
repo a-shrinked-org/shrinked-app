@@ -1,68 +1,98 @@
-// pages/api/auth/callback.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { API_CONFIG } from '@/utils/authUtils';
-import cookie from 'cookie';
+// app/api/auth-proxy/exchange/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Only allow GET requests
-  if (req.method !== 'GET') {
-	return res.status(405).json({ message: 'Method not allowed' });
-  }
+// API base URL from environment
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 
+export async function POST(request: NextRequest) {
   try {
-	const { code } = req.query;
-
-	if (!code || typeof code !== 'string') {
-	  return res.status(400).json({ message: 'Missing or invalid code parameter' });
+	// Parse the request body
+	const body = await request.json();
+	const { code } = body;
+	
+	// Validate code
+	if (!code) {
+	  return NextResponse.json(
+		{ error: 'Code is required' },
+		{ status: 400 }
+	  );
 	}
-
-	console.log(`Received code: ${code.substring(0, 5)}...`);
-
-	// Exchange the code for tokens
-	const exchangeResponse = await fetch(`${API_CONFIG.API_URL}/auth/exchange`, {
-	  method: 'POST',
-	  headers: {
-		'Content-Type': 'application/json',
-	  },
-	  body: JSON.stringify({ code }),
-	});
-
-	if (!exchangeResponse.ok) {
-	  const errorData = await exchangeResponse.json();
-	  console.error('Error exchanging code:', errorData);
-	  return res.status(exchangeResponse.status).json({ 
-		message: 'Failed to exchange code',
-		error: errorData 
+	
+	console.log(`Processing OAuth code exchange: ${code.substring(0, 5)}...`);
+	
+	try {
+	  // Forward the request to the actual API endpoint
+	  const response = await fetch(`${API_URL}/auth/exchange`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ code }),
+		credentials: 'omit',
 	  });
+	  
+	  // Get the response data
+	  const data = await response.json().catch(() => ({}));
+	  
+	  // Check for error response
+	  if (!response.ok) {
+		console.error('API error exchanging code:', data);
+		return NextResponse.json(
+		  { 
+			error: data.message || 'Failed to exchange code',
+			details: data
+		  },
+		  { status: response.status }
+		);
+	  }
+	  
+	  // If token exchange was successful, set tokens in cookies
+	  if (data.accessToken) {
+		// Store access token in cookie for server components
+		cookies().set({
+		  name: 'access_token',
+		  value: data.accessToken,
+		  httpOnly: true,
+		  path: '/',
+		  maxAge: 60 * 60,
+		  sameSite: 'lax',
+		  secure: process.env.NODE_ENV === 'production',
+		});
+		
+		// If refresh token is provided, store it as well
+		if (data.refreshToken) {
+		  cookies().set({
+			name: 'refresh_token',
+			value: data.refreshToken,
+			httpOnly: true,
+			path: '/',
+			maxAge: 30 * 24 * 60 * 60,
+			sameSite: 'lax',
+			secure: process.env.NODE_ENV === 'production',
+		  });
+		}
+	  }
+	  
+	  // Return the API response
+	  return NextResponse.json(data, { 
+		status: response.status,
+		headers: {
+		  'Cache-Control': 'no-store, max-age=0'
+		}
+	  });
+	} catch (apiError) {
+	  console.error('API error in OAuth code exchange:', apiError);
+	  return NextResponse.json(
+		{ error: 'Authentication service unavailable' },
+		{ status: 503 }
+	  );
 	}
-
-	const { accessToken, refreshToken } = await exchangeResponse.json();
-
-	// Set tokens as HTTP-only cookies
-	res.setHeader('Set-Cookie', [
-	  cookie.serialize('accessToken', accessToken, {
-		httpOnly: true,
-		secure: process.env.NODE_ENV !== 'development',
-		maxAge: 30 * 60, // 30 minutes
-		sameSite: 'strict',
-		path: '/',
-	  }),
-	  cookie.serialize('refreshToken', refreshToken, {
-		httpOnly: true,
-		secure: process.env.NODE_ENV !== 'development',
-		maxAge: 7 * 24 * 60 * 60, // 7 days
-		sameSite: 'strict',
-		path: '/',
-	  })
-	]);
-
-	// Redirect to the jobs page with successful login
-	return res.redirect(302, '/jobs');
   } catch (error) {
-	console.error('Error processing OAuth callback:', error);
-	return res.status(500).json({ 
-	  message: 'Internal server error during authentication',
-	  error: error instanceof Error ? error.message : 'Unknown error'
-	});
+	console.error('Error in OAuth code exchange proxy:', error);
+	return NextResponse.json(
+	  { error: 'Failed to process authentication request' },
+	  { status: 500 }
+	);
   }
 }
