@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 	  console.log('Processing complete registration for:', email);
 	  
 	  // Forward the request to the actual API endpoint
-	  // Based on Postman collection, the API only needs email and password
+	  // Add subscriptionPlan: "FREE" to meet validation requirements
 	  const response = await fetch(`${API_URL}/auth/register`, {
 		method: 'POST',
 		headers: {
@@ -65,8 +65,10 @@ export async function POST(request: NextRequest) {
 		body: JSON.stringify({
 		  email,
 		  password,
-		  // Include username if provided, otherwise don't include it
-		  ...(username && { username })
+		  // Include username if provided
+		  ...(username && { username }),
+		  // Add subscription plan to fix validation error
+		  subscriptionPlan: "FREE"
 		}),
 		credentials: 'omit',
 	  });
