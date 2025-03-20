@@ -48,7 +48,13 @@ export default function JobDetail() {
   
   const params = useParams();
   const router = useRouter();
-  const jobId = params.id as string;
+  
+  // Safely extract jobId with proper TypeScript null checking
+  const jobId = params ? (
+    typeof params.id === 'string' ? params.id : 
+    Array.isArray(params.id) ? params.id[0] : 
+    ""
+  ) : "";
   
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
