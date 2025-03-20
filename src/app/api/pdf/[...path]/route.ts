@@ -35,7 +35,7 @@ export async function GET(
   const requestUrl = queryString ? `${url}?${queryString}` : url;
   
   try {
-	console.log(`Proxying PDF request to: ${requestUrl}`);
+	console.log(`[AUTH-PROXY] Proxying PDF request to: ${requestUrl}`);
 	
 	// Create headers to forward
 	const headers: HeadersInit = {
@@ -59,6 +59,7 @@ export async function GET(
 	
 	// Handle the response based on content type
 	if (!response.ok) {
+	  console.error(`[AUTH-PROXY] PDF request failed with status: ${response.status}`);
 	  if (contentType?.includes('application/json')) {
 		const errorData = await response.json();
 		return NextResponse.json(errorData, { status: response.status });
@@ -87,7 +88,7 @@ export async function GET(
 	  });
 	}
   } catch (error) {
-	console.error('Error proxying to PDF API:', error);
+	console.error('[AUTH-PROXY] Error proxying to PDF API:', error);
 	return NextResponse.json(
 	  { error: 'Failed to connect to API server' },
 	  { status: 500 }
