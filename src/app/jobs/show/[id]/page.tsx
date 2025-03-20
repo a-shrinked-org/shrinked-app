@@ -41,32 +41,24 @@ interface Job {
 }
 
 export default function JobDetail() {
-  // Initialize state
   const [activeTab, setActiveTab] = useState<string | null>("preview");
   const [markdown, setMarkdown] = useState<string>("");
   const [isLoadingMarkdown, setIsLoadingMarkdown] = useState(false);
   const [markdownError, setMarkdownError] = useState<string | null>(null);
   
-  // Get URL parameters and routing
   const params = useParams();
   const router = useRouter();
   
-  // Safely extract jobId with proper TypeScript null checking
   const jobId = params ? (
     typeof params.id === 'string' ? params.id : 
     Array.isArray(params.id) ? params.id[0] : 
     ""
   ) : "";
   
-  // Authentication
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
 
-  // Get job data
-  const { 
-    queryResult,
-    showId
-  } = useShow<Job>({
+  const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
     queryOptions: {
@@ -78,14 +70,7 @@ export default function JobDetail() {
   });
   
   const { data, isLoading, error } = queryResult;
-  
-  // Manual refetch function
-  const refetch = useCallback(() => {
-    // Invalidate query to force a refetch
-    showId(jobId);
-  }, [jobId, showId]);
 
-  // Handle API errors
   useEffect(() => {
     if (error) {
       console.error("Error fetching job details:", error);
@@ -96,7 +81,6 @@ export default function JobDetail() {
     }
   }, [error, refreshToken]);
 
-  // Fetch markdown content
   const fetchMarkdown = useCallback(async () => {
     if (!jobId || !identity?.token) return;
     
@@ -106,7 +90,6 @@ export default function JobDetail() {
     try {
       console.log(`Attempting to fetch markdown with ID: ${jobId}`);
       
-      // Use the auth proxy for PDF endpoint
       const response = await fetch(`/api/auth-proxy/pdf/${jobId}/markdown?includeReferences=true`, {
         headers: getAuthHeaders(),
       });
@@ -126,14 +109,7 @@ export default function JobDetail() {
     }
   }, [jobId, identity?.token, getAuthHeaders]);
 
-  // Load markdown content when job data is loaded
   useEffect(() => {
-    // Only fetch markdown if:
-    // 1. We're on the preview tab (default)
-    // 2. We have a jobId
-    // 3. We're not already loading markdown
-    // 4. We don't have markdown content already
-    // 5. We don't have an error state
     if (
       activeTab === "preview" && 
       jobId && 
@@ -141,7 +117,7 @@ export default function JobDetail() {
       !markdown && 
       !markdownError &&
       !isLoading &&
-      data?.data // Make sure we have job data first
+      data?.data
     ) {
       fetchMarkdown();
     }
@@ -156,15 +132,13 @@ export default function JobDetail() {
     data?.data
   ]);
 
-  // Handle tab change
   const handleTabChange = (value: string | null) => {
     setActiveTab(value);
-    if (value === "preview" && !markdown && !isLoadingMarkdown && !markdownError) {
+    if (value === "preview" && !markdown && !isLoadingMarkdown) {
       fetchMarkdown();
     }
   };
 
-  // Loading state
   if (identityLoading || (isLoading && identity?.token)) {
     return (
       <Stack p="md">
@@ -174,7 +148,6 @@ export default function JobDetail() {
     );
   }
 
-  // Authentication check
   if (!identity?.token) {
     return (
       <Stack p="md">
@@ -187,21 +160,19 @@ export default function JobDetail() {
 
   const job = data?.data;
 
-  // Error state
   if (!job && !isLoading) {
     return (
       <Stack p="md">
         <Alert icon={<AlertCircle size={16} />} title="Job Not Found" color="yellow">
           The requested job could not be found or you do not have permission to view it.
         </Alert>
-        <Button variant="outline" onClick={() => refetch()}>
+        <Button variant="outline" onClick={() => queryResult.refetch()}>
           Retry
         </Button>
       </Stack>
     );
   }
 
-  // Main content render
   return (
     <Stack p="md" spacing="lg">
       <Group position="apart" align="center">
@@ -219,7 +190,7 @@ export default function JobDetail() {
           variant="subtle" 
           leftSection={<RefreshCw size={16} />}
           onClick={() => {
-            refetch();
+            queryResult.refetch();
             if (activeTab === "preview") {
               setMarkdown("");
               setMarkdownError(null);
