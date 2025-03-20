@@ -196,8 +196,9 @@ export default function Login() {
         })
         .then(({ data, responseObj }) => {
           if (responseObj.ok) {
-            // Handle successful login - the API will set cookies
-            window.location.href = '/'; // Redirect to home page or dashboard
+            // Don't try to process tokens, just redirect
+            console.log("Login successful, redirecting...");
+            window.location.href = '/';
           } else {
             setError(data.error?.message || 'Invalid email or password');
             setEmailPasswordLoading(false);

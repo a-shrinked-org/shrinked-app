@@ -44,6 +44,15 @@ let lastSuccessfulRefreshTime = 0;
 // Function to decode JWT and extract expiration
 const parseJwt = (token: string): any => {
   try {
+	if (!token || typeof token !== 'string') {
+	  console.log("Token missing or not a string");
+	  return null;
+	}
+	
+	if (!token.includes('.') || token.split('.').length !== 3) {
+	  console.log("Token doesn't appear to be in JWT format, skipping parsing");
+	  return { exp: Math.floor(Date.now() / 1000) + 3600 }; // Default 1-hour expiry
+	}
 	// Split the token and get the payload part
 	const base64Url = token.split('.')[1];
 	const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -123,9 +132,20 @@ export const authUtils = {
 
   saveTokens: (accessToken: string, refreshToken: string): void => {
 	try {
+	  if (!accessToken || !refreshToken) {
+		console.error("Missing tokens:", { accessTokenExists: !!accessToken, refreshTokenExists: !!refreshToken });
+		return;
+	  }
+	  
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-	  authUtils.storeTokenMetadata(accessToken, refreshToken);
+	  
+	  // Try to store metadata but don't fail if it doesn't work
+	  try {
+		authUtils.storeTokenMetadata(accessToken, refreshToken);
+	  } catch (metadataError) {
+		console.error("Failed to store token metadata, but continuing:", metadataError);
+	  }
 	  
 	  // Also store token in cookie for server components
 	  if (typeof document !== 'undefined') {
@@ -134,7 +154,7 @@ export const authUtils = {
 	} catch (e) {
 	  console.error("Error saving tokens to localStorage:", e);
 	}
-  },
+  }
 
   clearAuthStorage: (): void => {
 	try {
