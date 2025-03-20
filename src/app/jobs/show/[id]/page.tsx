@@ -169,10 +169,12 @@ export default function JobShow() {
     try {
       console.log('Attempting to fetch markdown with ID:', documentId);
       
-      // Use fetchWithAuth instead of direct fetch with getAuthHeaders
-      const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${documentId}/markdown?includeReferences=true`
-      );
+      // Use proxy API route to avoid CORS issues
+      const response = await fetch(`/api/jobs/${documentId}/markdown`, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
   
       if (!response.ok) {
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
@@ -188,7 +190,7 @@ export default function JobShow() {
     } finally {
       isLoadingMarkdown.current = false;
     }
-  }, [documentId, markdownContent, fetchWithAuth]);
+  }, [documentId, markdownContent]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
@@ -211,18 +213,10 @@ export default function JobShow() {
       
       console.log('Fetching processing document with ID:', processingDocId);
       
-      // Using fields parameter to only request necessary fields
+      // Using fields parameter to only request necessary fields but through proxy
       const fields = '_id,title,status,createdAt,output';
-      const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/processing/${processingDocId}?fields=${fields}`,
-        {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        }
-      );
+      // Use proxy API to avoid CORS issues
+      const response = await fetch(`/api/jobs/${processingDocId}/processing?fields=${fields}`);
   
       if (!response.ok) {
         throw new Error(`Fetch failed with status: ${response.status}`);
@@ -247,7 +241,7 @@ export default function JobShow() {
       setIsLoadingDoc(false);
       isFetchingProcessingDoc.current = false;
     }
-  }, [processingDocId, fetchWithAuth]);
+  }, [processingDocId]);
 
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
@@ -256,10 +250,8 @@ export default function JobShow() {
     try {
       console.log('Attempting to download PDF with ID:', documentId);
       
-      const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${documentId}/json?includeReferences=true`,
-        { method: 'GET' }
-      );
+      // Use proxy API to avoid CORS issues
+      const response = await fetch(`/api/jobs/${documentId}/pdf?includeReferences=true`);
   
       if (!response.ok) {
         throw new Error(`PDF download failed with status: ${response.status}`);
@@ -280,7 +272,7 @@ export default function JobShow() {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [documentId, fetchWithAuth]);
+  }, [documentId]);
 
   const { queryResult } = useShow<Job>({
     resource: "jobs",
