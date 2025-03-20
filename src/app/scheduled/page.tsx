@@ -44,7 +44,7 @@ export default function ScheduledJobs() {
           // Handle adding new scheduled job
           console.log('Add new scheduled job');
         }}
-        noDataMessage={null} // Set to null to use our custom empty state
+        noDataMessage="" // Use empty string instead of null
         showStatus={false}
         customGridTemplate="70% 30%"
       />
