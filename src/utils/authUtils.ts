@@ -154,7 +154,7 @@ export const authUtils = {
 	} catch (e) {
 	  console.error("Error saving tokens to localStorage:", e);
 	}
-  }
+  },
 
   clearAuthStorage: (): void => {
 	try {
