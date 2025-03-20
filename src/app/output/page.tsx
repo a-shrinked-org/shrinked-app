@@ -127,14 +127,16 @@ export default function ProcessingList() {
         
         // Fetch the job ID for just this one document
         const mapping = await documentOperations.fetchJobIdsForDocs([doc], API_CONFIG.API_URL);
-        jobId = mapping[doc._id];
+        const fetchedJobId = mapping[doc._id];
         
-        // Update our mapping with the new job ID for future reference
-        if (jobId) {
-          setDocToJobMapping(prev => ({
-            ...prev,
-            [doc._id]: jobId
-          }));
+        // Only update the mapping if we found a jobId
+        if (fetchedJobId) {
+          setDocToJobMapping(prev => {
+            const newMapping = { ...prev };
+            newMapping[doc._id] = fetchedJobId;
+            return newMapping;
+          });
+          jobId = fetchedJobId;
         }
       } catch (error) {
         console.error(`Error fetching job ID for document ${doc._id}:`, error);
