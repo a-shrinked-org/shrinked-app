@@ -43,11 +43,8 @@ export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
   
-  // Limit fields to only get what we need to improve performance
-  // Based on the example: '_id,title,status,createdAt'
-  // Including description, output.title, fileName for display purposes
-  const requestedFields = '_id,title,status,createdAt,description,output.title,fileName';
-  
+  // Updated to include all required fields based on Postman collection
+  // Note: No filtering of fields in the endpoint shown in Postman
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
     queryOptions: {
@@ -58,7 +55,7 @@ export default function ProcessingList() {
     },
     meta: {
       headers: authUtils.getAuthHeaders(),
-      url: identity?.id ? `${API_CONFIG.API_URL}/processing/user/${identity.id}/documents?fields=${requestedFields}` : ""
+      url: identity?.id ? `${API_CONFIG.API_URL}/processing/user/${identity.id}/documents` : ""
     }
   });
 
@@ -76,7 +73,7 @@ export default function ProcessingList() {
 
   useEffect(() => {
     if (identity?.id) {
-      console.log("Fetching documents for user:", identity.id);
+      console.log("Refetching with user ID:", identity.id);
       refetch();
     }
   }, [identity, refetch]);
@@ -90,18 +87,19 @@ export default function ProcessingList() {
       createdAt: doc.createdAt || new Date().toISOString(),
       // Ensure each document has a proper title and description for two-line display
       title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
-      description: doc.description || (doc.output?.description ? doc.output.description : 'No description available'),
+      description: doc.description || doc.output?.description || 'No description available',
     }));
   };
 
   const handleViewDocument = async (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     
-    console.log("View document clicked:", doc._id);
+    console.log("View document clicked:", doc);
     setLoadingDocId(doc._id);
     
     try {
-      // Using the correct endpoint from Postman collection: /jobs/by-result/:id
+      // Based on your Postman collection, we should use /jobs/by-result/:id endpoint
+      // This is the exact endpoint shown in your collection
       const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`, {
         headers: authUtils.getAuthHeaders()
       });
