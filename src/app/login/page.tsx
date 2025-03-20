@@ -210,7 +210,40 @@ export default function Login() {
         return;
       }
   
-      // Still use the login hook but it now calls the proxy endpoint
+      // Use the proxy endpoint directly instead of relying on the hook
+      fetch('/api/auth-proxy/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+        credentials: 'include'
+      })
+        .then(apiResponse => {
+          const responseObj = apiResponse;
+          return apiResponse.json().then(data => ({ data, responseObj }));
+        })
+        .then(({ data, responseObj }) => {
+          if (responseObj.ok) {
+            // Handle successful login - the API will set cookies
+            window.location.href = '/'; // Redirect to home page or dashboard
+          } else {
+            setError(data.error?.message || 'Invalid email or password');
+            setEmailPasswordLoading(false);
+            actionTypeRef.current = null;
+          }
+        })
+        .catch(error => {
+          console.error("Login error:", error);
+          setError("Failed to login. Please try again.");
+          setEmailPasswordLoading(false);
+          actionTypeRef.current = null;
+        });
+      
+      // Keep the fallback login hook as a backup
       login(
         {
           email: formData.email,

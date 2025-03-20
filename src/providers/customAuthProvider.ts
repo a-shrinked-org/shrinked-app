@@ -207,11 +207,12 @@ class AuthProviderClass implements AuthProvider {
 		debug.log('login', `Skipping email check and proceeding with full login`);
 		
 		try {
-		  debug.log('login', `Making login API request to: ${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`);
-		  const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
+		  debug.log('login', `Making login API request through proxy`);
+		  const loginResponse = await fetch(`/api/auth-proxy/login`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ email, password }),
+			credentials: 'include'
 		  });
   
 		  if (!loginResponse.ok) {
@@ -586,13 +587,14 @@ class AuthProviderClass implements AuthProvider {
   async updatePassword(params: any) {
 	try {
 	  const accessToken = authUtils.getAccessToken();
-	  const response = await fetch(`${API_CONFIG.API_URL}/auth/update-password`, {
+	  const response = await fetch(`/api/auth-proxy/update-password`, {
 		method: "POST",
 		headers: {
 		  Authorization: `Bearer ${accessToken}`,
 		  "Content-Type": "application/json",
 		},
 		body: JSON.stringify(params),
+		credentials: 'include'
 	  });
 
 	  if (!response.ok) {
@@ -621,12 +623,11 @@ class AuthProviderClass implements AuthProvider {
 
   async forgotPassword(params: any) {
 	try {
-	  const response = await fetch(`${API_CONFIG.API_URL}/auth/forgot-password`, {
+	  const response = await fetch(`/api/auth-proxy/forgot-password`, {
 		method: "POST",
-		headers: {
-		  "Content-Type": "application/json",
-		},
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(params),
+		credentials: 'include'
 	  });
 
 	  if (!response.ok) {
@@ -670,13 +671,14 @@ class AuthProviderClass implements AuthProvider {
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), 3000);
   
-		await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
+		await fetch(`/api/auth-proxy/logout`, {
 		  method: "POST",
 		  headers: {
 			"Content-Type": "application/json",
 		  },
 		  body: JSON.stringify({ refreshToken }),
 		  signal: controller.signal,
+		  redentials: 'include'
 		}).catch((err) => {
 		  debug.warn('logout', `Server logout request failed, continuing with client logout:`, err);
 		  // Ignore server errors during logout
@@ -755,15 +757,16 @@ class AuthProviderClass implements AuthProvider {
 	  debug.log('verifyEmail', `Email verification successful, now registering user with API`);
 	  
 	  // Register the user with the Shrinked API
-	  debug.log('verifyEmail', `Making registration API request to: ${API_CONFIG.API_URL}/auth/register`);
-	  const registerResponse = await fetch(`${API_CONFIG.API_URL}/auth/register`, {
+	  debug.log('verifyEmail', `Making registration API request through proxy`);
+	  const registerResponse = await fetch(`/api/auth-proxy/register`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ 
 		  email, 
 		  password,
-		  username: pendingUser.username || email.split('@')[0]  // Use username if available, or generate from email
+		  username: pendingUser.username || email.split('@')[0]
 		}),
+		credentials: 'include'
 	  });
   
 	  if (!registerResponse.ok) {

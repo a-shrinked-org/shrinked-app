@@ -515,10 +515,25 @@ export const authUtils = {
 	  if (url.startsWith(API_CONFIG.API_URL)) {
 		// Replace API URL with proxy URL
 		const relativePath = url.substring(API_CONFIG.API_URL.length);
+		
+		// Handle auth-related endpoints
 		if (relativePath.startsWith('/auth')) {
+		  // Direct auth endpoints to auth-proxy
 		  requestUrl = `/api/auth-proxy${relativePath.substring(5)}`;
-		} else if (relativePath.startsWith('/pdf')) {
+		} 
+		// Handle users endpoints
+		else if (relativePath.startsWith('/users')) {
+		  // Direct user endpoints to user-proxy
+		  requestUrl = `/api/user-proxy${relativePath.substring(6)}`;
+		}
+		// Handle PDF endpoints
+		else if (relativePath.startsWith('/pdf')) {
 		  requestUrl = `/api/pdf${relativePath.substring(4)}`;
+		}
+		// For any other API endpoint, you might want a general proxy
+		else {
+		  // Use a general API proxy for other endpoints
+		  requestUrl = `/api/proxy${relativePath}`;
 		}
 	  }
 	  
@@ -590,13 +605,13 @@ export const authUtils = {
 	  const controller = new AbortController();
 	  const timeoutId = setTimeout(() => controller.abort(), 5000);
 	  
-	  const response = await fetch(`${API_CONFIG.API_URL}/health`, {
+	  const response = await fetch(`/api/auth-proxy/health`, {
 		method: 'GET',
 		headers: {
 		  'Content-Type': 'application/json',
 		},
 		signal: controller.signal,
-		mode: 'cors'
+		credentials: 'include'
 	  });
 	  
 	  clearTimeout(timeoutId);
@@ -887,12 +902,13 @@ export const useAuth = () => {
 		if (navigator.onLine) {
 		  const refreshToken = authUtils.getRefreshToken();
 		  if (refreshToken) {
-			fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGOUT}`, {
+			fetch(`/api/auth-proxy/logout`, {
 			  method: 'POST',
 			  headers: {
 				'Content-Type': 'application/json',
 			  },
 			  body: JSON.stringify({ refreshToken }),
+			  credentials: 'include'
 			}).catch(() => {
 			  // Ignore errors during logout
 			});

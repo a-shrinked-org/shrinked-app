@@ -12,31 +12,46 @@ export async function POST(request: NextRequest) {
 	
 	if (!email) {
 	  return NextResponse.json(
-		{ error: 'Email is required' },
+		{ error: 'Email is required', exists: false },
 		{ status: 400 }
 	  );
 	}
 	
-	// Forward the request to check if the email exists
-	// Note: This endpoint might be different based on your actual API
-	const response = await fetch(`${API_URL}/auth/check-email`, {
-	  method: 'POST',
-	  headers: {
-		'Content-Type': 'application/json',
-	  },
-	  body: JSON.stringify({ email }),
-	  credentials: 'omit',
-	});
-	
-	// Get the response data
-	const data = await response.json().catch(() => ({}));
-	
-	// Return the API response
-	return NextResponse.json(data, { status: response.status });
+	try {
+	  // Forward the request to check if the email exists
+	  const response = await fetch(`${API_URL}/auth/check-email`, {
+		method: 'POST',
+		headers: {
+		  'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ email }),
+		credentials: 'omit',
+	  });
+	  
+	  // Get the response data
+	  const data = await response.json().catch(() => ({}));
+	  
+	  // Return the API response
+	  return NextResponse.json(data, { 
+		status: response.status,
+		headers: {
+		  'Cache-Control': 'no-store, max-age=0'
+		}
+	  });
+	} catch (apiError) {
+	  console.error('API error in email check:', apiError);
+	  
+	  // Fallback to checking Loops directly if available
+	  // Note: This is a placeholder - implement according to your auth flow
+	  return NextResponse.json(
+		{ exists: false, error: 'Unable to verify email' },
+		{ status: 200 }
+	  );
+	}
   } catch (error) {
 	console.error('Error in email check proxy:', error);
 	return NextResponse.json(
-	  { error: 'Failed to check email' },
+	  { error: 'Failed to check email', exists: false },
 	  { status: 500 }
 	);
   }
