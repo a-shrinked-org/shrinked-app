@@ -169,12 +169,8 @@ export default function JobShow() {
     try {
       console.log('Attempting to fetch markdown with ID:', documentId);
       
-      // Use proxy API route to avoid CORS issues
-      const response = await fetch(`/api/${documentId}/markdown?includeReferences=true`, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      // Update to use the pdf API route
+      const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`);
   
       if (!response.ok) {
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
@@ -213,10 +209,10 @@ export default function JobShow() {
       
       console.log('Fetching processing document with ID:', processingDocId);
       
-      // Using fields parameter to only request necessary fields but through proxy
+      // Using fields parameter to only request necessary fields
       const fields = '_id,title,status,createdAt,output';
-      // Use proxy API to avoid CORS issues
-      const response = await fetch(`/api/${processingDocId}/processing?fields=${fields}`);
+      // Update to use the jobs-proxy API route since processing would go through there
+      const response = await fetch(`/api/jobs-proxy/${processingDocId}/processing?fields=${fields}`);
   
       if (!response.ok) {
         throw new Error(`Fetch failed with status: ${response.status}`);
@@ -250,8 +246,8 @@ export default function JobShow() {
     try {
       console.log('Attempting to download PDF with ID:', documentId);
       
-      // Use proxy API to avoid CORS issues
-      const response = await fetch(`/api/${documentId}/pdf?includeReferences=true`);
+      // Update to use the pdf API route
+      const response = await fetch(`/api/pdf/${documentId}/pdf?includeReferences=true`);
   
       if (!response.ok) {
         throw new Error(`PDF download failed with status: ${response.status}`);
