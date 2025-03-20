@@ -82,38 +82,7 @@ export default function Login() {
     }
   
     if (step === "email") {
-      // Use proxy endpoint for email check
-      try {
-        const checkResponse = await fetch('/api/auth-proxy/check-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: formData.email }),
-          credentials: 'include'
-        });
-        
-        const checkData = await checkResponse.json();
-        
-        if (checkResponse.ok) {
-          if (checkData.exists) {
-            // Email exists, move to password step
-            setStep("password");
-            setEmailPasswordLoading(false);
-            actionTypeRef.current = null;
-            return;
-          } else {
-            // Email doesn't exist, start registration flow
-            handleRegistrationFlow();
-            return;
-          }
-        } else {
-          throw new Error(checkData.message || 'Failed to check email');
-        }
-      } catch (error) {
-        console.error("Email check error:", error);
-        
-        // This is a fallback - use the default login flow via the useLogin hook
+      // the default login flow via the useLogin hook
         login(
           { email: formData.email, password: "" },
           {
