@@ -77,38 +77,147 @@ export default function LogicList() {
   const mockLogicData: LogicDocument[] = [
     {
       _id: "logic-1",
-      title: "Conduct a competitor analysis",
-      fileName: "competitor-analysis",
-      description: "Designed to help manage sales processes and maximize customer engagement.",
+      title: "Structured Conversation Protocol",
+      fileName: "structured-conversation-protocol",
+      description: "Transform raw conversation data into structured JSON with precise attribution and relationships.",
       createdAt: new Date().toISOString(),
       status: "active",
       jobsCount: realJobsCount,
-      steps: 3,
+      steps: 6,
       isDefault: true,
       isComingSoon: false,
-      instructions: `I want to craft a personalized message to a prospect. Please provide me with three options for a LinkedIn connection request, each with a maximum of 280 characters. Each option should be different from the other to provide some variety.
-
-Use what you know about {{company}} to craft the perfect, tailored message for this person. The main goal is to make the message feel highly targeted to the recipient and as little sales like as possible.
-
-Below, you'll find information on the recipient, their company, and guidelines to follow.
-
-Info to use on the recipient and their company:
-1. Info on recipient: {{Paste prospect info}}
-2. Info on company: {{Paste company info}}`,
+      instructions: `I want to transform raw conversational data into structured JSON with precise attribution and relationships.
+  
+  ## Processing steps
+  1. Extract multi-speaker dialogues with speaker identification and exact timestamps
+  2. Segment conversations into semantic blocks based on topic transitions
+  3. Generate standardized JSON with \`conversation_id\`, \`speaker\`, \`timestamp\`, and nested \`content\` fields
+  4. Apply metadata tagging for topic classification, priority, and action items
+  5. Create cross-references between related statements using \`references\` and \`connections\` arrays
+  6. Output to standardized docStore format optimized for Claude-3-7-Sonnet analysis
+  
+  ## Input sources
+  1. Raw conversational content: {{meeting_type}}
+  2. Audio/video formats: {{file_format}}
+  3. Speaker identification requirements: {{speaker_identification}}
+  
+  The resulting data structure should enable context-aware AI analysis with complete traceability to source statements, supporting both comprehensive research generation and targeted information retrieval.`,
       availableModels: ["CLAUDE 3.7 SONNET", "GEMINI 2.0 FLASH"],
     },
     {
       _id: "logic-2",
-      title: "Conduct a competitor analysis",
-      fileName: "competitor-analysis-alt",
-      description: "Designed to help manage sales processes and maximize customer engagement.",
+      title: "Timeline Analysis Protocol",
+      fileName: "timeline-analysis-protocol",
+      description: "Track how discussions on specific topics evolve across multiple conversations over time.",
+      createdAt: new Date().toISOString(),
+      status: "active",
+      jobsCount: 2,
+      steps: 6,
+      isDefault: false,
+      isComingSoon: false,
+      instructions: `I want to track how discussions on specific topics evolve across multiple conversations over time.
+  
+  ## Processing steps
+  1. Identify target topic across all conversations in the specified time range: {{target_topic}}
+  2. Extract all related statements with complete speaker attribution and chronological metadata
+  3. Organize content into a temporal sequence showing the evolution of understanding
+  4. Detect opinion shifts, decision points, and concept development milestones
+  5. Create contextual links between temporally distant but semantically related statements
+  6. Generate progression visualization showing how the topic evolved from initial mention to current state
+  
+  ## Time range parameters
+  1. Start date: {{start_date}}
+  2. End date: {{end_date}}
+  3. Conversation sources to include: {{conversation_sources}}
+  
+  The output should reveal how understanding, decisions, or approaches to the topic have developed over time, highlighting key turning points and the context that influenced changes.`,
+      availableModels: ["CLAUDE 3.7 SONNET", "GEMINI 2.0 FLASH"],
+    },
+    {
+      _id: "logic-3",
+      title: "Multi-Source Merge Protocol",
+      fileName: "multi-source-merge-protocol",
+      description: "Combine related segments from multiple conversations to create a unified knowledge structure.",
+      createdAt: new Date().toISOString(),
+      status: "active",
+      jobsCount: 1,
+      steps: 6,
+      isDefault: false,
+      isComingSoon: false,
+      instructions: `I want to combine related segments from multiple conversations to create a unified knowledge structure.
+  
+  ## Processing steps
+  1. Extract conversation blocks from different sources that relate to a unified theme: {{unified_theme}}
+  2. Preserve original context by including surrounding statements for proper interpretation
+  3. Merge related segments into a coherent narrative while maintaining source attribution
+  4. Create temporal and logical connections between statements from different conversations
+  5. Generate cross-referenced JSON that maps relationships between all source materials
+  6. Output consolidated knowledge structure with complete traceability to original contexts
+  
+  ## Merge parameters
+  1. Conversation IDs to merge: {{conversation_ids}}
+  2. Relationship threshold (0-1): {{relationship_threshold}}
+  3. Context preservation level (1-3): {{context_preservation}}
+  
+  The result should present a comprehensive view of the topic that draws from all relevant discussions while maintaining perfect attribution to allow verification of any specific point.`,
+      availableModels: ["CLAUDE 3.7 SONNET", "GEMINI 2.0 FLASH"],
+    },
+    {
+      _id: "logic-4",
+      title: "Topic-Centered Merge Protocol",
+      fileName: "topic-centered-merge-protocol",
+      description: "Extract and analyze all discussions related to a specific key topic across conversations.",
+      createdAt: new Date().toISOString(),
+      status: "active",
+      jobsCount: 0,
+      steps: 6,
+      isDefault: false,
+      isComingSoon: false,
+      instructions: `I want to extract and analyze all discussions related to a specific key topic across conversations.
+  
+  ## Processing steps
+  1. Extract all statements containing target keyword: {{target_keyword}} or semantic equivalents
+  2. Include 1-2 statements before/after matches to preserve conversational context
+  3. Organize extracted content into topic clusters showing different aspects or subtopics
+  4. Map agreement/disagreement patterns between speakers on the key topic
+  5. Generate comprehensive topic analysis showing all perspectives, decisions, and open questions
+  6. Create visualization of how the topic connects to other important themes in the conversation corpus
+  
+  ## Topic parameters
+  1. Primary topic or keyword: {{primary_topic}}
+  2. Related subtopics (optional): {{related_subtopics}}
+  3. Speaker focus (optional): {{speaker_focus}}
+  
+  The output should provide a complete view of everything discussed about the target topic across all conversations, showing how different perspectives relate and where consensus or disagreement exists.`,
+      availableModels: ["CLAUDE 3.7 SONNET", "GEMINI 2.0 FLASH"],
+    },
+    {
+      _id: "logic-5",
+      title: "Decision Extraction Protocol",
+      fileName: "decision-extraction-protocol",
+      description: "Identify all key decisions, commitments, and action items across conversational data.",
       createdAt: new Date().toISOString(),
       status: "inactive",
       jobsCount: 0,
-      steps: 0,
+      steps: 6,
       isDefault: false,
       isComingSoon: true,
-      instructions: `I want to craft a personalized message to a prospect.`,
+      instructions: `I want to identify all key decisions, commitments, and action items across conversational data.
+  
+  ## Processing steps
+  1. Extract statements containing decision language, commitments, or assigned responsibilities
+  2. Capture the decision context including contributing opinions and dissenting viewpoints
+  3. Track follow-ups and implementation mentions in subsequent conversations
+  4. Create accountability mapping showing ownership and status of action items
+  5. Generate decision log with complete attribution and implementation tracking
+  6. Output structured JSON optimized for integration with project management systems
+  
+  ## Extraction parameters
+  1. Decision types to extract: {{decision_types}}
+  2. Time period: {{time_period}}
+  3. Project context: {{project_context}}
+  
+  The resulting structure will provide a comprehensive decision log with complete context, clear ownership assignment, and implementation status tracking for all commitments made across the analyzed conversations.`,
       availableModels: ["CLAUDE 3.7 SONNET", "GEMINI 2.0 FLASH"],
     }
   ];
