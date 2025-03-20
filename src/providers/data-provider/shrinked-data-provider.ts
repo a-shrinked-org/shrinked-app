@@ -90,67 +90,100 @@ export interface ProcessedDocument {
 // Document-specific operations
 export const documentOperations = {
   fetchJobIdsForDocs: async (documents: ProcessedDocument[], apiUrl: string) => {
+	console.log("fetchJobIdsForDocs called with documents:", documents.map(d => d._id));
+	
 	const mapping: Record<string, string> = {};
 	
-	// Process documents in small batches to avoid too many concurrent requests
-	const batchSize = 5;
-	const docBatches = [];
-	
-	for (let i = 0; i < documents.length; i += batchSize) {
-	  docBatches.push(documents.slice(i, i + batchSize));
-	}
-	
-	for (const batch of docBatches) {
-	  const promises = batch.map(async (doc) => {
-		try {
-		  const response = await authUtils.fetchWithAuth(
-			`${apiUrl}/jobs/by-result/${doc._id}`
-		  );
-		  
-		  if (response.ok) {
-			const jobData = await response.json();
-			if (jobData._id) {
-			  mapping[doc._id] = jobData._id;
-			}
-		  }
-		} catch (error) {
-		  console.error(`Error fetching job ID for document ${doc._id}:`, error);
-		}
-	  });
+	// Process one document at a time for better error handling
+	for (const doc of documents) {
+	  if (!doc._id) {
+		console.warn("Document without _id found in fetchJobIdsForDocs");
+		continue;
+	  }
 	  
-	  await Promise.all(promises);
+	  try {
+		console.log(`Fetching job for document ${doc._id}`);
+		const response = await fetch(`${apiUrl}/jobs/by-result/${doc._id}`, {
+		  headers: authUtils.getAuthHeaders()
+		});
+		
+		if (!response.ok) {
+		  console.error(`Error fetching job ID for document ${doc._id}: HTTP ${response.status}`);
+		  continue;
+		}
+		
+		const jobData = await response.json();
+		console.log(`Job data for document ${doc._id}:`, jobData);
+		
+		if (jobData && jobData._id) {
+		  console.log(`Job ID found for document ${doc._id}: ${jobData._id}`);
+		  mapping[doc._id] = jobData._id;
+		} else {
+		  console.error(`Job data doesn't contain _id for document ${doc._id}:`, jobData);
+		}
+	  } catch (error) {
+		console.error(`Error fetching job ID for document ${doc._id}:`, error);
+	  }
 	}
 	
+	console.log("Final job ID mapping:", mapping);
 	return mapping;
   },
 
+  // Other functions...
   sendDocumentEmail: async (docId: string, apiUrl: string, email?: string) => {
 	try {
-	  const response = await axiosInstance.post(`${apiUrl}/documents/${docId}/email`, { 
-		email 
-	  }, {
+	  const response = await fetch(`${apiUrl}/documents/${docId}/email`, {
+		method: 'POST',
 		headers: {
+		  'Content-Type': 'application/json',
 		  'Authorization': `Bearer ${authUtils.getAccessToken()}`
-		}
+		},
+		body: JSON.stringify({ email })
 	  });
-	  return { success: true, data: response.data };
+	  
+	  if (!response.ok) {
+		throw new Error(`HTTP error: ${response.status}`);
+	  }
+	  
+	  const data = await response.json();
+	  return { success: true, data };
 	} catch (error) {
 	  console.error("Error sending document email:", error);
-	  return { success: false, error: error as HttpError }; // Type error as HttpError
+	  return { 
+		success: false, 
+		error: {
+		  message: error instanceof Error ? error.message : "Unknown error",
+		  statusCode: 500
+		} 
+	  };
 	}
   },
 
   deleteDocument: async (docId: string, apiUrl: string) => {
 	try {
-	  const response = await axiosInstance.delete(`${apiUrl}/documents/${docId}`, {
+	  const response = await fetch(`${apiUrl}/documents/${docId}`, {
+		method: 'DELETE',
 		headers: {
 		  'Authorization': `Bearer ${authUtils.getAccessToken()}`
 		}
 	  });
-	  return { success: true, data: response.data };
+	  
+	  if (!response.ok) {
+		throw new Error(`HTTP error: ${response.status}`);
+	  }
+	  
+	  const data = await response.json();
+	  return { success: true, data };
 	} catch (error) {
 	  console.error("Error deleting document:", error);
-	  return { success: false, error: error as HttpError }; // Type error as HttpError
+	  return { 
+		success: false, 
+		error: {
+		  message: error instanceof Error ? error.message : "Unknown error",
+		  statusCode: 500
+		}
+	  };
 	}
   }
 };

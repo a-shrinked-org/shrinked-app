@@ -61,8 +61,11 @@ export default function ProcessingList() {
     }
   });
 
+  console.log("Loading documents with identity:", identity?.id);
+
   // Process documents to ensure they have the required fields
   const processDocuments = (documents: any[] = []): ProcessedDocument[] => {
+    console.log("Processing documents:", documents.length);
     return documents.map((doc) => {
       // Handle documents without _id (should be rare)
       if (!doc._id) {
@@ -71,10 +74,12 @@ export default function ProcessingList() {
       
       // If document has a jobId, add it to the mapping
       if (doc.jobId && doc._id) {
-        setDocToJobMapping(prev => ({
-          ...prev,
-          [doc._id]: doc.jobId
-        }));
+        console.log(`Document ${doc._id} already has jobId: ${doc.jobId}`);
+        setDocToJobMapping(prev => {
+          const newMapping = { ...prev };
+          newMapping[doc._id] = doc.jobId;
+          return newMapping;
+        });
       }
       
       return {
@@ -116,27 +121,45 @@ export default function ProcessingList() {
   const handleViewDocument = async (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     
+    console.log("View document clicked for:", doc._id);
+    
     // First check if we already have a jobId either from the doc or our mapping
     let jobId = docToJobMapping[doc._id] || doc.jobId;
+    console.log("Initial jobId found:", jobId);
     
     // If we don't have a jobId yet, fetch it only for this document
     if (!jobId && doc._id) {
       try {
         // Show loading indicator for this specific document
         setLoadingDocId(doc._id);
+        console.log("Fetching job ID for document:", doc._id);
         
-        // Fetch the job ID for just this one document
-        const mapping = await documentOperations.fetchJobIdsForDocs([doc], API_CONFIG.API_URL);
-        const fetchedJobId = mapping[doc._id];
+        // Directly fetch from API for debugging
+        const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`, {
+          headers: authUtils.getAuthHeaders()
+        });
         
-        // Only update the mapping if we found a jobId
-        if (fetchedJobId) {
-          setDocToJobMapping(prev => {
-            const newMapping = { ...prev };
-            newMapping[doc._id] = fetchedJobId;
-            return newMapping;
-          });
-          jobId = fetchedJobId;
+        console.log("API response status:", response.status);
+        
+        if (response.ok) {
+          const jobData = await response.json();
+          console.log("Job data received:", jobData);
+          
+          if (jobData && jobData._id) {
+            jobId = jobData._id;
+            console.log("Job ID found:", jobId);
+            
+            // Update mapping
+            setDocToJobMapping(prev => {
+              const newMapping = { ...prev };
+              newMapping[doc._id] = jobId;
+              return newMapping;
+            });
+          } else {
+            console.error("Job data doesn't contain _id:", jobData);
+          }
+        } else {
+          console.error("Failed to fetch job ID. Status:", response.status);
         }
       } catch (error) {
         console.error(`Error fetching job ID for document ${doc._id}:`, error);
@@ -151,9 +174,12 @@ export default function ProcessingList() {
     // If we have a jobId, open the job detail page
     if (jobId) {
       console.log(`Opening job ${jobId} for document ${doc._id}`);
-      window.open(`/jobs/show/${jobId}`, '_blank');
+      const url = `/jobs/show/${jobId}`;
+      console.log("Opening URL:", url);
+      window.open(url, "_blank");
     } else {
       // If we still couldn't get a jobId, inform the user
+      console.error("No job ID found for document:", doc._id);
       alert("Could not find associated job for this document");
     }
   };
@@ -219,7 +245,10 @@ export default function ProcessingList() {
     );
   }
 
+  console.log("Documents data:", data?.data);
   const preparedData = prepareDocuments(data?.data || []);
+  console.log("Prepared documents:", preparedData);
+  console.log("Current job mapping:", docToJobMapping);
 
   return (
     <DocumentsTable<ProcessedDocument>
