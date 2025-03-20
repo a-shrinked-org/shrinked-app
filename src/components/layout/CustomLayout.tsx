@@ -263,11 +263,12 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           pos="fixed" 
           top={16} 
           left={16} 
-          zIndex={1000}
-          p={8}
           style={{ 
             backgroundColor: '#1a1a1a',
             borderRadius: '4px',
+            padding: '8px',
+            position: 'fixed',
+            zIndex: 1000
           }}
         >
           <Burger 
