@@ -154,6 +154,7 @@ export default function JobShow() {
   }, []);
 
   // Fetch markdown content from backend endpoint with improved caching and request tracking
+  // Fix for the fetchMarkdownContent function in page.tsx
   const fetchMarkdownContent = useCallback(async () => {
     if (!documentId) return;
     
@@ -165,14 +166,47 @@ export default function JobShow() {
     
     isLoadingMarkdown.current = true;
     setErrorMessage(null);
+    setIsLoadingDoc(true);
   
     try {
       console.log('Attempting to fetch markdown with ID:', documentId);
       
-      // Update to use the pdf API route
-      const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`);
+      // Get current access token
+      const token = getAccessToken();
+      
+      // Update to use the correct API route with proper authentication
+      const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
+        headers: {
+          'Authorization': `Bearer ${token || ''}`
+        },
+        cache: 'no-store' // Prevent caching issues
+      });
   
       if (!response.ok) {
+        // If unauthorized, try to refresh token and retry
+        if (response.status === 401 || response.status === 403) {
+          const refreshSuccess = await refreshToken();
+          if (refreshSuccess) {
+            // Retry with new token after successful refresh
+            const newToken = getAccessToken();
+            const retryResponse = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
+              headers: {
+                'Authorization': `Bearer ${newToken || ''}`
+              },
+              cache: 'no-store'
+            });
+            
+            if (!retryResponse.ok) {
+              throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
+            }
+            
+            const markdown = await retryResponse.text();
+            setMarkdownContent(markdown);
+            console.log('Fetched markdown content successfully using ID after token refresh:', documentId);
+            return;
+          }
+        }
+        
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
       }
   
@@ -185,9 +219,10 @@ export default function JobShow() {
       setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       isLoadingMarkdown.current = false;
+      setIsLoadingDoc(false);
     }
-  }, [documentId, markdownContent]);
-
+  }, [documentId, markdownContent, refreshToken, getAccessToken]);
+  
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) {

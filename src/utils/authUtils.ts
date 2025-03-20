@@ -126,6 +126,11 @@ export const authUtils = {
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
 	  authUtils.storeTokenMetadata(accessToken, refreshToken);
+	  
+	  // Also store token in cookie for server components
+	  if (typeof document !== 'undefined') {
+		document.cookie = `access_token=${accessToken}; path=/; max-age=${60*60}`; // 1 hour expiry
+	  }
 	} catch (e) {
 	  console.error("Error saving tokens to localStorage:", e);
 	}
@@ -138,8 +143,13 @@ export const authUtils = {
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
 	  
+	  // Clear cookie as well
+	  if (typeof document !== 'undefined') {
+		document.cookie = 'access_token=; path=/; max-age=0';
+	  }
+	  
 	  // Clear any refresh timer
-	  if (window._refreshTimerId) {
+	  if (typeof window !== 'undefined' && window._refreshTimerId) {
 		clearTimeout(window._refreshTimerId);
 		window._refreshTimerId = undefined;
 	  }
@@ -173,18 +183,23 @@ export const authUtils = {
 		  return false;
 		}
 
-		// Based on the Postman collection, refreshToken should be sent in the request body
+		// Use the proxy endpoint to refresh token
 		const response = await fetch(`/api/auth-proxy/refresh`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ refreshToken }),
-		  mode: 'cors',
+		  credentials: 'include' // Include cookies
 		});
 
 		if (!response.ok) {
 		  console.error("Token refresh failed:", response.status);
+		  
+		  // Clear tokens on unauthorized for security
+		  if (response.status === 401 || response.status === 403) {
+			authUtils.clearAuthStorage();
+		  }
 		  return false;
 		}
 
@@ -194,7 +209,7 @@ export const authUtils = {
 		  return false;
 		}
 
-		// Update tokens in storage - this will also update token metadata
+		// Update tokens in storage
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
 		
 		// Update user data if available
@@ -233,10 +248,108 @@ export const authUtils = {
 	return refreshPromise;
   },
 
+  // Enhanced token refresh with proper error handling (alternative implementation)
+  enhancedRefreshToken: async (): Promise<boolean> => {
+	const now = Date.now();
+	
+	// Don't refresh if we've successfully refreshed recently
+	if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
+	  return true; // Return success if we refreshed recently
+	}
+	
+	// If already refreshing, return the existing promise
+	if (refreshPromise) {
+	  return refreshPromise;
+	}
+	
+	// Create new refresh promise and store it
+	refreshPromise = (async () => {
+	  try {
+		console.log("Starting token refresh");
+		const refreshToken = authUtils.getRefreshToken();
+		
+		if (!refreshToken) {
+		  console.log("No refresh token available");
+		  return false;
+		}
+
+		// Use the proxy endpoint to refresh token
+		const response = await fetch(`/api/auth-proxy/refresh`, {
+		  method: 'POST',
+		  headers: {
+			'Content-Type': 'application/json',
+		  },
+		  body: JSON.stringify({ refreshToken }),
+		  credentials: 'include' // Include cookies
+		});
+
+		if (!response.ok) {
+		  console.error("Token refresh failed:", response.status);
+		  
+		  // Clear tokens on unauthorized for security
+		  if (response.status === 401 || response.status === 403) {
+			authUtils.clearAuthStorage();
+		  }
+		  return false;
+		}
+
+		const data = await response.json();
+		if (!data.accessToken || !data.refreshToken) {
+		  console.error("Invalid token refresh response");
+		  return false;
+		}
+
+		// Update tokens in storage
+		authUtils.saveTokens(data.accessToken, data.refreshToken);
+		
+		console.log("Token refresh successful");
+		lastSuccessfulRefreshTime = Date.now();
+		
+		// Reset the refresh timer after successful refresh
+		authUtils.setupRefreshTimer();
+		
+		return true;
+	  } catch (error) {
+		console.error("Token refresh error:", error);
+		return false;
+	  } finally {
+		// Clear the promise to allow future refresh attempts
+		refreshPromise = null;
+	  }
+	})();
+
+	// Return the result of the refresh promise
+	return refreshPromise;
+  },
+
+  // Function to ensure API calls always have a valid token
+  ensureValidToken: async (): Promise<string | null> => {
+	// First check if the current token is valid
+	const metadata = authUtils.getTokenMetadata();
+	const accessToken = authUtils.getAccessToken();
+	
+	if (!accessToken || !metadata) {
+	  // No token or metadata, try to refresh
+	  const refreshSuccess = await authUtils.refreshToken();
+	  return refreshSuccess ? authUtils.getAccessToken() : null;
+	}
+	
+	const now = Date.now();
+	// If token is expired or about to expire (less than 1 minute left)
+	if (metadata.accessExpiry - now < 60000) {
+	  // Try to refresh token
+	  const refreshSuccess = await authUtils.refreshToken();
+	  return refreshSuccess ? authUtils.getAccessToken() : null;
+	}
+	
+	// Token is valid
+	return accessToken;
+  },
+
   // Silent refresh timer setup
   setupRefreshTimer: (forceCheck: boolean = false): void => {
 	// Clear any existing timer
-	if (window._refreshTimerId) {
+	if (typeof window !== 'undefined' && window._refreshTimerId) {
 	  clearTimeout(window._refreshTimerId);
 	}
 	
@@ -289,23 +402,25 @@ export const authUtils = {
 	  console.log(`[AUTH] Scheduling token refresh in ${Math.round(nextRefreshIn/60000)} minutes`);
 	  
 	  // Set timer for next refresh
-	  window._refreshTimerId = setTimeout(() => {
-		console.log("[AUTH] Silent refresh timer triggered");
-		authUtils.refreshToken()
-		  .then(success => {
-			if (success) {
-			  console.log("[AUTH] Token refreshed successfully by timer");
-			} else {
-			  console.log("[AUTH] Timer-triggered token refresh failed");
-			}
-			// Always set up next cycle
-			authUtils.setupRefreshTimer();
-		  })
-		  .catch(error => {
-			console.error("[AUTH] Error in timed token refresh:", error);
-			authUtils.setupRefreshTimer();
-		  });
-	  }, nextRefreshIn);
+	  if (typeof window !== 'undefined') {
+		window._refreshTimerId = setTimeout(() => {
+		  console.log("[AUTH] Silent refresh timer triggered");
+		  authUtils.refreshToken()
+			.then(success => {
+			  if (success) {
+				console.log("[AUTH] Token refreshed successfully by timer");
+			  } else {
+				console.log("[AUTH] Timer-triggered token refresh failed");
+			  }
+			  // Always set up next cycle
+			  authUtils.setupRefreshTimer();
+			})
+			.catch(error => {
+			  console.error("[AUTH] Error in timed token refresh:", error);
+			  authUtils.setupRefreshTimer();
+			});
+		}, nextRefreshIn);
+	  }
 	} catch (e) {
 	  console.error("[AUTH] Error in refresh scheduler:", e);
 	}
@@ -313,7 +428,7 @@ export const authUtils = {
 
   // Network status checker function
   checkNetworkStatus: (): boolean => {
-	if (!navigator.onLine) {
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
 	  console.log("[AUTH] Network appears to be offline");
 	  return false;
 	}
@@ -348,6 +463,10 @@ export const authUtils = {
 
   // Setup network status event listeners
   setupNetworkListeners: (onlineCallback?: () => void, offlineCallback?: () => void): () => void => {
+	if (typeof window === 'undefined') {
+	  return () => {}; // Return empty cleanup function for SSR
+	}
+	
 	const handleOnline = () => {
 	  console.log("[AUTH] Network connection restored");
 	  // Process any pending operations
@@ -388,46 +507,49 @@ export const authUtils = {
 	
 	try {
 	  // Add timeout to prevent hanging requests
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-		
-		// Check if this is an API URL that needs to be proxied
-		let requestUrl = url;
-		if (url.startsWith(API_CONFIG.API_URL)) {
-		  // Replace API URL with proxy URL
-		  const relativePath = url.substring(API_CONFIG.API_URL.length);
-		  if (relativePath.startsWith('/auth')) {
-			requestUrl = `/api/auth-proxy${relativePath.substring(5)}`;
-		  }
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+	  
+	  // Check if this is an API URL that needs to be proxied
+	  let requestUrl = url;
+	  if (url.startsWith(API_CONFIG.API_URL)) {
+		// Replace API URL with proxy URL
+		const relativePath = url.substring(API_CONFIG.API_URL.length);
+		if (relativePath.startsWith('/auth')) {
+		  requestUrl = `/api/auth-proxy${relativePath.substring(5)}`;
+		} else if (relativePath.startsWith('/pdf')) {
+		  requestUrl = `/api/pdf${relativePath.substring(4)}`;
 		}
-		
-		const response = await fetch(url, {
-			...options,
-			headers,
-			signal: options.signal || controller.signal,
-			mode: 'cors'
-		});
-		
-		clearTimeout(timeoutId);
-		
-		// If unauthorized (401) or forbidden (403), try to refresh token and retry
-		if ((response.status === 401 || response.status === 403) && retryCount < MAX_RETRIES) {
-			const refreshSuccess = await authUtils.refreshToken();
-			if (refreshSuccess) {
-			// Retry with new token
-			return authUtils.apiRequest(url, options, retryCount + 1);
-			}
+	  }
+	  
+	  const response = await fetch(requestUrl, {
+		...options,
+		headers,
+		signal: options.signal || controller.signal,
+		mode: 'cors',
+		cache: 'no-store' // Prevent caching issues with authenticated content
+	  });
+	  
+	  clearTimeout(timeoutId);
+	  
+	  // If unauthorized (401) or forbidden (403), try to refresh token and retry
+	  if ((response.status === 401 || response.status === 403) && retryCount < MAX_RETRIES) {
+		const refreshSuccess = await authUtils.refreshToken();
+		if (refreshSuccess) {
+		  // Retry with new token
+		  return authUtils.apiRequest(url, options, retryCount + 1);
 		}
-		
-		return response;
-		} catch (error) {
-		// Handle abort errors differently - they're often intentional
-		if (error instanceof DOMException && error.name === 'AbortError') {
-			console.log("Request was aborted:", url);
-		} else {
-			console.error("API request error:", error);
-		}
-		throw error;
+	  }
+	  
+	  return response;
+	} catch (error) {
+	  // Handle abort errors differently - they're often intentional
+	  if (error instanceof DOMException && error.name === 'AbortError') {
+		console.log("Request was aborted:", url);
+	  } else {
+		console.error("API request error:", error);
+	  }
+	  throw error;
 	}
   },
 
@@ -440,7 +562,7 @@ export const authUtils = {
 	  if (retries <= 0) throw error;
 	  
 	  // If we're offline, don't retry immediately
-	  if (!navigator.onLine) throw error;
+	  if (typeof navigator !== 'undefined' && !navigator.onLine) throw error;
 	  
 	  console.log(`Request failed, retrying... (${retries} attempts left)`);
 	  // Wait before retry with exponential backoff
@@ -460,7 +582,7 @@ export const authUtils = {
   // Simple service status check with improved error handling
   checkServiceStatus: async (): Promise<string> => {
 	try {
-	  if (!navigator.onLine) {
+	  if (typeof navigator !== 'undefined' && !navigator.onLine) {
 		return "You appear to be offline. Please check your internet connection.";
 	  }
 	  
@@ -472,9 +594,9 @@ export const authUtils = {
 		method: 'GET',
 		headers: {
 		  'Content-Type': 'application/json',
-		  mode: 'cors'
 		},
-		signal: controller.signal
+		signal: controller.signal,
+		mode: 'cors'
 	  });
 	  
 	  clearTimeout(timeoutId);
@@ -512,7 +634,7 @@ export const authUtils = {
 	  });
 	} else if (status === 521 || status === 522 || status === 523) {
 	  toast.error("Server currently unavailable. Please try again later.");
-	} else if (!navigator.onLine) {
+	} else if (typeof navigator !== 'undefined' && !navigator.onLine) {
 	  toast.error("You appear to be offline. Please check your connection.");
 	} else {
 	  // Generic error message for other cases
@@ -572,7 +694,7 @@ export const useAuth = () => {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   
   // Initialize token refresh on component mount
   useEffect(() => {
@@ -603,7 +725,7 @@ export const useAuth = () => {
 	
 	// Cleanup function to clear timer and event listeners on unmount
 	return () => {
-	  if (window._refreshTimerId) {
+	  if (typeof window !== 'undefined' && window._refreshTimerId) {
 		clearTimeout(window._refreshTimerId);
 	  }
 	  cleanup();
@@ -634,6 +756,11 @@ export const useAuth = () => {
 	}
 	return success;
   }, [router]);
+
+  // Ensure valid token before making API calls
+  const ensureValidToken = useCallback(async () => {
+	return await authUtils.ensureValidToken();
+  }, []);
   
   // Consistent error handling that automatically tries to refresh tokens
   const handleAuthError = useCallback((error: any) => {
@@ -655,24 +782,30 @@ export const useAuth = () => {
   // Fetch with authentication
   const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
 	try {
+	  // First ensure we have a valid token
+	  await ensureValidToken();
+	  
 	  const response = await authUtils.fetchWithAuth(url, options);
 	  return response;
 	} catch (error) {
 	  handleAuthError(error);
 	  throw error;
 	}
-  }, [handleAuthError]);
+  }, [handleAuthError, ensureValidToken]);
   
   // Enhanced fetch with retry
   const fetchWithRetry = useCallback(async (url: string, options: RequestInit = {}, retries = 2) => {
 	try {
+	  // First ensure we have a valid token
+	  await ensureValidToken();
+	  
 	  const response = await authUtils.fetchWithRetry(url, options, retries);
 	  return response;
 	} catch (error) {
 	  handleAuthError(error);
 	  throw error;
 	}
-  }, [handleAuthError]);
+  }, [handleAuthError, ensureValidToken]);
   
   // Network status check
   const checkNetworkStatus = useCallback(() => {
@@ -699,6 +832,7 @@ export const useAuth = () => {
 	isLoading,
 	isOffline,
 	refreshToken,
+	ensureValidToken,
 	handleAuthError,
 	getAccessToken,
 	getAuthHeaders,

@@ -11,86 +11,119 @@ export async function GET(
   // Get the path segments and join them
   const path = params.path.join('/');
   
-  // Forward the request to the API
-  const url = `${API_URL}/pdf/${path}`;
+  // Get the access token from cookies
+  const cookieStore = cookies();
+  const accessToken = cookieStore.get('access_token')?.value;
   
-  // Get the access token from the cookie (or request headers)
-  let accessToken = null;
-  
-  // First try to get from request headers (for client components)
-  const authHeader = request.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-	accessToken = authHeader.substring(7);
-  } else {
-	// If not in headers, try to get from cookies (for server components)
-	const cookieStore = cookies();
-	accessToken = cookieStore.get('access_token')?.value;
+  // Get user token from localStorage as fallback (in localStorage via authUtils)
+  let userToken = '';
+  try {
+	if (typeof window !== 'undefined') {
+	  userToken = localStorage.getItem('access_token') || '';
+	}
+  } catch (e) {
+	console.error('Error accessing localStorage:', e);
   }
   
+  // Use either the cookie token or the localStorage token
+  const token = accessToken || userToken;
+  
+  if (!token) {
+	console.error('No authentication token found');
+	return NextResponse.json(
+	  { error: 'Authentication required' },
+	  { status: 401 }
+	);
+  }
+
   // Get the search params from the request URL
   const searchParams = new URL(request.url).searchParams;
-  const queryString = searchParams.toString();
   
-  // Add query parameters if they exist
-  const requestUrl = queryString ? `${url}?${queryString}` : url;
+  // Handle different PDF-related endpoints
+  let url = '';
+  let responseType = 'json';
+  
+  if (path.includes('/markdown')) {
+	// Extract the ID from the path
+	const id = path.split('/markdown')[0];
+	url = `${API_URL}/pdf/${id}/markdown`;
+	responseType = 'text';
+	
+	// Add includeReferences param if present in the request
+	if (searchParams.has('includeReferences')) {
+	  url = `${url}?includeReferences=${searchParams.get('includeReferences')}`;
+	}
+  } else if (path.includes('/pdf')) {
+	// Binary PDF download
+	const id = path.split('/pdf')[0];
+	url = `${API_URL}/pdf/${id}/pdf`;
+	responseType = 'blob';
+	
+	// Add includeReferences param if present in the request
+	if (searchParams.has('includeReferences')) {
+	  url = `${url}?includeReferences=${searchParams.get('includeReferences')}`;
+	}
+  } else {
+	// Default case - just get the JSON data about the document
+	url = `${API_URL}/pdf/${path}`;
+	
+	// Forward all query parameters for other endpoints
+	const queryString = searchParams.toString();
+	if (queryString) {
+	  url = `${url}?${queryString}`;
+	}
+  }
+  
+  console.log(`Proxying PDF request to: ${url}`);
   
   try {
-	console.log(`[AUTH-PROXY] Proxying PDF request to: ${requestUrl}`);
-	
-	// Create headers to forward
+	// Create headers with authorization
 	const headers: HeadersInit = {
 	  'Content-Type': 'application/json',
+	  'Authorization': `Bearer ${token}`
 	};
 	
-	// Add Authorization header if access token exists
-	if (accessToken) {
-	  headers['Authorization'] = `Bearer ${accessToken}`;
-	}
-	
 	// Forward the request to the API
-	const response = await fetch(requestUrl, {
+	const response = await fetch(url, {
 	  method: 'GET',
 	  headers,
 	  credentials: 'omit',
+	  cache: 'no-store' // Important to prevent caching issues with authenticated content
 	});
 	
-	// Get content type from response
-	const contentType = response.headers.get('Content-Type');
-	
-	// Handle the response based on content type
 	if (!response.ok) {
-	  console.error(`[AUTH-PROXY] PDF request failed with status: ${response.status}`);
-	  if (contentType?.includes('application/json')) {
-		const errorData = await response.json();
-		return NextResponse.json(errorData, { status: response.status });
-	  } else {
-		const errorText = await response.text();
-		return new NextResponse(errorText, {
-		  status: response.status,
-		  headers: {
-			'Content-Type': contentType || 'text/plain',
-		  },
-		});
-	  }
+	  console.error(`API responded with status: ${response.status}`);
+	  return NextResponse.json(
+		{ error: `API error: ${response.status}` },
+		{ status: response.status }
+	  );
 	}
 	
-	// For successful responses
-	if (contentType?.includes('application/json')) {
-	  const data = await response.json();
-	  return NextResponse.json(data);
-	} else {
-	  // For non-JSON responses like markdown text
+	// Handle different response types
+	if (responseType === 'text') {
 	  const text = await response.text();
 	  return new NextResponse(text, {
 		headers: {
-		  'Content-Type': contentType || 'text/plain',
+		  'Content-Type': 'text/markdown',
 		},
 	  });
+	} else if (responseType === 'blob') {
+	  const blob = await response.blob();
+	  return new NextResponse(blob, {
+		headers: {
+		  'Content-Type': 'application/pdf',
+		  'Content-Disposition': `attachment; filename="document-${path.split('/pdf')[0]}.pdf"`
+		},
+	  });
+	} else {
+	  // Default JSON response
+	  const data = await response.json();
+	  return NextResponse.json(data);
 	}
   } catch (error) {
-	console.error('[AUTH-PROXY] Error proxying to PDF API:', error);
+	console.error('Error proxying to PDF API:', error);
 	return NextResponse.json(
-	  { error: 'Failed to connect to API server' },
+	  { error: 'Failed to connect to PDF API server' },
 	  { status: 500 }
 	);
   }
