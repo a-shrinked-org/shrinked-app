@@ -126,24 +126,34 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
       overflow: 'auto'
     }}>
       <Box p="md">
-        {/* Logo - Now with SVG logo */}
-        <Link href="https://app.shrinked.ai" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
-          <Flex align="center" gap="xs" mb="xl" style={{ cursor: 'pointer' }}>
-            <svg width="18" height="17" viewBox="0 0 18 17" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="17.4857" height="17" rx="2.5" fill="white"/>
-              <path d="M14.1058 2.22437L10.9673 5.41664V2.89371H9.70184V6.96987C9.70184 7.32532 9.98513 7.61347 10.3346 7.61347H14.342V6.32626H11.8616L15 3.13399L14.1058 2.22437Z" fill="#0D0D0D"/>
-              <path d="M2.40002 7.74933H3.65351V4.56185C3.65351 3.97505 4.12118 3.49936 4.69808 3.49936H7.83179V2.22437H4.69808C3.4289 2.22437 2.40002 3.27089 2.40002 4.56185V7.74933Z" fill="#0D0D0D"/>
-              <path d="M14.9553 12.7029V9.51538H13.7018V12.7029C13.7018 13.2897 13.2342 13.7654 12.6573 13.7654H9.52356V15.0403H12.6573C13.2668 15.0403 13.8513 14.7941 14.2822 14.3557C14.7132 13.9173 14.9553 13.3228 14.9553 12.7029Z" fill="#0D0D0D"/>
-              <path d="M3.29431 15.0859L6.43273 11.8936V14.4165H7.69822V10.3404C7.69822 9.98493 7.41493 9.69678 7.06548 9.69678H3.05808V10.984H5.53845L2.40002 14.1763L3.29431 15.0859Z" fill="#0D0D0D"/>
-            </svg>
-            <Text fw={700}>SHRINKED.AI</Text>
-            <Text c="#a1a1a1" ml="md" size="sm">ID: {formattedUserId}</Text>
-          </Flex>
-        </Link>
+        {/* Logo with right-aligned ID block */}
+        <Flex align="center" justify="space-between" mb="xl">
+          <Link href="https://app.shrinked.ai" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Flex align="center" gap="xs" style={{ cursor: 'pointer' }}>
+              <svg width="18" height="17" viewBox="0 0 18 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="17.4857" height="17" rx="2.5" fill="white"/>
+                <path d="M14.1058 2.22437L10.9673 5.41664V2.89371H9.70184V6.96987C9.70184 7.32532 9.98513 7.61347 10.3346 7.61347H14.342V6.32626H11.8616L15 3.13399L14.1058 2.22437Z" fill="#0D0D0D"/>
+                <path d="M2.40002 7.74933H3.65351V4.56185C3.65351 3.97505 4.12118 3.49936 4.69808 3.49936H7.83179V2.22437H4.69808C3.4289 2.22437 2.40002 3.27089 2.40002 4.56185V7.74933Z" fill="#0D0D0D"/>
+                <path d="M14.9553 12.7029V9.51538H13.7018V12.7029C13.7018 13.2897 13.2342 13.7654 12.6573 13.7654H9.52356V15.0403H12.6573C13.2668 15.0403 13.8513 14.7941 14.2822 14.3557C14.7132 13.9173 14.9553 13.3228 14.9553 12.7029Z" fill="#0D0D0D"/>
+                <path d="M3.29431 15.0859L6.43273 11.8936V14.4165H7.69822V10.3404C7.69822 9.98493 7.41493 9.69678 7.06548 9.69678H3.05808V10.984H5.53845L2.40002 14.1763L3.29431 15.0859Z" fill="#0D0D0D"/>
+              </svg>
+              <Text fw={700}>SHRINKED.AI</Text>
+            </Flex>
+          </Link>
+          
+          {/* ID text block with dark background */}
+          <Box style={{ 
+            background: 'black', 
+            padding: '4px 15px', 
+            borderRadius: '6px',
+          }}>
+            <Text c="#a1a1a1" size="sm">ID: {formattedUserId}</Text>
+          </Box>
+        </Flex>
 
         {/* Updated App Description */}
         <Box mb={48}>
-          <Text size="xs" c="#d9d9d9" lh={1.2}>
+          <Text size="xs" c="#d9d9d9" lh={1.3}>
             BUILD WITH SHRINKED.<br />
             DEVELOP DYNAMIC CONTEXT SOURCES<br />
             WITH STRUCTURED DATA, ENABLING<br />
