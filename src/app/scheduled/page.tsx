@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { Calendar, Plus } from 'lucide-react';
 import { GeistMono } from 'geist/font/mono';
-import DocumentsTable, { ProcessedDocument } from '@/components/DocumentsTable';
+import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 
 // Mock data to demonstrate the table structure
 const scheduledJobsData: ProcessedDocument[] = [];
