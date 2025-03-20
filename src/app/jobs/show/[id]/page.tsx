@@ -174,8 +174,8 @@ export default function JobDetail() {
   }
 
   return (
-    <Stack p="md" spacing="lg">
-      <Group position="apart" align="center">
+    <Stack p="md">
+      <Group position="apart" align="center" mb="md">
         <Group>
           <Button 
             variant="subtle" 
