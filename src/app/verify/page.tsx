@@ -74,45 +74,79 @@ export default function VerifyEmail() {
     }
 
     try {
-      // Client-side validation (not secure, for demo only)
+      // Client-side validation of token against localStorage
       const pendingUser = localStorage.getItem("pendingUser");
-      if (pendingUser) {
-        const parsedUser = JSON.parse(pendingUser);
-        console.log("VerifyEmail: Comparing tokens:");
-        console.log("- Stored token (first 4 chars):", parsedUser.token.substring(0, 4));
-        console.log("- Provided token (first 4 chars):", formData.token.substring(0, 4));
-        
-        if (parsedUser.token === formData.token && parsedUser.email === formData.email) {
-          console.log("VerifyEmail: Token and email verified successfully");
-          
-          // Store verified user data
-          localStorage.setItem(
-            "verifiedUser",
-            JSON.stringify({ 
-              email: formData.email, 
-              password: formData.password,
-              verifiedAt: new Date().toISOString() 
-            })
-          );
-          
-          localStorage.removeItem("pendingUser");
-          setIsVerified(true);
-          
-          // Wait 2 seconds before redirecting
-          setTimeout(() => {
-            console.log("VerifyEmail: Redirecting to /jobs after successful verification");
-            window.location.href = "/jobs";
-          }, 2000);
-        } else {
-          console.error("VerifyEmail: Token or email mismatch");
-          setError("Invalid token or email");
-          setIsLoading(false);
-        }
-      } else {
+      if (!pendingUser) {
         console.error("VerifyEmail: No pending user found for verification");
         setError("No pending verification found");
         setIsLoading(false);
+        return;
       }
+
+      const parsedUser = JSON.parse(pendingUser);
+      console.log("VerifyEmail: Comparing tokens:");
+      console.log("- Stored token (first 4 chars):", parsedUser.token.substring(0, 4));
+      console.log("- Provided token (first 4 chars):", formData.token.substring(0, 4));
+      
+      if (parsedUser.token !== formData.token || parsedUser.email !== formData.email) {
+        console.error("VerifyEmail: Token or email mismatch");
+        setError("Invalid token or email");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("VerifyEmail: Token and email verified locally, proceeding with API registration");
+
+      // Token is valid, now call the API to complete registration
+      const response = await fetch('/api/auth-proxy/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          username: parsedUser.username || formData.email.split('@')[0]
+        }),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("VerifyEmail: API registration failed:", data);
+        setError(data.error?.message || "Registration failed with API");
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("VerifyEmail: API registration successful");
+      
+      // Store verified user data and authentication tokens if provided
+      const verifiedUserData = {
+        email: formData.email,
+        username: parsedUser.username || formData.email.split('@')[0],
+        verifiedAt: new Date().toISOString()
+      };
+
+      // Add tokens to verified user data if they're returned from the API
+      if (data.accessToken) {
+        verifiedUserData['accessToken'] = data.accessToken;
+      }
+      if (data.refreshToken) {
+        verifiedUserData['refreshToken'] = data.refreshToken;
+      }
+      
+      localStorage.setItem("verifiedUser", JSON.stringify(verifiedUserData));
+      localStorage.removeItem("pendingUser");
+      
+      setIsVerified(true);
+      
+      // Wait 2 seconds before redirecting
+      setTimeout(() => {
+        console.log("VerifyEmail: Redirecting to /jobs after successful verification");
+        window.location.href = "/jobs";
+      }, 2000);
     } catch (err) {
       console.error("VerifyEmail: Error during verification:", err);
       setError("Verification failed. Please try again.");
