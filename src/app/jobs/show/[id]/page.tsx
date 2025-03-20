@@ -41,11 +41,13 @@ interface Job {
 }
 
 export default function JobDetail() {
-  const [activeTab, setActiveTab] = useState<string | null>("details");
+  // Initialize state
+  const [activeTab, setActiveTab] = useState<string | null>("preview");
   const [markdown, setMarkdown] = useState<string>("");
   const [isLoadingMarkdown, setIsLoadingMarkdown] = useState(false);
   const [markdownError, setMarkdownError] = useState<string | null>(null);
   
+  // Get URL parameters and routing
   const params = useParams();
   const router = useRouter();
   
@@ -56,13 +58,14 @@ export default function JobDetail() {
     ""
   ) : "";
   
+  // Authentication
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
 
-  // Use useShow instead of useOne to follow the same pattern as the job list
+  // Get job data
   const { 
-    queryResult: { data, isLoading, error },
-    refetch 
+    queryResult,
+    showId
   } = useShow<Job>({
     resource: "jobs",
     id: jobId,
@@ -73,7 +76,16 @@ export default function JobDetail() {
       headers: getAuthHeaders(),
     }
   });
+  
+  const { data, isLoading, error } = queryResult;
+  
+  // Manual refetch function
+  const refetch = useCallback(() => {
+    // Invalidate query to force a refetch
+    showId(jobId);
+  }, [jobId, showId]);
 
+  // Handle API errors
   useEffect(() => {
     if (error) {
       console.error("Error fetching job details:", error);
@@ -84,7 +96,7 @@ export default function JobDetail() {
     }
   }, [error, refreshToken]);
 
-  // Fetch markdown content separately
+  // Fetch markdown content
   const fetchMarkdown = useCallback(async () => {
     if (!jobId || !identity?.token) return;
     
@@ -114,20 +126,45 @@ export default function JobDetail() {
     }
   }, [jobId, identity?.token, getAuthHeaders]);
 
+  // Load markdown content when job data is loaded
   useEffect(() => {
-    if (activeTab === "content" && !markdown && !isLoadingMarkdown && !markdownError) {
+    // Only fetch markdown if:
+    // 1. We're on the preview tab (default)
+    // 2. We have a jobId
+    // 3. We're not already loading markdown
+    // 4. We don't have markdown content already
+    // 5. We don't have an error state
+    if (
+      activeTab === "preview" && 
+      jobId && 
+      !isLoadingMarkdown && 
+      !markdown && 
+      !markdownError &&
+      !isLoading &&
+      data?.data // Make sure we have job data first
+    ) {
       fetchMarkdown();
     }
-  }, [activeTab, markdown, isLoadingMarkdown, markdownError, fetchMarkdown]);
+  }, [
+    activeTab, 
+    jobId, 
+    isLoadingMarkdown, 
+    markdown, 
+    markdownError, 
+    fetchMarkdown, 
+    isLoading, 
+    data?.data
+  ]);
 
   // Handle tab change
   const handleTabChange = (value: string | null) => {
     setActiveTab(value);
-    if (value === "content" && !markdown && !isLoadingMarkdown) {
+    if (value === "preview" && !markdown && !isLoadingMarkdown && !markdownError) {
       fetchMarkdown();
     }
   };
 
+  // Loading state
   if (identityLoading || (isLoading && identity?.token)) {
     return (
       <Stack p="md">
@@ -137,6 +174,7 @@ export default function JobDetail() {
     );
   }
 
+  // Authentication check
   if (!identity?.token) {
     return (
       <Stack p="md">
@@ -149,6 +187,7 @@ export default function JobDetail() {
 
   const job = data?.data;
 
+  // Error state
   if (!job && !isLoading) {
     return (
       <Stack p="md">
@@ -162,6 +201,7 @@ export default function JobDetail() {
     );
   }
 
+  // Main content render
   return (
     <Stack p="md" spacing="lg">
       <Group position="apart" align="center">
@@ -180,7 +220,9 @@ export default function JobDetail() {
           leftSection={<RefreshCw size={16} />}
           onClick={() => {
             refetch();
-            if (activeTab === "content") {
+            if (activeTab === "preview") {
+              setMarkdown("");
+              setMarkdownError(null);
               fetchMarkdown();
             }
           }}
@@ -221,9 +263,32 @@ export default function JobDetail() {
 
           <Tabs value={activeTab} onChange={handleTabChange}>
             <Tabs.List>
+              <Tabs.Tab value="preview">Preview</Tabs.Tab>
               <Tabs.Tab value="details">Details</Tabs.Tab>
-              <Tabs.Tab value="content">Content</Tabs.Tab>
             </Tabs.List>
+
+            <Tabs.Panel value="preview" pt="md">
+              {isLoadingMarkdown ? (
+                <Box pos="relative" h={200}>
+                  <LoadingOverlay visible />
+                </Box>
+              ) : markdownError ? (
+                <Alert icon={<AlertCircle size={16} />} title="Error Loading Content" color="red">
+                  {markdownError}
+                  <Button mt="sm" onClick={fetchMarkdown} size="sm">Retry</Button>
+                </Alert>
+              ) : markdown ? (
+                <Card withBorder shadow="sm">
+                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {markdown}
+                  </pre>
+                </Card>
+              ) : (
+                <Alert icon={<AlertCircle size={16} />} title="No Content Available" color="yellow">
+                  No content is available for this job.
+                </Alert>
+              )}
+            </Tabs.Panel>
 
             <Tabs.Panel value="details" pt="md">
               <Card withBorder shadow="sm">
@@ -254,29 +319,6 @@ export default function JobDetail() {
                   </Group>
                 </Stack>
               </Card>
-            </Tabs.Panel>
-
-            <Tabs.Panel value="content" pt="md">
-              {isLoadingMarkdown ? (
-                <Box pos="relative" h={200}>
-                  <LoadingOverlay visible />
-                </Box>
-              ) : markdownError ? (
-                <Alert icon={<AlertCircle size={16} />} title="Error Loading Content" color="red">
-                  {markdownError}
-                  <Button mt="sm" onClick={fetchMarkdown} size="sm">Retry</Button>
-                </Alert>
-              ) : markdown ? (
-                <Card withBorder shadow="sm">
-                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {markdown}
-                  </pre>
-                </Card>
-              ) : (
-                <Alert icon={<AlertCircle size={16} />} title="No Content Available" color="yellow">
-                  No content is available for this job.
-                </Alert>
-              )}
             </Tabs.Panel>
           </Tabs>
         </>
