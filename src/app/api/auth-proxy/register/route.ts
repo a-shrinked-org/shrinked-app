@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
 	  console.log('Processing complete registration for:', email);
 	  
 	  // Forward the request to the actual API endpoint
+	  // Based on Postman collection, the API only needs email and password
 	  const response = await fetch(`${API_URL}/auth/register`, {
 		method: 'POST',
 		headers: {
@@ -64,13 +65,17 @@ export async function POST(request: NextRequest) {
 		body: JSON.stringify({
 		  email,
 		  password,
-		  username: username || email.split('@')[0]
+		  // Include username if provided, otherwise don't include it
+		  ...(username && { username })
 		}),
 		credentials: 'omit',
 	  });
 	  
 	  // Get the response data
 	  const data = await response.json().catch(() => ({}));
+	  
+	  // Log the response for debugging
+	  console.log('API registration response status:', response.status);
 	  
 	  // Add success flag for more consistent client handling
 	  return NextResponse.json(
