@@ -43,8 +43,10 @@ export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
   
-  // Updated to include all required fields
-  const requestedFields = '_id,title,createdAt,description,output,fileName,jobId,status';
+  // Limit fields to only get what we need to improve performance
+  // Based on the example: '_id,title,status,createdAt'
+  // Including description, output.title, fileName for display purposes
+  const requestedFields = '_id,title,status,createdAt,description,output.title,fileName';
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
@@ -74,81 +76,59 @@ export default function ProcessingList() {
 
   useEffect(() => {
     if (identity?.id) {
-      console.log("Refetching with user ID:", identity.id);
+      console.log("Fetching documents for user:", identity.id);
       refetch();
     }
   }, [identity, refetch]);
 
   // Prepare documents with consistent data for the table
   const prepareDocuments = (documents: any[] = []): ProcessedDocument[] => {
+    console.log("Raw documents from API:", documents);
     return documents.map((doc, index) => ({
       ...doc,
       _id: doc._id || `doc-${index}`, // Ensure each document has an ID
       createdAt: doc.createdAt || new Date().toISOString(),
       // Ensure each document has a proper title and description for two-line display
       title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
-      description: doc.description || doc.output?.description || 'No description available',
+      description: doc.description || (doc.output?.description ? doc.output.description : 'No description available'),
     }));
   };
 
   const handleViewDocument = async (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     
-    console.log("View document clicked:", doc);
+    console.log("View document clicked:", doc._id);
     setLoadingDocId(doc._id);
     
     try {
-      // First, try to find a job with matching title
-      if (doc.title) {
-        console.log(`Searching for job with title: "${doc.title.substring(0, 30)}..."`);
+      // Using the correct endpoint from Postman collection: /jobs/by-result/:id
+      const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`, {
+        headers: authUtils.getAuthHeaders()
+      });
+      
+      console.log(`API response status for /jobs/by-result/${doc._id}:`, response.status);
+      
+      if (response.ok) {
+        const jobData = await response.json();
+        console.log("Job data response:", jobData);
         
-        const response = await fetch(`${API_CONFIG.API_URL}/jobs?title=${encodeURIComponent(doc.title)}`, {
-          headers: authUtils.getAuthHeaders()
-        });
-        
-        if (response.ok) {
-          const jobsData = await response.json();
-          console.log("Jobs response:", jobsData);
+        if (jobData && jobData._id) {
+          // Found a job!
+          console.log(`Found job ID ${jobData._id} for document ${doc._id}`);
           
-          if (jobsData && jobsData.data && jobsData.data.length > 0) {
-            // Found a job with this title
-            const jobId = jobsData.data[0]._id;
-            console.log(`Found job ID ${jobId} by title match`);
-            
-            // Open the job
-            window.open(`/jobs/show/${jobId}`, "_blank");
-            setLoadingDocId(null);
-            return;
-          } else {
-            console.log("No jobs found with matching title");
-          }
+          // Open the job detail page
+          window.open(`/jobs/show/${jobData._id}`, "_blank");
+          setLoadingDocId(null);
+          return;
         } else {
-          console.error("Failed to fetch jobs by title:", response.status);
+          console.log("No job data found in response");
         }
+      } else {
+        console.error(`Error response from jobs/by-result/${doc._id}:`, response.status);
       }
       
-      // If we couldn't find by title, try using the document ID directly
-      if (doc._id) {
-        const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`, {
-          headers: authUtils.getAuthHeaders()
-        });
-        
-        if (response.ok) {
-          const jobData = await response.json();
-          console.log("Job by document ID response:", jobData);
-          
-          if (jobData && jobData._id) {
-            console.log(`Found job ID ${jobData._id} by document ID`);
-            window.open(`/jobs/show/${jobData._id}`, "_blank");
-            setLoadingDocId(null);
-            return;
-          }
-        }
-      }
-      
-      // If no job found, inform the user
+      // If we get here, we weren't able to find a job
       alert("Could not find associated job for this document.");
-      console.error("No job found for document:", doc);
       
     } catch (error) {
       console.error("Error finding job for document:", error);
@@ -218,6 +198,7 @@ export default function ProcessingList() {
   }
 
   const preparedData = prepareDocuments(data?.data || []);
+  console.log("Prepared documents for table:", preparedData);
 
   return (
     <DocumentsTable<ProcessedDocument>
