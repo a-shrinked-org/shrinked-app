@@ -39,12 +39,27 @@ const formatProcessingDate = (dateString: string) => {
   }
 };
 
+// Custom title renderer to only show title without description
+const titleRenderer = (doc: ProcessedDocument) => {
+  return (
+    <div style={{ overflow: 'hidden' }}>
+      <div style={{ 
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        fontWeight: 500,
+        fontSize: '16px'
+      }}>
+        {doc.title || doc.output?.title || doc.fileName || 'Untitled Document'}
+      </div>
+    </div>
+  );
+};
+
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
   
-  // Updated to include all required fields based on Postman collection
-  // Note: No filtering of fields in the endpoint shown in Postman
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
     queryOptions: {
@@ -73,7 +88,7 @@ export default function ProcessingList() {
 
   useEffect(() => {
     if (identity?.id) {
-      console.log("Refetching with user ID:", identity.id);
+      console.log("Fetching documents for user:", identity.id);
       refetch();
     }
   }, [identity, refetch]);
@@ -85,9 +100,10 @@ export default function ProcessingList() {
       ...doc,
       _id: doc._id || `doc-${index}`, // Ensure each document has an ID
       createdAt: doc.createdAt || new Date().toISOString(),
-      // Ensure each document has a proper title and description for two-line display
+      // Set title only, we'll use the titleRenderer to hide description
       title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
-      description: doc.description || doc.output?.description || 'No description available',
+      // Set status to undefined so that the circle will be white
+      status: undefined
     }));
   };
 
@@ -98,8 +114,7 @@ export default function ProcessingList() {
     setLoadingDocId(doc._id);
     
     try {
-      // Based on your Postman collection, we should use /jobs/by-result/:id endpoint
-      // This is the exact endpoint shown in your collection
+      // Using the correct endpoint from Postman collection: /jobs/by-result/:id
       const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`, {
         headers: authUtils.getAuthHeaders()
       });
@@ -133,21 +148,6 @@ export default function ProcessingList() {
       alert("Error finding job for this document.");
     } finally {
       setLoadingDocId(null);
-    }
-  };
-
-  const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    try {
-      const result = await documentOperations.sendDocumentEmail(id, API_CONFIG.API_URL, email);
-      if (result.success) {
-        alert("Document sent successfully");
-      } else {
-        alert("Failed to send document: " + (result.error?.message || "Unknown error"));
-      }
-    } catch (error) {
-      console.error("Error sending email:", error);
-      alert("Failed to send document: Unknown error");
     }
   };
 
@@ -202,7 +202,6 @@ export default function ProcessingList() {
     <DocumentsTable<ProcessedDocument>
       data={preparedData}
       onView={handleViewDocument}
-      onSendEmail={handleSendEmail}
       onDelete={handleDelete}
       formatDate={formatProcessingDate}
       isLoading={isLoading}
@@ -210,7 +209,9 @@ export default function ProcessingList() {
       error={error}
       title="DOC STORE"
       showStatus={false}
-      loadingDocId={loadingDocId} // Pass the loading doc ID to show loading state
+      titleRenderer={titleRenderer}
+      loadingDocId={loadingDocId}
+      // Email functionality is completely removed by not providing onSendEmail
     />
   );
 }
