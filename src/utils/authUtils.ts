@@ -842,21 +842,26 @@ export const useAuth = () => {
 	queueOfflineOperation,
 	processPendingOperations,
 	setupNetworkListeners,
+	// Update the login method in the useAuth hook
+	
 	login: async (email: string, password: string) => {
 	  try {
-		const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
+		// Use the proxy endpoint instead of direct API call
+		const response = await fetch(`/api/auth-proxy/login`, {
 		  method: 'POST',
 		  headers: {
 			'Content-Type': 'application/json',
 		  },
 		  body: JSON.stringify({ email, password }),
+		  // Include cookies to ensure tokens are properly set
+		  credentials: 'include'
 		});
-  
+	
 		if (!response.ok) {
 		  const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
 		  return { success: false, error: errorData };
 		}
-  
+	
 		const data = await response.json();
 		if (data.accessToken && data.refreshToken) {
 		  authUtils.saveTokens(data.accessToken, data.refreshToken);

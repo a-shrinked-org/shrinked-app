@@ -69,103 +69,139 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setInfo(""); 
-
+  
     setGoogleLoading(false);
     actionTypeRef.current = "email";
     setEmailPasswordLoading(true);
-
+  
     if (!formData.email) {
       setError("Please enter your email");
       setEmailPasswordLoading(false);
       actionTypeRef.current = null;
       return;
     }
-
+  
     if (step === "email") {
-      login(
-        { email: formData.email, password: "" },
-        {
-          onSuccess: (response) => {
-            if (actionTypeRef.current !== "email") return;
-
-            if (response && response.success === true) {
-              setStep("password");
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-              return;
-            }
-
-            if (
-              response &&
-              typeof response === "object" &&
-              "error" in response &&
-              typeof response.error === "object" &&
-              response.error !== null &&
-              "name" in response.error &&
-              response.error.name === "RegistrationRequired"
-            ) {
-              handleRegistrationFlow();
-            } else {
-              setError("Unable to verify email status. Please try again.");
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-            }
+      // Use proxy endpoint for email check
+      try {
+        const checkResponse = await fetch('/api/auth-proxy/check-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          onError: (error: any) => {
-            if (actionTypeRef.current !== "email") return;
-
-            let errorName = "";
-            let errorMessage = "";
-
-            if (typeof error === "object" && error !== null) {
-              if ("name" in error && typeof error.name === "string") {
-                errorName = error.name;
+          body: JSON.stringify({ email: formData.email }),
+          credentials: 'include'
+        });
+        
+        const checkData = await checkResponse.json();
+        
+        if (checkResponse.ok) {
+          if (checkData.exists) {
+            // Email exists, move to password step
+            setStep("password");
+            setEmailPasswordLoading(false);
+            actionTypeRef.current = null;
+            return;
+          } else {
+            // Email doesn't exist, start registration flow
+            handleRegistrationFlow();
+            return;
+          }
+        } else {
+          throw new Error(checkData.message || 'Failed to check email');
+        }
+      } catch (error) {
+        console.error("Email check error:", error);
+        
+        // This is a fallback - use the default login flow via the useLogin hook
+        login(
+          { email: formData.email, password: "" },
+          {
+            onSuccess: (response) => {
+              if (actionTypeRef.current !== "email") return;
+  
+              if (response && response.success === true) {
+                setStep("password");
+                setEmailPasswordLoading(false);
+                actionTypeRef.current = null;
+                return;
               }
-
-              if ("message" in error && typeof error.message === "string") {
-                errorMessage = error.message;
+  
+              if (
+                response &&
+                typeof response === "object" &&
+                "error" in response &&
+                typeof response.error === "object" &&
+                response.error !== null &&
+                "name" in response.error &&
+                response.error.name === "RegistrationRequired"
+              ) {
+                handleRegistrationFlow();
+              } else {
+                setError("Unable to verify email status. Please try again.");
+                setEmailPasswordLoading(false);
+                actionTypeRef.current = null;
               }
-
-              if ("error" in error && typeof error.error === "object" && error.error !== null) {
-                if ("name" in error.error && typeof error.error.name === "string") {
-                  errorName = errorName || error.error.name;
-                }
-                if ("message" in error.error && typeof error.error.message === "string") {
-                  errorMessage = errorMessage || error.error.message;
-                }
-              }
-            }
-
-            if (
-              errorName === "RegistrationRequired" ||
-              (errorMessage && errorMessage.includes("not found"))
-            ) {
-              handleRegistrationFlow();
-            } else {
+            },
+            onError: (error: any) => {
+              // Error handling remains the same
+              if (actionTypeRef.current !== "email") return;
+  
+              let errorName = "";
+              let errorMessage = "";
+  
               if (typeof error === "object" && error !== null) {
+                // Extract error info...
+                if ("name" in error && typeof error.name === "string") {
+                  errorName = error.name;
+                }
+  
                 if ("message" in error && typeof error.message === "string") {
-                  setError(error.message);
-                } else if (
-                  "error" in error &&
-                  typeof error.error === "object" &&
-                  error.error !== null &&
-                  "message" in error.error &&
-                  typeof error.error.message === "string"
-                ) {
-                  setError(error.error.message);
+                  errorMessage = error.message;
+                }
+  
+                if ("error" in error && typeof error.error === "object" && error.error !== null) {
+                  if ("name" in error.error && typeof error.error.name === "string") {
+                    errorName = errorName || error.error.name;
+                  }
+                  if ("message" in error.error && typeof error.error.message === "string") {
+                    errorMessage = errorMessage || error.error.message;
+                  }
+                }
+              }
+  
+              if (
+                errorName === "RegistrationRequired" ||
+                (errorMessage && errorMessage.includes("not found"))
+              ) {
+                handleRegistrationFlow();
+              } else {
+                // Display appropriate error
+                if (typeof error === "object" && error !== null) {
+                  if ("message" in error && typeof error.message === "string") {
+                    setError(error.message);
+                  } else if (
+                    "error" in error &&
+                    typeof error.error === "object" &&
+                    error.error !== null &&
+                    "message" in error.error &&
+                    typeof error.error.message === "string"
+                  ) {
+                    setError(error.error.message);
+                  } else {
+                    setError("An error occurred");
+                  }
                 } else {
                   setError("An error occurred");
                 }
-              } else {
-                setError("An error occurred");
+  
+                setEmailPasswordLoading(false);
+                actionTypeRef.current = null;
               }
-
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-            }
-          },
-        }
-      );
+            },
+          }
+        );
+      }
     } else if (step === "password") {
       if (!formData.password) {
         setError("Please enter your password");
@@ -173,7 +209,8 @@ export default function Login() {
         actionTypeRef.current = null;
         return;
       }
-
+  
+      // Still use the login hook but it now calls the proxy endpoint
       login(
         {
           email: formData.email,
@@ -187,7 +224,7 @@ export default function Login() {
           },
           onError: (error: any) => {
             if (actionTypeRef.current !== "email") return;
-
+  
             if (typeof error === "object" && error !== null) {
               if ("message" in error && typeof error.message === "string") {
                 setError(error.message);
@@ -205,7 +242,7 @@ export default function Login() {
             } else {
               setError("Invalid email or password");
             }
-
+  
             setEmailPasswordLoading(false);
             actionTypeRef.current = null;
           },
@@ -213,8 +250,35 @@ export default function Login() {
       );
     }
   };
-
+  
   const handleRegistrationFlow = () => {
+    // Use the registration proxy endpoint
+    fetch('/api/auth-proxy/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: formData.email }),
+      credentials: 'include'
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success || (response.ok && !data.error)) {
+          setStep("verification-sent");
+        } else {
+          setError(data.error?.message || 'Failed to register with this email');
+        }
+        setEmailPasswordLoading(false);
+        actionTypeRef.current = null;
+      })
+      .catch(error => {
+        console.error("Registration error:", error);
+        setError("Failed to register with this email");
+        setEmailPasswordLoading(false);
+        actionTypeRef.current = null;
+      });
+      
+    // Fallback to using the login hook with "register" provider
     login(
       {
         email: formData.email,
@@ -230,7 +294,7 @@ export default function Login() {
         },
         onError: (regError) => {
           if (actionTypeRef.current !== "email") return;
-
+  
           if (typeof regError === "object" && regError !== null) {
             if ("message" in regError && typeof regError.message === "string") {
               setError(regError.message);
@@ -248,7 +312,7 @@ export default function Login() {
           } else {
             setError("Failed to register with this email");
           }
-
+  
           setEmailPasswordLoading(false);
           actionTypeRef.current = null;
         },
@@ -464,7 +528,7 @@ export default function Login() {
           </form>
 
           <div className="footer-text">
-            By continuing, you agree to Shrinked <span className="footer-link">Usage Policy</span>, 
+            By continuing, you agree to Shrinked <a href="https://shrinked.ai/terms" target="_blank" rel="noopener noreferrer" className="footer-link">Terms of Service</a>, 
             and acknowledge their <span className="footer-link">Privacy Policy</span>.
           </div>
         </Card>
