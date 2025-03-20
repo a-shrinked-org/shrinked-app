@@ -7,6 +7,15 @@ import { CheckCircle, AlertCircle } from "lucide-react";
 // Import custom styles for verification page
 import "@/styles/verify-styles.css";
 
+// Define proper interface for verified user data
+interface VerifiedUserData {
+  email: string;
+  username?: string;
+  verifiedAt: string;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
 export default function VerifyEmail() {
   const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -122,8 +131,8 @@ export default function VerifyEmail() {
 
       console.log("VerifyEmail: API registration successful");
       
-      // Store verified user data and authentication tokens if provided
-      const verifiedUserData = {
+      // Create verified user data with proper typing
+      const verifiedUserData: VerifiedUserData = {
         email: formData.email,
         username: parsedUser.username || formData.email.split('@')[0],
         verifiedAt: new Date().toISOString()
@@ -131,10 +140,10 @@ export default function VerifyEmail() {
 
       // Add tokens to verified user data if they're returned from the API
       if (data.accessToken) {
-        verifiedUserData['accessToken'] = data.accessToken;
+        verifiedUserData.accessToken = data.accessToken;
       }
       if (data.refreshToken) {
-        verifiedUserData['refreshToken'] = data.refreshToken;
+        verifiedUserData.refreshToken = data.refreshToken;
       }
       
       localStorage.setItem("verifiedUser", JSON.stringify(verifiedUserData));
