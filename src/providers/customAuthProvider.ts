@@ -678,7 +678,7 @@ class AuthProviderClass implements AuthProvider {
 		  },
 		  body: JSON.stringify({ refreshToken }),
 		  signal: controller.signal,
-		  redentials: 'include'
+		  credentials: 'include'
 		}).catch((err) => {
 		  debug.warn('logout', `Server logout request failed, continuing with client logout:`, err);
 		  // Ignore server errors during logout
