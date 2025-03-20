@@ -146,8 +146,9 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             background: 'black', 
             padding: '4px 15px', 
             borderRadius: '6px',
+            textTransform: 'uppercase',
           }}>
-            <Text c="#a1a1a1" size="sm">ID: {formattedUserId}</Text>
+            <Text c="#a1a1a1" size="xs">ID: {formattedUserId}</Text>
           </Box>
         </Flex>
 
@@ -160,11 +161,16 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             CITATION FOR AI SYSTEMS<br />
             EXACTLY WHERE IT&apos;S NEEDED.
           </Text>
-          <Link href="#" style={{ textDecoration: 'none' }}>
+          <a 
+            href="https://shrinked.ai/manifesto" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ textDecoration: 'none' }}
+          >
             <Text size="xs" c="#ffffff" mt="xs" style={{ textDecoration: 'underline' }}>
               Learn more
             </Text>
-          </Link>
+          </a>
         </Box>
 
         {/* Navigation Menu */}
@@ -204,11 +210,14 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         padding: '24px',
       }}>
         {/* Updated Documentation link to go to docs.shrinked.ai */}
-        <Link href="https://docs.shrinked.ai" passHref style={{ textDecoration: 'none' }}>
+        <a 
+          href="https://docs.shrinked.ai" 
+          style={{ textDecoration: 'none' }}
+        >
           <Text size="sm" c="#a1a1a1" mb="xs" style={{ cursor: 'pointer' }}>
             DOCUMENTATION
           </Text>
-        </Link>
+        </a>
         <Text size="sm" c="#a1a1a1" mb="xl">FEEDBACK</Text>
 
         {/* Usage Stats */}
