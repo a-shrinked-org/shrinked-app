@@ -39,10 +39,27 @@ const formatProcessingDate = (dateString: string) => {
   }
 };
 
+// Generate a mock ID for documents that don't have one
+const generateMockId = (doc: any, index: number): string => {
+  // Either use an existing _id or generate a mock one based on title or index
+  if (doc._id) return doc._id;
+  
+  // Try to create a somewhat stable ID based on title if available
+  if (doc.title) {
+    const titleHash = doc.title.slice(0, 20).replace(/[^a-zA-Z0-9]/g, '');
+    return `mock-${titleHash}-${index}`;
+  }
+  
+  // Fallback to just index
+  return `mock-doc-${index}`;
+};
+
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [docToJobMapping, setDocToJobMapping] = useState<Record<string, string>>({});
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
+  const [rawDocuments, setRawDocuments] = useState<any[]>([]);
+  const [isDirectLoading, setIsDirectLoading] = useState(false);
   
   // Updated to include all required fields
   const requestedFields = '_id,title,createdAt,description,output,fileName,jobId,status';
@@ -61,31 +78,78 @@ export default function ProcessingList() {
     }
   });
 
-  console.log("Loading documents with identity:", identity?.id);
+  console.log("Original API response:", data);
+
+  // Direct fetch function to debug the API response
+  const directFetchDocuments = async () => {
+    if (!identity?.id) return;
+    
+    setIsDirectLoading(true);
+    try {
+      console.log("Directly fetching documents for user:", identity.id);
+      const response = await fetch(
+        `${API_CONFIG.API_URL}/processing/user/${identity.id}/documents?fields=${requestedFields}`,
+        { headers: authUtils.getAuthHeaders() }
+      );
+      
+      console.log("Direct API response status:", response.status);
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log("Direct API response data:", responseData);
+        
+        // Store the raw documents for reference
+        if (responseData && responseData.data && Array.isArray(responseData.data)) {
+          setRawDocuments(responseData.data);
+        } else if (Array.isArray(responseData)) {
+          setRawDocuments(responseData);
+        } else {
+          console.error("Unexpected API response format:", responseData);
+        }
+      } else {
+        console.error("Direct API fetch failed:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error in direct fetch:", error);
+    } finally {
+      setIsDirectLoading(false);
+    }
+  };
+
+  // Fetch documents directly when component mounts
+  useEffect(() => {
+    if (identity?.id) {
+      directFetchDocuments();
+    }
+  }, [identity?.id]);
 
   // Process documents to ensure they have the required fields
   const processDocuments = (documents: any[] = []): ProcessedDocument[] => {
     console.log("Processing documents:", documents.length);
-    return documents.map((doc) => {
-      // Handle documents without _id (should be rare)
-      if (!doc._id) {
-        console.warn("Document without _id found:", doc);
-      }
+    
+    return documents.map((doc, index) => {
+      // Generate a stable ID for documents that don't have one
+      const docId = generateMockId(doc, index);
+      console.log(`Document ${index}: title="${doc.title?.substring(0, 20)}...", ID=${docId}, has _id=${!!doc._id}, has jobId=${!!doc.jobId}`);
       
       // If document has a jobId, add it to the mapping
-      if (doc.jobId && doc._id) {
-        console.log(`Document ${doc._id} already has jobId: ${doc.jobId}`);
+      if (doc.jobId && docId) {
+        console.log(`Document ${docId} already has jobId: ${doc.jobId}`);
         setDocToJobMapping(prev => {
           const newMapping = { ...prev };
-          newMapping[doc._id] = doc.jobId;
+          newMapping[docId] = doc.jobId;
           return newMapping;
         });
       }
       
-      return {
+      // Ensure the document has an _id
+      const processedDoc: ProcessedDocument = {
         ...doc,
+        _id: docId,
         createdAt: doc.createdAt || new Date().toISOString()
-      } as ProcessedDocument;
+      };
+      
+      return processedDoc;
     });
   };
 
@@ -101,78 +165,80 @@ export default function ProcessingList() {
     }
   }, [error, refetch]);
 
-  useEffect(() => {
-    if (identity?.id) {
-      console.log("Refetching with user ID:", identity.id);
-      refetch();
-    }
-  }, [identity, refetch]);
-
   // Prepare documents with consistent data for the table
   const prepareDocuments = (documents: any[] = []): ProcessedDocument[] => {
-    return processDocuments(documents).map(doc => ({
+    const processed = processDocuments(documents).map(doc => ({
       ...doc,
       // Ensure each document has a proper title and description for two-line display
       title: doc.title || doc.output?.title || doc.fileName || 'Untitled Document',
       description: doc.description || doc.output?.description || 'No description available',
     }));
+    
+    console.log("Final prepared documents:", processed);
+    return processed;
+  };
+
+  // Debug function to test direct API call
+  const testDocumentApi = async (docId: string) => {
+    try {
+      console.log(`Testing document API for ID: ${docId}`);
+      const response = await fetch(`${API_CONFIG.API_URL}/processing/${docId}/document`, {
+        headers: authUtils.getAuthHeaders()
+      });
+      console.log(`Document API response status: ${response.status}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Document API response:", data);
+        return data;
+      }
+    } catch (error) {
+      console.error("Error in test document API:", error);
+    }
+    return null;
+  };
+
+  // Debug function to test direct job by result API call
+  const testJobByResultApi = async (docId: string) => {
+    try {
+      console.log(`Testing job by result API for ID: ${docId}`);
+      const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${docId}`, {
+        headers: authUtils.getAuthHeaders()
+      });
+      console.log(`Job by result API response status: ${response.status}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Job by result API response:", data);
+        return data;
+      }
+    } catch (error) {
+      console.error("Error in test job by result API:", error);
+    }
+    return null;
   };
 
   const handleViewDocument = async (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     
-    console.log("View document clicked for:", doc._id);
+    console.log("View document clicked for:", doc);
+    
+    // Test the document API directly
+    await testDocumentApi(doc._id);
+    
+    // Test the job by result API directly
+    const jobData = await testJobByResultApi(doc._id);
     
     // First check if we already have a jobId either from the doc or our mapping
     let jobId: string | undefined = docToJobMapping[doc._id] || doc.jobId;
     console.log("Initial jobId found:", jobId);
     
-    // If we don't have a jobId yet, fetch it only for this document
-    if (!jobId && doc._id) {
-      try {
-        // Show loading indicator for this specific document
-        setLoadingDocId(doc._id);
-        console.log("Fetching job ID for document:", doc._id);
-        
-        // Directly fetch from API for debugging
-        const response = await fetch(`${API_CONFIG.API_URL}/jobs/by-result/${doc._id}`, {
-          headers: authUtils.getAuthHeaders()
-        });
-        
-        console.log("API response status:", response.status);
-        
-        if (response.ok) {
-          const jobData = await response.json();
-          console.log("Job data received:", jobData);
-          
-          if (jobData && jobData._id) {
-            const fetchedJobId: string = jobData._id;
-            jobId = fetchedJobId;
-            console.log("Job ID found:", jobId);
-            
-            // Update mapping with a type-safe approach
-            setDocToJobMapping(prev => {
-              const newMapping = { ...prev };
-              // Only assign if jobId is definitely a string
-              if (typeof fetchedJobId === 'string') {
-                newMapping[doc._id] = fetchedJobId;
-              }
-              return newMapping;
-            });
-          } else {
-            console.error("Job data doesn't contain _id:", jobData);
-          }
-        } else {
-          console.error("Failed to fetch job ID. Status:", response.status);
-        }
-      } catch (error) {
-        console.error(`Error fetching job ID for document ${doc._id}:`, error);
-        alert("Could not retrieve job details for this document");
-        return;
-      } finally {
-        // Hide loading indicator
-        setLoadingDocId(null);
-      }
+    // If we don't have a jobId yet, use the one we just fetched
+    if (!jobId && jobData && jobData._id) {
+      jobId = jobData._id;
+      setDocToJobMapping(prev => {
+        const newMapping = { ...prev };
+        newMapping[doc._id] = jobId as string;
+        return newMapping;
+      });
     }
     
     // If we have a jobId, open the job detail page
@@ -184,7 +250,7 @@ export default function ProcessingList() {
     } else {
       // If we still couldn't get a jobId, inform the user
       console.error("No job ID found for document:", doc._id);
-      alert("Could not find associated job for this document");
+      alert("Could not find associated job for this document. Check console for details.");
     }
   };
 
@@ -223,6 +289,7 @@ export default function ProcessingList() {
 
   const handleRefresh = () => {
     refetch();
+    directFetchDocuments();
     // Clear the job mapping to force fresh fetching
     setDocToJobMapping({});
   };
@@ -249,9 +316,13 @@ export default function ProcessingList() {
     );
   }
 
-  console.log("Documents data:", data?.data);
-  const preparedData = prepareDocuments(data?.data || []);
-  console.log("Prepared documents:", preparedData);
+  // Use raw documents if available, otherwise fall back to data from useList
+  const documentsToUse = rawDocuments.length > 0 
+    ? rawDocuments 
+    : (data?.data || []);
+  
+  console.log("Documents to use:", documentsToUse);
+  const preparedData = prepareDocuments(documentsToUse);
   console.log("Current job mapping:", docToJobMapping);
 
   return (
@@ -262,12 +333,12 @@ export default function ProcessingList() {
       onSendEmail={handleSendEmail}
       onDelete={handleDelete}
       formatDate={formatProcessingDate}
-      isLoading={isLoading}
+      isLoading={isLoading || isDirectLoading}
       onRefresh={handleRefresh}
       error={error}
       title="DOC STORE"
       showStatus={false}
-      loadingDocId={loadingDocId} // Pass the loading doc ID to show loading state
+      loadingDocId={loadingDocId}
     />
   );
 }
