@@ -261,9 +261,13 @@ export default function Login() {
       body: JSON.stringify({ email: formData.email }),
       credentials: 'include'
     })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success || (response.ok && !data.error)) {
+      .then(apiResponse => {
+        // Store the response object in a variable that will be accessible in the next then block
+        const responseObj = apiResponse;
+        return apiResponse.json().then(data => ({ data, responseObj }));
+      })
+      .then(({ data, responseObj }) => {
+        if (data.success || (responseObj.ok && !data.error)) {
           setStep("verification-sent");
         } else {
           setError(data.error?.message || 'Failed to register with this email');
