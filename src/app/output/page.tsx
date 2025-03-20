@@ -42,6 +42,7 @@ const formatProcessingDate = (dateString: string) => {
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [docToJobMapping, setDocToJobMapping] = useState<Record<string, string>>({});
+  const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
   
   // Updated to include all required fields
   const requestedFields = '_id,title,createdAt,description,output,fileName,jobId,status';
@@ -60,17 +61,13 @@ export default function ProcessingList() {
     }
   });
 
-  console.log("Full response data:", data);
-
-  // Generate fallback IDs for documents that don't have _id
+  // Process documents to ensure they have the required fields
   const processDocuments = (documents: any[] = []): ProcessedDocument[] => {
-    return documents.map((doc, index) => {
-      // If document doesn't have _id, generate a fallback ID
-      const docWithId = {
-        ...doc,
-        _id: doc._id || `temp-id-${index}`,
-        createdAt: doc.createdAt || new Date().toISOString()
-      };
+    return documents.map((doc) => {
+      // Handle documents without _id (should be rare)
+      if (!doc._id) {
+        console.warn("Document without _id found:", doc);
+      }
       
       // If document has a jobId, add it to the mapping
       if (doc.jobId && doc._id) {
@@ -80,39 +77,12 @@ export default function ProcessingList() {
         }));
       }
       
-      return docWithId as ProcessedDocument;
+      return {
+        ...doc,
+        createdAt: doc.createdAt || new Date().toISOString()
+      } as ProcessedDocument;
     });
   };
-
-  // Fetch job IDs for documents that don't have jobId field
-  useEffect(() => {
-    console.log("Raw data from useList in ProcessingList:", data);
-    if (data?.data && Array.isArray(data.data)) {
-      // Prepare documents with IDs first
-      const processedDocs = processDocuments(data.data);
-      console.log("Processed documents with IDs:", processedDocs);
-      
-      // Filter documents that have an _id but no jobId mapping yet
-      const docsNeedingJobIds = processedDocs.filter(
-        doc => doc._id && !doc._id.startsWith('temp-id-') && !docToJobMapping[doc._id]
-      );
-      
-      if (docsNeedingJobIds.length > 0) {
-        console.log("Fetching job IDs for documents:", docsNeedingJobIds.length);
-        
-        // Use the documentOperations utility to fetch job IDs
-        documentOperations.fetchJobIdsForDocs(docsNeedingJobIds, API_CONFIG.API_URL)
-          .then(mapping => {
-            console.log("Doc to Job mapping:", mapping);
-            setDocToJobMapping(prev => ({
-              ...prev,
-              ...mapping
-            }));
-          })
-          .catch(err => console.error("Failed to fetch job mappings:", err));
-      }
-    }
-  }, [data, docToJobMapping]);
 
   useEffect(() => {
     if (error) {
@@ -143,12 +113,47 @@ export default function ProcessingList() {
     }));
   };
 
-  const handleViewDocument = (doc: ProcessedDocument, e?: React.MouseEvent) => {
+  const handleViewDocument = async (doc: ProcessedDocument, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    // Use the jobId from mapping or default to doc._id
-    const jobId = docToJobMapping[doc._id] || doc.jobId || doc._id;
-    console.log(`Opening job ${jobId} for document ${doc._id}`);
-    window.open(`/jobs/show/${jobId}`, '_blank');
+    
+    // First check if we already have a jobId either from the doc or our mapping
+    let jobId = docToJobMapping[doc._id] || doc.jobId;
+    
+    // If we don't have a jobId yet, fetch it only for this document
+    if (!jobId && doc._id) {
+      try {
+        // Show loading indicator for this specific document
+        setLoadingDocId(doc._id);
+        
+        // Fetch the job ID for just this one document
+        const mapping = await documentOperations.fetchJobIdsForDocs([doc], API_CONFIG.API_URL);
+        jobId = mapping[doc._id];
+        
+        // Update our mapping with the new job ID for future reference
+        if (jobId) {
+          setDocToJobMapping(prev => ({
+            ...prev,
+            [doc._id]: jobId
+          }));
+        }
+      } catch (error) {
+        console.error(`Error fetching job ID for document ${doc._id}:`, error);
+        alert("Could not retrieve job details for this document");
+        return;
+      } finally {
+        // Hide loading indicator
+        setLoadingDocId(null);
+      }
+    }
+    
+    // If we have a jobId, open the job detail page
+    if (jobId) {
+      console.log(`Opening job ${jobId} for document ${doc._id}`);
+      window.open(`/jobs/show/${jobId}`, '_blank');
+    } else {
+      // If we still couldn't get a jobId, inform the user
+      alert("Could not find associated job for this document");
+    }
   };
 
   const handleSendEmail = async (id: string, email?: string, e?: React.MouseEvent) => {
@@ -186,6 +191,7 @@ export default function ProcessingList() {
 
   const handleRefresh = () => {
     refetch();
+    // Clear the job mapping to force fresh fetching
     setDocToJobMapping({});
   };
 
@@ -212,7 +218,6 @@ export default function ProcessingList() {
   }
 
   const preparedData = prepareDocuments(data?.data || []);
-  console.log("Prepared documents for display:", preparedData);
 
   return (
     <DocumentsTable<ProcessedDocument>
@@ -221,12 +226,13 @@ export default function ProcessingList() {
       onView={handleViewDocument}
       onSendEmail={handleSendEmail}
       onDelete={handleDelete}
-      formatDate={formatProcessingDate} // Using the consistent date formatter
+      formatDate={formatProcessingDate}
       isLoading={isLoading}
       onRefresh={handleRefresh}
       error={error}
       title="DOC STORE"
       showStatus={false}
+      loadingDocId={loadingDocId} // Pass the loading doc ID to show loading state
     />
   );
 }

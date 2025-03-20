@@ -79,6 +79,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   showDate?: boolean;
   customGridTemplate?: string;
   statusIndicatorStyle?: StatusIndicatorStyle;
+  loadingDocId?: string | null; // Added prop for loading state
 }
 
 // Changed from generic expression to function declaration
@@ -103,7 +104,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     titleRenderer,
     actionsRenderer,
     customGridTemplate,
-    statusIndicatorStyle = 'default'
+    statusIndicatorStyle = 'default',
+    loadingDocId = null // Default to null if not provided
   } = props;
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -435,6 +437,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                                   e.stopPropagation();
                                   onView(doc, e);
                                 }}
+                                loading={loadingDocId === doc._id} // Add loading state for specific document
+                                disabled={loadingDocId === doc._id} // Disable while loading
                                 style={{
                                   color: '#ffffff',
                                   '&:hover': { backgroundColor: '#2b2b2b' }
@@ -571,6 +575,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                             e.stopPropagation();
                             onView && onView(doc, e);
                           }}
+                          loading={loadingDocId === doc._id} // Add loading state for mobile view
+                          disabled={loadingDocId === doc._id} // Disable while loading
                           style={{
                             color: '#ffffff',
                             marginLeft: '8px'
