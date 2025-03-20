@@ -83,94 +83,93 @@ export default function Login() {
   
     if (step === "email") {
       // the default login flow via the useLogin hook
-        login(
-          { email: formData.email, password: "" },
-          {
-            onSuccess: (response) => {
-              if (actionTypeRef.current !== "email") return;
-  
-              if (response && response.success === true) {
-                setStep("password");
-                setEmailPasswordLoading(false);
-                actionTypeRef.current = null;
-                return;
+      login(
+        { email: formData.email, password: "" },
+        {
+          onSuccess: (response) => {
+            if (actionTypeRef.current !== "email") return;
+
+            if (response && response.success === true) {
+              setStep("password");
+              setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
+              return;
+            }
+
+            if (
+              response &&
+              typeof response === "object" &&
+              "error" in response &&
+              typeof response.error === "object" &&
+              response.error !== null &&
+              "name" in response.error &&
+              response.error.name === "RegistrationRequired"
+            ) {
+              handleRegistrationFlow();
+            } else {
+              setError("Unable to verify email status. Please try again.");
+              setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
+            }
+          },
+          onError: (error: any) => {
+            // Error handling remains the same
+            if (actionTypeRef.current !== "email") return;
+
+            let errorName = "";
+            let errorMessage = "";
+
+            if (typeof error === "object" && error !== null) {
+              // Extract error info...
+              if ("name" in error && typeof error.name === "string") {
+                errorName = error.name;
               }
-  
-              if (
-                response &&
-                typeof response === "object" &&
-                "error" in response &&
-                typeof response.error === "object" &&
-                response.error !== null &&
-                "name" in response.error &&
-                response.error.name === "RegistrationRequired"
-              ) {
-                handleRegistrationFlow();
-              } else {
-                setError("Unable to verify email status. Please try again.");
-                setEmailPasswordLoading(false);
-                actionTypeRef.current = null;
+
+              if ("message" in error && typeof error.message === "string") {
+                errorMessage = error.message;
               }
-            },
-            onError: (error: any) => {
-              // Error handling remains the same
-              if (actionTypeRef.current !== "email") return;
-  
-              let errorName = "";
-              let errorMessage = "";
-  
+
+              if ("error" in error && typeof error.error === "object" && error.error !== null) {
+                if ("name" in error.error && typeof error.error.name === "string") {
+                  errorName = errorName || error.error.name;
+                }
+                if ("message" in error.error && typeof error.error.message === "string") {
+                  errorMessage = errorMessage || error.error.message;
+                }
+              }
+            }
+
+            if (
+              errorName === "RegistrationRequired" ||
+              (errorMessage && errorMessage.includes("not found"))
+            ) {
+              handleRegistrationFlow();
+            } else {
+              // Display appropriate error
               if (typeof error === "object" && error !== null) {
-                // Extract error info...
-                if ("name" in error && typeof error.name === "string") {
-                  errorName = error.name;
-                }
-  
                 if ("message" in error && typeof error.message === "string") {
-                  errorMessage = error.message;
-                }
-  
-                if ("error" in error && typeof error.error === "object" && error.error !== null) {
-                  if ("name" in error.error && typeof error.error.name === "string") {
-                    errorName = errorName || error.error.name;
-                  }
-                  if ("message" in error.error && typeof error.error.message === "string") {
-                    errorMessage = errorMessage || error.error.message;
-                  }
-                }
-              }
-  
-              if (
-                errorName === "RegistrationRequired" ||
-                (errorMessage && errorMessage.includes("not found"))
-              ) {
-                handleRegistrationFlow();
-              } else {
-                // Display appropriate error
-                if (typeof error === "object" && error !== null) {
-                  if ("message" in error && typeof error.message === "string") {
-                    setError(error.message);
-                  } else if (
-                    "error" in error &&
-                    typeof error.error === "object" &&
-                    error.error !== null &&
-                    "message" in error.error &&
-                    typeof error.error.message === "string"
-                  ) {
-                    setError(error.error.message);
-                  } else {
-                    setError("An error occurred");
-                  }
+                  setError(error.message);
+                } else if (
+                  "error" in error &&
+                  typeof error.error === "object" &&
+                  error.error !== null &&
+                  "message" in error.error &&
+                  typeof error.error.message === "string"
+                ) {
+                  setError(error.error.message);
                 } else {
                   setError("An error occurred");
                 }
-  
-                setEmailPasswordLoading(false);
-                actionTypeRef.current = null;
+              } else {
+                setError("An error occurred");
               }
-            },
-          }
-        );
-      }
+
+              setEmailPasswordLoading(false);
+              actionTypeRef.current = null;
+            }
+          },
+        }
+      );
     } else if (step === "password") {
       if (!formData.password) {
         setError("Please enter your password");

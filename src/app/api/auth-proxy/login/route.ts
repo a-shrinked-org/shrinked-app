@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
 		  'Content-Type': 'application/json',
 		},
 		body: JSON.stringify(body),
-		// Don't include credentials to avoid CORS preflight issues
 		credentials: 'omit',
 	  });
 	  
@@ -86,7 +85,8 @@ export async function POST(request: NextRequest) {
 		}
 	  }
 	  
-	  // Return the API response without sensitive tokens
+	  // Return the API response WITH tokens - client-side still needs them
+	  // during the transition to cookie-based auth
 	  const responseData = { 
 		...data,
 		success: !!response.ok
