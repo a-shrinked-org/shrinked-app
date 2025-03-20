@@ -114,10 +114,10 @@ export default function LogicList() {
       description: "Track how discussions on specific topics evolve across multiple conversations over time.",
       createdAt: new Date().toISOString(),
       status: "active",
-      jobsCount: 2,
+      jobsCount: 0,
       steps: 6,
       isDefault: false,
-      isComingSoon: false,
+      isComingSoon: true,
       instructions: `I want to track how discussions on specific topics evolve across multiple conversations over time.
   
   ## Processing steps
@@ -143,10 +143,10 @@ export default function LogicList() {
       description: "Combine related segments from multiple conversations to create a unified knowledge structure.",
       createdAt: new Date().toISOString(),
       status: "active",
-      jobsCount: 1,
+      jobsCount: 0,
       steps: 6,
       isDefault: false,
-      isComingSoon: false,
+      isComingSoon: true,
       instructions: `I want to combine related segments from multiple conversations to create a unified knowledge structure.
   
   ## Processing steps
@@ -175,7 +175,7 @@ export default function LogicList() {
       jobsCount: 0,
       steps: 6,
       isDefault: false,
-      isComingSoon: false,
+      isComingSoon: true,
       instructions: `I want to extract and analyze all discussions related to a specific key topic across conversations.
   
   ## Processing steps
