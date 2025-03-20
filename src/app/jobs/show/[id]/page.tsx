@@ -24,10 +24,11 @@ import {
   Download
 } from 'lucide-react';
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 import { GeistMono } from 'geist/font/mono';
+import { debounce } from 'lodash';
 
 interface Identity {
   token?: string;
@@ -114,21 +115,62 @@ export default function JobShow() {
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
   const [uploadFileLink, setUploadFileLink] = useState<string | null>(null);
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  
+  // Refs to track ongoing requests
+  const isLoadingMarkdown = useRef(false);
+  const isFetchingProcessingDoc = useRef(false);
 
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth } = useAuth();
 
-  // Fetch markdown content from backend endpoint
+  // Set the document ID based on available data
+  useEffect(() => {
+    if (processingDocId) {
+      setDocumentId(processingDocId);
+    } else if (jobId) {
+      setDocumentId(jobId);
+    }
+  }, [processingDocId, jobId]);
+
+  // Extract ResultId utility function
+  const extractResultId = useCallback((jobData: Job | null) => {
+    if (!jobData) return null;
+    
+    // Try to find in processing step
+    const processingStep = jobData.steps?.find(step => 
+      step.name === "PLATOGRAM_PROCESSING" || 
+      step.name === "TEXT_PROCESSING"
+    );
+    
+    if (processingStep?.data?.resultId) {
+      return processingStep.data.resultId;
+    }
+    
+    // Try alternative locations
+    return jobData.output?.resultId || 
+           jobData.resultId || 
+           jobData.steps?.find(step => step.data?.resultId)?.data?.resultId ||
+           null;
+  }, []);
+
+  // Fetch markdown content from backend endpoint with improved caching and request tracking
   const fetchMarkdownContent = useCallback(async () => {
-    // Use processingDocId when available, not jobId
-    if (!processingDocId && !jobId) return;
+    if (!documentId) return;
+    
+    // Don't make the request if we already have content
+    if (markdownContent) return;
+    
+    // Track if a request is already in progress
+    if (isLoadingMarkdown.current) return;
+    
+    isLoadingMarkdown.current = true;
+    setErrorMessage(null);
   
     try {
-      // Try using processingDocId first if available, otherwise fall back to jobId
-      const idToUse = processingDocId || jobId;
-      console.log('Attempting to fetch markdown with ID:', idToUse);
+      console.log('Attempting to fetch markdown with ID:', documentId);
       
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${idToUse}/markdown?includeReferences=true`
+        `${API_CONFIG.API_URL}/pdf/${documentId}/markdown?includeReferences=true`
       );
   
       if (!response.ok) {
@@ -138,17 +180,18 @@ export default function JobShow() {
       // The response should be the markdown text directly
       const markdown = await response.text();
       setMarkdownContent(markdown);
-      console.log('Fetched markdown content successfully using ID:', idToUse);
+      console.log('Fetched markdown content successfully using ID:', documentId);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
       setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      isLoadingMarkdown.current = false;
     }
-  }, [processingDocId, jobId, fetchWithAuth]);
+  }, [documentId, markdownContent, fetchWithAuth]);
 
   // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) {
-      setErrorMessage("Missing required data to fetch document");
       return;
     }
   
@@ -156,6 +199,10 @@ export default function JobShow() {
       setErrorMessage("You appear to be offline. Please check your internet connection.");
       return;
     }
+    
+    // Don't fetch if already fetching
+    if (isFetchingProcessingDoc.current) return;
+    isFetchingProcessingDoc.current = true;
   
     try {
       setIsLoadingDoc(true);
@@ -166,7 +213,14 @@ export default function JobShow() {
       // Using fields parameter to only request necessary fields
       const fields = '_id,title,status,createdAt,output';
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/processing/${processingDocId}?fields=${fields}`
+        `${API_CONFIG.API_URL}/processing/${processingDocId}?fields=${fields}`,
+        {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }
       );
   
       if (!response.ok) {
@@ -185,28 +239,24 @@ export default function JobShow() {
       );
       
       setProcessingDoc(sanitizedData);
-  
-      // Don't fetch markdown here - let the effect handle it
     } catch (error) {
       console.error("Failed to fetch document:", error);
       setErrorMessage(`Error loading document: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoadingDoc(false);
+      isFetchingProcessingDoc.current = false;
     }
   }, [processingDocId, fetchWithAuth]);
 
   // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
-    // Use processingDocId when available, not jobId
-    if (!processingDocId && !jobId) return;
+    if (!documentId) return;
   
     try {
-      // Try using processingDocId first if available, otherwise fall back to jobId
-      const idToUse = processingDocId || jobId;
-      console.log('Attempting to download PDF with ID:', idToUse);
+      console.log('Attempting to download PDF with ID:', documentId);
       
       const response = await fetchWithAuth(
-        `${API_CONFIG.API_URL}/pdf/${idToUse}/json?includeReferences=true`,
+        `${API_CONFIG.API_URL}/pdf/${documentId}/json?includeReferences=true`,
         { method: 'GET' }
       );
   
@@ -219,17 +269,17 @@ export default function JobShow() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `document-${idToUse}.pdf`;
+      link.download = `document-${documentId}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      console.log('Downloaded PDF successfully using ID:', idToUse);
+      console.log('Downloaded PDF successfully using ID:', documentId);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [processingDocId, jobId, fetchWithAuth]);
+  }, [documentId, fetchWithAuth]);
 
   const { queryResult } = useShow<Job>({
     resource: "jobs",
@@ -240,33 +290,15 @@ export default function JobShow() {
       onSuccess: (data) => {
         console.log("Show query success:", data);
         
-        // Extract processingDocId from PLATOGRAM_PROCESSING step
-        const processingStep = data.data?.steps?.find(step => 
-          step.name === "PLATOGRAM_PROCESSING" || 
-          step.name === "TEXT_PROCESSING"
-        );
+        // Use the utility function to extract resultId
+        const resultId = extractResultId(data.data);
         
-        if (processingStep?.data?.resultId) {
-          console.log("Found processing resultId:", processingStep.data.resultId);
-          setProcessingDocId(processingStep.data.resultId);
+        if (resultId) {
+          console.log("Found resultId:", resultId);
+          setProcessingDocId(resultId);
         } else {
-          // Try alternative locations where resultId might be stored
-          const alternativeLocations = [
-            data.data?.output?.resultId,
-            data.data?.resultId,
-            // If we have steps with data fields, check all of them for resultId
-            ...(data.data?.steps?.map(step => step.data?.resultId).filter(Boolean) || [])
-          ];
-          
-          const foundResultId = alternativeLocations.find(id => id);
-          
-          if (foundResultId) {
-            console.log("Found resultId in alternative location:", foundResultId);
-            setProcessingDocId(foundResultId);
-          } else {
-            console.log("No resultId found in any location");
-            setErrorMessage("No processing document ID found in job data.");
-          }
+          console.log("No resultId found in any location");
+          setErrorMessage("No processing document ID found in job data.");
         }
         
         // Extract link from UPLOAD_FILE or similar step
@@ -296,43 +328,53 @@ export default function JobShow() {
     },
     meta: {
       headers: {
-        'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}`
+        'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}`,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       }
     }
   });
 
   // Effect to load document data when ID changes or tab changes
   useEffect(() => {
-    if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId)) {
+    if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId) && !isFetchingProcessingDoc.current) {
       getProcessingDocument();
     }
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
   // Effect to load markdown content when tab changes to preview
   useEffect(() => {
-    if (activeTab === "preview" && !markdownContent && jobId) {
-      // Only fetch markdown if we have a jobId and are in preview mode
+    if (activeTab === "preview" && !markdownContent && documentId && !isLoadingMarkdown.current) {
+      // Only fetch markdown if we have a documentId and are in preview mode
       fetchMarkdownContent();
     }
-  }, [activeTab, jobId, markdownContent, fetchMarkdownContent]);
+  }, [activeTab, documentId, markdownContent, fetchMarkdownContent]);
+
+  // Debounced refetch to prevent multiple rapid calls
+  const debouncedRefetch = useCallback(
+    debounce(() => {
+      setErrorMessage(null);
+      
+      // Clear content states
+      setProcessingDoc(null);
+      setMarkdownContent(null);
+      
+      if (processingDocId) {
+        console.log("Manual refresh: fetching processing document");
+        getProcessingDocument();
+      }
+      
+      // Always fetch markdown when in preview tab and we have at least one ID
+      if (activeTab === "preview" && documentId) {
+        console.log("Manual refresh: fetching markdown content");
+        fetchMarkdownContent();
+      }
+    }, 500),
+    [activeTab, documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]
+  );
 
   const manualRefetch = () => {
-    setErrorMessage(null);
-    
-    // Clear content states
-    setProcessingDoc(null);
-    setMarkdownContent(null);
-    
-    if (processingDocId) {
-      console.log("Manual refresh: fetching processing document");
-      getProcessingDocument();
-    }
-    
-    // Always fetch markdown when in preview tab and we have at least one ID
-    if (activeTab === "preview" && (processingDocId || jobId)) {
-      console.log("Manual refresh: fetching markdown content");
-      fetchMarkdownContent();
-    }
+    debouncedRefetch();
   };
 
   const formatDuration = (durationInMs?: number) => {
@@ -372,6 +414,7 @@ export default function JobShow() {
   console.log("Fetched record:", record);
   console.log("Processing document:", processingDoc);
   console.log("Markdown content length:", markdownContent?.length || 0);
+  console.log("Using document ID:", documentId);
   console.log("Using token for processing document:", 
     getAccessToken()?.substring(0, 20) || identity?.token?.substring(0, 20) || 'none');
 
