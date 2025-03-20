@@ -672,27 +672,33 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       overflowX: 'hidden'
     }}>
       {/* Header */}
-      <Flex justify="space-between" align="center" p="md" style={{ borderBottom: '1px solid #2b2b2b' }}>
-        <Text size="sm" fw={700} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
+      <Flex justify="space-between" align="center" p="sm" style={{ borderBottom: '1px solid #2b2b2b' }}>
+        <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
         <Group>
           {onRefresh && (
             <Button
-              variant="outline"
-              onClick={onRefresh}
-              leftSection={<RefreshCw size={16} />}
+              variant="subtle" // Changed from outline to subtle to remove border
+              onClick={onRefresh} // This should already be working if onRefresh is provided
+              leftSection={<RefreshCw size={14} />} // Changed from 16 to 14
               loading={isLoading}
               styles={{
                 root: {
                   backgroundColor: 'transparent',
-                  borderColor: '#2b2b2b',
                   color: '#ffffff',
+                  fontWeight: 500, // Changed from default to 500
+                  textTransform: 'uppercase', // Added uppercase
+                  fontFamily: GeistMono.style.fontFamily, // Match the font with title
+                  fontSize: '14px', // Ensure consistent font size
+                  letterSpacing: '0.5px', // Match title letter spacing
+                  padding: '8px 16px', // Proper padding
+                  border: 'none', // Explicitly remove border
                   '&:hover': {
-                    backgroundColor: '#2b2b2b',
+                    backgroundColor: '#1a1a1a', // Slightly lighter background on hover
                   },
                 },
               }}
             >
-              {!isMobile && <Text>Refresh</Text>}
+              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
             </Button>
           )}
           {onAddNew && (
