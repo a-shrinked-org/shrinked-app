@@ -175,7 +175,7 @@ export default function JobDetail() {
 
   return (
     <Stack p="md">
-      <Group position="apart" align="center" mb="md">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <Group>
           <Button 
             variant="subtle" 
@@ -200,20 +200,20 @@ export default function JobDetail() {
         >
           Refresh
         </Button>
-      </Group>
+      </div>
 
       {job && (
         <>
-          <Card withBorder shadow="sm">
-            <Stack spacing="xs">
-              <Group position="apart">
+          <Card withBorder shadow="sm" mb="md">
+            <Stack>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text size="lg" fw={600}>{job.jobName || "Untitled Job"}</Text>
                 <Badge 
                   color={job.status === "COMPLETED" ? "green" : job.status === "FAILED" ? "red" : "blue"}
                 >
                   {job.status}
                 </Badge>
-              </Group>
+              </div>
               
               <Text size="sm" c="dimmed">Created: {formatDate(job.createdAt)}</Text>
               
@@ -263,7 +263,7 @@ export default function JobDetail() {
 
             <Tabs.Panel value="details" pt="md">
               <Card withBorder shadow="sm">
-                <Stack spacing="md">
+                <Stack>
                   <Group>
                     <Text fw={500}>Job ID:</Text>
                     <Text>{job._id}</Text>
