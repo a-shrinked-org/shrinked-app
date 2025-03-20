@@ -89,9 +89,6 @@ export async function POST(request: NextRequest) {
 	  // Return the API response without sensitive tokens
 	  const responseData = { 
 		...data,
-		// Remove tokens from the response to prevent them from being exposed to the client
-		accessToken: undefined,
-		refreshToken: undefined,
 		success: !!response.ok
 	  };
 	  
