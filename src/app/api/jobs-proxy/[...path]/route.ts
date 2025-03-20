@@ -11,8 +11,26 @@ export async function GET(
   // Get the path segments and join them
   const path = params.path.join('/');
   
-  // Forward the request to the API
-  const url = `${API_URL}/jobs/${path}`;
+  // Determine the endpoint based on the path
+  let url = '';
+  
+  // Check for specific endpoints that need special handling
+  if (path.includes('/markdown')) {
+	// Extract the ID from the path
+	const id = path.split('/markdown')[0];
+	url = `${API_URL}/pdf/${id}/markdown`;
+  } else if (path.includes('/pdf')) {
+	// Extract the ID from the path
+	const id = path.split('/pdf')[0];
+	url = `${API_URL}/pdf/${id}/json`;
+  } else if (path.includes('/processing')) {
+	// Extract the ID from the path
+	const id = path.split('/processing')[0];
+	url = `${API_URL}/processing/${id}`;
+  } else {
+	// Default to jobs endpoint
+	url = `${API_URL}/jobs/${path}`;
+  }
   
   // Get the access token from the cookie
   const cookieStore = cookies();
@@ -26,6 +44,8 @@ export async function GET(
   const requestUrl = queryString ? `${url}?${queryString}` : url;
   
   try {
+	console.log(`Proxying request to: ${requestUrl}`);
+	
 	// Create headers to forward
 	const headers: HeadersInit = {
 	  'Content-Type': 'application/json',
