@@ -54,6 +54,37 @@ const notificationProvider: NotificationProvider = {
   },
 };
 
+const createUnifiedSession = (nextAuthSession: ExtendedSession | null, customAuth: boolean) => {
+  if (nextAuthSession?.user) {
+    return {
+      source: 'nextauth',
+      user: {
+        name: nextAuthSession.user.name || '',
+        email: nextAuthSession.user.email || '',
+        avatar: nextAuthSession.user.image || null
+      },
+      accessToken: nextAuthSession.accessToken || null,
+      isAuthenticated: true
+    };
+  }
+  
+  if (customAuth) {
+    const userData = authUtils.getUserData();
+    return {
+      source: 'custom',
+      user: {
+        name: userData?.username || userData?.email || '',
+        email: userData?.email || '',
+        avatar: userData?.avatar || null
+      },
+      accessToken: authUtils.getAccessToken(),
+      isAuthenticated: true
+    };
+  }
+  
+  return { source: null, user: null, accessToken: null, isAuthenticated: false };
+};
+
 const App = (props: React.PropsWithChildren<{}>) => {
   const { data: session, status } = useSession() as {
     data: ExtendedSession | null;
@@ -106,6 +137,8 @@ const App = (props: React.PropsWithChildren<{}>) => {
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
+      const { providerName, email, password, returnUrl } = params;
+      
       if (params.providerName === "auth0" || params.providerName === "google") {
         signIn(params.providerName, { callbackUrl: "/jobs", redirect: true });
         return { success: false, error: { message: `Redirecting to ${params.providerName}...`, name: params.providerName } };
@@ -169,15 +202,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
     },
     getIdentity: async () => {
-      if (session?.user) {
+      const unifiedSession = createUnifiedSession(session, authUtils.isAuthenticated());
+      
+      if (unifiedSession.isAuthenticated) {
         return {
-          name: session.user.name || "",
-          email: session.user.email || "",
-          avatar: session.user.image || null,
-          token: session.accessToken || "",
+          name: unifiedSession.user?.name || "",
+          email: unifiedSession.user?.email || "",
+          avatar: unifiedSession.user?.avatar || null,
+          token: unifiedSession.accessToken || "",
         };
       }
-
+      
       try {
         const identity = await customAuthProvider.getIdentity();
         return identity || null;

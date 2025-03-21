@@ -258,25 +258,28 @@ export const authUtils = {
   setupRefreshTimer: (): void => {
 	if (typeof window === "undefined") return;
 	if (window._refreshTimerId) clearTimeout(window._refreshTimerId);
-
+  
 	const metadataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
 	if (!metadataStr) {
 	  authDebug.log("setupRefreshTimer", "No metadata, skipping");
 	  return;
 	}
-
+  
 	const metadata: TokenMetadata = JSON.parse(metadataStr);
-	const timeUntilExpiry = metadata.accessExpiry - Date.now() - 60000; // 1-minute buffer
+	// Increase buffer from 60000 (1 minute) to 180000 (3 minutes)
+	const timeUntilExpiry = metadata.accessExpiry - Date.now() - 180000; 
+	
 	if (timeUntilExpiry <= 0) {
 	  authUtils.refreshToken();
 	  return;
 	}
-
+  
 	window._refreshTimerId = setTimeout(() => {
 	  authUtils.refreshToken().then((success) => {
 		if (success) authUtils.setupRefreshTimer();
 	  });
 	}, Math.max(timeUntilExpiry, 1000));
+	
 	authDebug.log("setupRefreshTimer", `Scheduled refresh in ${Math.round(timeUntilExpiry / 60000)} minutes`);
   },
 
