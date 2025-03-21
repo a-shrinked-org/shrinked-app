@@ -133,6 +133,10 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   const [sendingEmail, setSendingEmail] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   
+  // New refresh-related state variables
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  
   // Use useMediaQuery instead of MediaQuery component
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -156,7 +160,43 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     }
   };
 
-  // New function to render coming soon state
+  // New handleRefreshClick function
+  const handleRefreshClick = () => {
+    // Show loading indicator
+    setIsRefreshing(true);
+    
+    // Call provided onRefresh if it exists
+    if (onRefresh) {
+      try {
+        const result = onRefresh();
+        
+        // If onRefresh returns a promise, wait for it
+        if (result instanceof Promise) {
+          result.finally(() => {
+            setIsRefreshing(false);
+            setRefreshCounter(prev => prev + 1);
+          });
+        } else {
+          // If not a promise, just simulate a brief loading state
+          setTimeout(() => {
+            setIsRefreshing(false);
+            setRefreshCounter(prev => prev + 1);
+          }, 500);
+        }
+      } catch (error) {
+        console.error("Error during refresh:", error);
+        setIsRefreshing(false);
+      }
+    } else {
+      // No onRefresh provided, just simulate a brief loading state
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setRefreshCounter(prev => prev + 1);
+      }, 500);
+    }
+  };
+
+  // Updated renderComingSoonState function
   const renderComingSoonState = () => (
     <Box p="md" style={{ 
       height: 'calc(100vh - 56px)', // Subtract header height (approx 56px)
@@ -173,9 +213,21 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           backgroundColor: '#0D0D0D',
           borderColor: '#2B2B2B',
           maxWidth: 600,
-          margin: '0 auto'
+          margin: '0 auto',
+          // Add animation for refresh
+          transition: 'all 0.3s ease',
+          animation: isRefreshing ? 'pulse 0.5s ease' : 'none'
         }}
       >
+        {/* Add style for animation */}
+        <style jsx global>{`
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+          }
+        `}</style>
+        
         <Stack gap="xl" align="center">
           <Box>
             {comingSoonConfig.icon}
@@ -216,6 +268,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           
           <Text size="xs" c="#666666">
             This feature is currently in early access. More options coming soon.
+            {/* Add last refreshed timestamp */}
+            {refreshCounter > 0 && ` Last refreshed: ${new Date().toLocaleTimeString()}`}
           </Text>
         </Stack>
       </Card>
@@ -765,12 +819,13 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     }}>
       <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
       <Group>
-        {onRefresh && (
+        {/* Updated refresh button logic */}
+        {onRefresh || comingSoon ? (
           <Button
             variant="subtle"
-            onClick={onRefresh}
+            onClick={handleRefreshClick}
             leftSection={<RefreshCw size={14} />}
-            loading={isLoading}
+            loading={isLoading || isRefreshing}
             styles={{
               root: {
                 backgroundColor: 'transparent',
@@ -790,7 +845,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           >
             {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
           </Button>
-        )}
+        ) : null}
         {onAddNew && !comingSoon && ( // Don't show Add New button in coming soon state
           <Button
             variant="filled"
