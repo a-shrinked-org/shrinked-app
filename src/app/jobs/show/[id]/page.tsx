@@ -131,144 +131,87 @@ export default function JobShow() {
 
   const extractResultId = useCallback((jobData: Job | null) => {
     if (!jobData) return null;
-    
     const processingStep = jobData.steps?.find(step => 
       step.name === "PLATOGRAM_PROCESSING" || 
       step.name === "TEXT_PROCESSING"
     );
-    
-    if (processingStep?.data?.resultId) {
-      return processingStep.data.resultId;
-    }
-    
-    return jobData.output?.resultId || 
-           jobData.resultId || 
-           jobData.steps?.find(step => step.data?.resultId)?.data?.resultId ||
-           null;
+    return processingStep?.data?.resultId || jobData.output?.resultId || jobData.resultId || null;
   }, []);
 
   const fetchMarkdownContent = useCallback(async (forceRefresh = false) => {
     if (!documentId) return;
-    
-    if (markdownContent && !forceRefresh) return;
-    
+    if (!forceRefresh && markdownContent) return;
     if (isLoadingMarkdown.current) return;
-    
+
     isLoadingMarkdown.current = true;
     setErrorMessage(null);
     setIsLoadingDoc(true);
-  
+
     try {
-      console.log('Attempting to fetch markdown with ID:', documentId);
+      console.log('Fetching markdown with ID:', documentId);
       const token = await ensureValidToken();
-      
-      if (!token) {
-        throw new Error('Authentication failed - unable to get valid token');
-      }
-  
+      if (!token) throw new Error('Authentication failed - unable to get valid token');
+
       const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
         cache: 'no-store'
       });
-  
+
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           const refreshSuccess = await refreshToken();
           if (refreshSuccess) {
             const newToken = getAccessToken();
             const retryResponse = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
-              headers: {
-                'Authorization': `Bearer ${newToken || ''}`
-              },
+              headers: { 'Authorization': `Bearer ${newToken || ''}` },
               cache: 'no-store'
             });
-            
-            if (!retryResponse.ok) {
-              throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
-            }
-            
+            if (!retryResponse.ok) throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
             const markdown = await retryResponse.text();
-            if (!markdown || markdown.trim() === '') {
-              throw new Error('No content available yet - document may still be processing');
-            }
-            
+            if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
             setMarkdownContent(markdown);
-            console.log('Fetched markdown content successfully using ID after token refresh:', documentId);
-            console.log('Markdown content length:', markdown.length);
-            setIsLoadingDoc(false);
-            isLoadingMarkdown.current = false;
-            return;
+            console.log('Fetched markdown after token refresh:', documentId);
           }
         } else if (response.status === 404) {
-          throw new Error('Content not available yet - retrying in 2 seconds');
+          throw new Error('Content not available yet');
+        } else {
+          throw new Error(`Markdown fetch failed with status: ${response.status}`);
         }
-        
-        throw new Error(`Markdown fetch failed with status: ${response.status}`);
+      } else {
+        const markdown = await response.text();
+        if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
+        setMarkdownContent(markdown);
+        console.log('Fetched markdown successfully:', documentId);
       }
-  
-      const markdown = await response.text();
-      if (!markdown || markdown.trim() === '') {
-        setTimeout(() => {
-          console.log('Empty content received, retrying fetch');
-          isLoadingMarkdown.current = false;
-          fetchMarkdownContent(true);
-        }, 2000);
-        throw new Error('No content available yet - document may still be processing');
-      }
-      
-      setMarkdownContent(markdown);
-      console.log('Fetched markdown content successfully using ID:', documentId);
-      console.log('Markdown content length:', markdown.length);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
-      if (error instanceof Error && 
-          (error.message.includes('not available yet') || 
-           error.message.includes('still be processing'))) {
-        setTimeout(() => {
-          console.log('Retrying fetch after delay');
-          isLoadingMarkdown.current = false;
-          fetchMarkdownContent(true);
-        }, 2000);
-        setErrorMessage(`${error.message} - will retry automatically...`);
-      } else {
-        setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       isLoadingMarkdown.current = false;
       setIsLoadingDoc(false);
     }
   }, [documentId, markdownContent, refreshToken, getAccessToken, ensureValidToken]);
-  
+
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) return;
-  
     if (!navigator.onLine) {
       setErrorMessage("You appear to be offline. Please check your internet connection.");
       return;
     }
-    
     if (isFetchingProcessingDoc.current) return;
+
     isFetchingProcessingDoc.current = true;
-  
     try {
       setIsLoadingDoc(true);
       setErrorMessage(null);
       console.log('Fetching processing document with ID:', processingDocId);
       const fields = '_id,title,status,createdAt,output';
       const response = await fetch(`/api/jobs-proxy/${processingDocId}/processing?fields=${fields}`);
-  
-      if (!response.ok) {
-        throw new Error(`Fetch failed with status: ${response.status}`);
-      }
-  
+      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
       const data = await response.json();
       const sanitizedData = JSON.parse(
         JSON.stringify(data, (key, value) => {
-          if (typeof value === 'number' && !Number.isSafeInteger(value)) {
-            return value.toString();
-          }
+          if (typeof value === 'number' && !Number.isSafeInteger(value)) return value.toString();
           return value;
         })
       );
@@ -287,9 +230,7 @@ export default function JobShow() {
     try {
       console.log('Attempting to download PDF with ID:', documentId);
       const response = await fetch(`/api/pdf/${documentId}/pdf?includeReferences=true`);
-      if (!response.ok) {
-        throw new Error(`PDF download failed with status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`PDF download failed with status: ${response.status}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -299,7 +240,7 @@ export default function JobShow() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      console.log('Downloaded PDF successfully using ID:', documentId);
+      console.log('Downloaded PDF successfully:', documentId);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
@@ -319,7 +260,7 @@ export default function JobShow() {
           console.log("Found resultId:", resultId);
           setProcessingDocId(resultId);
         } else {
-          console.log("No resultId found in any location");
+          console.log("No resultId found");
           setErrorMessage("No processing document ID found in job data.");
         }
         const uploadStep = data.data?.steps?.find(step => 
@@ -328,14 +269,12 @@ export default function JobShow() {
           step.name === "CONVERT_FILE" ||
           step.name === "AUDIO_TRANSCRIPTION"
         );
-        const foundLink = uploadStep?.data?.output?.link || 
-                         uploadStep?.data?.link || 
-                         data.data?.link;
+        const foundLink = uploadStep?.data?.output?.link || uploadStep?.data?.link || data.data?.link;
         if (foundLink) {
           console.log("Found upload file link:", foundLink);
           setUploadFileLink(foundLink);
         } else {
-          console.log("No upload file link found in steps or record");
+          console.log("No upload file link found");
         }
       },
       onError: (error) => {
@@ -345,9 +284,7 @@ export default function JobShow() {
       }
     },
     meta: {
-      headers: {
-        'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}`
-      }
+      headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` }
     }
   });
 
@@ -357,16 +294,28 @@ export default function JobShow() {
     }
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
+  // Fetch markdown immediately if processing is complete
   useEffect(() => {
-    if (activeTab === "preview" && documentId && !isLoadingMarkdown.current) {
-      if (!markdownContent || markdownContent.trim() === '') {
-        console.log("Preview tab active, fetching markdown content");
-        fetchMarkdownContent();
-      }
+    const processingStep = queryResult.data?.data?.steps?.find(step => 
+      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
+    );
+    const status = processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || record?.status?.toLowerCase();
+    if (documentId && status === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
+      console.log("Processing complete, fetching markdown content on mount");
+      fetchMarkdownContent();
     }
-  }, [activeTab, documentId, markdownContent, fetchMarkdownContent]);
-  
+  }, [documentId, queryResult.data, processingDoc, record, markdownContent, fetchMarkdownContent]);
+
+  const getProcessingStatus = () => {
+    const processingStep = queryResult.data?.data?.steps?.find(step => 
+      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
+    );
+    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || record?.status?.toLowerCase();
+  };
+
   const renderPreviewContent = () => {
+    const status = getProcessingStatus();
+
     if (isDocLoading) {
       return (
         <Box style={{ position: 'relative', minHeight: '300px' }}>
@@ -374,6 +323,7 @@ export default function JobShow() {
         </Box>
       );
     }
+
     if (errorMessage) {
       return (
         <Alert 
@@ -395,6 +345,7 @@ export default function JobShow() {
         </Alert>
       );
     }
+
     if (markdownContent && markdownContent.trim() !== '') {
       return (
         <DocumentMarkdownRenderer 
@@ -402,25 +353,44 @@ export default function JobShow() {
           isLoading={false}
           errorMessage={null}
           onRefresh={manualRefetch}
-          processingStatus={processingDoc?.status || record?.status}
+          processingStatus={status}
         />
       );
     }
-    if (processingDoc?.status?.toLowerCase() === 'processing' || 
-        processingDoc?.status?.toLowerCase() === 'in_progress' || 
-        processingDoc?.status?.toLowerCase() === 'pending' || 
-        record?.status?.toLowerCase() === 'processing' || 
-        record?.status?.toLowerCase() === 'in_progress' || 
-        record?.status?.toLowerCase() === 'pending') {
+
+    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
       return (
         <DocumentMarkdownRenderer 
           isLoading={false}
           errorMessage={null}
           onRefresh={manualRefetch}
-          processingStatus="processing"
+          processingStatus={status}
         />
       );
     }
+
+    if (status === 'error' || status === 'failed') {
+      return (
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          color="red"
+          title="Processing Failed"
+          mb="md"
+        >
+          The document processing failed. Please try again or contact support.
+          <Button 
+            leftSection={<RefreshCw size={16} />}
+            mt="sm"
+            onClick={manualRefetch}
+            variant="light"
+            size="sm"
+          >
+            Retry
+          </Button>
+        </Alert>
+      );
+    }
+
     return (
       <Alert 
         icon={<AlertCircle size={16} />}
@@ -428,7 +398,7 @@ export default function JobShow() {
         title="Content Unavailable"
         mb="md"
       >
-        No content is available to display yet. The document may still be processing.
+        No content is available yet. The document may still be processing or failed to process.
         <Button 
           leftSection={<RefreshCw size={16} />}
           mt="sm"
@@ -441,23 +411,6 @@ export default function JobShow() {
       </Alert>
     );
   };
-
-  const debouncedRefetch = useCallback(
-    debounce(() => {
-      setErrorMessage(null);
-      setProcessingDoc(null);
-      setMarkdownContent(null);
-      if (processingDocId) {
-        console.log("Manual refresh: fetching processing document");
-        getProcessingDocument();
-      }
-      if (activeTab === "preview" && documentId) {
-        console.log("Manual refresh: fetching markdown content");
-        fetchMarkdownContent();
-      }
-    }, 500),
-    [activeTab, documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]
-  );
 
   const manualRefetch = useCallback(() => {
     setErrorMessage(null);
@@ -504,13 +457,6 @@ export default function JobShow() {
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
   const isDocLoading = isLoading || isLoadingDoc;
-
-  console.log("Fetched record:", record);
-  console.log("Processing document:", processingDoc);
-  console.log("Markdown content length:", markdownContent?.length || 0);
-  console.log("Using document ID:", documentId);
-  console.log("Using token for processing document:", 
-    getAccessToken()?.substring(0, 20) || identity?.token?.substring(0, 20) || 'none');
 
   if (!identity?.token) {
     return (
@@ -570,7 +516,6 @@ export default function JobShow() {
       backgroundColor: '#0a0a0a', 
       color: '#ffffff' 
     }}>
-      {/* Header - Aligned with DocumentsTable */}
       <Flex 
         justify="space-between" 
         align="center" 
@@ -660,9 +605,7 @@ export default function JobShow() {
         </Group>
       </Flex>
 
-      {/* Main Layout */}
       <Flex style={{ flex: 1, overflow: 'hidden' }}>
-        {/* Main Content Area - Scrollable */}
         <Box style={{ 
           flex: 1, 
           overflowY: 'auto', 
@@ -674,7 +617,6 @@ export default function JobShow() {
             margin: '0 auto', 
             padding: '24px' 
           }}>
-            {/* Title Section */}
             <Box mb="lg">
               <Badge 
                 size="sm"
@@ -709,7 +651,6 @@ export default function JobShow() {
               </Text>
             </Box>
 
-            {/* Tabs and Content */}
             <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
               <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
                 <Tabs.Tab 
@@ -812,7 +753,6 @@ export default function JobShow() {
           </Box>
         </Box>
 
-        {/* Sidebar - Fixed Position */}
         <Box style={{ 
           width: '384px', 
           borderLeft: '1px solid #2B2B2B', 
@@ -852,7 +792,7 @@ export default function JobShow() {
           
           <Box style={{ marginTop: '2rem' }}>
             <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              Logic
+              Logic steps / events
             </Text>
             <Box style={{ position: 'relative' }}>
               <Box style={{ 
