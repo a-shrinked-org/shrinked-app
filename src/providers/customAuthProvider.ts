@@ -98,27 +98,24 @@ export const customAuthProvider: Required<AuthProvider> & {
 	  // Email check with Loops (only if no password provided)
 	  if (!password) {
 		try {
-		  const response = await fetch(`/api/loops?loops=contacts/find&email=${encodeURIComponent(email)}`, {
+		  // Check if email exists in Loops - use correct API endpoint format
+		  const response = await fetch(`/api/loops?endpoint=contacts/find&email=${encodeURIComponent(email)}`, {
 			method: "GET",
 			headers: { "Content-Type": "application/json" },
 		  });
 		  
-		  // If successful Loops response
 		  if (response.ok) {
 			const data = await response.json();
 			if (Array.isArray(data) && data.length > 0) {
 			  return { success: true }; // Prompt for password
 			}
-			
 			// Email not found in Loops, suggest registration
 			return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
 		  } else {
-			// Handle Loops API error gracefully - try fallback
 			console.warn("Loops API check failed with status:", response.status);
 			
-			// If Loops is giving 400/500 errors, we need a fallback mechanism
+			// Try fallback mechanism if Loops API fails
 			try {
-			  // Try direct auth check as fallback if Loops is having issues
 			  const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -140,11 +137,30 @@ export const customAuthProvider: Required<AuthProvider> & {
 		  }
 		} catch (error) {
 		  console.error("Loops check error:", error);
-		  // If the Loops API completely fails, assume the user needs to register
-		  return { success: false, error: { message: "Email verification failed. Please register if you don't have an account.", name: "RegistrationRequired" } };
+		  // If the Loops API completely fails, try direct auth check
+		  try {
+			// Try a lightweight check if the email exists in the auth system
+			const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
+			  method: "POST",
+			  headers: { "Content-Type": "application/json" },
+			  body: JSON.stringify({ email }),
+			});
+			
+			if (checkResponse.ok) {
+			  const checkData = await checkResponse.json();
+			  if (checkData.exists) {
+				return { success: true }; // Prompt for password
+			  }
+			}
+		  } catch (fallbackError) {
+			console.error("Fallback email check failed:", fallbackError);
+		  }
+		  
+		  // If we get here, email not found via either method
+		  return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
 		}
 	  }
-	  
+  
 	  // Full login
 	  const response = await fetch(`/api/auth-proxy/login`, {
 		method: "POST",
@@ -152,12 +168,12 @@ export const customAuthProvider: Required<AuthProvider> & {
 		body: JSON.stringify({ email, password }),
 		credentials: "include",
 	  });
-
+  
 	  const data = await response.json();
 	  if (!response.ok) {
 		return { success: false, error: { message: data.message || "Login failed", name: "LoginError" } };
 	  }
-
+  
 	  if (data.accessToken && data.refreshToken) {
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
 		const profile = await authUtils.ensureUserProfile();
@@ -168,7 +184,7 @@ export const customAuthProvider: Required<AuthProvider> & {
 		authUtils.setAuthenticatedState(true);
 		return { success: true, redirectTo: "/jobs" };
 	  }
-
+  
 	  return { success: false, error: { message: "Invalid response", name: "LoginError" } };
 	} catch (error) {
 	  authUtils.clearAuthStorage();
@@ -177,7 +193,7 @@ export const customAuthProvider: Required<AuthProvider> & {
 		error: { message: error instanceof Error ? error.message : "Login failed", name: "LoginError" },
 	  };
 	}
-  },
+  }
 
   async register(params: any) {
 	const { email, password, username } = params;
