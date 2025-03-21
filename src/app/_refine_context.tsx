@@ -144,14 +144,14 @@ const App = (props: React.PropsWithChildren<{}>) => {
     check: async () => {
       try {
         if (to === "/login") return { authenticated: false };
-
+    
         if (status === "authenticated" && session) return { authenticated: true };
-
+    
         const hasLocalTokens = authUtils.isAuthenticated();
         if (!hasLocalTokens) {
           return { authenticated: false, logout: true, redirectTo: "/login" };
         }
-
+    
         const now = Date.now();
         if (now - lastFullAuthCheckTime >= AUTH_CHECK_COOLDOWN) {
           lastFullAuthCheckTime = now;
@@ -159,8 +159,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
           if (!accessToken) {
             return { authenticated: false, logout: true, redirectTo: "/login" };
           }
+          console.log("[AUTH] Full token validation completed"); // Log only on full check
         }
-
+    
         return { authenticated: true };
       } catch (error) {
         console.error("Auth check error:", error);

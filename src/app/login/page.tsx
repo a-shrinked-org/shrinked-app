@@ -16,6 +16,7 @@ import {
   Image,
 } from "@mantine/core";
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
+import { customAuthProvider } from "@providers/customAuthProvider"; // Import customAuthProvider
 import "@/styles/fonts.css";
 import "@/styles/login-styles.css";
 
@@ -71,20 +72,14 @@ export default function Login() {
 
     try {
       if (step === "email") {
-        const response = await fetch(`/api/auth-proxy/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, password: "" }),
-          credentials: "include",
-        });
-        const data = await response.json();
-
-        if (response.ok && data.success) {
+        // Use customAuthProvider for email check with Loops
+        const result = await customAuthProvider.login({ email: formData.email, password: "" });
+        if (result.success) {
           setStep("password");
-        } else if (data.error?.name === "RegistrationRequired") {
+        } else if (result.error?.name === "RegistrationRequired") {
           await handleRegistrationFlow();
         } else {
-          setError(data.error?.message || "Unable to verify email");
+          setError(result.error?.message || "Unable to verify email");
         }
       } else if (step === "password") {
         if (!formData.password) {
@@ -103,7 +98,7 @@ export default function Login() {
         const data = await response.json();
 
         if (response.ok && data.accessToken && data.refreshToken) {
-          router.push("/jobs"); // Rely on customAuthProvider to store tokens
+          router.push("/jobs");
         } else {
           setError(data.error?.message || "Invalid email or password");
         }
@@ -183,11 +178,11 @@ export default function Login() {
               Check your email
             </Title>
             <Text ta="center" mb="xl">
-              We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
+              We've sent a verification link to <b>{formData.email}</b>. Please check your inbox and
               click the link to complete your registration.
             </Text>
             <Text size="sm" ta="center" mb="md" className="footer-text">
-              Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
+              Didn't receive the email? Check your spam folder or try again in a few minutes.
             </Text>
             <Button
               variant="subtle"
