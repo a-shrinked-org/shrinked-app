@@ -104,7 +104,6 @@ interface ProcessingDocument {
 export default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
-  // Fix for params possibly being null
   const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   
   const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
@@ -117,13 +116,11 @@ export default function JobShow() {
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   
-  // Refs to track ongoing requests
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
 
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
 
-  // Set the document ID based on available data
   useEffect(() => {
     if (processingDocId) {
       setDocumentId(processingDocId);
@@ -132,11 +129,9 @@ export default function JobShow() {
     }
   }, [processingDocId, jobId]);
 
-  // Extract ResultId utility function
   const extractResultId = useCallback((jobData: Job | null) => {
     if (!jobData) return null;
     
-    // Try to find in processing step
     const processingStep = jobData.steps?.find(step => 
       step.name === "PLATOGRAM_PROCESSING" || 
       step.name === "TEXT_PROCESSING"
@@ -146,21 +141,17 @@ export default function JobShow() {
       return processingStep.data.resultId;
     }
     
-    // Try alternative locations
     return jobData.output?.resultId || 
            jobData.resultId || 
            jobData.steps?.find(step => step.data?.resultId)?.data?.resultId ||
            null;
   }, []);
 
-  // Improved fetchMarkdownContent function with retry mechanism
   const fetchMarkdownContent = useCallback(async (forceRefresh = false) => {
     if (!documentId) return;
     
-    // Skip if we already have content and not forcing refresh
     if (markdownContent && !forceRefresh) return;
     
-    // Track if a request is already in progress
     if (isLoadingMarkdown.current) return;
     
     isLoadingMarkdown.current = true;
@@ -169,28 +160,23 @@ export default function JobShow() {
   
     try {
       console.log('Attempting to fetch markdown with ID:', documentId);
-      
-      // Ensure we have a valid token
       const token = await ensureValidToken();
       
       if (!token) {
         throw new Error('Authentication failed - unable to get valid token');
       }
   
-      // Update to use the correct API route with proper authentication
       const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        cache: 'no-store' // Prevent caching issues
+        cache: 'no-store'
       });
   
       if (!response.ok) {
-        // If unauthorized, try to refresh token and retry
         if (response.status === 401 || response.status === 403) {
           const refreshSuccess = await refreshToken();
           if (refreshSuccess) {
-            // Retry with new token after successful refresh
             const newToken = getAccessToken();
             const retryResponse = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
               headers: {
@@ -204,8 +190,6 @@ export default function JobShow() {
             }
             
             const markdown = await retryResponse.text();
-            
-            // Check if content is empty
             if (!markdown || markdown.trim() === '') {
               throw new Error('No content available yet - document may still be processing');
             }
@@ -218,25 +202,19 @@ export default function JobShow() {
             return;
           }
         } else if (response.status === 404) {
-          // If 404, content might not be ready yet - trigger a retry after delay
           throw new Error('Content not available yet - retrying in 2 seconds');
         }
         
         throw new Error(`Markdown fetch failed with status: ${response.status}`);
       }
   
-      // The response should be the markdown text directly
       const markdown = await response.text();
-      
-      // Check if content is empty or very short (likely not complete)
       if (!markdown || markdown.trim() === '') {
-        // Set up a timed retry
         setTimeout(() => {
           console.log('Empty content received, retrying fetch');
           isLoadingMarkdown.current = false;
           fetchMarkdownContent(true);
-        }, 2000); // Retry after 2 seconds
-        
+        }, 2000);
         throw new Error('No content available yet - document may still be processing');
       }
       
@@ -245,22 +223,16 @@ export default function JobShow() {
       console.log('Markdown content length:', markdown.length);
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
-      
-      // Check if this is a "not ready yet" error which we want to retry
       if (error instanceof Error && 
           (error.message.includes('not available yet') || 
            error.message.includes('still be processing'))) {
-        
-        // Set up a retry after a delay
         setTimeout(() => {
           console.log('Retrying fetch after delay');
           isLoadingMarkdown.current = false;
           fetchMarkdownContent(true);
-        }, 2000); // Retry after 2 seconds
-        
+        }, 2000);
         setErrorMessage(`${error.message} - will retry automatically...`);
       } else {
-        // For other errors, show the error message
         setErrorMessage(`Error loading markdown: ${error instanceof Error ? error.message : String(error)}`);
       }
     } finally {
@@ -269,30 +241,22 @@ export default function JobShow() {
     }
   }, [documentId, markdownContent, refreshToken, getAccessToken, ensureValidToken]);
   
-  // Fetch the processing document with only the required fields
   const getProcessingDocument = useCallback(async () => {
-    if (!processingDocId) {
-      return;
-    }
+    if (!processingDocId) return;
   
     if (!navigator.onLine) {
       setErrorMessage("You appear to be offline. Please check your internet connection.");
       return;
     }
     
-    // Don't fetch if already fetching
     if (isFetchingProcessingDoc.current) return;
     isFetchingProcessingDoc.current = true;
   
     try {
       setIsLoadingDoc(true);
       setErrorMessage(null);
-      
       console.log('Fetching processing document with ID:', processingDocId);
-      
-      // Using fields parameter to only request necessary fields
       const fields = '_id,title,status,createdAt,output';
-      // Update to use the jobs-proxy API route since processing would go through there
       const response = await fetch(`/api/jobs-proxy/${processingDocId}/processing?fields=${fields}`);
   
       if (!response.ok) {
@@ -300,7 +264,6 @@ export default function JobShow() {
       }
   
       const data = await response.json();
-      
       const sanitizedData = JSON.parse(
         JSON.stringify(data, (key, value) => {
           if (typeof value === 'number' && !Number.isSafeInteger(value)) {
@@ -309,7 +272,6 @@ export default function JobShow() {
           return value;
         })
       );
-      
       setProcessingDoc(sanitizedData);
     } catch (error) {
       console.error("Failed to fetch document:", error);
@@ -320,21 +282,14 @@ export default function JobShow() {
     }
   }, [processingDocId]);
 
-  // Download PDF handler
   const handleDownloadPDF = useCallback(async () => {
     if (!documentId) return;
-  
     try {
       console.log('Attempting to download PDF with ID:', documentId);
-      
-      // Update to use the pdf API route
       const response = await fetch(`/api/pdf/${documentId}/pdf?includeReferences=true`);
-  
       if (!response.ok) {
         throw new Error(`PDF download failed with status: ${response.status}`);
       }
-      
-      // Convert response to blob and create download link
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -355,14 +310,11 @@ export default function JobShow() {
     resource: "jobs",
     id: jobId,
     queryOptions: {
-      enabled: !!jobId && !!identity?.token, // Only run when both jobId and token exist
-      staleTime: 30000, // Cache results for 30 seconds to prevent frequent refetching
+      enabled: !!jobId && !!identity?.token,
+      staleTime: 30000,
       onSuccess: (data) => {
         console.log("Show query success:", data);
-        
-        // Use the utility function to extract resultId
         const resultId = extractResultId(data.data);
-        
         if (resultId) {
           console.log("Found resultId:", resultId);
           setProcessingDocId(resultId);
@@ -370,19 +322,15 @@ export default function JobShow() {
           console.log("No resultId found in any location");
           setErrorMessage("No processing document ID found in job data.");
         }
-        
-        // Extract link from UPLOAD_FILE or similar step
         const uploadStep = data.data?.steps?.find(step => 
           step.name === "UPLOAD_FILE" || 
           step.name === "FILE_UPLOAD" || 
           step.name === "CONVERT_FILE" ||
           step.name === "AUDIO_TRANSCRIPTION"
         );
-        
         const foundLink = uploadStep?.data?.output?.link || 
                          uploadStep?.data?.link || 
                          data.data?.link;
-                        
         if (foundLink) {
           console.log("Found upload file link:", foundLink);
           setUploadFileLink(foundLink);
@@ -403,18 +351,14 @@ export default function JobShow() {
     }
   });
 
-  // Effect to load document data when ID changes or tab changes
   useEffect(() => {
     if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId) && !isFetchingProcessingDoc.current) {
       getProcessingDocument();
     }
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
-  // Effect to load markdown content when tab changes to preview
-  // Modified useEffect to handle auto-retry for empty content
   useEffect(() => {
     if (activeTab === "preview" && documentId && !isLoadingMarkdown.current) {
-      // Check if we need to fetch or retry
       if (!markdownContent || markdownContent.trim() === '') {
         console.log("Preview tab active, fetching markdown content");
         fetchMarkdownContent();
@@ -422,7 +366,6 @@ export default function JobShow() {
     }
   }, [activeTab, documentId, markdownContent, fetchMarkdownContent]);
   
-  // Modified render logic for the preview tab
   const renderPreviewContent = () => {
     if (isDocLoading) {
       return (
@@ -431,7 +374,6 @@ export default function JobShow() {
         </Box>
       );
     }
-    
     if (errorMessage) {
       return (
         <Alert 
@@ -453,7 +395,6 @@ export default function JobShow() {
         </Alert>
       );
     }
-    
     if (markdownContent && markdownContent.trim() !== '') {
       return (
         <DocumentMarkdownRenderer 
@@ -465,8 +406,6 @@ export default function JobShow() {
         />
       );
     }
-    
-    // Show processing state if document is still processing
     if (processingDoc?.status?.toLowerCase() === 'processing' || 
         processingDoc?.status?.toLowerCase() === 'in_progress' || 
         processingDoc?.status?.toLowerCase() === 'pending' || 
@@ -482,8 +421,6 @@ export default function JobShow() {
         />
       );
     }
-    
-    // Default no-content state
     return (
       <Alert 
         icon={<AlertCircle size={16} />}
@@ -505,21 +442,15 @@ export default function JobShow() {
     );
   };
 
-  // Debounced refetch to prevent multiple rapid calls
   const debouncedRefetch = useCallback(
     debounce(() => {
       setErrorMessage(null);
-      
-      // Clear content states
       setProcessingDoc(null);
       setMarkdownContent(null);
-      
       if (processingDocId) {
         console.log("Manual refresh: fetching processing document");
         getProcessingDocument();
       }
-      
-      // Always fetch markdown when in preview tab and we have at least one ID
       if (activeTab === "preview" && documentId) {
         console.log("Manual refresh: fetching markdown content");
         fetchMarkdownContent();
@@ -528,22 +459,15 @@ export default function JobShow() {
     [activeTab, documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]
   );
 
-  // Improved manual refetch function
   const manualRefetch = useCallback(() => {
     setErrorMessage(null);
-    
-    // Clear content states to force a fresh fetch
     setMarkdownContent(null);
-    
     if (processingDocId) {
       console.log("Manual refresh: fetching processing document");
       getProcessingDocument();
     }
-    
-    // Always fetch markdown when we have a document ID
     if (documentId) {
       console.log("Manual refresh: fetching markdown content");
-      // Pass true to force refresh
       fetchMarkdownContent(true);
     }
   }, [documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]);
@@ -566,7 +490,6 @@ export default function JobShow() {
 
   const getFilenameFromLink = (link?: string) => {
     if (!link) return "";
-    
     try {
       const url = new URL(link);
       const pathname = url.pathname;
@@ -637,142 +560,156 @@ export default function JobShow() {
     );
   }
 
-  // Use data from processingDoc when available, otherwise fall back to record
   const combinedData = processingDoc?.output || record?.output || {};
 
   return (
-  <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#0a0a0a', color: '#ffffff' }}>
-    {/* Header bar - now spans the entire width */}
-    <div style={{ 
-      padding: '16px 24px', 
+    <Box style={{ 
       display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center',
-      borderBottom: '1px solid #2B2B2B'
+      flexDirection: 'column', 
+      height: '100vh', 
+      backgroundColor: '#0a0a0a', 
+      color: '#ffffff' 
     }}>
-      <Button 
-        variant="subtle" 
-        leftSection={<ArrowLeft size={16} />}
-        onClick={() => list('jobs')}
-        styles={{
-          root: {
-            fontFamily: GeistMono.style.fontFamily,
-            fontSize: '14px',
-            fontWeight: 400,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            padding: '8px 16px',
-            backgroundColor: 'transparent',
-            color: '#ffffff',
-            '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            },
-          },
+      {/* Header - Aligned with DocumentsTable */}
+      <Flex 
+        justify="space-between" 
+        align="center" 
+        p="sm" 
+        style={{ 
+          borderBottom: '1px solid #2b2b2b', 
+          flexShrink: 0,
+          backgroundColor: '#000000'
         }}
       >
-        Back to Job List
-      </Button>
-      <Group gap="sm">
-        <Button 
-          variant="subtle"
-          leftSection={<Share size={16} />}
-          styles={{
-            root: {
-              fontFamily: GeistMono.style.fontFamily,
-              fontSize: '14px',
-              fontWeight: 400,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              padding: '8px 16px',
-              backgroundColor: 'transparent',
-              color: '#ffffff',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-              },
-            },
+        <Text 
+          size="sm" 
+          fw={500} 
+          style={{ 
+            fontFamily: GeistMono.style.fontFamily, 
+            letterSpacing: '0.5px' 
           }}
         >
-          Share
-        </Button>
-        <Button 
-          variant="filled"
-          styles={{
-            root: {
-              fontFamily: GeistMono.style.fontFamily,
-              fontSize: '14px',
-              fontWeight: 400,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              padding: '8px 16px',
-              backgroundColor: '#F5A623',
-              color: '#000000',
-              '&:hover': {
-                backgroundColor: '#E09612',
-              },
-            },
-          }}
-        >
-          Use in a job
-        </Button>
-      </Group>
-    </div>
-  
-    {/* Main content container with sidebar */}
-    <div style={{ display: 'flex', flex: 1 }}>
-      {/* Main content column */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Title section - centered and max-width limited */}
-        <div style={{ 
-          maxWidth: '750px',
-          margin: '0 auto',
-          width: '100%',
-          padding: '30px 24px 24px' 
-        }}>
-          <Badge 
-            size="sm"
-            variant="filled"
+          JOB DETAILS
+        </Text>
+        <Group gap="xs">
+          <Button 
+            variant="subtle" 
+            leftSection={<ArrowLeft size={14} />}
+            onClick={() => list('jobs')}
             styles={{
               root: {
-                backgroundColor: '#2B2B2B',
-                color: '#A1A1A1',
-                textTransform: 'uppercase',
-                fontSize: '11px',
                 fontFamily: GeistMono.style.fontFamily,
-                marginBottom: '8px',
-              }
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
+                },
+              },
             }}
           >
-            {record?.isPublic ? 'Public' : 'Private'}
-          </Badge>
-          <Text 
-            size="28px" 
-            fw={600} 
-            style={{ 
-              fontFamily: 'Geist, sans-serif',
-              lineHeight: 1.2
+            BACK
+          </Button>
+          <Button 
+            variant="subtle"
+            leftSection={<Share size={14} />}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
+                },
+              },
             }}
           >
-            {processingDoc?.title || record?.jobName || 'Untitled Job'}
-          </Text>
-          <Text c="dimmed" mt="xs" size="sm">
-            {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
-             record?.link ? getFilenameFromLink(record.link) : 
-             'No source file'}
-          </Text>
-        </div>
-  
-        {/* Main content area */}
-        <div style={{ 
-          flex: 1,
-          display: 'flex',
-          justifyContent: 'center',
+            SHARE
+          </Button>
+          <Button 
+            variant="filled"
+            leftSection={<Download size={14} />}
+            onClick={handleDownloadPDF}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#E09612',
+                },
+              },
+            }}
+          >
+            DOWNLOAD
+          </Button>
+        </Group>
+      </Flex>
+
+      {/* Main Layout */}
+      <Flex style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Main Content Area - Scrollable */}
+        <Box style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
+          backgroundColor: '#0a0a0a'
         }}>
-          <div style={{ 
+          <Box style={{ 
             maxWidth: '750px', 
-            width: '100%',
-            margin: '0 auto',
-            padding: '0 24px 24px'
+            margin: '0 auto', 
+            padding: '24px' 
           }}>
+            {/* Title Section */}
+            <Box mb="lg">
+              <Badge 
+                size="sm"
+                variant="filled"
+                styles={{
+                  root: {
+                    backgroundColor: '#2B2B2B',
+                    color: '#A1A1A1',
+                    textTransform: 'uppercase',
+                    fontSize: '11px',
+                    fontFamily: GeistMono.style.fontFamily,
+                    marginBottom: '8px',
+                  }
+                }}
+              >
+                {record?.isPublic ? 'Public' : 'Private'}
+              </Badge>
+              <Text 
+                size="28px" 
+                fw={600} 
+                style={{ 
+                  fontFamily: 'Geist, sans-serif',
+                  lineHeight: 1.2
+                }}
+              >
+                {processingDoc?.title || record?.jobName || 'Untitled Job'}
+              </Text>
+              <Text c="dimmed" mt="xs" size="sm">
+                {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
+                 record?.link ? getFilenameFromLink(record.link) : 
+                 'No source file'}
+              </Text>
+            </Box>
+
+            {/* Tabs and Content */}
             <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
               <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
                 <Tabs.Tab 
@@ -832,73 +769,11 @@ export default function JobShow() {
               </Tabs.List>
               
               <Tabs.Panel value="preview" pt="md">
-                {isDocLoading ? (
-                  <Box style={{ position: 'relative', minHeight: '300px' }}>
-                    <LoadingOverlay visible={true} />
-                  </Box>
-                ) : errorMessage ? (
-                  <Alert 
-                    icon={<AlertCircle size={16} />}
-                    color="red"
-                    title="Error"
-                    mb="md"
-                  >
-                    {errorMessage}
-                    <Button 
-                      leftSection={<RefreshCw size={16} />}
-                      mt="sm"
-                      onClick={manualRefetch}
-                      variant="light"
-                      size="sm"
-                    >
-                      Try again
-                    </Button>
-                  </Alert>
-                ) : markdownContent ? (
-                  // Pass the markdown content directly to the renderer
-                  <DocumentMarkdownRenderer 
-                    markdown={markdownContent}
-                    isLoading={false}
-                    errorMessage={null}
-                    onRefresh={manualRefetch}
-                    processingStatus={processingDoc?.status || record?.status}
-                  />
-                ) : processingDoc?.status?.toLowerCase() === 'processing' || 
-                   processingDoc?.status?.toLowerCase() === 'in_progress' || 
-                   processingDoc?.status?.toLowerCase() === 'pending' || 
-                   record?.status?.toLowerCase() === 'processing' || 
-                   record?.status?.toLowerCase() === 'in_progress' || 
-                   record?.status?.toLowerCase() === 'pending' ? (
-                  // Show the processing state UI
-                  <DocumentMarkdownRenderer 
-                    isLoading={false}
-                    errorMessage={null}
-                    onRefresh={manualRefetch}
-                    processingStatus="processing"
-                  />
-                ) : (
-                  <Alert 
-                    icon={<AlertCircle size={16} />}
-                    color="yellow"
-                    title="No Content"
-                    mb="md"
-                  >
-                    No content available to display.
-                    <Button 
-                      leftSection={<RefreshCw size={16} />}
-                      mt="sm"
-                      onClick={manualRefetch}
-                      variant="light"
-                      size="sm"
-                    >
-                      Refresh
-                    </Button>
-                  </Alert>
-                )}
+                {renderPreviewContent()}
               </Tabs.Panel>
-  
+
               <Tabs.Panel value="json" pt="md">
-                <div style={{ 
+                <Box style={{ 
                   backgroundColor: '#131313', 
                   padding: '16px', 
                   borderRadius: 8,
@@ -925,89 +800,168 @@ export default function JobShow() {
                   >
                     {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}
                   </Code>
-                </div>
+                </Box>
               </Tabs.Panel>
-  
+
               <Tabs.Panel value="question" pt="md">
-                <div style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
+                <Box style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
                   Question interface would appear here
-                </div>
+                </Box>
               </Tabs.Panel>
             </Tabs>
-          </div>
-        </div>
-      </div>
-  
-      {/* Right sidebar */}
-      <div style={{ 
-        width: '384px', 
-        borderLeft: '1px solid #2B2B2B', 
-        padding: '1.5rem',
-        backgroundColor: '#000000'
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-          <div>
-            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              Duration
-            </Text>
-            <Text>{formatDuration(record?.totalDuration)}</Text>
-          </div>
-      
-          <div>
-            <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              Tokens
-            </Text>
-            <Text>{record?.totalTokenUsage || 'N/A'}</Text>
-          </div>
-          
-          {/* Language from UPLOAD_FILE step */}
-          {record?.steps?.find(step => step.name === "UPLOAD_FILE")?.data?.lang && (
-            <div>
+          </Box>
+        </Box>
+
+        {/* Sidebar - Fixed Position */}
+        <Box style={{ 
+          width: '384px', 
+          borderLeft: '1px solid #2B2B2B', 
+          padding: '1.5rem',
+          backgroundColor: '#000000',
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflowY: 'auto'
+        }}>
+          <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <Box>
               <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Language
+                Duration
               </Text>
-              <Text>
-                {record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'en' ? 'English' : 
-                 record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'uk' ? 'Ukrainian' : 
-                 record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang || 'Unknown'}
+              <Text>{formatDuration(record?.totalDuration)}</Text>
+            </Box>
+            <Box>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Tokens
               </Text>
-            </div>
-          )}
-        </div>
-      
-        <div style={{ marginTop: '2rem' }}>
-          <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            Logic steps / events
-          </Text>
+              <Text>{record?.totalTokenUsage || 'N/A'}</Text>
+            </Box>
+            {record?.steps?.find(step => step.name === "UPLOAD_FILE")?.data?.lang && (
+              <Box>
+                <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                  Language
+                </Text>
+                <Text>
+                  {record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'en' ? 'English' : 
+                   record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'uk' ? 'Ukrainian' : 
+                   record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang || 'Unknown'}
+                </Text>
+              </Box>
+            )}
+          </Box>
           
-          {/* Update the logic steps mapping part: */}
-          
-          <div style={{ position: 'relative' }}>
-            {/* Vertical connecting line should only be behind the dots */}
-            <div style={{ 
-              position: 'absolute', 
-              left: '24px', 
-              top: '24px', 
-              bottom: record?.steps && record.steps.length > 0 ? '24px' : '0', 
-              width: '1px', 
-              backgroundColor: '#2B2B2B' 
-            }} />
-          
-            {record?.steps?.map((step, index) => {
-              
-              const isCompleted = step.status?.toLowerCase() === 'completed';
-              const isError = step.status?.toLowerCase().includes('error') || 
-                              step.status?.toLowerCase().includes('failed');
-              const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
-              
-              const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
-              
-              const isLastStep = index === (record?.steps?.length || 0) - 1;
-              
-              return (
-                <div key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
-                  {/* Step container */}
-                  <div style={{ 
+          <Box style={{ marginTop: '2rem' }}>
+            <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+              Logic steps / events
+            </Text>
+            <Box style={{ position: 'relative' }}>
+              <Box style={{ 
+                position: 'absolute', 
+                left: '24px', 
+                top: '24px', 
+                bottom: record?.steps && record.steps.length > 0 ? '24px' : '0', 
+                width: '1px', 
+                backgroundColor: '#2B2B2B' 
+              }} />
+              {record?.steps?.map((step, index) => {
+                const isCompleted = step.status?.toLowerCase() === 'completed';
+                const isError = step.status?.toLowerCase().includes('error') || 
+                                step.status?.toLowerCase().includes('failed');
+                const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
+                const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
+                const isLastStep = index === (record?.steps?.length || 0) - 1;
+                
+                return (
+                  <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
+                    <Box style={{ 
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B',
+                      borderRadius: '4px',
+                      padding: '12px',
+                      marginLeft: '48px',
+                      position: 'relative'
+                    }}>
+                      <Box style={{ 
+                        position: 'absolute',
+                        left: '-24px',
+                        top: '50%',
+                        width: '24px',
+                        height: '1px',
+                        backgroundColor: '#2B2B2B'
+                      }} />
+                      <Box style={{ 
+                        position: 'absolute',
+                        left: '-24px',
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: '#000000',
+                        border: '1px solid #2B2B2B',
+                        zIndex: 2
+                      }} />
+                      {!isLastStep && (
+                        <Box style={{ 
+                          position: 'absolute',
+                          left: '-24px',
+                          top: 'calc(50% + 4px)',
+                          height: '48px',
+                          width: '1px',
+                          backgroundColor: '#2B2B2B',
+                          transform: 'translateX(-50%)',
+                          zIndex: 1
+                        }} />
+                      )}
+                      <Flex justify="space-between" align="center">
+                        <Text 
+                          style={{ 
+                            fontFamily: GeistMono.style.fontFamily, 
+                            fontSize: '14px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          {formatText(step.name)}
+                        </Text>
+                        <Group gap="sm">
+                          {step.totalDuration && (
+                            <Text 
+                              style={{ 
+                                color: '#2B2B2B', 
+                                fontSize: '12px',
+                                fontFamily: GeistMono.style.fontFamily,
+                              }}
+                            >
+                              {formatDuration(step.totalDuration)}
+                            </Text>
+                          )}
+                          <Box style={{ 
+                            width: '8px', 
+                            height: '8px', 
+                            borderRadius: '50%',
+                            backgroundColor: isCompleted ? '#3DC28B' : 
+                                            isError ? '#FF4F56' : 
+                                            '#F5A623'
+                          }} />
+                        </Group>
+                      </Flex>
+                      {isCollapsible && (
+                        <Collapse in={true}>
+                          <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
+                            <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
+                              {JSON.stringify(step.data, null, 2)}
+                            </Text>
+                          </Box>
+                        </Collapse>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
+              {(!record?.steps || record.steps.length === 0) && (
+                <Box style={{ marginBottom: '1rem', position: 'relative' }}>
+                  <Box style={{ 
                     backgroundColor: '#000000',
                     border: '1px solid #2B2B2B',
                     borderRadius: '4px',
@@ -1015,156 +969,52 @@ export default function JobShow() {
                     marginLeft: '48px',
                     position: 'relative'
                   }}>
-                    {/* Horizontal connecting line */}
-                    <div style={{ 
+                    <Box style={{ 
                       position: 'absolute',
-                      left: '-24px',
+                      left: '-48px',
                       top: '50%',
-                      width: '24px',
+                      width: '48px',
                       height: '1px',
                       backgroundColor: '#2B2B2B'
                     }} />
-                    
-                    {/* Circle on the vertical line */}
-                    <div style={{ 
+                    <Box style={{ 
                       position: 'absolute',
-                      left: '-24px',
+                      left: '-48px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B'
+                    }} />
+                    <Box style={{ 
+                      position: 'absolute',
+                      left: '-1px',
                       top: '50%',
                       transform: 'translate(-50%, -50%)',
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
                       backgroundColor: '#000000',
-                      border: '1px solid #2B2B2B',
-                      zIndex: 2
+                      border: '1px solid #2B2B2B'
                     }} />
-                    
-                    {/* Add vertical connector to next step (if not last) */}
-                    {!isLastStep && (
-                      <div style={{ 
-                        position: 'absolute',
-                        left: '-24px',
-                        top: 'calc(50% + 4px)', // Start below the current dot
-                        height: '48px', // Vertical height to reach next step
-                        width: '1px',
-                        backgroundColor: '#2B2B2B',
-                        transform: 'translateX(-50%)',
-                        zIndex: 1
-                      }} />
-                    )}
-                    
-                    {/* Step header */}
-                    <Flex justify="space-between" align="center">
-                      <Text 
-                        style={{ 
-                          fontFamily: GeistMono.style.fontFamily, 
-                          fontSize: '14px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}
-                      >
-                        {formatText(step.name)}
-                      </Text>
-                      
-                      <Group gap="sm">
-                        {step.totalDuration && (
-                          <Text 
-                            style={{ 
-                              color: '#2B2B2B', 
-                              fontSize: '12px',
-                              fontFamily: GeistMono.style.fontFamily,
-                            }}
-                          >
-                            {formatDuration(step.totalDuration)}
-                          </Text>
-                        )}
-                        
-                        {/* Status indicator */}
-                        <div style={{ 
-                          width: '8px', 
-                          height: '8px', 
-                          borderRadius: '50%',
-                          backgroundColor: isCompleted ? '#3DC28B' : 
-                                          isError ? '#FF4F56' : 
-                                          '#F5A623'
-                        }} />
-                      </Group>
-                    </Flex>
-                    
-                    {/* Collapsible content for processing step */}
-                    {isCollapsible && (
-                      <Collapse in={true}>
-                        <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
-                          <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
-                            {JSON.stringify(step.data, null, 2)}
-                          </Text>
-                        </Box>
-                      </Collapse>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            
-            {(!record?.steps || record.steps.length === 0) && (
-              <div style={{ marginBottom: '1rem', position: 'relative' }}>
-                <div style={{ 
-                  backgroundColor: '#000000',
-                  border: '1px solid #2B2B2B',
-                  borderRadius: '4px',
-                  padding: '12px',
-                  marginLeft: '48px',
-                  position: 'relative'
-                }}>
-                  <div style={{ 
-                    position: 'absolute',
-                    left: '-48px',
-                    top: '50%',
-                    width: '48px',
-                    height: '1px',
-                    backgroundColor: '#2B2B2B'
-                  }} />
-                  
-                  <div style={{ 
-                    position: 'absolute',
-                    left: '-48px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#000000',
-                    border: '1px solid #2B2B2B'
-                  }} />
-                  
-                  <div style={{ 
-                    position: 'absolute',
-                    left: '-1px',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#000000',
-                    border: '1px solid #2B2B2B'
-                  }} />
-                  
-                  <Text 
-                    style={{ 
-                      fontFamily: GeistMono.style.fontFamily, 
-                      fontSize: '14px',
-                      color: '#A1A1A1',
-                    }}
-                  >
-                    No steps available
-                  </Text>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+                    <Text 
+                      style={{ 
+                        fontFamily: GeistMono.style.fontFamily, 
+                        fontSize: '14px',
+                        color: '#A1A1A1',
+                      }}
+                    >
+                      No steps available
+                    </Text>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        </Box>
+      </Flex>
+    </Box>
   );
 }

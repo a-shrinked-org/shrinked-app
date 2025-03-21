@@ -60,23 +60,13 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
       gap: '8px',
       paddingLeft: '4px'
     }}>
-      {/* Status indicator circle */}
-      <Box style={{ 
-        height: '10px', 
-        width: '10px', 
-        borderRadius: '50%', 
-        // Use a neutral blue color instead of green
-        backgroundColor: '#3498db',
-        flexShrink: 0
-      }} />
-      
       {/* Status text */}
       <Text size="sm" style={{ 
         color: '#ffffff',
         fontFamily: GeistMono.style.fontFamily,
         letterSpacing: '0.5px'
       }}>
-        API KEY
+        ACTIVE
       </Text>
     </Box>
   );
