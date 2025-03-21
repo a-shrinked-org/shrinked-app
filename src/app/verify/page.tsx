@@ -81,7 +81,7 @@ export default function VerifyEmail() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          username: formData.email.split("@")[0], // Default username
+          username: formData.email.split("@")[0],
         }),
         credentials: "include",
       });
@@ -124,7 +124,7 @@ export default function VerifyEmail() {
               Email Verified Successfully!
             </Title>
             <Text ta="center" className="success-message">
-              Your account has been verified and you'll be redirected to the dashboard momentarily.
+              Your account has been verified and you&apos;ll be redirected to the dashboard momentarily.
             </Text>
           </Card>
         </Container>

@@ -97,7 +97,7 @@ export default function Login() {
         const data = await response.json();
 
         if (response.ok && data.success) {
-          router.push("/jobs"); // No token storage
+          router.push("/jobs");
         } else {
           setError(data.error?.message || "Invalid email or password");
         }
@@ -170,11 +170,11 @@ export default function Login() {
               Check your email
             </Title>
             <Text ta="center" mb="xl">
-              We've sent a verification link to <b>{formData.email}</b>. Please check your inbox and
+              We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
               click the link to complete your registration.
             </Text>
             <Text size="sm" ta="center" mb="md" className="footer-text">
-              Didn't receive the email? Check your spam folder or try again in a few minutes.
+              Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
             </Text>
             <Button
               variant="subtle"
