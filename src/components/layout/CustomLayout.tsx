@@ -18,6 +18,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useLogout, useGetIdentity } from "@refinedev/core";
 import { GeistMono } from 'geist/font/mono';
 import Link from 'next/link';
+import { UserAvatar } from '@/components/UserAvatar'; // Import the UserAvatar component
 
 interface Identity {
   id?: string;
@@ -248,25 +249,20 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           <Text size="xs" c="#a1a1a1" mt="xs">some exampleiner</Text>
         </Box>
 
-        {/* User Profile */}
+        {/* User Profile - Updated with UserAvatar */}
         <Flex align="center" gap="xs">
           <Box>
             <Text size="xs">{userInfo.name}</Text>
             <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
           </Box>
-          {/* In Mantine 7, 'spacing' is changed to 'gap' */}
+          {/* Updated Avatar section with UserAvatar */}
           <Group ml="auto" gap={-8}>
-            <Avatar 
-              size="sm" 
-              radius="xl" 
-              bg="#ffffff"
-              style={{ border: '1px solid #2b2b2b' }}
-            />
-            <Avatar 
-              size="sm" 
-              radius="xl" 
-              bg="#a1a1a1"
-              style={{ border: '1px solid #2b2b2b' }}
+            <UserAvatar
+              name={userInfo.name}
+              src={userInfo.avatar}
+              size="sm"
+              radius="xl"
+              className="border-[1px] border-[#2b2b2b]"
             />
           </Group>
         </Flex>

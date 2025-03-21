@@ -55,7 +55,7 @@ const notificationProvider: NotificationProvider = {
   },
 };
 
-const createUnifiedSession = (nextAuthSession: ExtendedSession | null, customAuth: boolean) => {
+const createUnifiedSession = async (nextAuthSession: ExtendedSession | null, customAuth: boolean) => {
   if (nextAuthSession?.user) {
     return {
       source: 'nextauth',
@@ -70,17 +70,25 @@ const createUnifiedSession = (nextAuthSession: ExtendedSession | null, customAut
   }
   
   if (customAuth) {
-    const userData = authUtils.getUserData();
-    return {
-      source: 'custom',
-      user: {
-        name: userData?.username || userData?.email || '',
-        email: userData?.email || '',
-        avatar: userData?.avatar || null
-      },
-      accessToken: authUtils.getAccessToken(),
-      isAuthenticated: true
-    };
+    try {
+      // Ensure we have the latest user profile
+      const userData = await authUtils.ensureUserProfile();
+      
+      if (userData) {
+        return {
+          source: 'custom',
+          user: {
+            name: userData.username || userData.email || '',
+            email: userData.email || '',
+            avatar: userData.avatar || null
+          },
+          accessToken: authUtils.getAccessToken(),
+          isAuthenticated: true
+        };
+      }
+    } catch (error) {
+      console.error("Error getting unified session:", error);
+    }
   }
   
   return { source: null, user: null, accessToken: null, isAuthenticated: false };
@@ -120,7 +128,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
     return () => clearTimeout(loadingTimeoutId);
   }, [authState.isChecking]);
 
-  // Initialize token refresh mechanism
+  // Initialize token refresh mechanism and load profile
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
@@ -138,6 +146,32 @@ const App = (props: React.PropsWithChildren<{}>) => {
     if (authUtils.isAuthenticated()) {
       console.log("[APP] Initializing token refresh mechanism");
       authUtils.setupRefreshTimer();
+      
+      // Load user profile on initialization
+      authUtils.ensureUserProfile().then(profile => {
+        if (profile) {
+          console.log("[APP] User profile loaded on initialization");
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: true,
+            initialized: true
+          });
+        } else {
+          console.error("[APP] Failed to load user profile on initialization");
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: false,
+            initialized: true
+          });
+        }
+      }).catch(error => {
+        console.error("[APP] Error loading user profile:", error);
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: false,
+          initialized: true
+        });
+      });
     } else {
       // If no auth, immediately set to not checking
       setAuthState({
@@ -176,7 +210,17 @@ const App = (props: React.PropsWithChildren<{}>) => {
         // Second check: Local auth
         try {
           const hasTokens = authUtils.isAuthenticated();
-          setAuthState({ isChecking: false, isAuthenticated: hasTokens, initialized: true });
+          if (hasTokens) {
+            // Ensure profile is loaded
+            const profile = await authUtils.ensureUserProfile();
+            setAuthState({ 
+              isChecking: false, 
+              isAuthenticated: !!profile, 
+              initialized: true 
+            });
+          } else {
+            setAuthState({ isChecking: false, isAuthenticated: false, initialized: true });
+          }
         } catch (error) {
           console.error("Token check error:", error);
           // Fallback in case of error
@@ -271,7 +315,15 @@ const App = (props: React.PropsWithChildren<{}>) => {
           if (!accessToken) {
             return { authenticated: false, logout: true, redirectTo: "/login" };
           }
-          console.log("[AUTH] Full token validation completed"); // Log only on full check
+          
+          // Always ensure profile is loaded during full auth check
+          const profile = await authUtils.ensureUserProfile();
+          if (!profile) {
+            console.error("[AUTH] Failed to load user profile during auth check");
+            return { authenticated: false, logout: true, redirectTo: "/login" };
+          }
+          
+          console.log("[AUTH] Full token validation and profile loading completed");
         }
     
         return { authenticated: true };
@@ -281,24 +333,42 @@ const App = (props: React.PropsWithChildren<{}>) => {
       }
     },
     getIdentity: async () => {
-      const unifiedSession = createUnifiedSession(session, authUtils.isAuthenticated());
-      
-      if (unifiedSession.isAuthenticated) {
+      // NextAuth session takes precedence
+      if (status === "authenticated" && session) {
         return {
-          name: unifiedSession.user?.name || "",
-          email: unifiedSession.user?.email || "",
-          avatar: unifiedSession.user?.avatar || null,
-          token: unifiedSession.accessToken || "",
+          name: session.user?.name || "",
+          email: session.user?.email || "",
+          avatar: session.user?.image || null,
+          token: session.accessToken || "",
         };
       }
       
-      try {
-        const identity = await customAuthProvider.getIdentity();
-        return identity || null;
-      } catch (error) {
-        console.error("Error getting identity:", error);
-        return null;
+      // If using custom auth, always ensure we have the latest profile
+      if (authUtils.isAuthenticated()) {
+        try {
+          // This will use cached profile if available, or fetch a new one if needed
+          const userProfile = await authUtils.ensureUserProfile();
+          
+          if (userProfile) {
+            return {
+              id: userProfile.userId || userProfile._id || userProfile.id,
+              name: userProfile.username || userProfile.email,
+              email: userProfile.email,
+              avatar: userProfile.avatar || "",
+              roles: userProfile.roles || [],
+              token: authUtils.getAccessToken() || userProfile.accessToken,
+              subscriptionPlan: userProfile.subscriptionPlan,
+              apiKeys: userProfile.apiKeys || [],
+              userId: userProfile.userId || userProfile._id || userProfile.id,
+            };
+          }
+        } catch (error) {
+          console.error("Error getting user profile:", error);
+        }
       }
+      
+      // If all checks fail, return null
+      return null;
     },
     logout: async (params: any = {}) => {
       lastFullAuthCheckTime = 0;
