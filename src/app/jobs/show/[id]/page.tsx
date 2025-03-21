@@ -125,10 +125,8 @@ export default function JobShow() {
   useEffect(() => {
     if (processingDocId) {
       setDocumentId(processingDocId);
-    } else if (jobId) {
-      setDocumentId(jobId);
     }
-  }, [processingDocId, jobId]);
+  }, [processingDocId]);
 
   const extractResultId = useCallback((jobData: Job | null) => {
     if (!jobData) return null;
