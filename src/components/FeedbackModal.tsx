@@ -6,11 +6,8 @@ import {
   Text, 
   Textarea, 
   Button, 
-  Group, 
-  ActionIcon,
-  Radio,
-  Stack,
-  Flex
+  Flex,
+  ActionIcon
 } from '@mantine/core';
 import { X } from 'lucide-react';
 import { GeistMono } from 'geist/font/mono';
@@ -22,23 +19,15 @@ interface FeedbackModalProps {
   onClose: () => void;
 }
 
-// Rating options with values
-const ratings = [
-  { value: 'very_unsatisfied', text: 'Very Unsatisfied' },
-  { value: 'unsatisfied', text: 'Unsatisfied' },
-  { value: 'neutral', text: 'Neutral' },
-  { value: 'satisfied', text: 'Satisfied' },
-  { value: 'very_satisfied', text: 'Very Satisfied' }
-];
-
 export function FeedbackModal({ opened, onClose }: FeedbackModalProps) {
-  const [rating, setRating] = useState<string | null>(null);
-  const [details, setDetails] = useState('');
+  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const hasMessage = message.trim().length > 0;
+
   const handleSubmit = async () => {
-    if (!rating) {
-      toast.error('Please select a rating');
+    if (!hasMessage) {
+      toast.error('Please enter your feedback');
       return;
     }
 
@@ -52,8 +41,7 @@ export function FeedbackModal({ opened, onClose }: FeedbackModalProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          rating,
-          details,
+          message,
           timestamp: new Date().toISOString(),
           email: 'cherepukhin@damn.vc' // Target email
         }),
@@ -69,8 +57,7 @@ export function FeedbackModal({ opened, onClose }: FeedbackModalProps) {
       toast.success('Feedback submitted successfully');
       
       // Reset form and close modal
-      setRating(null);
-      setDetails('');
+      setMessage('');
       onClose();
     } catch (error) {
       console.error('Error submitting feedback:', error);
@@ -123,68 +110,14 @@ export function FeedbackModal({ opened, onClose }: FeedbackModalProps) {
           </ActionIcon>
         </Flex>
 
-        {/* Rating section */}
-        <Text size="md" mb="md" style={{ fontFamily: GeistSans.style.fontFamily }}>
-          How was your experience?
-        </Text>
-
-        <Radio.Group
-          value={rating}
-          onChange={setRating}
-          name="rating"
-          mb="xl"
-        >
-          <Group grow>
-            {ratings.map((option) => (
-              <Radio
-                key={option.value}
-                value={option.value}
-                label=""
-                styles={{
-                  root: {
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    backgroundColor: rating === option.value ? '#1A1A1A' : '#0D0D0D',
-                    padding: '15px 10px',
-                    borderRadius: '4px',
-                    border: `1px solid ${rating === option.value ? '#2B2B2B' : 'transparent'}`,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      backgroundColor: '#1A1A1A',
-                      border: '1px solid #2B2B2B',
-                    },
-                  },
-                  radio: {
-                    display: 'none', // Hide the actual radio button
-                  },
-                  inner: {
-                    display: 'none',
-                  },
-                  body: {
-                    alignItems: 'center',
-                  },
-                  label: {
-                    marginLeft: 0,
-                    paddingLeft: 0,
-                    color: '#ffffff',
-                    fontFamily: GeistSans.style.fontFamily,
-                    fontSize: '14px',
-                  },
-                }}
-              />
-            ))}
-          </Group>
-        </Radio.Group>
-
-        {/* Feedback details section */}
+        {/* Feedback message section */}
         <Text size="md" mb="xs" style={{ fontFamily: GeistSans.style.fontFamily }}>
-          Give us more details
+          Share your thoughts with us
         </Text>
         <Textarea
-          value={details}
-          onChange={(e) => setDetails(e.currentTarget.value)}
+          value={message}
+          onChange={(e) => setMessage(e.currentTarget.value)}
+          placeholder="How can we improve your experience?"
           minRows={6}
           mb="lg"
           autosize
@@ -222,19 +155,20 @@ export function FeedbackModal({ opened, onClose }: FeedbackModalProps) {
           </Text>
         </Text>
 
-        {/* Submit button */}
+        {/* Submit button - turns yellow when there's text */}
         <Button
           fullWidth
           onClick={handleSubmit}
           loading={isSubmitting}
+          disabled={!hasMessage}
           styles={{
             root: {
-              backgroundColor: '#333333',
-              color: '#ffffff',
+              backgroundColor: hasMessage ? '#EAA944' : '#333333',
+              color: hasMessage ? '#000000' : '#ffffff',
               height: '44px',
               '&:hover': {
-                backgroundColor: '#ffffff',
-                color: '#000000',
+                backgroundColor: hasMessage ? '#FFBD57' : '#444444',
+                color: hasMessage ? '#000000' : '#ffffff',
               },
               transition: 'all 0.2s ease',
               fontFamily: GeistMono.style.fontFamily,
