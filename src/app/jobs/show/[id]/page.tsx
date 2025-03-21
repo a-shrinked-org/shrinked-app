@@ -299,18 +299,18 @@ export default function JobShow() {
     const processingStep = queryResult.data?.data?.steps?.find(step => 
       step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
     );
-    const status = processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || record?.status?.toLowerCase();
+    const status = processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
     if (documentId && status === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
       console.log("Processing complete, fetching markdown content on mount");
       fetchMarkdownContent();
     }
-  }, [documentId, queryResult.data, processingDoc, record, markdownContent, fetchMarkdownContent]);
+  }, [documentId, queryResult.data, processingDoc, markdownContent, fetchMarkdownContent]);
 
   const getProcessingStatus = () => {
     const processingStep = queryResult.data?.data?.steps?.find(step => 
       step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
     );
-    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || record?.status?.toLowerCase();
+    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
   };
 
   const renderPreviewContent = () => {
