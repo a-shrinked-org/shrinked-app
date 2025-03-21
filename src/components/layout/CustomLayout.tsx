@@ -11,7 +11,8 @@ import {
   Stack,
   Burger,
   Drawer,
-  Tooltip
+  Tooltip,
+  Skeleton
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { usePathname, useRouter } from 'next/navigation';
@@ -27,6 +28,18 @@ interface Identity {
   name?: string;
   email?: string;
   avatar?: string;
+  subscriptionPlan?: {
+    _id?: string;
+    name?: string;
+    processingTimeLimit?: number;
+    jobsPerMonth?: number;
+    maxConcurrentJobs?: number;
+    apiCallsPerDay?: number;
+    usage?: {
+      processingTimeUsed?: number;
+      jobsCount?: number;
+    }
+  };
 }
 
 interface CustomLayoutProps {
@@ -53,7 +66,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { mutate: logout } = useLogout();
-  const { data: identity } = useGetIdentity<Identity>();
+  const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [drawerOpened, setDrawerOpened] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
@@ -129,6 +142,15 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
     avatar: identity?.avatar,
   };
 
+  // Calculate processing time usage
+  const processingTimeUsed = identity?.subscriptionPlan?.usage?.processingTimeUsed || 0;
+  const processingTimeLimit = identity?.subscriptionPlan?.processingTimeLimit || 11880000; // Default to 3.3 hours in ms
+  const usagePercentage = (processingTimeUsed / processingTimeLimit) * 100;
+  
+  // Convert to hours for display
+  const hoursUsed = (processingTimeUsed / 3600000).toFixed(1);
+  const hoursLimit = (processingTimeLimit / 3600000).toFixed(1);
+
   const renderSidebar = () => (
     <Box w={316} style={{ 
       borderRight: '1px solid #2b2b2b',
@@ -160,7 +182,11 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             borderRadius: '6px',
             textTransform: 'uppercase',
           }}>
-            <Text c="#a1a1a1" size="xs">ID: {formattedUserId}</Text>
+            {identityLoading ? (
+              <Skeleton height={14} width={60} radius="sm" />
+            ) : (
+              <Text c="#a1a1a1" size="xs">ID: {formattedUserId}</Text>
+            )}
           </Box>
         </Flex>
 
@@ -249,55 +275,81 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           }}
         >
           <Text size="xs" mb="xs">BASE PLAN</Text>
-          <Flex justify="space-between" mb="xs">
-            <Text size="xs">Pages</Text>
-            <Text size="xs">40 / 600</Text>
-          </Flex>
-          <Progress 
-            value={6.67} 
-            size="xs" 
-            color="#f44336"
-            styles={{
-              root: {
-                backgroundColor: '#2b2b2b',
-              },
-            }}
-          />
-          <Text size="xs" c="#a1a1a1" mt="xs">some exampleiner</Text>
+          
+          {identityLoading ? (
+            <>
+              <Flex justify="space-between" mb="xs">
+                <Text size="xs">Processing Time</Text>
+                <Skeleton height={14} width={80} radius="sm" />
+              </Flex>
+              <Skeleton height={6} radius="xl" mb="xs" />
+              <Skeleton height={14} width={200} radius="sm" />
+            </>
+          ) : (
+            <>
+              <Flex justify="space-between" mb="xs">
+                <Text size="xs">Processing Time</Text>
+                <Text size="xs">{hoursUsed} / {hoursLimit} hours</Text>
+              </Flex>
+              <Progress 
+                value={usagePercentage} 
+                size="xs" 
+                color="#f44336"
+                styles={{
+                  root: {
+                    backgroundColor: '#2b2b2b',
+                  },
+                }}
+              />
+              <Text size="xs" c="#a1a1a1" mt="xs">Paid plans with higher limits available soon</Text>
+            </>
+          )}
         </Box>
 
         {/* User Profile with LogOut Icon */}
         <Flex align="center" gap="xs">
-          <Box>
-            <Text size="xs">{userInfo.name}</Text>
-            <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
-          </Box>
-          {/* Add a LogOut icon + the UserAvatar */}
-          <Group ml="auto" gap="sm">
-            <Tooltip label="Logout" position="top" withArrow>
-              <UnstyledButton onClick={handleLogout} style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: '#a1a1a1',
-                padding: '4px',
-                borderRadius: '4px',
-                '&:hover': {
-                  color: '#ffffff',
-                }
-              }}>
-                <LogOut size={18} />
-              </UnstyledButton>
-            </Tooltip>
-            <UserAvatar
-              name={userInfo.name}
-              src={userInfo.avatar}
-              size="sm"
-              radius="xl"
-              className="border-[1px] border-[#2b2b2b]"
-            />
-          </Group>
+          {identityLoading ? (
+            <>
+              <Box style={{ flex: 1 }}>
+                <Skeleton height={14} width={140} radius="sm" mb={6} />
+                <Skeleton height={14} width={180} radius="sm" />
+              </Box>
+              <Skeleton height={30} width={30} radius="xl" ml="auto" />
+            </>
+          ) : (
+            <>
+              <Box>
+                <Text size="xs">{userInfo.name}</Text>
+                <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
+              </Box>
+              {/* Add a LogOut icon + the UserAvatar */}
+              <Group ml="auto" gap="sm">
+                <Tooltip label="Logout" position="top" withArrow>
+                  <UnstyledButton onClick={handleLogout} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#a1a1a1',
+                    padding: '4px',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      color: '#ffffff',
+                    }
+                  }}>
+                    <LogOut size={18} />
+                  </UnstyledButton>
+                </Tooltip>
+                <UserAvatar
+                  name={userInfo.name}
+                  src={userInfo.avatar}
+                  size="sm"
+                  radius="xl"
+                  className="border-[1px] border-[#2b2b2b]"
+                />
+              </Group>
+            </>
+          )}
         </Flex>
       </Box>
     </Box>
