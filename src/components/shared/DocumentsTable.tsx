@@ -60,8 +60,6 @@ export interface ExtraColumn<T extends ProcessedDocument> {
 
 export type StatusIndicatorStyle = 'default' | 'whiteFilled' | 'whiteOutlined';
 
-// Update the onRefresh property in your DocumentsTableProps interface
-
 interface DocumentsTableProps<T extends ProcessedDocument> {
   data: T[];
   docToJobMapping?: Record<string, string>;
@@ -71,7 +69,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   onRowClick?: (doc: T) => void;
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
-  onRefresh?: () => void | Promise<void>; // Updated type definition
+  onRefresh?: () => any | Promise<any>; // Updated to accept any Promise return type
   onAddNew?: () => void;
   error?: any;
   title?: string;
