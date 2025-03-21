@@ -36,39 +36,56 @@ export default function AuthCallback() {
 		  setIsProcessing(false);
 		  return;
 		}
-
+  
 		const code = searchParams.get("code");
 		if (!code) {
 		  setError("No authentication code found in URL");
 		  setIsProcessing(false);
 		  return;
 		}
-
+  
 		authUtils.clearAuthStorage();
 		console.log("OAuth callback: Processing code", code.substring(0, 5) + "...");
-
+  
 		const response = await fetch(`/api/auth-proxy/exchange`, {
 		  method: "POST",
 		  headers: { "Content-Type": "application/json" },
 		  body: JSON.stringify({ code }),
 		  credentials: "include",
 		});
-
+  
 		if (!response.ok) {
 		  const errorData = await response.json().catch(() => ({}));
 		  throw new Error(errorData.message || `Failed to exchange code: ${response.status}`);
 		}
-
+  
 		const data = await response.json();
 		console.log("OAuth tokens received successfully");
-
+  
+		// Store the tokens in localStorage
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
-		const profile = await authUtils.ensureUserProfile(); // Use authUtils to fetch and store profile
-		if (!profile) {
+		
+		// Use a proxy API route instead of direct API call to avoid CORS issues
+		const profileResponse = await fetch('/api/auth-proxy/profile', {
+		  headers: {
+			'Authorization': `Bearer ${data.accessToken}`,
+			'Content-Type': 'application/json'
+		  }
+		});
+		
+		if (!profileResponse.ok) {
 		  throw new Error("Failed to fetch user profile");
 		}
-
-		authUtils.setupRefreshTimer(); // No parameters as per updated authUtils
+		
+		const profileData = await profileResponse.json();
+		// Store profile data in localStorage
+		localStorage.setItem(
+		  API_CONFIG.STORAGE_KEYS.USER_DATA,
+		  JSON.stringify({ ...profileData, accessToken: data.accessToken, refreshToken: data.refreshToken })
+		);
+		
+		authUtils.setAuthenticatedState(true);
+		authUtils.setupRefreshTimer();
 		router.push("/jobs");
 	  } catch (err) {
 		console.error("Error during OAuth callback processing:", err);
@@ -76,7 +93,7 @@ export default function AuthCallback() {
 		setIsProcessing(false);
 	  }
 	};
-
+  
 	exchangeCodeForTokens();
   }, [searchParams, router]);
 

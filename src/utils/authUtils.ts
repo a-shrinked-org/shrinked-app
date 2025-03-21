@@ -402,25 +402,29 @@ export const authUtils = {
 	  authDebug.log("ensureUserProfile", "Using cached profile");
 	  return userData;
 	}
-
+  
 	const token = await authUtils.ensureValidToken();
 	if (!token) {
 	  authDebug.error("ensureUserProfile", "No valid token");
 	  return null;
 	}
-
+  
 	try {
 	  authDebug.log("ensureUserProfile", "Fetching profile");
-	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
-		headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-		credentials: "include",
+	  // Use the proxy endpoint instead of direct API call
+	  const response = await fetch(`/api/auth-proxy/profile`, {
+		headers: { 
+		  Authorization: `Bearer ${token}`,
+		  "Content-Type": "application/json" 
+		},
+		// No need for credentials: 'include' here
 	  });
-
+  
 	  if (!response.ok) {
 		authDebug.error("ensureUserProfile", `Fetch failed: ${response.status}`);
 		return null;
 	  }
-
+  
 	  const profile = await response.json();
 	  localStorage.setItem(
 		API_CONFIG.STORAGE_KEYS.USER_DATA,
