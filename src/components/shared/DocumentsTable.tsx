@@ -116,7 +116,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     customGridTemplate,
     statusIndicatorStyle = 'default',
     loadingDocId = null,
-    statusRenderer,
+    statusRenderer?: (doc: T) => React.ReactNode,
     // New props with defaults
     comingSoon = false,
     comingSoonConfig = {
