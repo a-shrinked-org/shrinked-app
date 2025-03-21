@@ -1,6 +1,6 @@
 // src/components/UserAvatar.tsx
 import React from 'react';
-import { Avatar, createStyles } from '@mantine/core';
+import { Avatar, MantineTheme } from '@mantine/core';
 import { GeistMono } from 'geist/font/mono';
 
 interface UserAvatarProps {
@@ -12,34 +12,7 @@ interface UserAvatarProps {
   onClick?: () => void;
 }
 
-const useStyles = createStyles((theme) => ({
-  avatar: {
-    backgroundColor: '#000',
-    color: theme.white,
-    fontFamily: GeistMono.style.fontFamily,
-    fontWeight: 500,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    userSelect: 'none',
-    transition: 'all 0.2s ease',
-    '&:hover': {
-      backgroundColor: '#222',
-    },
-  },
-  initialsText: {
-    fontFamily: GeistMono.style.fontFamily,
-    fontSize: '14px',
-    lineHeight: 1,
-    letterSpacing: '0.02em',
-    fontWeight: 500,
-  },
-}));
-
 export function UserAvatar({ name, src, size = 40, radius = '50%', className = '', onClick }: UserAvatarProps) {
-  const { classes, cx } = useStyles();
-  
   // Generate initials from the name (max 2 characters)
   const getInitials = (name?: string | null): string => {
     if (!name) return '?';
@@ -60,10 +33,34 @@ export function UserAvatar({ name, src, size = 40, radius = '50%', className = '
       alt={name || 'User'}
       size={size}
       radius={radius}
-      className={cx(classes.avatar, className)}
+      className={className}
       onClick={onClick}
+      styles={{
+        root: {
+          backgroundColor: '#000',
+          color: '#fff',
+          fontFamily: GeistMono.style.fontFamily,
+          fontWeight: 500,
+          cursor: onClick ? 'pointer' : 'default',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          userSelect: 'none',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            backgroundColor: onClick ? '#222' : '#000',
+          },
+        },
+        placeholder: {
+          fontFamily: GeistMono.style.fontFamily,
+          fontSize: '14px',
+          lineHeight: 1,
+          letterSpacing: '0.02em',
+          fontWeight: 500,
+        }
+      }}
     >
-      <span className={classes.initialsText}>{initials}</span>
+      {initials}
     </Avatar>
   );
 }
