@@ -82,7 +82,7 @@ function ErrorFallback({
         margin: '0 auto'
       }}
     >
-      <Stack align="center" spacing="md">
+      <Stack align="center" gap="md">
         {getErrorIcon()}
         
         <Text 
