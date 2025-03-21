@@ -87,7 +87,7 @@ function ErrorFallback({
         
         <Text 
           size="lg" 
-          weight={600} 
+          fw={600} 
           style={{ 
             fontFamily: GeistMono.style.fontFamily,
             marginTop: '16px'
