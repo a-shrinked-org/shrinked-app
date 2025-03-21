@@ -957,7 +957,13 @@ function DocumentsTable<T extends ProcessedDocument>({
                                         borderBottom: '1px solid #2b2b2b',
                                         flexShrink: 0
                                       }}>
-                                        <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
+                                        <Text size="sm" fw={500} style={{ 
+                                          fontFamily: GeistMono.style.fontFamily, 
+                                          letterSpacing: '0.5px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          height: '100%'
+                                        }}>{title}</Text>
                                         <Group>
                                           {(onRefresh || comingSoon) && (
                                             <Button
