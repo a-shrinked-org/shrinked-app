@@ -88,14 +88,18 @@ export default function Login() {
           return;
         }
 
-        const result = await customAuthProvider.login({
-          email: formData.email,
-          password: formData.password,
+        const response = await fetch("/api/auth-proxy/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email, password: formData.password }),
+          credentials: "include",
         });
-        if (result.success) {
-          router.push("/jobs");
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          router.push("/jobs"); // No token storage
         } else {
-          setError(result.error?.message || "Invalid email or password");
+          setError(data.error?.message || "Invalid email or password");
         }
       }
     } catch (error) {

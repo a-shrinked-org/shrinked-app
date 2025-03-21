@@ -3,18 +3,7 @@
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { Card, Title, TextInput, Button, Container, Alert, Text, Group, ThemeIcon } from "@mantine/core";
 import { CheckCircle, AlertCircle } from "lucide-react";
-
-// Import custom styles for verification page
 import "@/styles/verify-styles.css";
-
-// Define proper interface for verified user data
-interface VerifiedUserData {
-  email: string;
-  username?: string;
-  verifiedAt: string;
-  accessToken?: string;
-  refreshToken?: string;
-}
 
 export default function VerifyEmail() {
   const [error, setError] = useState<string>("");
@@ -27,38 +16,25 @@ export default function VerifyEmail() {
   });
 
   useEffect(() => {
-    // Get token and email from URL if available
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get("token") || "";
     const urlEmail = urlParams.get("email") || "";
-    
-    console.log("VerifyEmail: Component mounted, checking for token in URL:", urlToken ? "Token found" : "No token");
-    console.log("VerifyEmail: Email from URL:", urlEmail);
-    
-    // Use email from URL, fallback to pending user's email
+    console.log("VerifyEmail: Component mounted, token:", urlToken ? "Found" : "Not found", "email:", urlEmail);
+
     const initialEmail = urlEmail || "";
-    
-    // Update form data with token and email from URL
-    setFormData(prev => ({ 
-      ...prev, 
-      token: urlToken,
-      email: initialEmail
-    }));
-    
-    // If we don't have an email from the URL, try to get it from localStorage
+    setFormData((prev) => ({ ...prev, token: urlToken, email: initialEmail }));
+
     if (!urlEmail) {
       const pendingUser = localStorage.getItem("pendingUser");
       if (pendingUser) {
         try {
           const parsedUser = JSON.parse(pendingUser);
-          console.log("VerifyEmail: Found pending user with email:", parsedUser.email);
+          console.log("VerifyEmail: Pending user email:", parsedUser.email);
           setFormData((prev) => ({ ...prev, email: parsedUser.email }));
         } catch (err) {
-          console.error("VerifyEmail: Error parsing pending user data:", err);
+          console.error("VerifyEmail: Error parsing pending user:", err);
           setError("Error loading user data. Please try logging in again.");
         }
-      } else {
-        console.warn("VerifyEmail: No pending user found in localStorage");
       }
     }
   }, []);
@@ -83,77 +59,48 @@ export default function VerifyEmail() {
     }
 
     try {
-      // Client-side validation of token against localStorage
       const pendingUser = localStorage.getItem("pendingUser");
       if (!pendingUser) {
-        console.error("VerifyEmail: No pending user found for verification");
+        console.error("VerifyEmail: No pending user found");
         setError("No pending verification found");
         setIsLoading(false);
         return;
       }
 
       const parsedUser = JSON.parse(pendingUser);
-      console.log("VerifyEmail: Comparing tokens:");
-      console.log("- Stored token (first 4 chars):", parsedUser.token.substring(0, 4));
-      console.log("- Provided token (first 4 chars):", formData.token.substring(0, 4));
-      
       if (parsedUser.token !== formData.token || parsedUser.email !== formData.email) {
         console.error("VerifyEmail: Token or email mismatch");
         setError("Invalid token or email");
         setIsLoading(false);
         return;
       }
-      
-      console.log("VerifyEmail: Token and email verified locally, proceeding with API registration");
 
-      // Token is valid, now call the API to complete registration
-      const response = await fetch('/api/auth-proxy/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch("/api/auth-proxy/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          username: parsedUser.username || formData.email.split('@')[0]
+          username: formData.email.split("@")[0], // Default username
         }),
-        credentials: 'include'
+        credentials: "include",
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("VerifyEmail: API registration failed:", data);
-        setError(data.error?.message || "Registration failed with API");
+        console.error("VerifyEmail: Registration failed:", data);
+        setError(data.error?.message || "Registration failed");
         setIsLoading(false);
         return;
       }
 
-      console.log("VerifyEmail: API registration successful");
-      
-      // Create verified user data with proper typing
-      const verifiedUserData: VerifiedUserData = {
-        email: formData.email,
-        username: parsedUser.username || formData.email.split('@')[0],
-        verifiedAt: new Date().toISOString()
-      };
-
-      // Add tokens to verified user data if they're returned from the API
-      if (data.accessToken) {
-        verifiedUserData.accessToken = data.accessToken;
-      }
-      if (data.refreshToken) {
-        verifiedUserData.refreshToken = data.refreshToken;
-      }
-      
-      localStorage.setItem("verifiedUser", JSON.stringify(verifiedUserData));
+      console.log("VerifyEmail: Registration successful");
       localStorage.removeItem("pendingUser");
-      
       setIsVerified(true);
-      
-      // Wait 2 seconds before redirecting
+
       setTimeout(() => {
-        console.log("VerifyEmail: Redirecting to /jobs after successful verification");
+        console.log("VerifyEmail: Redirecting to /jobs");
         window.location.href = "/jobs";
       }, 2000);
     } catch (err) {
@@ -163,7 +110,6 @@ export default function VerifyEmail() {
     }
   };
 
-  // Success state after verification
   if (isVerified) {
     return (
       <div className="verify-page-container">
@@ -178,7 +124,7 @@ export default function VerifyEmail() {
               Email Verified Successfully!
             </Title>
             <Text ta="center" className="success-message">
-              Your account has been verified and you&apos;ll be redirected to the dashboard momentarily.
+              Your account has been verified and you'll be redirected to the dashboard momentarily.
             </Text>
           </Card>
         </Container>
@@ -209,7 +155,7 @@ export default function VerifyEmail() {
               onChange={handleInputChange}
               required
               mb="md"
-              readOnly={!!formData.email} // Make read-only if pre-filled
+              readOnly={!!formData.email}
               disabled={isLoading}
               placeholder="your@email.com"
             />
@@ -231,15 +177,11 @@ export default function VerifyEmail() {
               onChange={handleInputChange}
               required
               mb="md"
-              readOnly={!!formData.token} // Make read-only if pre-filled
+              readOnly={!!formData.token}
               disabled={isLoading}
               placeholder="Verification token"
             />
-            <Button
-              type="submit"
-              fullWidth
-              loading={isLoading}
-            >
+            <Button type="submit" fullWidth loading={isLoading}>
               VERIFY AND SIGN IN
             </Button>
           </form>
