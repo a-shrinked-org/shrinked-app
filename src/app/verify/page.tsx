@@ -3,6 +3,7 @@
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
 import { Card, Title, TextInput, Button, Container, Alert, Text, Group, ThemeIcon } from "@mantine/core";
 import { CheckCircle, AlertCircle } from "lucide-react";
+import { authUtils } from "@/utils/authUtils";
 import "@/styles/verify-styles.css";
 
 export default function VerifyEmail() {
@@ -93,6 +94,15 @@ export default function VerifyEmail() {
         setError(data.error?.message || "Registration failed");
         setIsLoading(false);
         return;
+      }
+
+      // Store authentication tokens in localStorage
+      if (data.accessToken && data.refreshToken) {
+        console.log("VerifyEmail: Storing authentication tokens");
+        authUtils.saveTokens(data.accessToken, data.refreshToken);
+        authUtils.setAuthenticatedState(true);
+      } else {
+        console.warn("VerifyEmail: Registration successful but no tokens in response");
       }
 
       console.log("VerifyEmail: Registration successful");
