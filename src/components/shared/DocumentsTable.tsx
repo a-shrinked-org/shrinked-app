@@ -197,13 +197,16 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   };
 
   // Updated renderComingSoonState function
+// Replace the renderComingSoonState function in DocumentsTable with this:
+  
   const renderComingSoonState = () => (
-    <Box p="md" style={{ 
-      height: 'calc(100vh - 56px)', // Subtract header height (approx 56px)
+    <Box style={{ 
+      flex: 1, // Fill the available space instead of fixed height
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      padding: '16px'
     }}>
       <Card 
         p="xl" 
@@ -805,9 +808,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   <Box style={{ 
     backgroundColor: '#000000', 
     color: '#ffffff', 
-    height: '100vh', // Changed from minHeight to fixed height
+    height: '100%', // Changed from 100vh to 100%
     width: '100%',
-    maxWidth: '100vw',
+    maxWidth: '100%',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden' // Ensure no scrolling on main container
@@ -846,6 +849,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
             {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
           </Button>
         ) : null}
+        
         {onAddNew && !comingSoon && ( // Don't show Add New button in coming soon state
           <Button
             variant="filled"
