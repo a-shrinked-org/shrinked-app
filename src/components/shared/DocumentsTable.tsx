@@ -82,7 +82,6 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   customGridTemplate?: string;
   statusIndicatorStyle?: StatusIndicatorStyle;
   loadingDocId?: string | null;
-  statusRenderer?: (doc: T) => React.ReactNode;
   // New props for coming soon feature
   comingSoon?: boolean; 
   comingSoonConfig?: {
@@ -117,6 +116,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     customGridTemplate,
     statusIndicatorStyle = 'default',
     loadingDocId = null,
+    statusRenderer,
     // New props with defaults
     comingSoon = false,
     comingSoonConfig = {
