@@ -95,51 +95,33 @@ export const customAuthProvider: Required<AuthProvider> & {
 		return { success: false, error: { message: "You are offline", name: "NetworkError" } };
 	  }
 
-	  // Email check with Loops (only if no password provided)
 	  if (!password) {
 		try {
-		  const response = await fetch(`/api/loops?loops=contacts/find&email=${encodeURIComponent(email)}`, {
-			method: "GET",
+		  // Skip Loops API and go directly to direct auth check
+		  console.log("Bypassing Loops API, using direct auth check");
+		  
+		  const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
+			method: "POST",
 			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ email }),
 		  });
 		  
-		  // If successful Loops response
-		  if (response.ok) {
-			const data = await response.json();
-			if (Array.isArray(data) && data.length > 0) {
+		  if (checkResponse.ok) {
+			const checkData = await checkResponse.json();
+			if (checkData.exists) {
 			  return { success: true }; // Prompt for password
-			}
-		  } else {
-			// FALLBACK: If Loops API fails (400, 500, etc.), try a direct auth check
-			// This is the key change - don't fail immediately on Loops error
-			console.warn("Loops API check failed, trying direct auth check");
-			
-			// Try a lightweight check if the email exists in the auth system
-			const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
-			  method: "POST",
-			  headers: { "Content-Type": "application/json" },
-			  body: JSON.stringify({ email }),
-			});
-			
-			if (checkResponse.ok) {
-			  const checkData = await checkResponse.json();
-			  if (checkData.exists) {
-				return { success: true }; // Prompt for password
-			  }
 			}
 		  }
 		  
-		  // If we get here, email not found via either method
+		  // If we get here, email not found
 		  return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
 		} catch (error) {
-		  // If the Loops call completely fails with an exception, try direct auth
-		  console.error("Loops check error:", error);
-		  
+		  console.error("Email check error:", error);
 		  // Even if this fails, allow user to try password
 		  return { success: true, warning: "Verification service unavailable. Please try your password." };
 		}
 	  }
-
+	  
 	  // Full login
 	  const response = await fetch(`/api/auth-proxy/login`, {
 		method: "POST",

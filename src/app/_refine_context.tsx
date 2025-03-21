@@ -125,6 +125,16 @@ const App = (props: React.PropsWithChildren<{}>) => {
     if (isInitialized.current) return;
     isInitialized.current = true;
     
+    // Immediately set to not checking if we're on the login page
+    if (to === "/login") {
+      setAuthState({
+        isChecking: false,
+        isAuthenticated: false,
+        initialized: true
+      });
+      return;
+    }
+    
     if (authUtils.isAuthenticated()) {
       console.log("[APP] Initializing token refresh mechanism");
       authUtils.setupRefreshTimer();
@@ -136,11 +146,22 @@ const App = (props: React.PropsWithChildren<{}>) => {
         initialized: true
       });
     }
-  }, []);
+  }, [to]);
 
   // Create a debounced version of the auth check function
   const debouncedAuthCheck = useRef(
     debounce(async () => {
+      if (to === "/login" || isCheckingAuthRef.current) {
+        if (authState.isChecking) {
+          setAuthState({
+            isChecking: false,
+            isAuthenticated: false,
+            initialized: true
+          });
+        }
+        return;
+      }
+      
       if (isCheckingAuthRef.current) return;
       isCheckingAuthRef.current = true;
 
