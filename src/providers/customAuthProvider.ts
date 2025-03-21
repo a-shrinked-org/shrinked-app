@@ -614,3 +614,393 @@ class AuthProviderClass implements AuthProvider {
 	  
 	  return null;
 	}
+	
+	async getPermissions() {
+		debug.log('getPermissions', "Getting user permissions");
+		const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+		
+		if (!userStr) {
+		  debug.log('getPermissions', "No user data found");
+		  
+		  // If we have tokens but no user data, try to fetch the profile first
+		  if (authUtils.isAuthenticated()) {
+			debug.log('getPermissions', "Attempting to fetch user profile for permissions");
+			const userProfile = await authUtils.ensureUserProfile();
+			if (userProfile && userProfile.roles) {
+			  debug.log('getPermissions', "Retrieved roles from fetched profile");
+			  return userProfile.roles;
+			}
+		  }
+		  
+		  return null;
+		}
+	
+		try {
+		  const userData: UserData = JSON.parse(userStr);
+		  if (userData.roles && Array.isArray(userData.roles) && userData.roles.length > 0) {
+			debug.log('getPermissions', "Using cached roles from user data");
+			return userData.roles;
+		  }
+	
+		  debug.log('getPermissions', "Fetching permissions from server");
+		  const accessToken = authUtils.getAccessToken();
+		  const response = await fetch(`/api/auth-proxy/permissions`, {
+			headers: {
+			  Authorization: `Bearer ${accessToken}`,
+			  "Content-Type": "application/json",
+			},
+			credentials: 'include'
+		  });
+	
+		  if (response.ok) {
+			const { roles } = await response.json();
+			debug.log('getPermissions', "Permissions fetched successfully", roles);
+			
+			try {
+			  userData.roles = roles;
+			  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+			  debug.log('getPermissions', "Updated user data with roles");
+			} catch (e) {
+			  debug.error('getPermissions', `Error updating roles in localStorage:`, e);
+			}
+			
+			return roles;
+		  }
+		  
+		  debug.warn('getPermissions', `Failed to fetch permissions: ${response.status}`);
+		  return null;
+		} catch (error) {
+		  debug.error('getPermissions', `Error getting permissions:`, error);
+		  return null;
+		}
+	  }
+	
+	  async updatePassword(params: any) {
+		try {
+		  debug.log('updatePassword', "Updating password");
+		  const accessToken = authUtils.getAccessToken();
+		  const response = await fetch(`/api/auth-proxy/update-password`, {
+			method: "POST",
+			headers: {
+			  Authorization: `Bearer ${accessToken}`,
+			  "Content-Type": "application/json",
+			},
+			body: JSON.stringify(params),
+			credentials: 'include'
+		  });
+	
+		  if (!response.ok) {
+			const errorData = await response.json();
+			debug.error('updatePassword', "Update password failed", errorData);
+			return {
+			  success: false,
+			  error: {
+				message: errorData.message || "Invalid password",
+				name: "Update password failed",
+			  },
+			};
+		  }
+	
+		  debug.log('updatePassword', "Password updated successfully");
+		  return { success: true };
+		} catch (error) {
+		  debug.error('updatePassword', `Update password failed:`, error);
+		  return {
+			success: false,
+			error: {
+			  message: "Update failed",
+			  name: "Update password failed",
+			},
+		  };
+		}
+	  }
+	
+	  async forgotPassword(params: any) {
+		try {
+		  debug.log('forgotPassword', "Sending forgot password request");
+		  const response = await fetch(`/api/auth-proxy/forgot-password`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(params),
+			credentials: 'include'
+		  });
+	
+		  if (!response.ok) {
+			const errorData = await response.json();
+			debug.error('forgotPassword', "Forgot password request failed", errorData);
+			return {
+			  success: false,
+			  error: {
+				message: errorData.message || "Invalid email",
+				name: "Forgot password failed",
+			  },
+			};
+		  }
+	
+		  debug.log('forgotPassword', "Forgot password request sent successfully");
+		  return { success: true };
+		} catch (error) {
+		  debug.error('forgotPassword', `Forgot password request failed:`, error);
+		  return {
+			success: false,
+			error: {
+			  message: "Request failed",
+			  name: "Forgot password failed",
+			},
+		  };
+		}
+	  }
+	
+	  async logout() {
+		debug.log('logout', `Logging out user`);
+		
+		// Clear refresh timer as early as possible
+		if (window._refreshTimerId) {
+		  clearTimeout(window._refreshTimerId);
+		  window._refreshTimerId = undefined;
+		}
+		
+		// Update auth state immediately
+		authUtils.setAuthenticatedState(false);
+		
+		try {
+		  const refreshToken = authUtils.getRefreshToken();
+		  if (refreshToken) {
+			debug.log('logout', `Sending logout request to server`);
+			
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 3000);
+	  
+			await fetch(`/api/auth-proxy/logout`, {
+			  method: "POST",
+			  headers: {
+				"Content-Type": "application/json",
+			  },
+			  body: JSON.stringify({ refreshToken }),
+			  signal: controller.signal,
+			  credentials: 'include'
+			}).catch((err) => {
+			  debug.warn('logout', `Server logout request failed, continuing with client logout:`, err);
+			  // Ignore server errors during logout
+			}).finally(() => {
+			  clearTimeout(timeoutId);
+			});
+		  }
+		} catch (error) {
+		  debug.warn('logout', `Error during logout, continuing with client logout:`, error);
+		  // Continue with logout even if server request fails
+		}
+	  
+		debug.log('logout', `Clearing auth storage and redirecting to login`);
+		authUtils.clearAuthStorage(); // This will clear tokens, metadata, and timer
+	  
+		return {
+		  success: true,
+		  redirectTo: "/login",
+		};
+	  }
+	
+	  async onError(error: any) {
+		debug.error('onError', `Auth error:`, error);
+	
+		// Let authUtils handle the common error cases
+		authUtils.handleAuthError(error);
+	
+		const status = error?.response?.status || error?.statusCode || error?.status;
+	
+		if (status === 401 || status === 403) {
+		  const errorContext = error?.context;
+		  const isFromRefresh = errorContext && errorContext.isRefreshAttempt;
+	
+		  if (!isFromRefresh) {
+			debug.log('onError', `Attempting token refresh due to 401/403 error`);
+			const refreshSuccess = await authUtils.refreshToken();
+			if (refreshSuccess) {
+			  debug.log('onError', `Token refresh successful, returning original error`);
+			  return { error };
+			}
+		  }
+	
+		  debug.log('onError', `Auth error requires logout, clearing storage`);
+		  authUtils.clearAuthStorage();
+		  authUtils.setAuthenticatedState(false);
+		  
+		  // Determine if we should redirect based on current path
+		  const publicPaths = ['/login', '/register', '/verify', '/forgot-password'];
+		  let shouldRedirect = true;
+		  
+		  if (typeof window !== 'undefined') {
+			const currentPath = window.location.pathname;
+			shouldRedirect = !publicPaths.some(path => currentPath.startsWith(path));
+		  }
+		  
+		  return {
+			logout: true,
+			redirectTo: shouldRedirect ? "/login" : undefined,
+			error,
+		  };
+		}
+	
+		return { error };
+	  }
+	
+	  async verifyEmail(params: { token: string; email: string; password: string }) {
+		debug.log('verifyEmail', `Verifying email for: ${params.email}`);
+		
+		const { token, email, password } = params;
+		try {
+		  const pendingUserStr = localStorage.getItem("pendingUser");
+		  if (!pendingUserStr) {
+			debug.error('verifyEmail', `No pending user found in localStorage`);
+			throw new Error("No pending user found");
+		  }
+	  
+		  const pendingUser = JSON.parse(pendingUserStr);
+		  debug.log('verifyEmail', `Comparing tokens: ${token.substring(0, 3)}... with ${pendingUser.token.substring(0, 3)}...`);
+		  
+		  if (pendingUser.token !== token || pendingUser.email !== email) {
+			debug.error('verifyEmail', `Token or email mismatch`);
+			return {
+			  success: false,
+			  error: { message: "Invalid token or email", name: "VerificationError" },
+			};
+		  }
+	  
+		  debug.log('verifyEmail', `Email verification successful, now registering user with API`);
+		  
+		  // Register the user with the Shrinked API
+		  debug.log('verifyEmail', `Making registration API request through proxy`);
+		  
+		  // First clear any existing auth data
+		  authUtils.clearAuthStorage();
+		  
+		  const registerResponse = await fetch(`/api/auth-proxy/register`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ 
+			  email, 
+			  password,
+			  username: pendingUser.username || email.split('@')[0]
+			}),
+			credentials: 'include'
+		  });
+	  
+		  if (!registerResponse.ok) {
+			const registerData = await registerResponse.json();
+			debug.error('verifyEmail', `API registration failed:`, registerData);
+			return {
+			  success: false,
+			  error: { 
+				message: registerData.message || "Registration failed with API",
+				name: "RegistrationError" 
+			  },
+			};
+		  }
+	  
+		  // Get tokens from successful registration
+		  const registerData = await registerResponse.json();
+		  debug.log('verifyEmail', `API registration successful, saving tokens`);
+		  
+		  // Save tokens - this now also stores token metadata
+		  authUtils.saveTokens(registerData.accessToken, registerData.refreshToken);
+		  
+		  // Set authenticated state
+		  authUtils.setAuthenticatedState(true);
+		  
+		  // Set up the silent refresh timer
+		  authUtils.setupRefreshTimer(false);  // Use false to prevent immediate refresh after registration
+	  
+		  // Store verified user data including tokens
+		  const verifiedUser = {
+			email,
+			isVerified: true,
+			accessToken: registerData.accessToken,
+			refreshToken: registerData.refreshToken
+		  };
+		  localStorage.setItem("verifiedUser", JSON.stringify(verifiedUser));
+		  localStorage.removeItem("pendingUser");
+		  
+		  // Update the contact in Loops to indicate verification
+		  try {
+			debug.log('verifyEmail', `Updating contact in Loops to indicate verification`);
+			await this.callLoops("contacts/update", "POST", {
+			  email,
+			  // Send properties at top level as required by Loops API
+			  emailVerified: true,
+			  registrationPending: false,
+			  registrationComplete: true
+			});
+		  } catch (updateError) {
+			debug.warn('verifyEmail', `Failed to update contact, but verification can continue:`, updateError);
+			// Don't throw here, as the critical steps are already completed
+		  }
+	  
+		  debug.log('verifyEmail', `Verification and API registration complete, redirecting to /jobs`);
+		  return { success: true, redirectTo: "/jobs" };
+		} catch (error) {
+		  debug.error('verifyEmail', `Verification failed:`, error);
+		  return {
+			success: false,
+			error: {
+			  message: error instanceof Error ? error.message : "Verification failed",
+			  name: "VerificationError",
+			},
+		  };
+		}
+	  }
+	}
+	
+	const authProviderInstance = new AuthProviderClass();
+	
+	type CustomAuthProvider = Required<AuthProvider> & {
+	  register: (params: any) => Promise<any>;
+	  forgotPassword?: (params: any) => Promise<any>;
+	  updatePassword?: (params: any) => Promise<any>;
+	  getPermissions?: (params?: any) => Promise<any>;
+	  verifyEmail?: (params: { token: string; email: string; password: string }) => Promise<any>;
+	};
+	
+	// Add a wrapper around check for additional logging
+	const checkWithDebug = async function() {
+	  debug.log('check-wrapper', "Auth check called");
+	  const result = await authProviderInstance.check.call(authProviderInstance);
+	  debug.log('check-wrapper', `Auth check result: ${result.authenticated}`);
+	  return result;
+	};
+	
+	export const customAuthProvider: CustomAuthProvider = {
+	  login: authProviderInstance.login.bind(authProviderInstance),
+	  register: authProviderInstance.register.bind(authProviderInstance),
+	  logout: authProviderInstance.logout.bind(authProviderInstance),
+	  check: checkWithDebug,
+	  onError: authProviderInstance.onError.bind(authProviderInstance),
+	  getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
+	  forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
+	  updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
+	  getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
+	  verifyEmail: authProviderInstance.verifyEmail.bind(authProviderInstance),
+	} as const;
+	
+	// Initialize auth state verification if in browser context
+	if (typeof window !== 'undefined') {
+	  // Set up a one-time check on load to ensure auth state is consistent
+	  setTimeout(() => {
+		if (authUtils.isAuthenticated()) {
+		  debug.log('init', "Tokens found, verifying user profile");
+		  authUtils.ensureUserProfile().then(userProfile => {
+			if (userProfile) {
+			  debug.log('init', "User profile verified successfully");
+			  authUtils.setAuthenticatedState(true);
+			} else {
+			  debug.error('init', "Failed to verify user profile with existing tokens");
+			  authUtils.clearAuthStorage();
+			}
+		  }).catch(error => {
+			debug.error('init', "Error verifying user profile:", error);
+		  });
+		} else {
+		  debug.log('init', "No tokens found during initialization");
+		  authUtils.clearAuthStorage();
+		}
+	  }, 100);
+	}

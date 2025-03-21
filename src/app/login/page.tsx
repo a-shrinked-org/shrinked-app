@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, ChangeEvent, FormEvent, useRef } from "react";
+import React, { useState, ChangeEvent, FormEvent, useRef, useEffect } from "react";
 import { useLogin } from "@refinedev/core";
 import {
   Card,
@@ -42,6 +42,13 @@ export default function Login() {
   // Action type reference
   const actionTypeRef = useRef<"google" | "email" | null>(null);
 
+  // Add debug info on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window._debugAuthState) {
+      window._debugAuthState("Login page loaded");
+    }
+  }, []);
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -64,7 +71,6 @@ export default function Login() {
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
-  // Other handlers remain the same...
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -82,7 +88,7 @@ export default function Login() {
     }
   
     if (step === "email") {
-      // the default login flow via the useLogin hook
+      // Email-only check
       login(
         { email: formData.email, password: "" },
         {
@@ -113,14 +119,12 @@ export default function Login() {
             }
           },
           onError: (error: any) => {
-            // Error handling remains the same
             if (actionTypeRef.current !== "email") return;
 
             let errorName = "";
             let errorMessage = "";
 
             if (typeof error === "object" && error !== null) {
-              // Extract error info...
               if ("name" in error && typeof error.name === "string") {
                 errorName = error.name;
               }
@@ -178,7 +182,9 @@ export default function Login() {
         return;
       }
   
-      // Use the proxy endpoint directly instead of relying on the hook
+      console.log('Logging in with email and password...');
+      
+      // Use the proxy endpoint directly for more reliable login
       fetch('/api/auth-proxy/login', {
         method: 'POST',
         headers: {
@@ -196,9 +202,9 @@ export default function Login() {
         })
         .then(({ data, responseObj }) => {
           if (responseObj.ok) {
-            // Don't try to process tokens, just redirect
-            console.log("Login successful, redirecting...");
-            window.location.href = '/';
+            // Handle successful login
+            console.log("Login successful, redirecting to jobs page...");
+            window.location.href = '/jobs';
           } else {
             setError(data.error?.message || 'Invalid email or password');
             setEmailPasswordLoading(false);
@@ -220,9 +226,13 @@ export default function Login() {
           skipEmailCheck: true,
         },
         {
-          onSuccess: () => {
+          onSuccess: (response) => {
             if (actionTypeRef.current !== "email") return;
-            // Keep loading on successful login since we're redirecting
+            
+            if (response.redirectTo) {
+              console.log("Login hook successful, redirecting to:", response.redirectTo);
+              window.location.href = response.redirectTo;
+            }
           },
           onError: (error: any) => {
             if (actionTypeRef.current !== "email") return;
