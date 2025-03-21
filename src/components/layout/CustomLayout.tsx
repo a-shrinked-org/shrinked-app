@@ -35,10 +35,10 @@ interface Identity {
     jobsPerMonth?: number;
     maxConcurrentJobs?: number;
     apiCallsPerDay?: number;
-    usage?: {
-      processingTimeUsed?: number;
-      jobsCount?: number;
-    }
+  };
+  usage?: {
+    processingTimeUsed?: number;
+    jobsCount?: number;
   };
 }
 
@@ -143,7 +143,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
   };
 
   // Calculate processing time usage
-  const processingTimeUsed = identity?.subscriptionPlan?.usage?.processingTimeUsed || 0;
+  const processingTimeUsed = identity?.usage?.processingTimeUsed || 0;
   const processingTimeLimit = identity?.subscriptionPlan?.processingTimeLimit || 11880000; // Default to 3.3 hours in ms
   const usagePercentage = (processingTimeUsed / processingTimeLimit) * 100;
   
@@ -279,7 +279,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           {identityLoading ? (
             <>
               <Flex justify="space-between" mb="xs">
-                <Text size="xs">Processing Time</Text>
+                <Text size="xs">Hours</Text>
                 <Skeleton height={14} width={80} radius="sm" />
               </Flex>
               <Skeleton height={6} radius="xl" mb="xs" />
@@ -288,7 +288,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           ) : (
             <>
               <Flex justify="space-between" mb="xs">
-                <Text size="xs">Processing Time</Text>
+                <Text size="xs">Hours</Text>
                 <Text size="xs">{hoursUsed} / {hoursLimit} hours</Text>
               </Flex>
               <Progress 
