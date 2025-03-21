@@ -117,7 +117,7 @@ export default function JobCreate() {
       }
       
       // Use centralized fetchWithAuth for API calls
-      const response = await fetchWithAuth(`${API_CONFIG.API_URL}/jobs`, {
+      const response = await fetchWithAuth(`/api/jobs-proxy`, {
         method: 'POST',
         body: JSON.stringify(data)
       });
