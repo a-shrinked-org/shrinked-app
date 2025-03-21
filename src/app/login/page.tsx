@@ -198,26 +198,6 @@ export default function Login() {
               Back to login
             </Button>
           </Card>
-          <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
-            <Card radius="md" p="sm" withBorder>
-              <Group justify="center">
-                <Book size={24} color="#AAAAAA" />
-                <Text size="sm" className="footer-text">Resources</Text>
-              </Group>
-            </Card>
-            <Card radius="md" p="sm" withBorder>
-              <Group justify="center">
-                <Code size={24} color="#AAAAAA" />
-                <Text size="sm" className="footer-text">Guides</Text>
-              </Group>
-            </Card>
-            <Card radius="md" p="sm" withBorder>
-              <Group justify="center">
-                <Rocket size={24} color="#AAAAAA" />
-                <Text size="sm" className="footer-text">Examples</Text>
-              </Group>
-            </Card>
-          </SimpleGrid>
         </Container>
       </div>
     );

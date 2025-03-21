@@ -326,23 +326,6 @@ const App = (props: React.PropsWithChildren<{}>) => {
         gap: '10px'
       }}>
         <div>Loading authentication state...</div>
-        <button 
-          onClick={() => {
-            // Force exit loading state if stuck
-            setAuthState({
-              isChecking: false,
-              isAuthenticated: false, 
-              initialized: true
-            });
-          }}
-          style={{
-            padding: '8px 16px',
-            marginTop: '20px',
-            cursor: 'pointer'
-          }}
-        >
-          Continue to Login
-        </button>
       </div>
     );
   }

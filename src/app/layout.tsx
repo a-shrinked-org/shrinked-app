@@ -259,6 +259,7 @@ export default function RootLayout({
       <head>
         <ColorSchemeScript forceColorScheme="dark" />
         <meta name="color-scheme" content="dark" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Fix for SVG width/height "rem" attributes */}
         <style dangerouslySetInnerHTML={{ 
           __html: `
