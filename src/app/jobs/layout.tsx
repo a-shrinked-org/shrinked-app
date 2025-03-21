@@ -59,7 +59,7 @@ export default function JobsLayout({ children }: React.PropsWithChildren) {
       v3LegacyAuthProviderCompatible
       loading={<LoadingFallback />}
       fallback={<RedirectToLogin />}
-      redirectOnFail={false} // Change this to prevent automatic redirects
+      // Don't specify redirectOnFail at all - use the fallback component instead
     >
       <BaseLayout>{children}</BaseLayout>
     </Authenticated>
