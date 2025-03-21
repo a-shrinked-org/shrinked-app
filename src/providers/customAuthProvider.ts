@@ -20,6 +20,19 @@ interface UserData {
   isVerified?: boolean;
 }
 
+// Interface for identity return type
+interface IdentityData {
+  id?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+  roles?: string[];
+  token?: string;
+  subscriptionPlan?: string;
+  apiKeys?: string[];
+  userId?: string;
+}
+
 // Reduced cooldown for faster auth checks
 const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds between auth checks
 let lastAuthCheckTime = 0;
@@ -38,7 +51,7 @@ const debug = {
 };
 
 class AuthProviderClass implements AuthProvider {
-  async callLoops(endpoint: string, method: string, body?: any) {
+  async callLoops(endpoint: string, method: string, body?: any): Promise<any> {
 	debug.log('callLoops', `Calling Loops API: ${method} ${endpoint}`);
 	
 	// Ensure endpoint doesn't have duplicated leading slashes
@@ -77,7 +90,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async checkEmailInLoops(email: string) {
+  async checkEmailInLoops(email: string): Promise<any | null> {
 	debug.log('checkEmailInLoops', `Checking if email exists: ${email}`);
 	
 	try {
@@ -103,7 +116,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async createContact(email: string, properties = {}) {
+  async createContact(email: string, properties = {}): Promise<any> {
 	debug.log('createContact', `Creating contact for email: ${email}`);
 	
 	try {
@@ -124,7 +137,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async sendValidationEmail(email: string, token: string) {
+  async sendValidationEmail(email: string, token: string): Promise<any> {
 	debug.log('sendValidationEmail', `Sending validation email to: ${email}`);
 	
 	try {
@@ -158,7 +171,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async login(params: any) {
+  async login(params: any): Promise<any> {
 	const { providerName, email, password, skipEmailCheck } = params;
 	
 	debug.log('login', `Login attempt with params:`, { 
@@ -403,7 +416,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async register(params: any) {
+  async register(params: any): Promise<any> {
 	debug.log('register', `Registration attempt for email: ${params.email}`);
 	const { email, password, username } = params;
 	
@@ -467,7 +480,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async check() {
+  async check(): Promise<{ authenticated: boolean }> {
 	const now = Date.now();
 	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
 	  const authenticated = authUtils.isAuthenticated();
@@ -547,7 +560,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async getIdentity() {
+  async getIdentity(): Promise<IdentityData | null> {
 	debug.log('getIdentity', "Getting user identity");
 	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	
@@ -616,7 +629,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
   
-  async getPermissions() {
+  async getPermissions(): Promise<string[] | null> {
 	debug.log('getPermissions', "Getting user permissions");
 	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	
@@ -676,7 +689,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async updatePassword(params: any) {
+  async updatePassword(params: any): Promise<any> {
 	try {
 	  debug.log('updatePassword', "Updating password");
 	  const accessToken = authUtils.getAccessToken();
@@ -716,7 +729,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async forgotPassword(params: any) {
+  async forgotPassword(params: any): Promise<any> {
 	try {
 	  debug.log('forgotPassword', "Sending forgot password request");
 	  const response = await fetch(`/api/auth-proxy/forgot-password`, {
@@ -752,7 +765,7 @@ class AuthProviderClass implements AuthProvider {
 	}
   }
 
-  async logout() {
+  async logout(): Promise<any> {
 	debug.log('logout', `Logging out user`);
 	
 	// Clear refresh timer as early as possible
@@ -801,7 +814,7 @@ class AuthProviderClass implements AuthProvider {
 	};
   }
 
-  async onError(error: any) {
+  async onError(error: any): Promise<any> {
 	debug.error('onError', `Auth error:`, error);
 
 	// Let authUtils handle the common error cases
