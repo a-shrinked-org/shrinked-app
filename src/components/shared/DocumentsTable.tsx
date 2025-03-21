@@ -158,7 +158,13 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
 
   // New function to render coming soon state
   const renderComingSoonState = () => (
-    <Box p="xl">
+    <Box p="md" style={{ 
+      height: 'calc(100vh - 56px)', // Subtract header height (approx 56px)
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden'
+    }}>
       <Card 
         p="xl" 
         withBorder 
@@ -167,8 +173,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           backgroundColor: '#0D0D0D',
           borderColor: '#2B2B2B',
           maxWidth: 600,
-          margin: '0 auto',
-          marginTop: 30
+          margin: '0 auto'
         }}
       >
         <Stack gap="xl" align="center">
@@ -743,79 +748,89 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
 
   // Render the component
   return (
-    <Box style={{ 
-      backgroundColor: '#000000', 
-      color: '#ffffff', 
-      minHeight: '100vh',
-      width: '100%',
-      maxWidth: '100vw',
-      overflowX: 'hidden'
+  <Box style={{ 
+    backgroundColor: '#000000', 
+    color: '#ffffff', 
+    height: '100vh', // Changed from minHeight to fixed height
+    width: '100%',
+    maxWidth: '100vw',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden' // Ensure no scrolling on main container
+  }}>
+    {/* Header */}
+    <Flex justify="space-between" align="center" p="sm" style={{ 
+      borderBottom: '1px solid #2b2b2b',
+      flexShrink: 0 // Prevent header from shrinking
     }}>
-      {/* Header */}
-      <Flex justify="space-between" align="center" p="sm" style={{ borderBottom: '1px solid #2b2b2b' }}>
-        <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
-        <Group>
-          {onRefresh && (
-            <Button
-              variant="subtle"
-              onClick={onRefresh}
-              leftSection={<RefreshCw size={14} />}
-              loading={isLoading}
-              styles={{
-                root: {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  fontWeight: 500,
-                  textTransform: 'uppercase',
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  border: 'none',
-                  '&:hover': {
-                    backgroundColor: '#1a1a1a',
-                  },
+      <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
+      <Group>
+        {onRefresh && (
+          <Button
+            variant="subtle"
+            onClick={onRefresh}
+            leftSection={<RefreshCw size={14} />}
+            loading={isLoading}
+            styles={{
+              root: {
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                border: 'none',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
                 },
-              }}
-            >
-              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
-            </Button>
-          )}
-          {onAddNew && !comingSoon && ( // Don't show Add New button in coming soon state
-            <Button
-              variant="filled"
-              onClick={onAddNew}
-              rightSection={<Plus size={16} />}
-              styles={{
-                root: {
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E09612',
-                  },
+              },
+            }}
+          >
+            {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
+          </Button>
+        )}
+        {onAddNew && !comingSoon && ( // Don't show Add New button in coming soon state
+          <Button
+            variant="filled"
+            onClick={onAddNew}
+            rightSection={<Plus size={16} />}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#E09612',
                 },
-              }}
-            >
-              <Text size="xs">ADD NEW JOB</Text>
-            </Button>
-          )}
-        </Group>
-      </Flex>
-
-      {/* Show coming soon state if enabled, otherwise show regular table */}
-      {comingSoon ? (
-        renderComingSoonState()
-      ) : (
-        <Box style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
-          {!isMobile ? renderDesktopView() : renderMobileView()}
-        </Box>
-      )}
+              },
+            }}
+          >
+            <Text size="xs">ADD NEW JOB</Text>
+          </Button>
+        )}
+      </Group>
+    </Flex>
+  
+    {/* Show coming soon state if enabled, otherwise show regular table */}
+    {comingSoon ? (
+      renderComingSoonState()
+    ) : (
+      <Box style={{ 
+        width: '100%', 
+        maxWidth: '100%', 
+        overflowX: 'hidden',
+        flex: 1 // Allow content area to fill remaining space
+      }}>
+        {!isMobile ? renderDesktopView() : renderMobileView()}
+      </Box>
+    )}
 
       {/* Email Modal */}
       <Modal
