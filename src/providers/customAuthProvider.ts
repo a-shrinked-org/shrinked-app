@@ -20,8 +20,9 @@ interface UserData {
   isVerified?: boolean;
 }
 
+// Reduced cooldown for faster auth checks
+const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds between auth checks
 let lastAuthCheckTime = 0;
-const AUTH_CHECK_COOLDOWN = 10000; // 10 secs
 
 // Debug helper function
 const debug = {
@@ -236,15 +237,19 @@ class AuthProviderClass implements AuthProvider {
 		  // Save tokens - this now also stores token metadata
 		  authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
 		  
+		  // Set authenticated state
+		  authUtils.setAuthenticatedState(true);
+		  
 		  // Set up the silent refresh timer immediately after successful login
 		  authUtils.setupRefreshTimer(true);
   
 		  debug.log('login', `Fetching user profile`);
-		  const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+		  const profileResponse = await fetch(`/api/user-proxy/profile`, {
 			headers: {
 			  Authorization: `Bearer ${loginData.accessToken}`,
 			  "Content-Type": "application/json",
 			},
+			credentials: 'include'
 		  });
   
 		  if (!profileResponse.ok) {
@@ -309,11 +314,12 @@ class AuthProviderClass implements AuthProvider {
 	  if (loopsContact) {
 		debug.log('login', `Attempting full login for: ${email}`);
 		
-		debug.log('login', `Making login API request to: ${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`);
-		const loginResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.LOGIN}`, {
+		debug.log('login', `Making login API request through proxy`);
+		const loginResponse = await fetch(`/api/auth-proxy/login`, {
 		  method: "POST",
 		  headers: { "Content-Type": "application/json" },
 		  body: JSON.stringify({ email, password }),
+		  credentials: 'include'
 		});
   
 		if (!loginResponse.ok) {
@@ -337,15 +343,19 @@ class AuthProviderClass implements AuthProvider {
 		// Save tokens - this now also stores token metadata
 		authUtils.saveTokens(loginData.accessToken, loginData.refreshToken);
 		
+		// Set authenticated state
+		authUtils.setAuthenticatedState(true);
+		
 		// Set up the silent refresh timer immediately after successful login
 		authUtils.setupRefreshTimer(true);
   
 		debug.log('login', `Fetching user profile`);
-		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+		const profileResponse = await fetch(`/api/user-proxy/profile`, {
 		  headers: {
 			Authorization: `Bearer ${loginData.accessToken}`,
 			"Content-Type": "application/json",
 		  },
+		  credentials: 'include'
 		});
   
 		if (!profileResponse.ok) {
@@ -461,31 +471,32 @@ class AuthProviderClass implements AuthProvider {
 	const now = Date.now();
 	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
 	  const authenticated = authUtils.isAuthenticated();
-	  console.log(`[AUTH:check] Using cached auth status: ${authenticated} (cooldown active)`);
+	  debug.log('check', `Using cached auth status: ${authenticated} (cooldown active)`);
 	  return { authenticated };
 	}
 	lastAuthCheckTime = now;
   
-	console.log("[AUTH:check] Performing full auth check");
+	debug.log('check', "Performing full auth check");
 	const authenticated = authUtils.isAuthenticated();
 	if (!authenticated) {
-	  console.log("[AUTH:check] No local tokens found, clearing auth storage");
+	  debug.log('check', "No local tokens found, clearing auth storage");
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	}
   
 	try {
-	  console.log("[AUTH:check] Validating token with server");
+	  debug.log('check', "Validating token with server");
 	  const accessToken = authUtils.getAccessToken();
-	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+	  const response = await fetch(`/api/user-proxy/profile`, {
 		headers: {
 		  Authorization: `Bearer ${accessToken}`,
 		  "Content-Type": "application/json",
 		},
+		credentials: 'include'
 	  });
   
 	  if (response.ok) {
-		console.log("[AUTH:check] Token validation successful");
+		debug.log('check', "Token validation successful");
 		const userData = await response.json();
 		const accessToken = authUtils.getAccessToken();
 		const refreshToken = authUtils.getRefreshToken();
@@ -497,17 +508,23 @@ class AuthProviderClass implements AuthProvider {
 			refreshToken,
 		  };
 		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+		  
+		  // Set authenticated state
+		  authUtils.setAuthenticatedState(true);
 		}
 		return { authenticated: true };
 	  }
   
-	  console.log(`[AUTH:check] Token validation failed with status: ${response.status}`);
+	  debug.log('check', `Token validation failed with status: ${response.status}`);
 	  if (response.status === 401 || response.status === 403) {
 		// Try to refresh token before giving up
-		console.log("[AUTH:check] Attempting token refresh during check");
+		debug.log('check', "Attempting token refresh during check");
 		const refreshSuccess = await authUtils.refreshToken();
 		if (refreshSuccess) {
-		  console.log("[AUTH:check] Token refresh successful during check");
+		  debug.log('check', "Token refresh successful during check");
+		  
+		  // Set authenticated state
+		  authUtils.setAuthenticatedState(true);
 		  return { authenticated: true };
 		}
 	  }
@@ -515,13 +532,13 @@ class AuthProviderClass implements AuthProvider {
 	  authUtils.clearAuthStorage();
 	  return { authenticated: false };
 	} catch (error) {
-	  console.error('[AUTH:check] Auth check error:', error);
+	  debug.error('check', 'Auth check error:', error);
 	  if (error instanceof Error && "status" in error && ((error as any).status === 401 || (error as any).status === 403)) {
 		// Try to refresh token before giving up
-		console.log("[AUTH:check] Attempting token refresh after error");
+		debug.log('check', "Attempting token refresh after error");
 		const refreshSuccess = await authUtils.refreshToken();
 		if (refreshSuccess) {
-		  console.log("[AUTH:check] Token refresh successful after error");
+		  debug.log('check', "Token refresh successful after error");
 		  return { authenticated: true };
 		}
 		authUtils.clearAuthStorage();
@@ -531,336 +548,69 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async getIdentity() {
+	debug.log('getIdentity', "Getting user identity");
 	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	
+	// Try to fetch user profile if we have tokens but no user data
 	if (!userStr) {
+	  debug.log('getIdentity', "No user data found in localStorage");
+	  
+	  if (authUtils.isAuthenticated()) {
+		debug.log('getIdentity', "Tokens found but no user data, fetching profile");
+		const userProfile = await authUtils.ensureUserProfile();
+		if (userProfile) {
+		  debug.log('getIdentity', "Profile fetched successfully");
+		  return {
+			id: userProfile.userId || userProfile._id || userProfile.id,
+			name: userProfile.username || userProfile.email,
+			email: userProfile.email,
+			avatar: userProfile.avatar || "",
+			roles: userProfile.roles || [],
+			token: userProfile.accessToken || authUtils.getAccessToken(),
+			subscriptionPlan: userProfile.subscriptionPlan,
+			apiKeys: userProfile.apiKeys || [],
+			userId: userProfile.userId || userProfile._id || userProfile.id,
+		  };
+		}
+	  }
 	  return null;
 	}
 
 	try {
+	  debug.log('getIdentity', "Parsing user data from localStorage");
 	  const userData: UserData = JSON.parse(userStr);
+	  
+	  // Make sure we're returning the latest token
+	  const accessToken = authUtils.getAccessToken() || userData.accessToken;
+	  
+	  // Verify if we need to refresh tokens in user data
+	  if (accessToken && accessToken !== userData.accessToken) {
+		debug.log('getIdentity', "Updating token in user data");
+		userData.accessToken = accessToken;
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+	  }
+	  
 	  return {
 		id: userData.userId || userData._id || userData.id,
 		name: userData.username || userData.email,
 		email: userData.email,
 		avatar: userData.avatar || "",
 		roles: userData.roles || [],
-		token: userData.accessToken || authUtils.getAccessToken(),
+		token: accessToken,
 		subscriptionPlan: userData.subscriptionPlan,
 		apiKeys: userData.apiKeys || [],
 		userId: userData.userId || userData._id || userData.id,
 	  };
 	} catch (error) {
 	  debug.error('getIdentity', `Error parsing user data:`, error);
+	  
+	  // Clear invalid data and try to fetch profile
+	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
+	  
+	  if (authUtils.isAuthenticated()) {
+		debug.log('getIdentity', "Fetching profile after error");
+		return this.getIdentity(); // Recursive call will use the ensureUserProfile path
+	  }
+	  
 	  return null;
 	}
-  }
-
-  async getPermissions() {
-	const userStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
-	if (!userStr) return null;
-
-	try {
-	  const userData: UserData = JSON.parse(userStr);
-	  if (userData.roles && Array.isArray(userData.roles) && userData.roles.length > 0) {
-		return userData.roles;
-	  }
-
-	  const accessToken = authUtils.getAccessToken();
-	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PERMISSIONS}`, {
-		headers: {
-		  Authorization: `Bearer ${accessToken}`,
-		  "Content-Type": "application/json",
-		},
-	  });
-
-	  if (response.ok) {
-		const { roles } = await response.json();
-		try {
-		  userData.roles = roles;
-		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
-		} catch (e) {
-		  debug.error('getPermissions', `Error updating roles in localStorage:`, e);
-		}
-		return roles;
-	  }
-	  return null;
-	} catch (error) {
-	  debug.error('getPermissions', `Error getting permissions:`, error);
-	  return null;
-	}
-  }
-
-  async updatePassword(params: any) {
-	try {
-	  const accessToken = authUtils.getAccessToken();
-	  const response = await fetch(`/api/auth-proxy/update-password`, {
-		method: "POST",
-		headers: {
-		  Authorization: `Bearer ${accessToken}`,
-		  "Content-Type": "application/json",
-		},
-		body: JSON.stringify(params),
-		credentials: 'include'
-	  });
-
-	  if (!response.ok) {
-		const errorData = await response.json();
-		return {
-		  success: false,
-		  error: {
-			message: errorData.message || "Invalid password",
-			name: "Update password failed",
-		  },
-		};
-	  }
-
-	  return { success: true };
-	} catch (error) {
-	  debug.error('updatePassword', `Update password failed:`, error);
-	  return {
-		success: false,
-		error: {
-		  message: "Update failed",
-		  name: "Update password failed",
-		},
-	  };
-	}
-  }
-
-  async forgotPassword(params: any) {
-	try {
-	  const response = await fetch(`/api/auth-proxy/forgot-password`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(params),
-		credentials: 'include'
-	  });
-
-	  if (!response.ok) {
-		const errorData = await response.json();
-		return {
-		  success: false,
-		  error: {
-			message: errorData.message || "Invalid email",
-			name: "Forgot password failed",
-		  },
-		};
-	  }
-
-	  return { success: true };
-	} catch (error) {
-	  debug.error('forgotPassword', `Forgot password request failed:`, error);
-	  return {
-		success: false,
-		error: {
-		  message: "Request failed",
-		  name: "Forgot password failed",
-		},
-	  };
-	}
-  }
-
-  async logout() {
-	debug.log('logout', `Logging out user`);
-	
-	// Clear refresh timer as early as possible
-	if (window._refreshTimerId) {
-	  clearTimeout(window._refreshTimerId);
-	  window._refreshTimerId = undefined;
-	}
-	
-	try {
-	  const refreshToken = authUtils.getRefreshToken();
-	  if (refreshToken) {
-		debug.log('logout', `Sending logout request to server`);
-		
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 3000);
-  
-		await fetch(`/api/auth-proxy/logout`, {
-		  method: "POST",
-		  headers: {
-			"Content-Type": "application/json",
-		  },
-		  body: JSON.stringify({ refreshToken }),
-		  signal: controller.signal,
-		  credentials: 'include'
-		}).catch((err) => {
-		  debug.warn('logout', `Server logout request failed, continuing with client logout:`, err);
-		  // Ignore server errors during logout
-		}).finally(() => {
-		  clearTimeout(timeoutId);
-		});
-	  }
-	} catch (error) {
-	  debug.warn('logout', `Error during logout, continuing with client logout:`, error);
-	  // Continue with logout even if server request fails
-	}
-  
-	debug.log('logout', `Clearing auth storage and redirecting to login`);
-	authUtils.clearAuthStorage(); // This will clear tokens, metadata, and timer
-  
-	return {
-	  success: true,
-	  redirectTo: "/login",
-	};
-  }
-
-  async onError(error: any) {
-	debug.error('onError', `Auth error:`, error);
-
-	authUtils.handleAuthError(error);
-
-	const status = error?.response?.status || error?.statusCode || error?.status;
-
-	if (status === 401 || status === 403) {
-	  const errorContext = error?.context;
-	  const isFromRefresh = errorContext && errorContext.isRefreshAttempt;
-
-	  if (!isFromRefresh) {
-		debug.log('onError', `Attempting token refresh due to 401/403 error`);
-		const refreshSuccess = await authUtils.refreshToken();
-		if (refreshSuccess) {
-		  debug.log('onError', `Token refresh successful, returning original error`);
-		  return { error };
-		}
-	  }
-
-	  debug.log('onError', `Auth error requires logout, clearing storage`);
-	  authUtils.clearAuthStorage();
-	  return {
-		logout: true,
-		redirectTo: "/login",
-		error,
-	  };
-	}
-
-	return { error };
-  }
-
-  async verifyEmail(params: { token: string; email: string; password: string }) {
-	debug.log('verifyEmail', `Verifying email for: ${params.email}`);
-	
-	const { token, email, password } = params;
-	try {
-	  const pendingUserStr = localStorage.getItem("pendingUser");
-	  if (!pendingUserStr) {
-		debug.error('verifyEmail', `No pending user found in localStorage`);
-		throw new Error("No pending user found");
-	  }
-  
-	  const pendingUser = JSON.parse(pendingUserStr);
-	  debug.log('verifyEmail', `Comparing tokens: ${token.substring(0, 3)}... with ${pendingUser.token.substring(0, 3)}...`);
-	  
-	  if (pendingUser.token !== token || pendingUser.email !== email) {
-		debug.error('verifyEmail', `Token or email mismatch`);
-		return {
-		  success: false,
-		  error: { message: "Invalid token or email", name: "VerificationError" },
-		};
-	  }
-  
-	  debug.log('verifyEmail', `Email verification successful, now registering user with API`);
-	  
-	  // Register the user with the Shrinked API
-	  debug.log('verifyEmail', `Making registration API request through proxy`);
-	  
-	  // First clear any existing auth data
-	  authUtils.clearAuthStorage();
-	  
-	  const registerResponse = await fetch(`/api/auth-proxy/register`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ 
-		  email, 
-		  password,
-		  username: pendingUser.username || email.split('@')[0]
-		}),
-		credentials: 'include'
-	  });
-  
-	  if (!registerResponse.ok) {
-		const registerData = await registerResponse.json();
-		debug.error('verifyEmail', `API registration failed:`, registerData);
-		return {
-		  success: false,
-		  error: { 
-			message: registerData.message || "Registration failed with API",
-			name: "RegistrationError" 
-		  },
-		};
-	  }
-  
-	  // Get tokens from successful registration
-	  const registerData = await registerResponse.json();
-	  debug.log('verifyEmail', `API registration successful, saving tokens`);
-	  
-	  // Save tokens - this now also stores token metadata
-	  authUtils.saveTokens(registerData.accessToken, registerData.refreshToken);
-	  
-	  // Set up the silent refresh timer
-	  authUtils.setupRefreshTimer(false);  // Use false to prevent immediate refresh after registration
-  
-	  // Store verified user data including tokens
-	  const verifiedUser = {
-		email,
-		password,  // Note: Consider if you need to store password in localStorage
-		isVerified: true,
-		accessToken: registerData.accessToken,
-		refreshToken: registerData.refreshToken
-	  };
-	  localStorage.setItem("verifiedUser", JSON.stringify(verifiedUser));
-	  localStorage.removeItem("pendingUser");
-	  
-	  // Update the contact in Loops to indicate verification
-	  try {
-		debug.log('verifyEmail', `Updating contact in Loops to indicate verification`);
-		await this.callLoops("contacts/update", "POST", {
-		  email,
-		  // Send properties at top level as required by Loops API
-		  emailVerified: true,
-		  registrationPending: false,
-		  registrationComplete: true
-		});
-	  } catch (updateError) {
-		debug.warn('verifyEmail', `Failed to update contact, but verification can continue:`, updateError);
-		// Don't throw here, as the critical steps are already completed
-	  }
-  
-	  debug.log('verifyEmail', `Verification and API registration complete, redirecting to /jobs`);
-	  return { success: true, redirectTo: "/jobs" };
-	} catch (error) {
-	  debug.error('verifyEmail', `Verification failed:`, error);
-	  return {
-		success: false,
-		error: {
-		  message: error instanceof Error ? error.message : "Verification failed",
-		  name: "VerificationError",
-		},
-	  };
-	}
-  }
-}
-
-const authProviderInstance = new AuthProviderClass();
-
-type CustomAuthProvider = Required<AuthProvider> & {
-  register: (params: any) => Promise<any>;
-  forgotPassword?: (params: any) => Promise<any>;
-  updatePassword?: (params: any) => Promise<any>;
-  getPermissions?: (params?: any) => Promise<any>;
-  verifyEmail?: (params: { token: string; email: string; password: string }) => Promise<any>;
-};
-
-export const customAuthProvider: CustomAuthProvider = {
-  login: authProviderInstance.login.bind(authProviderInstance),
-  register: authProviderInstance.register.bind(authProviderInstance),
-  logout: authProviderInstance.logout.bind(authProviderInstance),
-  check: authProviderInstance.check.bind(authProviderInstance),
-  onError: authProviderInstance.onError.bind(authProviderInstance),
-  getIdentity: authProviderInstance.getIdentity.bind(authProviderInstance),
-  forgotPassword: authProviderInstance.forgotPassword.bind(authProviderInstance),
-  updatePassword: authProviderInstance.updatePassword.bind(authProviderInstance),
-  getPermissions: authProviderInstance.getPermissions.bind(authProviderInstance),
-  verifyEmail: authProviderInstance.verifyEmail.bind(authProviderInstance),
-} as const;

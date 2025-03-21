@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 declare global {
   interface Window {
 	_refreshTimerId: ReturnType<typeof setTimeout> | undefined;
+	_debugAuthState: (message: string) => void;
   }
 }
 
@@ -16,6 +17,26 @@ interface TokenMetadata {
   refreshExpiry: number; // timestamp in milliseconds
   lastRefresh: number;   // timestamp of last refresh
 }
+
+// Debug helper function
+const authDebug = {
+  enabled: true, // Set to false in production
+  log: (area: string, message: string, data?: any) => {
+	if (authDebug.enabled) {
+	  console.log(`[AUTH:${area}] ${message}`, data || '');
+	}
+  },
+  error: (area: string, message: string, error?: any) => {
+	if (authDebug.enabled) {
+	  console.error(`[AUTH:${area}] ERROR: ${message}`, error || '');
+	}
+  },
+  warn: (area: string, message: string, data?: any) => {
+	if (authDebug.enabled) {
+	  console.warn(`[AUTH:${area}] WARNING: ${message}`, data || '');
+	}
+  }
+};
 
 // Configuration constants
 export const API_CONFIG = {
@@ -32,7 +53,8 @@ export const API_CONFIG = {
 	ACCESS_TOKEN: "access_token",
 	REFRESH_TOKEN: "refresh_token",
 	USER_DATA: "user_data",
-	TOKEN_METADATA: "token_metadata"
+	TOKEN_METADATA: "token_metadata",
+	AUTH_STATE: "auth_state" // New key for tracking auth state
   }
 };
 
@@ -41,16 +63,34 @@ let refreshPromise: Promise<boolean> | null = null;
 const REFRESH_COOLDOWN = 30000; // 30 seconds between refresh attempts
 let lastSuccessfulRefreshTime = 0;
 
+// Add global debug function
+if (typeof window !== 'undefined') {
+  window._debugAuthState = (message: string) => {
+	const state = {
+	  message,
+	  timestamp: new Date().toISOString(),
+	  accessToken: !!authUtils.getAccessToken(),
+	  refreshToken: !!authUtils.getRefreshToken(),
+	  userData: !!localStorage.getItem(API_CONFIG.STORAGE_KEYS.USER_DATA),
+	  metadata: !!localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA),
+	  authenticated: authUtils.isAuthenticated()
+	};
+	
+	console.log('[AUTH_STATE]', state);
+	return state;
+  };
+}
+
 // Function to decode JWT and extract expiration
 const parseJwt = (token: string): any => {
   try {
 	if (!token || typeof token !== 'string') {
-	  console.log("Token missing or not a string");
+	  authDebug.log("parseJwt", "Token missing or not a string");
 	  return null;
 	}
 	
 	if (!token.includes('.') || token.split('.').length !== 3) {
-	  console.log("Token doesn't appear to be in JWT format, skipping parsing");
+	  authDebug.log("parseJwt", "Token doesn't appear to be in JWT format, skipping parsing");
 	  return { exp: Math.floor(Date.now() / 1000) + 3600 }; // Default 1-hour expiry
 	}
 	// Split the token and get the payload part
@@ -63,7 +103,7 @@ const parseJwt = (token: string): any => {
 	);
 	return JSON.parse(jsonPayload);
   } catch (e) {
-	console.error("Error parsing JWT:", e);
+	authDebug.error("parseJwt", "Error parsing JWT:", e);
 	return null;
   }
 };
@@ -72,21 +112,25 @@ export const authUtils = {
   // Storage for pending operations
   _pendingOperations: [] as Array<() => Promise<void>>,
 
-  // Get tokens with proper error handling
+  // Get tokens with proper error handling and logging
   getAccessToken: (): string | null => {
 	try {
-	  return localStorage.getItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+	  const token = localStorage.getItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
+	  authDebug.log("getAccessToken", token ? "Token retrieved" : "No token found");
+	  return token;
 	} catch (e) {
-	  console.error("Error accessing localStorage for access token:", e);
+	  authDebug.error("getAccessToken", "Error accessing localStorage for access token:", e);
 	  return null;
 	}
   },
 
   getRefreshToken: (): string | null => {
 	try {
-	  return localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+	  const token = localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
+	  authDebug.log("getRefreshToken", token ? "Token retrieved" : "No token found");
+	  return token;
 	} catch (e) {
-	  console.error("Error accessing localStorage for refresh token:", e);
+	  authDebug.error("getRefreshToken", "Error accessing localStorage for refresh token:", e);
 	  return null;
 	}
   },
@@ -98,6 +142,7 @@ export const authUtils = {
 	  const refreshData = parseJwt(refreshToken);
 	  
 	  if (!accessData || !refreshData) {
+		authDebug.error("storeTokenMetadata", "Failed to parse token data");
 		return;
 	  }
 	  
@@ -112,9 +157,9 @@ export const authUtils = {
 	  };
 	  
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA, JSON.stringify(metadata));
-	  console.log(`[AUTH] Token metadata stored. Access expires in ${Math.round((accessExpiry - Date.now())/60000)} minutes`);
+	  authDebug.log("storeTokenMetadata", `Token metadata stored. Access expires in ${Math.round((accessExpiry - Date.now())/60000)} minutes`);
 	} catch (e) {
-	  console.error("Error storing token metadata:", e);
+	  authDebug.error("storeTokenMetadata", "Error storing token metadata:", e);
 	}
   },
 
@@ -125,7 +170,7 @@ export const authUtils = {
 	  
 	  return JSON.parse(metadataStr) as TokenMetadata;
 	} catch (e) {
-	  console.error("Error getting token metadata:", e);
+	  authDebug.error("getTokenMetadata", "Error getting token metadata:", e);
 	  return null;
 	}
   },
@@ -133,10 +178,11 @@ export const authUtils = {
   saveTokens: (accessToken: string, refreshToken: string): void => {
 	try {
 	  if (!accessToken || !refreshToken) {
-		console.error("Missing tokens:", { accessTokenExists: !!accessToken, refreshTokenExists: !!refreshToken });
+		authDebug.error("saveTokens", "Missing tokens:", { accessTokenExists: !!accessToken, refreshTokenExists: !!refreshToken });
 		return;
 	  }
 	  
+	  authDebug.log("saveTokens", "Saving tokens to localStorage");
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN, accessToken);
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
 	  
@@ -144,24 +190,44 @@ export const authUtils = {
 	  try {
 		authUtils.storeTokenMetadata(accessToken, refreshToken);
 	  } catch (metadataError) {
-		console.error("Failed to store token metadata, but continuing:", metadataError);
+		authDebug.error("saveTokens", "Failed to store token metadata, but continuing:", metadataError);
 	  }
 	  
 	  // Also store token in cookie for server components
 	  if (typeof document !== 'undefined') {
 		document.cookie = `access_token=${accessToken}; path=/; max-age=${60*60}`; // 1 hour expiry
 	  }
+	  
+	  // Update auth state
+	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.AUTH_STATE, JSON.stringify({
+		authenticated: true,
+		lastUpdated: Date.now()
+	  }));
+	  
+	  // Debug output to verify tokens were saved
+	  authDebug.log("saveTokens", "Tokens saved successfully", {
+		accessTokenExists: !!authUtils.getAccessToken(),
+		refreshTokenExists: !!authUtils.getRefreshToken()
+	  });
+	  
+	  // Set up refresh timer after saving tokens
+	  setTimeout(() => {
+		authUtils.setupRefreshTimer(true);
+	  }, 100);
+	  
 	} catch (e) {
-	  console.error("Error saving tokens to localStorage:", e);
+	  authDebug.error("saveTokens", "Error saving tokens to localStorage:", e);
 	}
   },
 
   clearAuthStorage: (): void => {
 	try {
+	  authDebug.log("clearAuthStorage", "Clearing all auth data from localStorage");
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.USER_DATA);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
+	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.AUTH_STATE);
 	  
 	  // Clear cookie as well
 	  if (typeof document !== 'undefined') {
@@ -173,8 +239,10 @@ export const authUtils = {
 		clearTimeout(window._refreshTimerId);
 		window._refreshTimerId = undefined;
 	  }
+	  
+	  authDebug.log("clearAuthStorage", "Auth storage cleared");
 	} catch (e) {
-	  console.error("Error clearing auth storage:", e);
+	  authDebug.error("clearAuthStorage", "Error clearing auth storage:", e);
 	}
   },
 
@@ -184,26 +252,29 @@ export const authUtils = {
 	
 	// Don't refresh if we've successfully refreshed recently
 	if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
+	  authDebug.log("refreshToken", `Skipping refresh (cooldown active), last refresh was ${(now - lastSuccessfulRefreshTime)/1000}s ago`);
 	  return true; // Return success if we refreshed recently
 	}
 	
 	// If already refreshing, return the existing promise
 	if (refreshPromise) {
+	  authDebug.log("refreshToken", "Another refresh already in progress, reusing promise");
 	  return refreshPromise;
 	}
 	
 	// Create new refresh promise and store it
 	refreshPromise = (async () => {
 	  try {
-		console.log("Starting token refresh");
+		authDebug.log("refreshToken", "Starting token refresh");
 		const refreshToken = authUtils.getRefreshToken();
 		
 		if (!refreshToken) {
-		  console.log("No refresh token available");
+		  authDebug.log("refreshToken", "No refresh token available");
 		  return false;
 		}
 
 		// Use the proxy endpoint to refresh token
+		authDebug.log("refreshToken", "Making refresh request to proxy endpoint");
 		const response = await fetch(`/api/auth-proxy/refresh`, {
 		  method: 'POST',
 		  headers: {
@@ -214,7 +285,7 @@ export const authUtils = {
 		});
 
 		if (!response.ok) {
-		  console.error("Token refresh failed:", response.status);
+		  authDebug.error("refreshToken", `Token refresh failed with status: ${response.status}`);
 		  
 		  // Clear tokens on unauthorized for security
 		  if (response.status === 401 || response.status === 403) {
@@ -225,7 +296,7 @@ export const authUtils = {
 
 		const data = await response.json();
 		if (!data.accessToken || !data.refreshToken) {
-		  console.error("Invalid token refresh response");
+		  authDebug.error("refreshToken", "Invalid token refresh response, missing tokens");
 		  return false;
 		}
 
@@ -243,12 +314,13 @@ export const authUtils = {
 			  refreshToken: data.refreshToken
 			};
 			localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+			authDebug.log("refreshToken", "Updated user data in localStorage");
 		  }
 		} catch (e) {
-		  console.error("Error updating user data after refresh:", e);
+		  authDebug.error("refreshToken", "Error updating user data after refresh:", e);
 		}
 
-		console.log("Token refresh successful");
+		authDebug.log("refreshToken", "Token refresh successful");
 		lastSuccessfulRefreshTime = Date.now();
 		
 		// Reset the refresh timer after successful refresh
@@ -256,81 +328,7 @@ export const authUtils = {
 		
 		return true;
 	  } catch (error) {
-		console.error("Token refresh error:", error);
-		return false;
-	  } finally {
-		// Clear the promise to allow future refresh attempts
-		refreshPromise = null;
-	  }
-	})();
-
-	// Return the result of the refresh promise
-	return refreshPromise;
-  },
-
-  // Enhanced token refresh with proper error handling (alternative implementation)
-  enhancedRefreshToken: async (): Promise<boolean> => {
-	const now = Date.now();
-	
-	// Don't refresh if we've successfully refreshed recently
-	if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
-	  return true; // Return success if we refreshed recently
-	}
-	
-	// If already refreshing, return the existing promise
-	if (refreshPromise) {
-	  return refreshPromise;
-	}
-	
-	// Create new refresh promise and store it
-	refreshPromise = (async () => {
-	  try {
-		console.log("Starting token refresh");
-		const refreshToken = authUtils.getRefreshToken();
-		
-		if (!refreshToken) {
-		  console.log("No refresh token available");
-		  return false;
-		}
-
-		// Use the proxy endpoint to refresh token
-		const response = await fetch(`/api/auth-proxy/refresh`, {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json',
-		  },
-		  body: JSON.stringify({ refreshToken }),
-		  credentials: 'include' // Include cookies
-		});
-
-		if (!response.ok) {
-		  console.error("Token refresh failed:", response.status);
-		  
-		  // Clear tokens on unauthorized for security
-		  if (response.status === 401 || response.status === 403) {
-			authUtils.clearAuthStorage();
-		  }
-		  return false;
-		}
-
-		const data = await response.json();
-		if (!data.accessToken || !data.refreshToken) {
-		  console.error("Invalid token refresh response");
-		  return false;
-		}
-
-		// Update tokens in storage
-		authUtils.saveTokens(data.accessToken, data.refreshToken);
-		
-		console.log("Token refresh successful");
-		lastSuccessfulRefreshTime = Date.now();
-		
-		// Reset the refresh timer after successful refresh
-		authUtils.setupRefreshTimer();
-		
-		return true;
-	  } catch (error) {
-		console.error("Token refresh error:", error);
+		authDebug.error("refreshToken", "Token refresh error:", error);
 		return false;
 	  } finally {
 		// Clear the promise to allow future refresh attempts
@@ -349,6 +347,7 @@ export const authUtils = {
 	const accessToken = authUtils.getAccessToken();
 	
 	if (!accessToken || !metadata) {
+	  authDebug.log("ensureValidToken", "No token or metadata, attempting refresh");
 	  // No token or metadata, try to refresh
 	  const refreshSuccess = await authUtils.refreshToken();
 	  return refreshSuccess ? authUtils.getAccessToken() : null;
@@ -357,12 +356,14 @@ export const authUtils = {
 	const now = Date.now();
 	// If token is expired or about to expire (less than 1 minute left)
 	if (metadata.accessExpiry - now < 60000) {
+	  authDebug.log("ensureValidToken", `Token expiring soon (${Math.round((metadata.accessExpiry - now)/1000)}s left), refreshing`);
 	  // Try to refresh token
 	  const refreshSuccess = await authUtils.refreshToken();
 	  return refreshSuccess ? authUtils.getAccessToken() : null;
 	}
 	
 	// Token is valid
+	authDebug.log("ensureValidToken", `Token valid, expires in ${Math.round((metadata.accessExpiry - now)/60000)} minutes`);
 	return accessToken;
   },
 
@@ -376,7 +377,7 @@ export const authUtils = {
 	try {
 	  const metadata = authUtils.getTokenMetadata();
 	  if (!metadata) {
-		console.log("[AUTH] No token metadata found, skip timer setup");
+		authDebug.log("setupRefreshTimer", "No token metadata found, skip timer setup");
 		return;
 	  }
 	  
@@ -384,7 +385,7 @@ export const authUtils = {
 	  
 	  // Check if refresh token is expired
 	  if (metadata.refreshExpiry <= now) {
-		console.log("[AUTH] Refresh token expired, clearing auth storage");
+		authDebug.log("setupRefreshTimer", "Refresh token expired, clearing auth storage");
 		authUtils.clearAuthStorage();
 		return;
 	  }
@@ -398,19 +399,19 @@ export const authUtils = {
 	  
 	  // If access token will expire soon or forceCheck is true and it expires within the minimum threshold
 	  if (timeUntilExpiry <= 0 || (forceCheck && timeUntilExpiry < minimumRefreshThreshold)) {
-		console.log("[AUTH] Access token expiring soon, refreshing now");
+		authDebug.log("setupRefreshTimer", "Access token expiring soon, refreshing now");
 		authUtils.refreshToken()
 		  .then(success => {
 			if (success) {
-			  console.log("[AUTH] Token refreshed successfully");
+			  authDebug.log("setupRefreshTimer", "Token refreshed successfully");
 			  // Token is refreshed, set up next refresh cycle
 			  authUtils.setupRefreshTimer();
 			} else {
-			  console.log("[AUTH] Token refresh failed");
+			  authDebug.log("setupRefreshTimer", "Token refresh failed");
 			}
 		  })
 		  .catch(error => {
-			console.error("[AUTH] Error refreshing token:", error);
+			authDebug.error("setupRefreshTimer", "Error refreshing token:", error);
 		  });
 		return;
 	  }
@@ -419,37 +420,37 @@ export const authUtils = {
 	  const refreshOffset = Math.min(timeUntilExpiry, 14 * 60 * 1000); // Max 14 minutes (for 15-min tokens)
 	  const nextRefreshIn = timeUntilExpiry - refreshOffset;
 	  
-	  console.log(`[AUTH] Scheduling token refresh in ${Math.round(nextRefreshIn/60000)} minutes`);
+	  authDebug.log("setupRefreshTimer", `Scheduling token refresh in ${Math.round(nextRefreshIn/60000)} minutes`);
 	  
 	  // Set timer for next refresh
 	  if (typeof window !== 'undefined') {
 		window._refreshTimerId = setTimeout(() => {
-		  console.log("[AUTH] Silent refresh timer triggered");
+		  authDebug.log("setupRefreshTimer", "Silent refresh timer triggered");
 		  authUtils.refreshToken()
 			.then(success => {
 			  if (success) {
-				console.log("[AUTH] Token refreshed successfully by timer");
+				authDebug.log("setupRefreshTimer", "Token refreshed successfully by timer");
 			  } else {
-				console.log("[AUTH] Timer-triggered token refresh failed");
+				authDebug.log("setupRefreshTimer", "Timer-triggered token refresh failed");
 			  }
 			  // Always set up next cycle
 			  authUtils.setupRefreshTimer();
 			})
 			.catch(error => {
-			  console.error("[AUTH] Error in timed token refresh:", error);
+			  authDebug.error("setupRefreshTimer", "Error in timed token refresh:", error);
 			  authUtils.setupRefreshTimer();
 			});
 		}, nextRefreshIn);
 	  }
 	} catch (e) {
-	  console.error("[AUTH] Error in refresh scheduler:", e);
+	  authDebug.error("setupRefreshTimer", "Error in refresh scheduler:", e);
 	}
   },
 
   // Network status checker function
   checkNetworkStatus: (): boolean => {
 	if (typeof navigator !== 'undefined' && !navigator.onLine) {
-	  console.log("[AUTH] Network appears to be offline");
+	  authDebug.log("checkNetworkStatus", "Network appears to be offline");
 	  return false;
 	}
 	return true;
@@ -457,7 +458,7 @@ export const authUtils = {
 
   // Add operation to pending queue
   queueOfflineOperation: (operation: () => Promise<void>): void => {
-	console.log("[AUTH] Queuing operation for when network is available");
+	authDebug.log("queueOfflineOperation", "Queuing operation for when network is available");
 	authUtils._pendingOperations.push(operation);
   },
 
@@ -465,7 +466,7 @@ export const authUtils = {
   processPendingOperations: async (): Promise<void> => {
 	if (authUtils._pendingOperations.length === 0) return;
 	
-	console.log(`[AUTH] Processing ${authUtils._pendingOperations.length} pending operations`);
+	authDebug.log("processPendingOperations", `Processing ${authUtils._pendingOperations.length} pending operations`);
 	
 	// Get all operations and clear the queue
 	const operations = [...authUtils._pendingOperations];
@@ -476,7 +477,7 @@ export const authUtils = {
 	  try {
 		await operation();
 	  } catch (error) {
-		console.error("[AUTH] Error processing queued operation:", error);
+		authDebug.error("processPendingOperations", "Error processing queued operation:", error);
 	  }
 	}
   },
@@ -488,7 +489,7 @@ export const authUtils = {
 	}
 	
 	const handleOnline = () => {
-	  console.log("[AUTH] Network connection restored");
+	  authDebug.log("setupNetworkListeners", "Network connection restored");
 	  // Process any pending operations
 	  authUtils.processPendingOperations();
 	  // Call additional callback if provided
@@ -496,7 +497,7 @@ export const authUtils = {
 	};
 	
 	const handleOffline = () => {
-	  console.log("[AUTH] Network connection lost");
+	  authDebug.log("setupNetworkListeners", "Network connection lost");
 	  // Call additional callback if provided
 	  if (offlineCallback) offlineCallback();
 	};
@@ -514,6 +515,9 @@ export const authUtils = {
   // Centralized API request handler with improved error handling
   apiRequest: async (url: string, options: RequestInit = {}, retryCount = 0): Promise<Response> => {
 	const MAX_RETRIES = 1;
+	
+	// Ensure we have a valid token before making the request
+	await authUtils.ensureValidToken();
 	
 	// Get current access token
 	const accessToken = authUtils.getAccessToken();
@@ -557,32 +561,43 @@ export const authUtils = {
 		}
 	  }
 	  
+	  authDebug.log("apiRequest", `Making ${options.method || 'GET'} request to ${requestUrl}`);
+	  
 	  const response = await fetch(requestUrl, {
 		...options,
 		headers,
 		signal: options.signal || controller.signal,
 		mode: 'cors',
-		cache: 'no-store' // Prevent caching issues with authenticated content
+		cache: 'no-store', // Prevent caching issues with authenticated content
+		credentials: 'include' // Always include credentials
 	  });
 	  
 	  clearTimeout(timeoutId);
 	  
 	  // If unauthorized (401) or forbidden (403), try to refresh token and retry
 	  if ((response.status === 401 || response.status === 403) && retryCount < MAX_RETRIES) {
+		authDebug.log("apiRequest", `Received ${response.status}, attempting token refresh`);
 		const refreshSuccess = await authUtils.refreshToken();
 		if (refreshSuccess) {
+		  authDebug.log("apiRequest", "Token refreshed, retrying request");
 		  // Retry with new token
 		  return authUtils.apiRequest(url, options, retryCount + 1);
 		}
+	  }
+	  
+	  if (!response.ok) {
+		authDebug.warn("apiRequest", `Request failed with status ${response.status}`);
+	  } else {
+		authDebug.log("apiRequest", `Request successful with status ${response.status}`);
 	  }
 	  
 	  return response;
 	} catch (error) {
 	  // Handle abort errors differently - they're often intentional
 	  if (error instanceof DOMException && error.name === 'AbortError') {
-		console.log("Request was aborted:", url);
+		authDebug.log("apiRequest", "Request was aborted:", url);
 	  } else {
-		console.error("API request error:", error);
+		authDebug.error("apiRequest", "API request error:", error);
 	  }
 	  throw error;
 	}
@@ -599,7 +614,7 @@ export const authUtils = {
 	  // If we're offline, don't retry immediately
 	  if (typeof navigator !== 'undefined' && !navigator.onLine) throw error;
 	  
-	  console.log(`Request failed, retrying... (${retries} attempts left)`);
+	  authDebug.log("fetchWithRetry", `Request failed, retrying... (${retries} attempts left)`);
 	  // Wait before retry with exponential backoff
 	  await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, 2 - retries)));
 	  return authUtils.fetchWithRetry(url, options, retries - 1);
@@ -608,10 +623,35 @@ export const authUtils = {
 
   // Helper method to check if user is authenticated
   isAuthenticated: (): boolean => {
-	// Only check if tokens exist, let the backend validate them
+	// Check for both tokens and validate accessToken hasn't expired
 	const accessToken = authUtils.getAccessToken();
 	const refreshToken = authUtils.getRefreshToken();
-	return !!accessToken && !!refreshToken;
+	const metadata = authUtils.getTokenMetadata();
+	
+	const hasTokens = !!accessToken && !!refreshToken;
+	
+	// If we have metadata, check token expiration
+	if (hasTokens && metadata) {
+	  const now = Date.now();
+	  // Token is considered valid if not expired or about to expire (5 min buffer)
+	  const isAccessValid = metadata.accessExpiry > now;
+	  const isRefreshValid = metadata.refreshExpiry > now;
+	  
+	  if (!isAccessValid) {
+		authDebug.log("isAuthenticated", "Access token has expired, needs refresh");
+	  }
+	  
+	  if (!isRefreshValid) {
+		authDebug.log("isAuthenticated", "Refresh token has expired, login required");
+		return false;
+	  }
+	  
+	  // Even if access token expired, we're still authenticated if refresh is valid
+	  return isRefreshValid;
+	}
+	
+	authDebug.log("isAuthenticated", `Authentication check: ${hasTokens}`);
+	return hasTokens;
   },
   
   // Simple service status check with improved error handling
@@ -701,7 +741,7 @@ export const authUtils = {
 	  }
 	  return null;
 	} catch (e) {
-	  console.error("Error getting user data:", e);
+	  authDebug.error("getUserData", "Error getting user data:", e);
 	  return null;
 	}
   },
@@ -718,8 +758,94 @@ export const authUtils = {
 	  }
 	  return false;
 	} catch (e) {
-	  console.error("Error updating user data:", e);
+	  authDebug.error("updateUserData", "Error updating user data:", e);
 	  return false;
+	}
+  },
+  
+  // New method to ensure profile is loaded
+  ensureUserProfile: async (): Promise<any> => {
+	try {
+	  // First check if we have user data cached
+	  const userData = authUtils.getUserData();
+	  if (userData) {
+		authDebug.log("ensureUserProfile", "Using cached user profile");
+		return userData;
+	  }
+	  
+	  // Ensure we have a valid token
+	  const token = await authUtils.ensureValidToken();
+	  if (!token) {
+		authDebug.error("ensureUserProfile", "No valid token available");
+		return null;
+	  }
+	  
+	  // Fetch user profile
+	  authDebug.log("ensureUserProfile", "Fetching user profile from API");
+	  const response = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
+		headers: {
+		  Authorization: `Bearer ${token}`,
+		  "Content-Type": "application/json",
+		},
+		credentials: 'include'
+	  });
+	  
+	  if (!response.ok) {
+		authDebug.error("ensureUserProfile", `Failed to fetch profile: ${response.status}`);
+		if (response.status === 401 || response.status === 403) {
+		  // Try refresh token
+		  const refreshSuccess = await authUtils.refreshToken();
+		  if (refreshSuccess) {
+			return authUtils.ensureUserProfile(); // Retry after refresh
+		  }
+		}
+		return null;
+	  }
+	  
+	  // Parse and store user data
+	  const profile = await response.json();
+	  const accessToken = authUtils.getAccessToken();
+	  const refreshToken = authUtils.getRefreshToken();
+	  
+	  if (profile && accessToken && refreshToken) {
+		const completeUserData = {
+		  ...profile,
+		  accessToken,
+		  refreshToken
+		};
+		
+		localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(completeUserData));
+		authDebug.log("ensureUserProfile", "User profile fetched and stored");
+		return completeUserData;
+	  }
+	  
+	  return profile;
+	} catch (error) {
+	  authDebug.error("ensureUserProfile", "Error ensuring user profile:", error);
+	  return null;
+	}
+  },
+  
+  // Method to directly set authenticated state (useful for login/logout)
+  setAuthenticatedState: (isAuthenticated: boolean): void => {
+	try {
+	  if (isAuthenticated) {
+		// Only set to authenticated if we actually have tokens
+		if (authUtils.getAccessToken() && authUtils.getRefreshToken()) {
+		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.AUTH_STATE, JSON.stringify({
+			authenticated: true,
+			lastUpdated: Date.now()
+		  }));
+		  authDebug.log("setAuthenticatedState", "Set auth state to authenticated");
+		} else {
+		  authDebug.error("setAuthenticatedState", "Cannot set authenticated state without tokens");
+		}
+	  } else {
+		localStorage.removeItem(API_CONFIG.STORAGE_KEYS.AUTH_STATE);
+		authDebug.log("setAuthenticatedState", "Set auth state to unauthenticated");
+	  }
+	} catch (e) {
+	  authDebug.error("setAuthenticatedState", "Error setting auth state:", e);
 	}
   }
 };
@@ -743,6 +869,9 @@ export const useAuth = () => {
 	  if (authenticated) {
 		// Set up the silent refresh mechanism
 		authUtils.setupRefreshTimer(true); // true to force an immediate check
+		
+		// Ensure user profile is loaded
+		await authUtils.ensureUserProfile();
 	  }
 	  
 	  setIsLoading(false);
@@ -786,6 +915,7 @@ export const useAuth = () => {
 	  const currentPath = window.location.pathname;
 	  
 	  if (!publicPaths.some(path => currentPath.startsWith(path))) {
+		authDebug.log("useAuth.refreshToken", "Token refresh failed, redirecting to login");
 		router.push('/login');
 	  }
 	}
@@ -842,26 +972,6 @@ export const useAuth = () => {
 	}
   }, [handleAuthError, ensureValidToken]);
   
-  // Network status check
-  const checkNetworkStatus = useCallback(() => {
-	return authUtils.checkNetworkStatus();
-  }, []);
-  
-  // Queue operation for when back online
-  const queueOfflineOperation = useCallback((operation: () => Promise<void>) => {
-	authUtils.queueOfflineOperation(operation);
-  }, []);
-  
-  // Process pending operations
-  const processPendingOperations = useCallback(async () => {
-	return authUtils.processPendingOperations();
-  }, []);
-  
-  // Setup network listeners
-  const setupNetworkListeners = useCallback((onlineCallback?: () => void, offlineCallback?: () => void) => {
-	return authUtils.setupNetworkListeners(onlineCallback, offlineCallback);
-  }, []);
-  
   return {
 	isAuthenticated,
 	isLoading,
@@ -873,14 +983,10 @@ export const useAuth = () => {
 	getAuthHeaders,
 	fetchWithAuth,
 	fetchWithRetry,
-	checkNetworkStatus,
-	queueOfflineOperation,
-	processPendingOperations,
-	setupNetworkListeners,
-	// Update the login method in the useAuth hook
 	
 	login: async (email: string, password: string) => {
 	  try {
+		authDebug.log("useAuth.login", `Logging in with email: ${email}`);
 		// Use the proxy endpoint instead of direct API call
 		const response = await fetch(`/api/auth-proxy/login`, {
 		  method: 'POST',
@@ -894,34 +1000,56 @@ export const useAuth = () => {
 	
 		if (!response.ok) {
 		  const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
+		  authDebug.error("useAuth.login", "Login failed:", errorData);
 		  return { success: false, error: errorData };
 		}
 	
 		const data = await response.json();
 		if (data.accessToken && data.refreshToken) {
+		  // Clear any existing auth data first
+		  authUtils.clearAuthStorage();
+		  
+		  // Save tokens - this now also stores token metadata
 		  authUtils.saveTokens(data.accessToken, data.refreshToken);
+		  
+		  // Set authenticated state
+		  authUtils.setAuthenticatedState(true);
+		  
+		  // Update state in hook
 		  setIsAuthenticated(true);
+		  
+		  // Set up refresh timer
+		  authUtils.setupRefreshTimer(true);
+		  
+		  // Log success
+		  authDebug.log("useAuth.login", "Login successful, tokens stored");
+		  
 		  return { success: true, data };
 		} else {
+		  authDebug.error("useAuth.login", "Invalid response format from server");
 		  return { 
 			success: false, 
 			error: { message: 'Invalid response format from server' } 
 		  };
 		}
 	  } catch (error) {
-		console.error('Login error:', error);
+		authDebug.error("useAuth.login", "Login error:", error);
 		return { 
 		  success: false, 
 		  error: { message: error instanceof Error ? error.message : 'Unknown error' } 
 		};
 	  }
 	},
+	
 	logout: async () => {
+	  authDebug.log("useAuth.logout", "Logging out user");
+	  
 	  // Attempt to notify the server but don't wait for response
 	  try {
 		if (navigator.onLine) {
 		  const refreshToken = authUtils.getRefreshToken();
 		  if (refreshToken) {
+			authDebug.log("useAuth.logout", "Sending logout request to server");
 			fetch(`/api/auth-proxy/logout`, {
 			  method: 'POST',
 			  headers: {
@@ -936,8 +1064,15 @@ export const useAuth = () => {
 		}
 	  } finally {
 		// Always clear local storage
-		await authUtils.clearAuthStorage();
+		authUtils.clearAuthStorage();
+		
+		// Update state
 		setIsAuthenticated(false);
+		
+		// Set unauthenticated state
+		authUtils.setAuthenticatedState(false);
+		
+		authDebug.log("useAuth.logout", "Logged out, redirecting to login page");
 		router.push('/login');
 	  }
 	}
