@@ -69,7 +69,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   onRowClick?: (doc: T) => void;
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
-  onRefresh?: () => any | Promise<any>; // Updated to accept any Promise return type
+  onRefresh?: () => any | Promise<any>;
   onAddNew?: () => void;
   error?: any;
   title?: string;
@@ -82,8 +82,8 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   customGridTemplate?: string;
   statusIndicatorStyle?: StatusIndicatorStyle;
   loadingDocId?: string | null;
-  // New props for coming soon feature
-  comingSoon?: boolean; 
+  statusRenderer?: (doc: T) => React.ReactNode;
+  comingSoon?: boolean;
   comingSoonConfig?: {
     icon?: React.ReactNode;
     title?: string;
@@ -93,52 +93,47 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   };
 }
 
-function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<T>) {
-  const { 
-    data, 
-    docToJobMapping = {},
-    onView, 
-    onSendEmail, 
-    onDelete,
-    onRowClick,
-    formatDate,
-    isLoading = false,
-    onRefresh,
-    onAddNew,
-    error,
-    title = "DOCUMENTS",
-    extraColumns = [],
-    showStatus = true,
-    showDate = true,
-    noDataMessage = "No documents found.",
-    titleRenderer,
-    actionsRenderer,
-    customGridTemplate,
-    statusIndicatorStyle = 'default',
-    loadingDocId = null,
-    statusRenderer?: (doc: T) => React.ReactNode,
-    // New props with defaults
-    comingSoon = false,
-    comingSoonConfig = {
-      icon: <Calendar size={48} color="#F5A623" />,
-      title: "Coming Soon",
-      description: "This feature is currently in development. Check back later for updates.",
-      buttonText: "LEARN MORE",
-      buttonAction: () => console.log('Coming soon feature clicked')
-    }
-  } = props;
-
+function DocumentsTable<T extends ProcessedDocument>({
+  data, 
+  docToJobMapping = {},
+  onView, 
+  onSendEmail, 
+  onDelete,
+  onRowClick,
+  formatDate,
+  isLoading = false,
+  onRefresh,
+  onAddNew,
+  error,
+  title = "DOCUMENTS",
+  extraColumns = [],
+  showStatus = true,
+  showDate = true,
+  noDataMessage = "No documents found.",
+  titleRenderer,
+  actionsRenderer,
+  customGridTemplate,
+  statusIndicatorStyle = 'default',
+  loadingDocId = null,
+  statusRenderer,
+  comingSoon = false,
+  comingSoonConfig = {
+    icon: <Calendar size={48} color="#F5A623" />,
+    title: "Coming Soon",
+    description: "This feature is currently in development. Check back later for updates.",
+    buttonText: "LEARN MORE",
+    buttonAction: () => console.log('Coming soon feature clicked')
+  }
+}: DocumentsTableProps<T>) {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   
-  // New refresh-related state variables
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   
-  // Use useMediaQuery instead of MediaQuery component
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const handleEmailClick = (id: string, e?: React.MouseEvent) => {
@@ -161,16 +156,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     }
   };
 
-  // New handleRefreshClick function
   const handleRefreshClick = () => {
-    // Show loading indicator
     setIsRefreshing(true);
     
-    // Call provided onRefresh if it exists
     if (onRefresh) {
       try {
-        // Always treat the result as a Promise using Promise.resolve
-        // This handles both Promise and non-Promise returns
         Promise.resolve(onRefresh()).finally(() => {
           setIsRefreshing(false);
           setRefreshCounter(prev => prev + 1);
@@ -180,7 +170,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
         setIsRefreshing(false);
       }
     } else {
-      // No onRefresh provided, just simulate a brief loading state
       setTimeout(() => {
         setIsRefreshing(false);
         setRefreshCounter(prev => prev + 1);
@@ -188,11 +177,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     }
   };
 
-  // Updated renderComingSoonState function
-  
   const renderComingSoonState = () => (
     <Box style={{ 
-      flex: 1, // Fill the available space instead of fixed height
+      flex: 1,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -208,12 +195,10 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           borderColor: '#2B2B2B',
           maxWidth: 600,
           margin: '0 auto',
-          // Add animation for refresh
           transition: 'all 0.3s ease',
           animation: isRefreshing ? 'pulse 0.5s ease' : 'none'
         }}
       >
-        {/* Add style for animation */}
         <style jsx global>{`
           @keyframes pulse {
             0% { transform: scale(1); }
@@ -262,7 +247,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           
           <Text size="xs" c="#666666">
             This feature is currently in early access. More options coming soon.
-            {/* Add last refreshed timestamp */}
             {refreshCounter > 0 && ` Last refreshed: ${new Date().toLocaleTimeString()}`}
           </Text>
         </Stack>
@@ -270,7 +254,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     </Box>
   );
 
-  // Status color mapping
   const getStatusColor = (status?: string) => {
     if (!status) return "#ffffff";
     
@@ -305,17 +288,15 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       return "#111111";
     }
     if (status?.toLowerCase() === 'error') {
-      return "rgba(244, 67, 54, 0.05)"; // Very subtle red
+      return "rgba(244, 67, 54, 0.05)";
     }
     if (status?.toLowerCase() === 'completed') {
-      return "rgba(24, 90, 47, 0.05)"; // Very subtle green
+      return "rgba(24, 90, 47, 0.05)";
     }
     return "transparent";
   };
 
-  // New function to render the appropriate status indicator based on style
   const renderStatusIndicator = (doc: T) => {
-    // Default colored indicator for normal documents
     if (statusIndicatorStyle === 'default') {
       return (
         <Box style={{ 
@@ -328,7 +309,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       );
     }
     
-    // Logic page-specific indicators
     if (statusIndicatorStyle === 'whiteFilled') {
       const isActive = doc.isDefault;
       return (
@@ -356,7 +336,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       );
     }
     
-    // Fallback to default indicator
     return (
       <Box style={{ 
         height: '12px', 
@@ -368,7 +347,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     );
   };
 
-  // Get row indicator color (used for default style)
   const getRowIndicatorColor = (status?: string) => {
     if (!status) return "#ffffff";
     
@@ -380,71 +358,57 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       case 'processing':
         return "#ffffff";
       default:
-        return "#f4a522"; // Orange for other cases
+        return "#f4a522";
     }
   };
 
-  // Determine if we have any actions
   const hasActions = !!(onView || onSendEmail || onDelete || actionsRenderer);
 
-  // Calculate grid template columns with improved alignment
   const getGridTemplateColumns = () => {
-    // If custom grid template is provided, use it
     if (customGridTemplate) {
       return customGridTemplate;
     }
     
     const columnsCount = visibleColumns.length;
-    
-    // Define fixed widths for secondary columns
     const dateColumnWidth = '120px';
     const statusColumnWidth = '120px';
     const actionsColumnWidth = '100px';
-    
-    // For extra columns, allocate fixed widths
     const typeColumnWidth = '100px';
     const logicColumnWidth = '140px';
     
-    // Determine if we're in the processing list (fewer columns) or jobs list (more columns)
     const isProcessingList = columnsCount === 0 && !showStatus;
     
     if (isProcessingList) {
-      // For processing list: title gets flexible space with minmax, date and actions get fixed widths
       return hasActions 
         ? `minmax(300px, 1fr) ${showDate ? dateColumnWidth : ''} ${actionsColumnWidth}`
         : `minmax(300px, 1fr) ${showDate ? dateColumnWidth : ''}`;
     } else if (columnsCount === 0) {
-      // For other views with just status: title gets flexible space, status and date get fixed widths
       return hasActions 
         ? `minmax(300px, 1fr) ${showStatus ? statusColumnWidth : ''} ${showDate ? dateColumnWidth : ''} ${actionsColumnWidth}`
         : `minmax(300px, 1fr) ${showStatus ? statusColumnWidth : ''} ${showDate ? dateColumnWidth : ''}`;
     } else {
-      // For job list with extra columns:
-      // Build a template string based on available columns
-      let template = `minmax(250px, 1fr) `; // Title column always flexible
+      let template = `minmax(250px, 1fr) `;
       
       if (showStatus) {
-        template += `${statusColumnWidth} `; // Status column
+        template += `${statusColumnWidth} `;
       }
       
       if (showDate) {
-        template += `${dateColumnWidth} `; // Date column
+        template += `${dateColumnWidth} `;
       }
       
-      // Add extra columns with appropriate fixed widths
       visibleColumns.forEach(col => {
         if (col.header.toLowerCase() === 'type') {
           template += `${typeColumnWidth} `;
         } else if (col.header.toLowerCase() === 'logic') {
           template += `${logicColumnWidth} `;
         } else {
-          // Default width for other custom columns
           template += `120px `;
         }
       });
       
       if (hasActions) {
-        template += actionsColumnWidth; // Actions column
+        template += actionsColumnWidth;
       }
       
       return template;
@@ -473,13 +437,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     );
   }
   
-  // Define visible columns for different screen sizes
   const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
   
   const renderDesktopView = () => {
     return (
       <>
-        {/* Table Header */}
         <Box 
           style={{ 
             display: 'grid', 
@@ -502,11 +464,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           {hasActions && <Box style={{ textAlign: 'left' }}>/actions</Box>}
         </Box>
   
-        {/* Table Content */}
         {data && data.length > 0 ? (
           <Box style={{ overflow: 'auto', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
             {data.map((doc) => {
-              // Ensure each doc has a unique identifier
               const uniqueId = doc._id || `fallback-${Math.random()}`;
               const isProcessingList = visibleColumns.length === 0 && !showStatus;
               
@@ -519,7 +479,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                   style={{ 
                     display: 'grid',
                     gridTemplateColumns: getGridTemplateColumns(),
-                    padding: isProcessingList ? '1rem 1.5rem' : '1.5rem', // Shorter rows for processing list
+                    padding: isProcessingList ? '1rem 1.5rem' : '1.5rem',
                     borderBottom: '1px solid #2b2b2b',
                     cursor: onRowClick ? 'pointer' : 'default',
                     transition: 'background-color 0.2s ease-in-out',
@@ -527,18 +487,15 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     width: '100%'
                   }}
                 >
-                  {/* First column - Title with status indicator */}
                   <Box style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '1rem',
-                    minWidth: 0, // Important for text-overflow to work properly
+                    minWidth: 0,
                     overflow: 'hidden'
                   }}>
-                    {/* Status indicator */}
                     {renderStatusIndicator(doc)}
                     
-                    {/* Title and description */}
                     <Box style={{ overflow: 'hidden', minWidth: 0 }}>
                       {titleRenderer ? titleRenderer(doc) : (
                         <>
@@ -561,7 +518,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                   </Box>
                   
-                  {/* Status column */}
                   {showStatus && (
                     <Box style={{ display: 'flex', alignItems: 'center' }}>
                       {statusRenderer ? statusRenderer(doc) : (
@@ -572,14 +528,12 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                   )}
                   
-                  {/* Date column */}
                   {showDate && (
                     <Box style={{ display: 'flex', alignItems: 'center' }}>
                       <Text size="sm">{formatDate(doc.createdAt)}</Text>
                     </Box>
                   )}
                   
-                  {/* Extra columns */}
                   {visibleColumns.map((col, index) => (
                     <Box key={index} style={{ 
                       display: 'flex', 
@@ -600,7 +554,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                   ))}
                   
-                  {/* Actions column */}
                   {hasActions && (
                     <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                       {actionsRenderer ? actionsRenderer(doc) : (
@@ -680,7 +633,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       {data && data.length > 0 ? (
         <Stack gap={0}>
           {data.map((doc) => {
-            // Ensure each doc has a unique identifier
             const uniqueId = doc._id || `fallback-${Math.random()}`;
             const isProcessingList = visibleColumns.length === 0 && !showStatus;
             
@@ -699,7 +651,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                 }}
               >
                 <Flex align="stretch" gap="md">
-                  {/* Adapt for mobile view too */}
                   {statusIndicatorStyle === 'default' ? (
                     <Box style={{ 
                       width: '8px', 
@@ -751,8 +702,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                             e.stopPropagation();
                             onView && onView(doc, e);
                           }}
-                          loading={loadingDocId === doc._id} // Add loading state for mobile view
-                          disabled={loadingDocId === doc._id} // Disable while loading
+                          loading={loadingDocId === doc._id}
+                          disabled={loadingDocId === doc._id}
                           style={{
                             color: '#ffffff',
                             marginLeft: '8px',
@@ -838,95 +789,90 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     </Box>
   );
   
-  // Render the component
   return (
-  <Box style={{ 
-    backgroundColor: '#000000', 
-    color: '#ffffff', 
-    height: '100%', // Changed from 100vh to 100%
-    width: '100%',
-    maxWidth: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'hidden' // Ensure no scrolling on main container
-  }}>
-    {/* Header */}
-    <Flex justify="space-between" align="center" p="sm" style={{ 
-      borderBottom: '1px solid #2b2b2b',
-      flexShrink: 0 // Prevent header from shrinking
+    <Box style={{ 
+      backgroundColor: '#000000', 
+      color: '#ffffff', 
+      height: '100%',
+      width: '100%',
+      maxWidth: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
     }}>
-      <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
-      <Group>
-        {/* Updated refresh button logic */}
-        {onRefresh || comingSoon ? (
-          <Button
-            variant="subtle"
-            onClick={handleRefreshClick}
-            leftSection={<RefreshCw size={14} />}
-            loading={isLoading || isRefreshing}
-            styles={{
-              root: {
-                backgroundColor: 'transparent',
-                color: '#ffffff',
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: '14px',
-                letterSpacing: '0.5px',
-                padding: '8px 16px',
-                border: 'none',
-                '&:hover': {
-                  backgroundColor: '#1a1a1a',
-                },
-              },
-            }}
-          >
-            {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
-          </Button>
-        ) : null}
-        
-        {onAddNew && !comingSoon && ( // Don't show Add New button in coming soon state
-          <Button
-            variant="filled"
-            onClick={onAddNew}
-            rightSection={<Plus size={16} />}
-            styles={{
-              root: {
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: '14px',
-                fontWeight: 400,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                padding: '8px 16px',
-                backgroundColor: '#F5A623',
-                color: '#000000',
-                '&:hover': {
-                  backgroundColor: '#E09612',
-                },
-              },
-            }}
-          >
-            <Text size="xs">ADD NEW JOB</Text>
-          </Button>
-        )}
-      </Group>
-    </Flex>
-  
-    {/* Show coming soon state if enabled, otherwise show regular table */}
-    {comingSoon ? (
-      renderComingSoonState()
-    ) : (
-      <Box style={{ 
-        width: '100%', 
-        maxWidth: '100%', 
-        overflowX: 'hidden',
-        flex: 1 // Allow content area to fill remaining space
+      <Flex justify="space-between" align="center" p="sm" style={{ 
+        borderBottom: '1px solid #2b2b2b',
+        flexShrink: 0
       }}>
-        {!isMobile ? renderDesktopView() : renderMobileView()}
-      </Box>
-    )}
+        <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
+        <Group>
+          {(onRefresh || comingSoon) && (
+            <Button
+              variant="subtle"
+              onClick={handleRefreshClick}
+              leftSection={<RefreshCw size={14} />}
+              loading={isLoading || isRefreshing}
+              styles={{
+                root: {
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  border: 'none',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
+            >
+              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
+            </Button>
+          )}
+          
+          {onAddNew && !comingSoon && (
+            <Button
+              variant="filled"
+              onClick={onAddNew}
+              rightSection={<Plus size={16} />}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              <Text size="xs">ADD NEW JOB</Text>
+            </Button>
+          )}
+        </Group>
+      </Flex>
+  
+      {comingSoon ? (
+        renderComingSoonState()
+      ) : (
+        <Box style={{ 
+          width: '100%', 
+          maxWidth: '100%', 
+          overflowX: 'hidden',
+          flex: 1
+        }}>
+          {!isMobile ? renderDesktopView() : renderMobileView()}
+        </Box>
+      )}
 
-      {/* Email Modal */}
       <Modal
         opened={emailModalOpen}
         onClose={() => setEmailModalOpen(false)}
