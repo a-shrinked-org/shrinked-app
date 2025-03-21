@@ -82,7 +82,7 @@ function ErrorFallback({
         margin: '0 auto'
       }}
     >
-      <Stack align="center" gap="md">
+      <Stack ta="center" gap="md">
         {getErrorIcon()}
         
         <Text 
@@ -97,7 +97,7 @@ function ErrorFallback({
         </Text>
         
         <Text 
-          align="center"
+          ta="center"
           c="gray.4"
           style={{ 
             fontFamily: GeistSans.style.fontFamily || 'system-ui, sans-serif',
@@ -112,7 +112,7 @@ function ErrorFallback({
           <Text 
             size="sm" 
             c="gray.6" 
-            align="center"
+            ta="center"
             style={{ 
               fontFamily: GeistMono.style.fontFamily,
               fontSize: '12px',
@@ -353,7 +353,7 @@ function DocumentsTable<T extends ProcessedDocument>({
           }
         `}</style>
         
-        <Stack gap="xl" align="center">
+        <Stack gap="xl" ta="center">
           <Box>
             {comingSoonConfig.icon}
           </Box>
@@ -953,7 +953,7 @@ function DocumentsTable<T extends ProcessedDocument>({
                                       flexDirection: 'column',
                                       overflow: 'hidden'
                                     }}>
-                                      <Flex justify="space-between" align="center" p="sm" style={{ 
+                                      <Flex justify="space-between" ta="center" p="sm" style={{ 
                                         borderBottom: '1px solid #2b2b2b',
                                         flexShrink: 0
                                       }}>
