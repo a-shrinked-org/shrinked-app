@@ -66,8 +66,8 @@ export default function ProcessingList() {
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
     queryOptions: {
       enabled: !!identity?.id,
-      // Add a cache key that includes the refresh counter
-      cacheTime: 0, // Disable caching to ensure fresh data
+      // Add cache options
+      cacheTime: 5000, // 5 seconds cache
       staleTime: 0, // Always consider data stale
     },
     pagination: {
@@ -174,11 +174,11 @@ export default function ProcessingList() {
     }
   };
 
-  // Improved handleRefresh function
+  // Improved handleRefresh function - removed { force: true } parameter
   const handleRefresh = () => {
     console.log("Refresh button clicked in ProcessingList");
-    // Use force: true to bypass cache
-    refetch({ force: true });
+    // Call refetch without parameters to avoid type errors
+    refetch();
     // Update counter to force re-render
     setRefreshCounter(prev => prev + 1);
   };
@@ -208,10 +208,9 @@ export default function ProcessingList() {
   const preparedData = prepareDocuments(data?.data || []);
   console.log("Prepared documents for table:", preparedData);
 
-  // Key prop forces complete re-render when refreshCounter changes
   return (
     <DocumentsTable<ProcessedDocument>
-      key={`processing-list-${refreshCounter}`}
+      key={`processing-list-${refreshCounter}`} // Key prop forces complete re-render when refreshCounter changes
       data={preparedData}
       onView={handleViewDocument}
       onDelete={handleDelete}

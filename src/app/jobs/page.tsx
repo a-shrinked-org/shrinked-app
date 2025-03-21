@@ -116,11 +116,11 @@ export default function JobList() {
     create("jobs");
   };
 
-  // Improved refresh handler
+  // Fixed refresh handler - removed { force: true } parameter
   const handleRefresh = useCallback(() => {
     console.log("Refresh button clicked in JobList");
-    // Use force: true to bypass cache
-    refetch({ force: true });
+    // Call refetch without parameters to avoid type errors
+    refetch();
     // Update counter to force re-render
     setRefreshCounter(prev => prev + 1);
   }, [refetch]);
