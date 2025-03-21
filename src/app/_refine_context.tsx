@@ -101,31 +101,69 @@ const App = (props: React.PropsWithChildren<{}>) => {
   });
 
   const isCheckingAuthRef = useRef(false);
+  const isInitialized = useRef(false);
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    // Force exit loading state after a reasonable timeout (3 seconds)
+    const loadingTimeoutId = setTimeout(() => {
+      if (authState.isChecking) {
+        console.log("[AUTH] Forcing exit from loading state after timeout");
+        setAuthState({
+          isChecking: false,
+          isAuthenticated: false, 
+          initialized: true
+        });
+      }
+    }, 3000);
+
+    return () => clearTimeout(loadingTimeoutId);
+  }, [authState.isChecking]);
 
   // Initialize token refresh mechanism
   useEffect(() => {
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+    
     if (authUtils.isAuthenticated()) {
       console.log("[APP] Initializing token refresh mechanism");
-      authUtils.setupRefreshTimer(); // No parameters
+      authUtils.setupRefreshTimer();
+    } else {
+      // If no auth, immediately set to not checking
+      setAuthState({
+        isChecking: false,
+        isAuthenticated: false,
+        initialized: true
+      });
     }
   }, []);
 
   // Create a debounced version of the auth check function
   const debouncedAuthCheck = useRef(
     debounce(async () => {
-      if (isCheckingAuthRef.current || status === "loading") return;
+      if (isCheckingAuthRef.current) return;
       isCheckingAuthRef.current = true;
 
       try {
+        // First check: NextAuth session
         if (status === "authenticated" && session) {
           setAuthState({ isChecking: false, isAuthenticated: true, initialized: true });
+          isCheckingAuthRef.current = false;
           return;
         }
 
-        const hasTokens = authUtils.isAuthenticated();
-        setAuthState({ isChecking: false, isAuthenticated: hasTokens, initialized: true });
+        // Second check: Local auth
+        try {
+          const hasTokens = authUtils.isAuthenticated();
+          setAuthState({ isChecking: false, isAuthenticated: hasTokens, initialized: true });
+        } catch (error) {
+          console.error("Token check error:", error);
+          // Fallback in case of error
+          setAuthState({ isChecking: false, isAuthenticated: false, initialized: true });
+        }
       } catch (error) {
         console.error("Auth check error:", error);
+        // Always resolve the loading state
         setAuthState({ isChecking: false, isAuthenticated: false, initialized: true });
       } finally {
         isCheckingAuthRef.current = false;
@@ -255,7 +293,38 @@ const App = (props: React.PropsWithChildren<{}>) => {
     },
   };
 
-  if (status === "loading" || authState.isChecking) return <span>Loading...</span>;
+  // Replace the simple loading span with a more robust fallback
+  if (status === "loading" || authState.isChecking) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '10px'
+      }}>
+        <div>Loading authentication state...</div>
+        <button 
+          onClick={() => {
+            // Force exit loading state if stuck
+            setAuthState({
+              isChecking: false,
+              isAuthenticated: false, 
+              initialized: true
+            });
+          }}
+          style={{
+            padding: '8px 16px',
+            marginTop: '20px',
+            cursor: 'pointer'
+          }}
+        >
+          Continue to Login
+        </button>
+      </div>
+    );
+  }
 
   return (
     <RefineKbarProvider>
