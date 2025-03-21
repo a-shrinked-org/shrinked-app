@@ -77,48 +77,71 @@ export const customAuthProvider: Required<AuthProvider> & {
 } = {
   async login(params: any) {
 	const { providerName, email, password } = params;
-
+  
 	// Handle social logins
 	if (providerName === "auth0" || providerName === "google" || providerName === "github") {
 	  const redirectUrl = providerName === "auth0" ? undefined : `${API_CONFIG.API_URL}/auth/${providerName}`;
 	  if (redirectUrl) window.location.href = redirectUrl;
 	  return { success: false, error: { message: `Redirecting to ${providerName}...`, name: providerName } };
 	}
-
+  
 	// Handle registration
 	if (providerName === "register") {
 	  return customAuthProvider.register({ email, password });
 	}
-
+  
 	try {
 	  if (!navigator.onLine) {
 		return { success: false, error: { message: "You are offline", name: "NetworkError" } };
 	  }
-
+  
+	  // Email check with Loops (only if no password provided)
 	  if (!password) {
 		try {
-		  // Skip Loops API and go directly to direct auth check
-		  console.log("Bypassing Loops API, using direct auth check");
-		  
-		  const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
-			method: "POST",
+		  const response = await fetch(`/api/loops?loops=contacts/find&email=${encodeURIComponent(email)}`, {
+			method: "GET",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email }),
 		  });
 		  
-		  if (checkResponse.ok) {
-			const checkData = await checkResponse.json();
-			if (checkData.exists) {
+		  // If successful Loops response
+		  if (response.ok) {
+			const data = await response.json();
+			if (Array.isArray(data) && data.length > 0) {
 			  return { success: true }; // Prompt for password
 			}
+			
+			// Email not found in Loops, suggest registration
+			return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
+		  } else {
+			// Handle Loops API error gracefully - try fallback
+			console.warn("Loops API check failed with status:", response.status);
+			
+			// If Loops is giving 400/500 errors, we need a fallback mechanism
+			try {
+			  // Try direct auth check as fallback if Loops is having issues
+			  const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email }),
+			  });
+			  
+			  if (checkResponse.ok) {
+				const checkData = await checkResponse.json();
+				if (checkData.exists) {
+				  return { success: true }; // Prompt for password
+				}
+			  }
+			} catch (fallbackError) {
+			  console.error("Fallback email check failed:", fallbackError);
+			}
+			
+			// If all checks fail, assume registration is required
+			return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
 		  }
-		  
-		  // If we get here, email not found
-		  return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
 		} catch (error) {
-		  console.error("Email check error:", error);
-		  // Even if this fails, allow user to try password
-		  return { success: true, warning: "Verification service unavailable. Please try your password." };
+		  console.error("Loops check error:", error);
+		  // If the Loops API completely fails, assume the user needs to register
+		  return { success: false, error: { message: "Email verification failed. Please register if you don't have an account.", name: "RegistrationRequired" } };
 		}
 	  }
 	  

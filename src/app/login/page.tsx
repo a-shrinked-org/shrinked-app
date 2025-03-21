@@ -17,6 +17,7 @@ import {
 } from "@mantine/core";
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
 import { customAuthProvider } from "@providers/customAuthProvider";
+import { authUtils } from "@/utils/authUtils";
 import "@/styles/fonts.css";
 import "@/styles/login-styles.css";
 
@@ -62,14 +63,14 @@ export default function Login() {
     setGoogleLoading(false);
     actionTypeRef.current = "email";
     setEmailPasswordLoading(true);
-
+  
     if (!formData.email) {
       setError("Please enter your email");
       setEmailPasswordLoading(false);
       actionTypeRef.current = null;
       return;
     }
-
+  
     try {
       if (step === "email") {
         const result = await customAuthProvider.login({ email: formData.email, password: "" });
@@ -87,7 +88,7 @@ export default function Login() {
           actionTypeRef.current = null;
           return;
         }
-
+  
         const response = await fetch("/api/auth-proxy/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -95,8 +96,16 @@ export default function Login() {
           credentials: "include",
         });
         const data = await response.json();
-
+  
         if (response.ok && data.success) {
+          // This is the missing piece - store tokens in localStorage
+          if (data.accessToken && data.refreshToken) {
+            authUtils.saveTokens(data.accessToken, data.refreshToken);
+            authUtils.setAuthenticatedState(true);
+            console.log("Login successful, tokens saved to localStorage");
+          } else {
+            console.warn("Login successful but tokens missing from response");
+          }
           router.push("/jobs");
         } else {
           setError(data.error?.message || "Invalid email or password");
