@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, ChangeEvent, FormEvent, useRef, useEffect } from "react";
-import { useLogin } from "@refinedev/core";
+import { useRouter } from "next/navigation";
 import {
   Card,
   Title,
@@ -13,14 +13,10 @@ import {
   SimpleGrid,
   Group,
   Text,
-  Box,
   Image,
 } from "@mantine/core";
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
-
-// Import CSS for custom fonts and global styles
 import "@/styles/fonts.css";
-// Import login styles that we created
 import "@/styles/login-styles.css";
 
 interface FormData {
@@ -29,22 +25,17 @@ interface FormData {
 }
 
 export default function Login() {
-  const { mutate: login } = useLogin();
+  const router = useRouter();
   const [error, setError] = useState<string>("");
   const [info, setInfo] = useState<string>("");
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" });
   const [step, setStep] = useState<"email" | "password" | "verification-sent">("email");
-
-  // Loading states
   const [emailPasswordLoading, setEmailPasswordLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-
-  // Action type reference
   const actionTypeRef = useRef<"google" | "email" | null>(null);
 
-  // Add debug info on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && window._debugAuthState) {
+    if (typeof window !== "undefined" && window._debugAuthState) {
       window._debugAuthState("Login page loaded");
     }
   }, []);
@@ -60,285 +51,98 @@ export default function Login() {
     setEmailPasswordLoading(false);
     actionTypeRef.current = "google";
     setGoogleLoading(true);
-
-    setTimeout(() => {
-      if (actionTypeRef.current === "google") {
-        setGoogleLoading(false);
-        actionTypeRef.current = null;
-      }
-    }, 5000);
-
     window.location.href = "https://api.shrinked.ai/auth/google";
   };
 
   const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    setInfo(""); 
-  
+    setInfo("");
     setGoogleLoading(false);
     actionTypeRef.current = "email";
     setEmailPasswordLoading(true);
-  
+
     if (!formData.email) {
       setError("Please enter your email");
       setEmailPasswordLoading(false);
       actionTypeRef.current = null;
       return;
     }
-  
-    if (step === "email") {
-      // Email-only check
-      login(
-        { email: formData.email, password: "" },
-        {
-          onSuccess: (response) => {
-            if (actionTypeRef.current !== "email") return;
 
-            if (response && response.success === true) {
-              setStep("password");
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-              return;
-            }
+    try {
+      if (step === "email") {
+        const response = await fetch(`/api/auth-proxy/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email, password: "" }),
+          credentials: "include",
+        });
+        const data = await response.json();
 
-            if (
-              response &&
-              typeof response === "object" &&
-              "error" in response &&
-              typeof response.error === "object" &&
-              response.error !== null &&
-              "name" in response.error &&
-              response.error.name === "RegistrationRequired"
-            ) {
-              handleRegistrationFlow();
-            } else {
-              setError("Unable to verify email status. Please try again.");
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-            }
-          },
-          onError: (error: any) => {
-            if (actionTypeRef.current !== "email") return;
-
-            let errorName = "";
-            let errorMessage = "";
-
-            if (typeof error === "object" && error !== null) {
-              if ("name" in error && typeof error.name === "string") {
-                errorName = error.name;
-              }
-
-              if ("message" in error && typeof error.message === "string") {
-                errorMessage = error.message;
-              }
-
-              if ("error" in error && typeof error.error === "object" && error.error !== null) {
-                if ("name" in error.error && typeof error.error.name === "string") {
-                  errorName = errorName || error.error.name;
-                }
-                if ("message" in error.error && typeof error.error.message === "string") {
-                  errorMessage = errorMessage || error.error.message;
-                }
-              }
-            }
-
-            if (
-              errorName === "RegistrationRequired" ||
-              (errorMessage && errorMessage.includes("not found"))
-            ) {
-              handleRegistrationFlow();
-            } else {
-              // Display appropriate error
-              if (typeof error === "object" && error !== null) {
-                if ("message" in error && typeof error.message === "string") {
-                  setError(error.message);
-                } else if (
-                  "error" in error &&
-                  typeof error.error === "object" &&
-                  error.error !== null &&
-                  "message" in error.error &&
-                  typeof error.error.message === "string"
-                ) {
-                  setError(error.error.message);
-                } else {
-                  setError("An error occurred");
-                }
-              } else {
-                setError("An error occurred");
-              }
-
-              setEmailPasswordLoading(false);
-              actionTypeRef.current = null;
-            }
-          },
+        if (response.ok && data.success) {
+          setStep("password");
+        } else if (data.error?.name === "RegistrationRequired") {
+          await handleRegistrationFlow();
+        } else {
+          setError(data.error?.message || "Unable to verify email");
         }
-      );
-    } else if (step === "password") {
-      if (!formData.password) {
-        setError("Please enter your password");
-        setEmailPasswordLoading(false);
-        actionTypeRef.current = null;
-        return;
-      }
-  
-      console.log('Logging in with email and password...');
-      
-      // Use the proxy endpoint directly for more reliable login
-      fetch('/api/auth-proxy/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-        credentials: 'include'
-      })
-        .then(apiResponse => {
-          const responseObj = apiResponse;
-          return apiResponse.json().then(data => ({ data, responseObj }));
-        })
-        .then(({ data, responseObj }) => {
-          if (responseObj.ok) {
-            // Handle successful login
-            console.log("Login successful, redirecting to jobs page...");
-            window.location.href = '/jobs';
-          } else {
-            setError(data.error?.message || 'Invalid email or password');
-            setEmailPasswordLoading(false);
-            actionTypeRef.current = null;
-          }
-        })
-        .catch(error => {
-          console.error("Login error:", error);
-          setError("Failed to login. Please try again.");
+      } else if (step === "password") {
+        if (!formData.password) {
+          setError("Please enter your password");
           setEmailPasswordLoading(false);
           actionTypeRef.current = null;
-        });
-      
-      // Keep the fallback login hook as a backup
-      login(
-        {
-          email: formData.email,
-          password: formData.password,
-          skipEmailCheck: true,
-        },
-        {
-          onSuccess: (response) => {
-            if (actionTypeRef.current !== "email") return;
-            
-            if (response.redirectTo) {
-              console.log("Login hook successful, redirecting to:", response.redirectTo);
-              window.location.href = response.redirectTo;
-            }
-          },
-          onError: (error: any) => {
-            if (actionTypeRef.current !== "email") return;
-  
-            if (typeof error === "object" && error !== null) {
-              if ("message" in error && typeof error.message === "string") {
-                setError(error.message);
-              } else if (
-                "error" in error &&
-                typeof error.error === "object" &&
-                error.error !== null &&
-                "message" in error.error &&
-                typeof error.error.message === "string"
-              ) {
-                setError(error.error.message);
-              } else {
-                setError("Invalid email or password");
-              }
-            } else {
-              setError("Invalid email or password");
-            }
-  
-            setEmailPasswordLoading(false);
-            actionTypeRef.current = null;
-          },
+          return;
         }
-      );
+
+        const response = await fetch(`/api/auth-proxy/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email, password: formData.password }),
+          credentials: "include",
+        });
+        const data = await response.json();
+
+        if (response.ok && data.accessToken && data.refreshToken) {
+          router.push("/jobs"); // Rely on customAuthProvider to store tokens
+        } else {
+          setError(data.error?.message || "Invalid email or password");
+        }
+      }
+    } catch (error) {
+      setError("An error occurred. Please try again.");
+      console.error("Login error:", error);
+    } finally {
+      setEmailPasswordLoading(false);
+      actionTypeRef.current = null;
     }
   };
-  
-  const handleRegistrationFlow = () => {
-    // Use the registration proxy endpoint
-    fetch('/api/auth-proxy/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email: formData.email }),
-      credentials: 'include'
-    })
-      .then(apiResponse => {
-        // Store the response object in a variable that will be accessible in the next then block
-        const responseObj = apiResponse;
-        return apiResponse.json().then(data => ({ data, responseObj }));
-      })
-      .then(({ data, responseObj }) => {
-        if (data.success || (responseObj.ok && !data.error)) {
-          setStep("verification-sent");
-        } else {
-          setError(data.error?.message || 'Failed to register with this email');
-        }
-        setEmailPasswordLoading(false);
-        actionTypeRef.current = null;
-      })
-      .catch(error => {
-        console.error("Registration error:", error);
-        setError("Failed to register with this email");
-        setEmailPasswordLoading(false);
-        actionTypeRef.current = null;
+
+  const handleRegistrationFlow = async () => {
+    try {
+      const response = await fetch(`/api/auth-proxy/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email }),
+        credentials: "include",
       });
-      
-    // Fallback to using the login hook with "register" provider
-    login(
-      {
-        email: formData.email,
-        password: "",
-        providerName: "register",
-      },
-      {
-        onSuccess: () => {
-          if (actionTypeRef.current !== "email") return;
-          setStep("verification-sent");
-          setEmailPasswordLoading(false);
-          actionTypeRef.current = null;
-        },
-        onError: (regError) => {
-          if (actionTypeRef.current !== "email") return;
-  
-          if (typeof regError === "object" && regError !== null) {
-            if ("message" in regError && typeof regError.message === "string") {
-              setError(regError.message);
-            } else if (
-              "error" in regError &&
-              typeof regError.error === "object" &&
-              regError.error !== null &&
-              "message" in regError.error &&
-              typeof regError.error.message === "string"
-            ) {
-              setError(regError.error.message);
-            } else {
-              setError("Failed to register with this email");
-            }
-          } else {
-            setError("Failed to register with this email");
-          }
-  
-          setEmailPasswordLoading(false);
-          actionTypeRef.current = null;
-        },
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setStep("verification-sent");
+      } else {
+        setError(data.error?.message || "Failed to register");
       }
-    );
+    } catch (error) {
+      setError("Failed to register. Please try again.");
+      console.error("Registration error:", error);
+    } finally {
+      setEmailPasswordLoading(false);
+      actionTypeRef.current = null;
+    }
   };
 
   const isButtonActive = step === "email" ? !!formData.email.trim() : !!formData.password.trim();
 
-  // Custom Google icon
   const GoogleIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" baseProfile="basic">
       <polygon fill="#26659f" points="17,15 17,18 22,18 22,24 26,24 26,22 28,22 28,15" />
@@ -348,7 +152,6 @@ export default function Login() {
     </svg>
   );
 
-  // Custom Arrow icon
   const ArrowIcon = () => (
     <svg width="16" height="9" viewBox="0 0 16 9" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -358,7 +161,6 @@ export default function Login() {
     </svg>
   );
 
-  // Verification sent UI
   if (step === "verification-sent") {
     return (
       <div className="login-page-container">
@@ -377,20 +179,16 @@ export default function Login() {
             <Group justify="center" mb="md">
               <Mailbox size={64} color="#F5A623" />
             </Group>
-            
             <Title order={2} ta="center" mb="md">
               Check your email
             </Title>
-            
             <Text ta="center" mb="xl">
               We&apos;ve sent a verification link to <b>{formData.email}</b>. Please check your inbox and
               click the link to complete your registration.
             </Text>
-            
             <Text size="sm" ta="center" mb="md" className="footer-text">
               Didn&apos;t receive the email? Check your spam folder or try again in a few minutes.
             </Text>
-            
             <Button
               variant="subtle"
               fullWidth
@@ -407,7 +205,6 @@ export default function Login() {
               Back to login
             </Button>
           </Card>
-          
           <SimpleGrid cols={{ base: 1, sm: 3 }} mt="lg" spacing="md" w="100%">
             <Card radius="md" p="sm" withBorder>
               <Group justify="center">
@@ -447,11 +244,7 @@ export default function Login() {
           alignItems: "center",
         }}
       >
-        <Card
-          radius="md"
-          p="xl"
-          withBorder
-        >
+        <Card radius="md" p="xl" withBorder>
           <div className="image-container">
             <Image
               src="/images/computer.jpg"
@@ -461,31 +254,18 @@ export default function Login() {
               height={180}
             />
           </div>
-
-          <Title
-            order={1}
-            ta="center" 
-            mb={0}
-          >
+          <Title order={1} ta="center" mb={0}>
             Welcome
           </Title>
-          <Title
-            order={2}
-            ta="center"
-            mb="md"
-          >
+          <Title order={2} ta="center" mb="md">
             to Shrinked
           </Title>
-
           <Text ta="center" mb="xl" size="sm" className="subtitle-text">
             Sign in or create an account to build<br />
             with the Shrinked protocol
           </Text>
-
-          {/* Error/Info Alerts */}
           {error && <Alert color="red" mb="md" title="Error">{error}</Alert>}
           {info && <Alert color="blue" mb="md" title="Info">{info}</Alert>}
-
           <Button
             fullWidth
             variant="filled"
@@ -497,13 +277,7 @@ export default function Login() {
           >
             CONTINUE WITH GOOGLE
           </Button>
-
-          <Divider
-            label="OR"
-            labelPosition="center"
-            my="md"
-          />
-
+          <Divider label="OR" labelPosition="center" my="md" />
           <form onSubmit={handleEmailSubmit}>
             <TextInput
               placeholder="M@EXAMPLE.COM"
@@ -526,14 +300,13 @@ export default function Login() {
                 disabled={emailPasswordLoading}
               />
             )}
-            
             <div style={{ position: "relative" }}>
               <Button
                 type="submit"
                 fullWidth
                 loading={emailPasswordLoading}
                 disabled={!isButtonActive || emailPasswordLoading}
-                className={`email-button ${isButtonActive ? 'email-button-active' : 'email-button-inactive'}`}
+                className={`email-button ${isButtonActive ? "email-button-active" : "email-button-inactive"}`}
               >
                 CONTINUE WITH EMAIL
               </Button>
@@ -542,10 +315,12 @@ export default function Login() {
               </div>
             </div>
           </form>
-
           <div className="footer-text">
-            By continuing, you agree to Shrinked <a href="https://shrinked.ai/terms" target="_blank" rel="noopener noreferrer" className="footer-link">Terms of Service</a>, 
-            and acknowledge their <span className="footer-link">Privacy Policy</span>.
+            By continuing, you agree to Shrinked{" "}
+            <a href="https://shrinked.ai/terms" target="_blank" rel="noopener noreferrer" className="footer-link">
+              Terms of Service
+            </a>
+            , and acknowledge their <span className="footer-link">Privacy Policy</span>.
           </div>
         </Card>
       </Container>

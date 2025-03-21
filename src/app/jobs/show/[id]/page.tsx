@@ -852,7 +852,7 @@ export default function JobShow() {
           
           <Box style={{ marginTop: '2rem' }}>
             <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              Logic steps / events
+              Logic
             </Text>
             <Box style={{ position: 'relative' }}>
               <Box style={{ 
