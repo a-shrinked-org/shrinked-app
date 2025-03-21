@@ -27,14 +27,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	// Remove the leading slash if it exists
 	const cleanedEndpoint = loops.startsWith('/') ? loops.substring(1) : loops;
 	
+	// Build URL with query parameters for specific endpoints
+	let url = `https://app.loops.so/api/v1/${cleanedEndpoint}`;
+	
+	// Handle special cases for endpoints that need query parameters
+	if (cleanedEndpoint === 'contacts/find' && method === 'GET') {
+	  // Extract email or userId from query parameters
+	  const email = req.query.email as string;
+	  const userId = req.query.userId as string;
+	  
+	  if (!email && !userId) {
+		console.warn("Missing email or userId for contacts/find");
+		return res.status(400).json({ message: "contacts/find requires either email or userId" });
+	  }
+	  
+	  // Append the appropriate query parameter
+	  const queryParams = new URLSearchParams();
+	  if (email) {
+		queryParams.append('email', email);
+	  } else if (userId) {
+		queryParams.append('userId', userId);
+	  }
+	  
+	  url += `?${queryParams.toString()}`;
+	}
+	
 	// Log what we're about to request
-	console.log(`Making request to Loops API: ${method} https://app.loops.so/api/v1/${cleanedEndpoint}`);
+	console.log(`Making request to Loops API: ${method} ${url}`);
 	if (body) {
 	  console.log("Request body:", JSON.stringify(body));
 	}
 	
 	try {
-	  const response = await fetch(`https://app.loops.so/api/v1/${cleanedEndpoint}`, {
+	  const response = await fetch(url, {
 		method,
 		headers: {
 		  "Authorization": `Bearer ${process.env.LOOPS_API_KEY}`,
