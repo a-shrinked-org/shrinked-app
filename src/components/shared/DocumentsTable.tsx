@@ -13,7 +13,8 @@ import {
   TextInput,
   Flex,
   Loader,
-  Stack
+  Stack,
+  Card
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { 
@@ -24,7 +25,8 @@ import {
   AlertCircle,
   Send,
   Plus,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import { GeistMono } from 'geist/font/mono';
 
@@ -79,10 +81,18 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   showDate?: boolean;
   customGridTemplate?: string;
   statusIndicatorStyle?: StatusIndicatorStyle;
-  loadingDocId?: string | null; // Added prop for loading state
+  loadingDocId?: string | null;
+  // New props for coming soon feature
+  comingSoon?: boolean; 
+  comingSoonConfig?: {
+    icon?: React.ReactNode;
+    title?: string;
+    description?: string;
+    buttonText?: string;
+    buttonAction?: () => void;
+  };
 }
 
-// Changed from generic expression to function declaration
 function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<T>) {
   const { 
     data, 
@@ -105,7 +115,16 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     actionsRenderer,
     customGridTemplate,
     statusIndicatorStyle = 'default',
-    loadingDocId = null // Default to null if not provided
+    loadingDocId = null,
+    // New props with defaults
+    comingSoon = false,
+    comingSoonConfig = {
+      icon: <Calendar size={48} color="#F5A623" />,
+      title: "Coming Soon",
+      description: "This feature is currently in development. Check back later for updates.",
+      buttonText: "LEARN MORE",
+      buttonAction: () => console.log('Coming soon feature clicked')
+    }
   } = props;
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -136,6 +155,67 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       setSendingEmail(false);
     }
   };
+
+  // New function to render coming soon state
+  const renderComingSoonState = () => (
+    <Box p="xl">
+      <Card 
+        p="xl" 
+        withBorder 
+        style={{ 
+          textAlign: 'center',
+          backgroundColor: '#0D0D0D',
+          borderColor: '#2B2B2B',
+          maxWidth: 600,
+          margin: '0 auto',
+          marginTop: 30
+        }}
+      >
+        <Stack gap="xl" align="center">
+          <Box>
+            {comingSoonConfig.icon}
+          </Box>
+          
+          <Text fw={500} size="xl" style={{ color: '#ffffff' }}>
+            {comingSoonConfig.title}
+          </Text>
+          
+          <Text size="sm" c="#A1A1A1" style={{ maxWidth: 450, margin: '0 auto' }}>
+            {comingSoonConfig.description}
+          </Text>
+          
+          {comingSoonConfig.buttonText && comingSoonConfig.buttonAction && (
+            <Button
+              variant="filled"
+              rightSection={<Plus size={16} />}
+              onClick={comingSoonConfig.buttonAction}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              <Text size="xs">{comingSoonConfig.buttonText}</Text>
+            </Button>
+          )}
+          
+          <Text size="xs" c="#666666">
+            This feature is currently in early access. More options coming soon.
+          </Text>
+        </Stack>
+      </Card>
+    </Box>
+  );
 
   // Status color mapping
   const getStatusColor = (status?: string) => {
@@ -677,23 +757,23 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
         <Group>
           {onRefresh && (
             <Button
-              variant="subtle" // Changed from outline to subtle to remove border
-              onClick={onRefresh} // This should already be working if onRefresh is provided
-              leftSection={<RefreshCw size={14} />} // Changed from 16 to 14
+              variant="subtle"
+              onClick={onRefresh}
+              leftSection={<RefreshCw size={14} />}
               loading={isLoading}
               styles={{
                 root: {
                   backgroundColor: 'transparent',
                   color: '#ffffff',
-                  fontWeight: 500, // Changed from default to 500
-                  textTransform: 'uppercase', // Added uppercase
-                  fontFamily: GeistMono.style.fontFamily, // Match the font with title
-                  fontSize: '14px', // Ensure consistent font size
-                  letterSpacing: '0.5px', // Match title letter spacing
-                  padding: '8px 16px', // Proper padding
-                  border: 'none', // Explicitly remove border
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  border: 'none',
                   '&:hover': {
-                    backgroundColor: '#1a1a1a', // Slightly lighter background on hover
+                    backgroundColor: '#1a1a1a',
                   },
                 },
               }}
@@ -701,7 +781,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
               {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
             </Button>
           )}
-          {onAddNew && (
+          {onAddNew && !comingSoon && ( // Don't show Add New button in coming soon state
             <Button
               variant="filled"
               onClick={onAddNew}
@@ -728,10 +808,14 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
         </Group>
       </Flex>
 
-      {/* Render either desktop or mobile view based on screen size */}
-      <Box style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
-        {!isMobile ? renderDesktopView() : renderMobileView()}
-      </Box>
+      {/* Show coming soon state if enabled, otherwise show regular table */}
+      {comingSoon ? (
+        renderComingSoonState()
+      ) : (
+        <Box style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+          {!isMobile ? renderDesktopView() : renderMobileView()}
+        </Box>
+      )}
 
       {/* Email Modal */}
       <Modal
