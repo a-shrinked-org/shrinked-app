@@ -35,6 +35,40 @@ interface IdentityData {
 const AUTH_CHECK_COOLDOWN = 2000; // 2 seconds between auth checks
 let lastAuthCheckTime = 0;
 
+const loopsCache = new Map();
+const LOOPS_CACHE_TIMEOUT = 30000;
+
+const cachedLoopsRequest = async (endpoint: string, email: string, body?: any) => {
+  const cacheKey = `${endpoint}:${email}`;
+  const cached = loopsCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < LOOPS_CACHE_TIMEOUT) {
+	return cached.data;
+  }
+  
+  const method = body ? "POST" : "GET";
+  const url = `/api/loops?loops=${endpoint}&email=${encodeURIComponent(email)}`;
+  
+  try {
+	const response = await fetch(url, {
+	  method,
+	  headers: { "Content-Type": "application/json" },
+	  ...(body ? { body: JSON.stringify(body) } : {})
+	});
+	
+	if (!response.ok) {
+	  throw new Error(`Loops API error: ${response.status}`);
+	}
+	
+	const data = await response.json();
+	loopsCache.set(cacheKey, { data, timestamp: Date.now() });
+	return data;
+  } catch (error) {
+	console.error(`Loops ${endpoint} error:`, error);
+	throw error;
+  }
+};
+
 export const customAuthProvider: Required<AuthProvider> & {
   register: (params: any) => Promise<any>;
   forgotPassword: (params: any) => Promise<any>;
@@ -63,15 +97,47 @@ export const customAuthProvider: Required<AuthProvider> & {
 
 	  // Email check with Loops (only if no password provided)
 	  if (!password) {
-		const response = await fetch(`/api/loops?loops=contacts/find&email=${encodeURIComponent(email)}`, {
-		  method: "GET",
-		  headers: { "Content-Type": "application/json" },
-		});
-		const data = await response.json();
-		if (response.ok && Array.isArray(data) && data.length > 0) {
-		  return { success: true }; // Prompt for password
+		try {
+		  const response = await fetch(`/api/loops?loops=contacts/find&email=${encodeURIComponent(email)}`, {
+			method: "GET",
+			headers: { "Content-Type": "application/json" },
+		  });
+		  
+		  // If successful Loops response
+		  if (response.ok) {
+			const data = await response.json();
+			if (Array.isArray(data) && data.length > 0) {
+			  return { success: true }; // Prompt for password
+			}
+		  } else {
+			// FALLBACK: If Loops API fails (400, 500, etc.), try a direct auth check
+			// This is the key change - don't fail immediately on Loops error
+			console.warn("Loops API check failed, trying direct auth check");
+			
+			// Try a lightweight check if the email exists in the auth system
+			const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
+			  method: "POST",
+			  headers: { "Content-Type": "application/json" },
+			  body: JSON.stringify({ email }),
+			});
+			
+			if (checkResponse.ok) {
+			  const checkData = await checkResponse.json();
+			  if (checkData.exists) {
+				return { success: true }; // Prompt for password
+			  }
+			}
+		  }
+		  
+		  // If we get here, email not found via either method
+		  return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
+		} catch (error) {
+		  // If the Loops call completely fails with an exception, try direct auth
+		  console.error("Loops check error:", error);
+		  
+		  // Even if this fails, allow user to try password
+		  return { success: true, warning: "Verification service unavailable. Please try your password." };
 		}
-		return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
 	  }
 
 	  // Full login

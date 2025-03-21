@@ -13,6 +13,7 @@ import "react-toastify/dist/ReactToastify.css";
 import "@styles/global.css";
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { HelmetProvider } from "react-helmet-async";
+import { debounce } from 'lodash';
 
 interface RefineContextProps {}
 
@@ -105,13 +106,13 @@ const App = (props: React.PropsWithChildren<{}>) => {
   useEffect(() => {
     if (authUtils.isAuthenticated()) {
       console.log("[APP] Initializing token refresh mechanism");
-      authUtils.setupRefreshTimer(); // No parameters as per updated authUtils
+      authUtils.setupRefreshTimer(); // No parameters
     }
   }, []);
 
-  // Auth check effect
-  useEffect(() => {
-    const checkAuthentication = async () => {
+  // Create a debounced version of the auth check function
+  const debouncedAuthCheck = useRef(
+    debounce(async () => {
       if (isCheckingAuthRef.current || status === "loading") return;
       isCheckingAuthRef.current = true;
 
@@ -129,18 +130,26 @@ const App = (props: React.PropsWithChildren<{}>) => {
       } finally {
         isCheckingAuthRef.current = false;
       }
-    };
+    }, 300) // 300ms debounce
+  ).current;
 
-    checkAuthentication();
+  // Auth check effect with debouncing
+  useEffect(() => {
+    debouncedAuthCheck();
+    
+    // Clean up the debounced function when component unmounts
+    return () => debouncedAuthCheck.cancel();
   }, [status, session]);
 
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
+      // Extract returnUrl if it exists
       const { providerName, email, password, returnUrl } = params;
       
       if (params.providerName === "auth0" || params.providerName === "google") {
-        signIn(params.providerName, { callbackUrl: "/jobs", redirect: true });
+        const callbackUrl = returnUrl || "/jobs";
+        signIn(params.providerName, { callbackUrl, redirect: true });
         return { success: false, error: { message: `Redirecting to ${params.providerName}...`, name: params.providerName } };
       }
 
@@ -151,7 +160,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           authUtils.setupRefreshTimer();
           setAuthState({ isChecking: false, isAuthenticated: true, initialized: true });
           notificationProvider.open({ message: "Welcome back!", type: "success", key: "login-success" });
-          return { ...result, redirectTo: "/jobs" };
+          return { ...result, redirectTo: returnUrl || "/jobs" };
         }
 
         if (!result.success) {
@@ -165,9 +174,20 @@ const App = (props: React.PropsWithChildren<{}>) => {
         return result;
       } catch (error) {
         console.error("Login error:", error);
+        
+        // Enhanced error messages for common scenarios
+        let errorMessage = "An unexpected error occurred";
+        if (error instanceof Error) {
+          if (!navigator.onLine) {
+            errorMessage = "You appear to be offline. Please check your internet connection and try again.";
+          } else if (error.message.includes("timeout") || error.message.includes("NetworkError")) {
+            errorMessage = "Connection timed out. The server may be busy or experiencing issues.";
+          }
+        }
+        
         notificationProvider.open({
           message: "Login Error",
-          description: "An unexpected error occurred",
+          description: errorMessage,
           type: "error",
           key: "login-error",
         });
