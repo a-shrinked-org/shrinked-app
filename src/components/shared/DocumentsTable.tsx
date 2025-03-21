@@ -60,6 +60,8 @@ export interface ExtraColumn<T extends ProcessedDocument> {
 
 export type StatusIndicatorStyle = 'default' | 'whiteFilled' | 'whiteOutlined';
 
+// Update the onRefresh property in your DocumentsTableProps interface
+
 interface DocumentsTableProps<T extends ProcessedDocument> {
   data: T[];
   docToJobMapping?: Record<string, string>;
@@ -69,7 +71,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   onRowClick?: (doc: T) => void;
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>; // Updated type definition
   onAddNew?: () => void;
   error?: any;
   title?: string;
@@ -168,21 +170,12 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     // Call provided onRefresh if it exists
     if (onRefresh) {
       try {
-        const result = onRefresh();
-        
-        // If onRefresh returns a promise, wait for it
-        if (result instanceof Promise) {
-          result.finally(() => {
-            setIsRefreshing(false);
-            setRefreshCounter(prev => prev + 1);
-          });
-        } else {
-          // If not a promise, just simulate a brief loading state
-          setTimeout(() => {
-            setIsRefreshing(false);
-            setRefreshCounter(prev => prev + 1);
-          }, 500);
-        }
+        // Always treat the result as a Promise using Promise.resolve
+        // This handles both Promise and non-Promise returns
+        Promise.resolve(onRefresh()).finally(() => {
+          setIsRefreshing(false);
+          setRefreshCounter(prev => prev + 1);
+        });
       } catch (error) {
         console.error("Error during refresh:", error);
         setIsRefreshing(false);
@@ -197,7 +190,6 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
   };
 
   // Updated renderComingSoonState function
-// Replace the renderComingSoonState function in DocumentsTable with this:
   
   const renderComingSoonState = () => (
     <Box style={{ 
