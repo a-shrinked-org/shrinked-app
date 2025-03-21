@@ -32,12 +32,31 @@ interface ExtendedApiKey extends ProcessedDocument {
   keyValue?: string;
 }
 
+// Custom title renderer to only show title without description
+const titleRenderer = (doc: ExtendedApiKey) => {
+  return (
+    <div style={{ overflow: 'hidden' }}>
+      <div style={{ 
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        fontWeight: 500,
+        fontSize: '16px'
+      }}>
+        {doc.title || doc.output?.title || doc.fileName || 'Unnamed API Key'}
+      </div>
+    </div>
+  );
+};
+
 export default function ApiKeysList() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Add refresh counter state to force re-renders
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   // API URL for listing API keys
   const apiKeysUrl = `${API_CONFIG.API_URL}/users/api-keys`;
@@ -47,6 +66,9 @@ export default function ApiKeysList() {
     resource: "users/api-keys",
     queryOptions: {
       enabled: !!authUtils.isAuthenticated(),
+      // Add cache options for better refresh behavior
+      cacheTime: 5000, // 5 seconds cache
+      staleTime: 0, // Always consider data stale
     },
     pagination: {
       pageSize: 100,
@@ -73,7 +95,7 @@ export default function ApiKeysList() {
     if (authUtils.isAuthenticated()) {
       refetch();
     }
-  }, [refetch]);
+  }, [refetch, refreshCounter]); // Add refreshCounter to dependencies
 
   const handleViewDocument = (apiKey: ExtendedApiKey) => {
     console.log("Viewing API key:", apiKey);
@@ -95,8 +117,13 @@ export default function ApiKeysList() {
     }
   };
 
+  // Improved handleRefresh function
   const handleRefresh = () => {
+    console.log("Refresh button clicked in API Keys page");
+    // Call refetch without parameters to avoid type errors
     refetch();
+    // Update counter to force re-render
+    setRefreshCounter(prev => prev + 1);
   };
 
   const handleCreateApiKey = async () => {
@@ -126,15 +153,23 @@ export default function ApiKeysList() {
   const formatApiKeyData = (apiKeys: ApiKey[]): ExtendedApiKey[] => {
     return apiKeys.map(key => ({
       _id: key.id,
-      title: key.name || 'Unnamed API Key',
+      // Change title to all caps
+      title: (key.name || 'UNNAMED API KEY').toUpperCase(),
       fileName: key.key.length > 16 ? 
         `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
         key.key,
       createdAt: key.createdAt || new Date().toISOString(),
-      status: 'active',
-      output: { title: key.name },
+      // Change status to "completed" so it shows green instead of yellow
+      status: 'completed',
+      output: { 
+        title: (key.name || 'UNNAMED API KEY').toUpperCase(),
+        // Remove description by setting to empty string
+        description: ''
+      },
       keyName: key.name,
-      keyValue: key.key
+      keyValue: key.key,
+      // Explicitly set description to empty to ensure it doesn't show
+      description: ''
     }));
   };
 
@@ -163,6 +198,7 @@ export default function ApiKeysList() {
   return (
     <>
       <DocumentsTable<ExtendedApiKey>
+        key={`api-keys-${refreshCounter}`} // Add key to force re-render
         data={formatApiKeyData(data?.data || [])}
         onView={handleViewDocument}
         onDelete={handleDelete}
@@ -170,15 +206,23 @@ export default function ApiKeysList() {
         isLoading={isLoadingKeys}
         onRefresh={handleRefresh}
         error={error}
-        title="API Keys"
+        // Change title to all caps
+        title="API KEYS"
         noDataMessage="No API keys found."
         onAddNew={() => setIsCreateModalOpen(true)}
+        // Add titleRenderer to customize title display
+        titleRenderer={titleRenderer}
       />
 
       <Modal
         opened={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         title="Create API Key"
+        styles={{
+          header: { backgroundColor: '#000000', color: '#ffffff' },
+          body: { backgroundColor: '#000000', color: '#ffffff' },
+          close: { color: '#ffffff' },
+        }}
       >
         <LoadingOverlay visible={isLoading} />
         <Stack gap="md">
@@ -191,10 +235,45 @@ export default function ApiKeysList() {
             value={keyName}
             onChange={(e) => setKeyName(e.target.value)}
             required
+            styles={{
+              input: {
+                backgroundColor: '#0d0d0d',
+                borderColor: '#2b2b2b',
+                color: '#ffffff',
+              },
+              label: {
+                color: '#ffffff',
+              },
+            }}
           />
           <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateApiKey} disabled={!keyName}>Create</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCreateModalOpen(false)}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateApiKey} 
+              disabled={!keyName}
+              styles={{
+                root: {
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              Create
+            </Button>
           </Group>
         </Stack>
       </Modal>
@@ -204,14 +283,19 @@ export default function ApiKeysList() {
         onClose={closeSuccessModal}
         title="Save your API key"
         size="lg"
+        styles={{
+          header: { backgroundColor: '#000000', color: '#ffffff' },
+          body: { backgroundColor: '#000000', color: '#ffffff' },
+          close: { color: '#ffffff' },
+        }}
       >
         <Alert title="Important!" color="red" mb="md">
           Keep a record of the key below. You won&apos;t be able to view it again.
         </Alert>
         
-        <Box p="md" bg="gray.1" style={{ borderRadius: '4px' }}>
+        <Box p="md" style={{ backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
           <Group justify="apart">
-            <Code style={{ fontSize: '14px', wordBreak: 'break-all' }}>
+            <Code style={{ fontSize: '14px', wordBreak: 'break-all', backgroundColor: '#1a1a1a', color: '#ffffff' }}>
               {newApiKey}
             </Code>
             <CopyButton value={newApiKey || ""} timeout={2000}>
@@ -231,11 +315,22 @@ export default function ApiKeysList() {
         
         <Text size="sm" mt="lg">
           You can use this API key to authenticate with the Shrinked API.
-          Include it in the <Code>x-api-key</Code> header in your requests.
+          Include it in the <Code style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>x-api-key</Code> header in your requests.
         </Text>
         
         <Group justify="center" mt="xl">
-          <Button onClick={closeSuccessModal}>
+          <Button 
+            onClick={closeSuccessModal}
+            styles={{
+              root: {
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#E09612',
+                },
+              },
+            }}
+          >
             I&apos;ve saved my API key
           </Button>
         </Group>
