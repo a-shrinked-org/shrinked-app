@@ -26,9 +26,122 @@ import {
   Send,
   Plus,
   ChevronRight,
-  Calendar
+  Calendar,
+  WifiOff,
+  ServerCrash
 } from 'lucide-react';
 import { GeistMono } from 'geist/font/mono';
+import { GeistSans } from 'geist/font/sans';
+import { toast } from 'react-toastify';
+
+// ErrorFallback component for better error handling
+function ErrorFallback({ 
+  error, 
+  onRetry 
+}: { 
+  error: any; 
+  onRetry?: () => void 
+}) {
+  const isOffline = !navigator.onLine;
+  const statusCode = 'statusCode' in error ? error.statusCode : undefined;
+  const isServerError = statusCode && statusCode >= 500;
+  
+  const getErrorIcon = () => {
+    if (isOffline) return <WifiOff size={36} color="#EAA944" />;
+    if (isServerError) return <ServerCrash size={36} color="#EAA944" />;
+    return <ServerCrash size={36} color="#EAA944" />;
+  };
+
+  const getErrorTitle = () => {
+    if (isOffline) return "You're offline";
+    if (isServerError) return "Server is unavailable";
+    return "Connection error";
+  };
+
+  const getErrorMessage = () => {
+    if (isOffline) {
+      return "Check your internet connection and try again.";
+    }
+    
+    if (isServerError) {
+      return "Our server is currently unavailable. This is likely a temporary issue.";
+    }
+    
+    return "There was a problem connecting to the server. This might be a temporary issue.";
+  };
+
+  return (
+    <Box
+      p="xl"
+      style={{
+        backgroundColor: '#0D0D0D',
+        borderRadius: '8px',
+        border: '1px solid #2b2b2b',
+        width: '100%',
+        maxWidth: '500px',
+        margin: '0 auto'
+      }}
+    >
+      <Stack align="center" spacing="md">
+        {getErrorIcon()}
+        
+        <Text 
+          size="lg" 
+          weight={600} 
+          style={{ 
+            fontFamily: GeistMono.style.fontFamily,
+            marginTop: '16px'
+          }}
+        >
+          {getErrorTitle()}
+        </Text>
+        
+        <Text 
+          align="center"
+          c="gray.4"
+          style={{ 
+            fontFamily: GeistSans.style.fontFamily || 'system-ui, sans-serif',
+            fontSize: '14px',
+            maxWidth: '380px'
+          }}
+        >
+          {getErrorMessage()}
+        </Text>
+        
+        {error.message && !isOffline && (
+          <Text 
+            size="sm" 
+            c="gray.6" 
+            align="center"
+            style={{ 
+              fontFamily: GeistMono.style.fontFamily,
+              fontSize: '12px',
+              padding: '8px 12px',
+              backgroundColor: '#000000',
+              borderRadius: '4px',
+              width: '100%'
+            }}
+          >
+            {error.message}
+          </Text>
+        )}
+        
+        <Button
+          onClick={onRetry}
+          leftSection={<RefreshCw size={16} />}
+          style={{
+            backgroundColor: '#EAA944',
+            color: '#000000',
+            fontFamily: GeistMono.style.fontFamily,
+            marginTop: '16px',
+          }}
+        >
+          RETRY
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
 
 export interface ProcessedDocument {
   _id: string;
@@ -161,13 +274,46 @@ function DocumentsTable<T extends ProcessedDocument>({
     
     if (onRefresh) {
       try {
-        Promise.resolve(onRefresh()).finally(() => {
-          setIsRefreshing(false);
-          setRefreshCounter(prev => prev + 1);
-        });
+        const refreshPromise = Promise.resolve(onRefresh());
+        
+        refreshPromise
+          .catch(err => {
+            // If offline, show toast notification
+            if (!navigator.onLine) {
+              toast.error("You're offline. Please check your connection and try again.", {
+                position: "top-center",
+                autoClose: 5000,
+                theme: "dark"
+              });
+            } else if (err?.statusCode && err.statusCode >= 500) {
+              toast.error("Server is temporarily unavailable. Please try again later.", {
+                position: "top-center",
+                autoClose: 5000,
+                theme: "dark"
+              });
+            } else {
+              toast.error("Connection error. Please try again.", {
+                position: "top-center",
+                autoClose: 5000,
+                theme: "dark"
+              });
+            }
+            console.error("Error during refresh:", err);
+          })
+          .finally(() => {
+            setIsRefreshing(false);
+            setRefreshCounter(prev => prev + 1);
+          });
       } catch (error) {
         console.error("Error during refresh:", error);
         setIsRefreshing(false);
+        
+        // Show toast notification for error
+        toast.error("An error occurred. Please try again.", {
+          position: "top-center",
+          autoClose: 5000,
+          theme: "dark"
+        });
       }
     } else {
       setTimeout(() => {
@@ -425,14 +571,21 @@ function DocumentsTable<T extends ProcessedDocument>({
   
   if (error) {
     return (
-      <Box p="md" style={{ backgroundColor: '#000000' }}>
-        <Alert 
-          icon={<AlertCircle size={16} />} 
-          title="Error loading data" 
-          color="red"
-        >
-          {error.message || "Failed to load data. Please try again."}
-        </Alert>
+      <Box p="md" style={{ 
+        backgroundColor: '#000000',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '300px'
+      }}>
+        <ErrorFallback 
+          error={error} 
+          onRetry={() => {
+            if (onRefresh) {
+              handleRefreshClick();
+            }
+          }} 
+        />
       </Box>
     );
   }
@@ -748,195 +901,195 @@ function DocumentsTable<T extends ProcessedDocument>({
                                 variant="subtle"
                                 size="sm"
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEmailClick(doc._id, e);
-                                }}
-                                style={{
-                                  color: '#ffffff',
-                                }}
-                              >
-                                <Mail size={14} />
-                              </ActionIcon>
-                            )}
-                            {onDelete && (
-                              <ActionIcon 
-                                variant="subtle"
-                                size="sm"
-                                color="red"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDelete(doc._id, e);
-                                }}
-                              >
-                                <Trash size={14} />
-                              </ActionIcon>
-                            )}
-                          </Group>
-                        )}
-                      </Flex>
-                    )}
-                  </Box>
-                </Flex>
-              </Box>
-            );
-          })}
-        </Stack>
-      ) : (
-        <Box p="xl" style={{ textAlign: 'center' }}>
-          <Text c="#a1a1a1">{noDataMessage}</Text>
-        </Box>
-      )}
-    </Box>
-  );
-  
-  return (
-    <Box style={{ 
-      backgroundColor: '#000000', 
-      color: '#ffffff', 
-      height: '100%',
-      width: '100%',
-      maxWidth: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
-      <Flex justify="space-between" align="center" p="sm" style={{ 
-        borderBottom: '1px solid #2b2b2b',
-        flexShrink: 0
-      }}>
-        <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
-        <Group>
-          {(onRefresh || comingSoon) && (
-            <Button
-              variant="subtle"
-              onClick={handleRefreshClick}
-              leftSection={<RefreshCw size={14} />}
-              loading={isLoading || isRefreshing}
-              styles={{
-                root: {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  fontWeight: 500,
-                  textTransform: 'uppercase',
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  border: 'none',
-                  '&:hover': {
-                    backgroundColor: '#1a1a1a',
-                  },
-                },
-              }}
-            >
-              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
-            </Button>
-          )}
-          
-          {onAddNew && !comingSoon && (
-            <Button
-              variant="filled"
-              onClick={onAddNew}
-              rightSection={<Plus size={16} />}
-              styles={{
-                root: {
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E09612',
-                  },
-                },
-              }}
-            >
-              <Text size="xs">ADD NEW JOB</Text>
-            </Button>
-          )}
-        </Group>
-      </Flex>
-  
-      {comingSoon ? (
-        renderComingSoonState()
-      ) : (
-        <Box style={{ 
-          width: '100%', 
-          maxWidth: '100%', 
-          overflowX: 'hidden',
-          flex: 1
-        }}>
-          {!isMobile ? renderDesktopView() : renderMobileView()}
-        </Box>
-      )}
-
-      <Modal
-        opened={emailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        title="Send to Email"
-        centered
-        styles={{
-          header: { backgroundColor: '#000000', color: '#ffffff' },
-          body: { backgroundColor: '#000000', color: '#ffffff' },
-          close: { color: '#ffffff' },
-        }}
-      >
-        <Box>
-          <TextInput
-            label="Email Address"
-            placeholder="Enter email address"
-            value={emailAddress}
-            onChange={(e) => setEmailAddress(e.target.value)}
-            required
-            styles={{
-              input: {
-                backgroundColor: '#0d0d0d',
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-              },
-              label: {
-                color: '#ffffff',
-              },
-            }}
-          />
-          <Group justify="flex-end" mt="md">
-            <Button
-              variant="outline"
-              onClick={() => setEmailModalOpen(false)}
-              styles={{
-                root: {
-                  borderColor: '#2b2b2b',
-                  color: '#ffffff',
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSendEmail}
-              leftSection={<Send size={16} />}
-              loading={sendingEmail}
-              disabled={!emailAddress}
-              styles={{
-                root: {
-                  backgroundColor: '#ffffff',
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#e0e0e0',
-                  },
-                },
-              }}
-            >
-              Send
-            </Button>
-          </Group>
-        </Box>
-      </Modal>
-    </Box>
-  );
-}
-
-export default DocumentsTable;
+                                                                  e.stopPropagation();
+                                                                  handleEmailClick(doc._id, e);
+                                                                }}
+                                                                style={{
+                                                                  color: '#ffffff',
+                                                                }}
+                                                              >
+                                                                <Mail size={14} />
+                                                              </ActionIcon>
+                                                            )}
+                                                            {onDelete && (
+                                                              <ActionIcon 
+                                                                variant="subtle"
+                                                                size="sm"
+                                                                color="red"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  onDelete(doc._id, e);
+                                                                }}
+                                                              >
+                                                                <Trash size={14} />
+                                                              </ActionIcon>
+                                                            )}
+                                                          </Group>
+                                                        )}
+                                                      </Flex>
+                                                    )}
+                                                  </Box>
+                                                </Flex>
+                                              </Box>
+                                            );
+                                          })}
+                                        </Stack>
+                                      ) : (
+                                        <Box p="xl" style={{ textAlign: 'center' }}>
+                                          <Text c="#a1a1a1">{noDataMessage}</Text>
+                                        </Box>
+                                      )}
+                                    </Box>
+                                  );
+                                  
+                                  return (
+                                    <Box style={{ 
+                                      backgroundColor: '#000000', 
+                                      color: '#ffffff', 
+                                      height: '100%',
+                                      width: '100%',
+                                      maxWidth: '100%',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      overflow: 'hidden'
+                                    }}>
+                                      <Flex justify="space-between" align="center" p="sm" style={{ 
+                                        borderBottom: '1px solid #2b2b2b',
+                                        flexShrink: 0
+                                      }}>
+                                        <Text size="sm" fw={500} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px' }}>{title}</Text>
+                                        <Group>
+                                          {(onRefresh || comingSoon) && (
+                                            <Button
+                                              variant="subtle"
+                                              onClick={handleRefreshClick}
+                                              leftSection={<RefreshCw size={14} />}
+                                              loading={isLoading || isRefreshing}
+                                              styles={{
+                                                root: {
+                                                  backgroundColor: 'transparent',
+                                                  color: '#ffffff',
+                                                  fontWeight: 500,
+                                                  textTransform: 'uppercase',
+                                                  fontFamily: GeistMono.style.fontFamily,
+                                                  fontSize: '14px',
+                                                  letterSpacing: '0.5px',
+                                                  padding: '8px 16px',
+                                                  border: 'none',
+                                                  '&:hover': {
+                                                    backgroundColor: '#1a1a1a',
+                                                  },
+                                                },
+                                              }}
+                                            >
+                                              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
+                                            </Button>
+                                          )}
+                                          
+                                          {onAddNew && !comingSoon && (
+                                            <Button
+                                              variant="filled"
+                                              onClick={onAddNew}
+                                              rightSection={<Plus size={16} />}
+                                              styles={{
+                                                root: {
+                                                  fontFamily: GeistMono.style.fontFamily,
+                                                  fontSize: '14px',
+                                                  fontWeight: 400,
+                                                  textTransform: 'uppercase',
+                                                  letterSpacing: '0.5px',
+                                                  padding: '8px 16px',
+                                                  backgroundColor: '#F5A623',
+                                                  color: '#000000',
+                                                  '&:hover': {
+                                                    backgroundColor: '#E09612',
+                                                  },
+                                                },
+                                              }}
+                                            >
+                                              <Text size="xs">ADD NEW JOB</Text>
+                                            </Button>
+                                          )}
+                                        </Group>
+                                      </Flex>
+                                  
+                                      {comingSoon ? (
+                                        renderComingSoonState()
+                                      ) : (
+                                        <Box style={{ 
+                                          width: '100%', 
+                                          maxWidth: '100%', 
+                                          overflowX: 'hidden',
+                                          flex: 1
+                                        }}>
+                                          {!isMobile ? renderDesktopView() : renderMobileView()}
+                                        </Box>
+                                      )}
+                                
+                                      <Modal
+                                        opened={emailModalOpen}
+                                        onClose={() => setEmailModalOpen(false)}
+                                        title="Send to Email"
+                                        centered
+                                        styles={{
+                                          header: { backgroundColor: '#000000', color: '#ffffff' },
+                                          body: { backgroundColor: '#000000', color: '#ffffff' },
+                                          close: { color: '#ffffff' },
+                                        }}
+                                      >
+                                        <Box>
+                                          <TextInput
+                                            label="Email Address"
+                                            placeholder="Enter email address"
+                                            value={emailAddress}
+                                            onChange={(e) => setEmailAddress(e.target.value)}
+                                            required
+                                            styles={{
+                                              input: {
+                                                backgroundColor: '#0d0d0d',
+                                                borderColor: '#2b2b2b',
+                                                color: '#ffffff',
+                                              },
+                                              label: {
+                                                color: '#ffffff',
+                                              },
+                                            }}
+                                          />
+                                          <Group justify="flex-end" mt="md">
+                                            <Button
+                                              variant="outline"
+                                              onClick={() => setEmailModalOpen(false)}
+                                              styles={{
+                                                root: {
+                                                  borderColor: '#2b2b2b',
+                                                  color: '#ffffff',
+                                                },
+                                              }}
+                                            >
+                                              Cancel
+                                            </Button>
+                                            <Button
+                                              onClick={handleSendEmail}
+                                              leftSection={<Send size={16} />}
+                                              loading={sendingEmail}
+                                              disabled={!emailAddress}
+                                              styles={{
+                                                root: {
+                                                  backgroundColor: '#ffffff',
+                                                  color: '#000000',
+                                                  '&:hover': {
+                                                    backgroundColor: '#e0e0e0',
+                                                  },
+                                                },
+                                              }}
+                                            >
+                                              Send
+                                            </Button>
+                                          </Group>
+                                        </Box>
+                                      </Modal>
+                                    </Box>
+                                  );
+                                }
+                                
+                                export default DocumentsTable;

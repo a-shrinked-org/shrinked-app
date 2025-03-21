@@ -13,7 +13,8 @@ import {
   Alert,
   Code,
   Flex, 
-  Collapse
+  Collapse,
+  Skeleton
 } from '@mantine/core';
 import { 
   ArrowLeft, 
@@ -294,7 +295,6 @@ export default function JobShow() {
     }
   }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
 
-  // Fetch markdown immediately if processing is complete
   useEffect(() => {
     const processingStep = queryResult.data?.data?.steps?.find(step => 
       step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
@@ -312,6 +312,33 @@ export default function JobShow() {
     );
     return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
   };
+
+  const renderSkeletonLoader = () => (
+    <Flex style={{ flex: 1, overflow: 'hidden' }}>
+      <Box style={{ flex: 1, padding: '24px' }}>
+        <Box style={{ maxWidth: '750px', margin: '0 auto' }}>
+          <Skeleton height={20} width="100px" mb="lg" />
+          <Skeleton height={40} width="70%" mb="xs" />
+          <Skeleton height={16} width="50%" mb="lg" />
+          <Skeleton height={40} width="100%" mb="md" />
+          <Skeleton height={200} width="100%" />
+        </Box>
+      </Box>
+      <Box style={{ 
+        width: '384px', 
+        borderLeft: '1px solid #2B2B2B', 
+        padding: '1.5rem',
+        backgroundColor: '#000000'
+      }}>
+        <Skeleton height={20} width="80%" mb="md" />
+        <Skeleton height={16} width="60%" mb="xs" />
+        <Skeleton height={16} width="40%" mb="md" />
+        <Skeleton height={16} width="70%" mb="xs" />
+        <Skeleton height={16} width="50%" mb="md" />
+        <Skeleton height={100} width="100%" />
+      </Box>
+    </Flex>
+  );
 
   const renderPreviewContent = () => {
     const status = getProcessingStatus();
@@ -469,9 +496,102 @@ export default function JobShow() {
 
   if (isLoading) {
     return (
-      <Box>
-        <LoadingOverlay visible />
-        <Text>Loading...</Text>
+      <Box style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '100vh', 
+        backgroundColor: '#0a0a0a', 
+        color: '#ffffff' 
+      }}>
+        <Flex 
+          justify="space-between" 
+          align="center" 
+          p="sm" 
+          style={{ 
+            borderBottom: '1px solid #2b2b2b', 
+            flexShrink: 0,
+            backgroundColor: '#000000'
+          }}
+        >
+          <Text 
+            size="sm" 
+            fw={500} 
+            style={{ 
+              fontFamily: GeistMono.style.fontFamily, 
+              letterSpacing: '0.5px' 
+            }}
+          >
+            JOB DETAILS
+          </Text>
+          <Group gap="xs">
+            <Button 
+              variant="subtle" 
+              leftSection={<ArrowLeft size={14} />}
+              onClick={() => list('jobs')}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
+            >
+              BACK
+            </Button>
+            <Button 
+              variant="subtle"
+              leftSection={<Share size={14} />}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
+            >
+              SHARE
+            </Button>
+            <Button 
+              variant="filled"
+              leftSection={<Download size={14} />}
+              disabled
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              DOWNLOAD
+            </Button>
+          </Group>
+        </Flex>
+        {renderSkeletonLoader()}
       </Box>
     );
   }
@@ -605,214 +725,303 @@ export default function JobShow() {
         </Group>
       </Flex>
 
-      <Flex style={{ flex: 1, overflow: 'hidden' }}>
-        <Box style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          overflowX: 'hidden',
-          backgroundColor: '#0a0a0a'
-        }}>
+      {isDocLoading ? renderSkeletonLoader() : (
+        <Flex style={{ flex: 1, overflow: 'hidden' }}>
           <Box style={{ 
-            maxWidth: '750px', 
-            margin: '0 auto', 
-            padding: '24px' 
+            flex: 1, 
+            overflowY: 'auto', 
+            overflowX: 'hidden',
+            backgroundColor: '#0a0a0a'
           }}>
-            <Box mb="lg">
-              <Badge 
-                size="sm"
-                variant="filled"
-                styles={{
-                  root: {
-                    backgroundColor: '#2B2B2B',
-                    color: '#A1A1A1',
-                    textTransform: 'uppercase',
-                    fontSize: '11px',
-                    fontFamily: GeistMono.style.fontFamily,
-                    marginBottom: '8px',
-                  }
-                }}
-              >
-                {record?.isPublic ? 'Public' : 'Private'}
-              </Badge>
-              <Text 
-                size="28px" 
-                fw={600} 
-                style={{ 
-                  fontFamily: 'Geist, sans-serif',
-                  lineHeight: 1.2
-                }}
-              >
-                {processingDoc?.title || record?.jobName || 'Untitled Job'}
-              </Text>
-              <Text c="dimmed" mt="xs" size="sm">
-                {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
-                 record?.link ? getFilenameFromLink(record.link) : 
-                 'No source file'}
-              </Text>
-            </Box>
-
-            <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
-              <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
-                <Tabs.Tab 
-                  value="preview"
+            <Box style={{ 
+              maxWidth: '750px', 
+              margin: '0 auto', 
+              padding: '24px' 
+            }}>
+              <Box mb="lg">
+                <Badge 
+                  size="sm"
+                  variant="filled"
                   styles={{
-                    tab: {
-                      backgroundColor: 'transparent',
-                      color: '#a1a1a1',
-                      '&[data-active]': {
-                        borderBottom: '2px solid #ffffff',
-                        color: '#ffffff',
-                      },
-                    },
+                    root: {
+                      backgroundColor: '#2B2B2B',
+                      color: '#A1A1A1',
+                      textTransform: 'uppercase',
+                      fontSize: '11px',
+                      fontFamily: GeistMono.style.fontFamily,
+                      marginBottom: '8px',
+                    }
                   }}
                 >
-                  Preview
-                </Tabs.Tab>
-                <Tabs.Tab 
-                  value="json"
-                  styles={{
-                    tab: {
-                      backgroundColor: 'transparent',
-                      color: '#a1a1a1',
-                      '&[data-active]': {
-                        borderBottom: '2px solid #ffffff',
-                        color: '#ffffff',
-                      },
-                    },
+                  {record?.isPublic ? 'Public' : 'Private'}
+                </Badge>
+                <Text 
+                  size="28px" 
+                  fw={600} 
+                  style={{ 
+                    fontFamily: 'Geist, sans-serif',
+                    lineHeight: 1.2
                   }}
                 >
-                  JSON
-                </Tabs.Tab>
-                <Tabs.Tab 
-                  value="question" 
-                  disabled
-                  rightSection={
-                    <Badge 
-                      style={{ backgroundColor: '#291e3f', color: '#9e8bc3' }}
-                      size="xs"
-                    >
-                      Coming soon
-                    </Badge>
-                  }
-                  styles={{
-                    tab: {
-                      backgroundColor: 'transparent',
-                      color: '#a1a1a1',
-                      '&[data-active]': {
-                        borderBottom: '2px solid #ffffff',
-                        color: '#ffffff',
-                      },
-                    },
-                  }}
-                >
-                  Ask a question
-                </Tabs.Tab>
-              </Tabs.List>
-              
-              <Tabs.Panel value="preview" pt="md">
-                {renderPreviewContent()}
-              </Tabs.Panel>
-
-              <Tabs.Panel value="json" pt="md">
-                <Box style={{ 
-                  backgroundColor: '#131313', 
-                  padding: '16px', 
-                  borderRadius: 8,
-                  width: '100%'
-                }}>
-                  <Code
-                    block
-                    style={{
-                      backgroundColor: '#1a1a1a',
-                      color: '#e0e0e0',
-                      padding: '16px',
-                      borderRadius: '8px',
-                      overflow: 'auto',
-                      maxHeight: '70vh',
-                      fontSize: '0.9rem',
-                      fontFamily: 'monospace',
-                      lineHeight: 1.5,
-                      border: '1px solid #333',
-                      width: '100%',
-                      maxWidth: '100%',
-                      wordBreak: 'break-word',
-                      whiteSpace: 'pre-wrap'
-                    }}
-                  >
-                    {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}
-                  </Code>
-                </Box>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="question" pt="md">
-                <Box style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
-                  Question interface would appear here
-                </Box>
-              </Tabs.Panel>
-            </Tabs>
-          </Box>
-        </Box>
-
-        <Box style={{ 
-          width: '384px', 
-          borderLeft: '1px solid #2B2B2B', 
-          padding: '1.5rem',
-          backgroundColor: '#000000',
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowY: 'auto'
-        }}>
-          <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-            <Box>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Duration
-              </Text>
-              <Text>{formatDuration(record?.totalDuration)}</Text>
-            </Box>
-            <Box>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Tokens
-              </Text>
-              <Text>{record?.totalTokenUsage || 'N/A'}</Text>
-            </Box>
-            {record?.steps?.find(step => step.name === "UPLOAD_FILE")?.data?.lang && (
-              <Box>
-                <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                  Language
+                  {processingDoc?.title || record?.jobName || 'Untitled Job'}
                 </Text>
-                <Text>
-                  {record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'en' ? 'English' : 
-                   record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'uk' ? 'Ukrainian' : 
-                   record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang || 'Unknown'}
+                <Text c="dimmed" mt="xs" size="sm">
+                  {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
+                   record?.link ? getFilenameFromLink(record.link) : 
+                   'No source file'}
                 </Text>
               </Box>
-            )}
-          </Box>
-          
-          <Box style={{ marginTop: '2rem' }}>
-            <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              Logic steps / events
-            </Text>
-            <Box style={{ position: 'relative' }}>
-              <Box style={{ 
-                position: 'absolute', 
-                left: '24px', 
-                top: '24px', 
-                bottom: record?.steps && record.steps.length > 0 ? '24px' : '0', 
-                width: '1px', 
-                backgroundColor: '#2B2B2B' 
-              }} />
-              {record?.steps?.map((step, index) => {
-                const isCompleted = step.status?.toLowerCase() === 'completed';
-                const isError = step.status?.toLowerCase().includes('error') || 
-                                step.status?.toLowerCase().includes('failed');
-                const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
-                const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
-                const isLastStep = index === (record?.steps?.length || 0) - 1;
+
+              <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
+                <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
+                  <Tabs.Tab 
+                    value="preview"
+                    styles={{
+                      tab: {
+                        backgroundColor: 'transparent',
+                        color: '#a1a1a1',
+                        '&[data-active]': {
+                          borderBottom: '2px solid #ffffff',
+                          color: '#ffffff',
+                        },
+                      },
+                    }}
+                  >
+                    Preview
+                  </Tabs.Tab>
+                  <Tabs.Tab 
+                    value="json"
+                    styles={{
+                      tab: {
+                        backgroundColor: 'transparent',
+                        color: '#a1a1a1',
+                        '&[data-active]': {
+                          borderBottom: '2px solid #ffffff',
+                          color: '#ffffff',
+                        },
+                      },
+                    }}
+                  >
+                    JSON
+                  </Tabs.Tab>
+                  <Tabs.Tab 
+                    value="question" 
+                    disabled
+                    rightSection={
+                      <Badge 
+                        style={{ backgroundColor: '#291e3f', color: '#9e8bc3' }}
+                        size="xs"
+                      >
+                        Coming soon
+                      </Badge>
+                    }
+                    styles={{
+                      tab: {
+                        backgroundColor: 'transparent',
+                        color: '#a1a1a1',
+                        '&[data-active]': {
+                          borderBottom: '2px solid #ffffff',
+                          color: '#ffffff',
+                        },
+                      },
+                    }}
+                  >
+                    Ask a question
+                  </Tabs.Tab>
+                </Tabs.List>
                 
-                return (
-                  <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
+                <Tabs.Panel value="preview" pt="md">
+                  {renderPreviewContent()}
+                </Tabs.Panel>
+
+                <Tabs.Panel value="json" pt="md">
+                  <Box style={{ 
+                    backgroundColor: '#131313', 
+                    padding: '16px', 
+                    borderRadius: 8,
+                    width: '100%'
+                  }}>
+                    <Code
+                      block
+                      style={{
+                        backgroundColor: '#1a1a1a',
+                        color: '#e0e0e0',
+                        padding: '16px',
+                        borderRadius: '8px',
+                        overflow: 'auto',
+                        maxHeight: '70vh',
+                        fontSize: '0.9rem',
+                        fontFamily: 'monospace',
+                        lineHeight: 1.5,
+                        border: '1px solid #333',
+                        width: '100%',
+                        maxWidth: '100%',
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {processingDoc ? JSON.stringify(processingDoc, null, 2) : 'No content available'}
+                    </Code>
+                  </Box>
+                </Tabs.Panel>
+
+                <Tabs.Panel value="question" pt="md">
+                  <Box style={{ padding: '16px', color: '#a1a1a1', borderRadius: 8 }}>
+                    Question interface would appear here
+                  </Box>
+                </Tabs.Panel>
+              </Tabs>
+            </Box>
+          </Box>
+
+          <Box style={{ 
+            width: '384px', 
+            borderLeft: '1px solid #2B2B2B', 
+            padding: '1.5rem',
+            backgroundColor: '#000000',
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflowY: 'auto'
+          }}>
+            <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+              <Box>
+                <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                  Duration
+                </Text>
+                <Text>{formatDuration(record?.totalDuration)}</Text>
+              </Box>
+              <Box>
+                <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                  Tokens
+                </Text>
+                <Text>{record?.totalTokenUsage || 'N/A'}</Text>
+              </Box>
+              {record?.steps?.find(step => step.name === "UPLOAD_FILE")?.data?.lang && (
+                <Box>
+                  <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                    Language
+                  </Text>
+                  <Text>
+                    {record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'en' ? 'English' : 
+                     record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang === 'uk' ? 'Ukrainian' : 
+                     record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.lang || 'Unknown'}
+                  </Text>
+                </Box>
+              )}
+            </Box>
+            
+            <Box style={{ marginTop: '2rem' }}>
+              <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Logic steps / events
+              </Text>
+              <Box style={{ position: 'relative' }}>
+                <Box style={{ 
+                  position: 'absolute', 
+                  left: '24px', 
+                  top: '24px', 
+                  bottom: record?.steps && record.steps.length > 0 ? '24px' : '0', 
+                  width: '1px', 
+                  backgroundColor: '#2B2B2B' 
+                }} />
+                {record?.steps?.map((step, index) => {
+                  const isCompleted = step.status?.toLowerCase() === 'completed';
+                  const isError = step.status?.toLowerCase().includes('error') || 
+                                  step.status?.toLowerCase().includes('failed');
+                  const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
+                  const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
+                  const isLastStep = index === (record?.steps?.length || 0) - 1;
+                  
+                  return (
+                    <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
+                      <Box style={{ 
+                        backgroundColor: '#000000',
+                        border: '1px solid #2B2B2B',
+                        borderRadius: '4px',
+                        padding: '12px',
+                        marginLeft: '48px',
+                        position: 'relative'
+                      }}>
+                        <Box style={{ 
+                          position: 'absolute',
+                          left: '-24px',
+                          top: '50%',
+                          width: '24px',
+                          height: '1px',
+                          backgroundColor: '#2B2B2B'
+                        }} />
+                        <Box style={{ 
+                          position: 'absolute',
+                          left: '-24px',
+                          top: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: '#000000',
+                          border: '1px solid #2B2B2B',
+                          zIndex: 2
+                        }} />
+                        {!isLastStep && (
+                          <Box style={{ 
+                            position: 'absolute',
+                            left: '-24px',
+                            top: 'calc(50% + 4px)',
+                            height: '48px',
+                            width: '1px',
+                            backgroundColor: '#2B2B2B',
+                            transform: 'translateX(-50%)',
+                            zIndex: 1
+                          }} />
+                        )}
+                        <Flex justify="space-between" align="center">
+                          <Text 
+                            style={{ 
+                              fontFamily: GeistMono.style.fontFamily, 
+                              fontSize: '14px',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}
+                          >
+                            {formatText(step.name)}
+                          </Text>
+                          <Group gap="sm">
+                            {step.totalDuration && (
+                              <Text 
+                                style={{ 
+                                  color: '#2B2B2B', 
+                                  fontSize: '12px',
+                                  fontFamily: GeistMono.style.fontFamily,
+                                }}
+                              >
+                                {formatDuration(step.totalDuration)}
+                              </Text>
+                            )}
+                            <Box style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              borderRadius: '50%',
+                              backgroundColor: isCompleted ? '#3DC28B' : 
+                                              isError ? '#FF4F56' : 
+                                              '#F5A623'
+                            }} />
+                          </Group>
+                        </Flex>
+                        {isCollapsible && (
+                          <Collapse in={true}>
+                            <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
+                              <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
+                                {JSON.stringify(step.data, null, 2)}
+                              </Text>
+                            </Box>
+                          </Collapse>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })}
+                {(!record?.steps || record.steps.length === 0) && (
+                  <Box style={{ marginBottom: '1rem', position: 'relative' }}>
                     <Box style={{ 
                       backgroundColor: '#000000',
                       border: '1px solid #2B2B2B',
@@ -823,138 +1032,51 @@ export default function JobShow() {
                     }}>
                       <Box style={{ 
                         position: 'absolute',
-                        left: '-24px',
+                        left: '-48px',
                         top: '50%',
-                        width: '24px',
+                        width: '48px',
                         height: '1px',
                         backgroundColor: '#2B2B2B'
                       }} />
                       <Box style={{ 
                         position: 'absolute',
-                        left: '-24px',
+                        left: '-48px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: '#000000',
+                        border: '1px solid #2B2B2B'
+                      }} />
+                      <Box style={{ 
+                        position: 'absolute',
+                        left: '-1px',
                         top: '50%',
                         transform: 'translate(-50%, -50%)',
                         width: '8px',
                         height: '8px',
                         borderRadius: '50%',
                         backgroundColor: '#000000',
-                        border: '1px solid #2B2B2B',
-                        zIndex: 2
+                        border: '1px solid #2B2B2B'
                       }} />
-                      {!isLastStep && (
-                        <Box style={{ 
-                          position: 'absolute',
-                          left: '-24px',
-                          top: 'calc(50% + 4px)',
-                          height: '48px',
-                          width: '1px',
-                          backgroundColor: '#2B2B2B',
-                          transform: 'translateX(-50%)',
-                          zIndex: 1
-                        }} />
-                      )}
-                      <Flex justify="space-between" align="center">
-                        <Text 
-                          style={{ 
-                            fontFamily: GeistMono.style.fontFamily, 
-                            fontSize: '14px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px'
-                          }}
-                        >
-                          {formatText(step.name)}
-                        </Text>
-                        <Group gap="sm">
-                          {step.totalDuration && (
-                            <Text 
-                              style={{ 
-                                color: '#2B2B2B', 
-                                fontSize: '12px',
-                                fontFamily: GeistMono.style.fontFamily,
-                              }}
-                            >
-                              {formatDuration(step.totalDuration)}
-                            </Text>
-                          )}
-                          <Box style={{ 
-                            width: '8px', 
-                            height: '8px', 
-                            borderRadius: '50%',
-                            backgroundColor: isCompleted ? '#3DC28B' : 
-                                            isError ? '#FF4F56' : 
-                                            '#F5A623'
-                          }} />
-                        </Group>
-                      </Flex>
-                      {isCollapsible && (
-                        <Collapse in={true}>
-                          <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
-                            <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
-                              {JSON.stringify(step.data, null, 2)}
-                            </Text>
-                          </Box>
-                        </Collapse>
-                      )}
+                      <Text 
+                        style={{ 
+                          fontFamily: GeistMono.style.fontFamily, 
+                          fontSize: '14px',
+                          color: '#A1A1A1',
+                        }}
+                      >
+                        No steps available
+                      </Text>
                     </Box>
                   </Box>
-                );
-              })}
-              {(!record?.steps || record.steps.length === 0) && (
-                <Box style={{ marginBottom: '1rem', position: 'relative' }}>
-                  <Box style={{ 
-                    backgroundColor: '#000000',
-                    border: '1px solid #2B2B2B',
-                    borderRadius: '4px',
-                    padding: '12px',
-                    marginLeft: '48px',
-                    position: 'relative'
-                  }}>
-                    <Box style={{ 
-                      position: 'absolute',
-                      left: '-48px',
-                      top: '50%',
-                      width: '48px',
-                      height: '1px',
-                      backgroundColor: '#2B2B2B'
-                    }} />
-                    <Box style={{ 
-                      position: 'absolute',
-                      left: '-48px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: '#000000',
-                      border: '1px solid #2B2B2B'
-                    }} />
-                    <Box style={{ 
-                      position: 'absolute',
-                      left: '-1px',
-                      top: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: '#000000',
-                      border: '1px solid #2B2B2B'
-                    }} />
-                    <Text 
-                      style={{ 
-                        fontFamily: GeistMono.style.fontFamily, 
-                        fontSize: '14px',
-                        color: '#A1A1A1',
-                      }}
-                    >
-                      No steps available
-                    </Text>
-                  </Box>
-                </Box>
-              )}
+                )}
+              </Box>
             </Box>
           </Box>
-        </Box>
-      </Flex>
+        </Flex>
+      )}
     </Box>
   );
 }
