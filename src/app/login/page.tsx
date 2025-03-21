@@ -73,12 +73,17 @@ export default function Login() {
   
     try {
       if (step === "email") {
+        // Check if email exists using the customAuthProvider
         const result = await customAuthProvider.login({ email: formData.email, password: "" });
+        
         if (result.success) {
+          // Email exists, prompt for password
           setStep("password");
         } else if (result.error?.name === "RegistrationRequired") {
+          // Email doesn't exist, start registration
           await handleRegistrationFlow();
         } else {
+          // Other error
           setError(result.error?.message || "Unable to verify email");
         }
       } else if (step === "password") {
@@ -89,26 +94,17 @@ export default function Login() {
           return;
         }
   
-        const response = await fetch("/api/auth-proxy/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, password: formData.password }),
-          credentials: "include",
+        // Use customAuthProvider for login
+        const result = await customAuthProvider.login({ 
+          email: formData.email, 
+          password: formData.password 
         });
-        const data = await response.json();
   
-        if (response.ok && data.success) {
-          // This is the missing piece - store tokens in localStorage
-          if (data.accessToken && data.refreshToken) {
-            authUtils.saveTokens(data.accessToken, data.refreshToken);
-            authUtils.setAuthenticatedState(true);
-            console.log("Login successful, tokens saved to localStorage");
-          } else {
-            console.warn("Login successful but tokens missing from response");
-          }
-          router.push("/jobs");
+        if (result.success) {
+          // Use router navigation for client-side redirect
+          router.push(result.redirectTo || "/jobs");
         } else {
-          setError(data.error?.message || "Invalid email or password");
+          setError(result.error?.message || "Invalid email or password");
         }
       }
     } catch (error) {
@@ -122,6 +118,7 @@ export default function Login() {
 
   const handleRegistrationFlow = async () => {
     try {
+      // Use customAuthProvider for registration
       const result = await customAuthProvider.register({ email: formData.email });
       if (result.success) {
         setStep("verification-sent");

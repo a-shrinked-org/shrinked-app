@@ -47,7 +47,7 @@ const cachedLoopsRequest = async (endpoint: string, email: string, body?: any) =
   }
   
   const method = body ? "POST" : "GET";
-  const url = `/api/loops?loops=${endpoint}&email=${encodeURIComponent(email)}`;
+  const url = `/api/loops?endpoint=${endpoint}&email=${encodeURIComponent(email)}`;
   
   try {
 	const response = await fetch(url, {
@@ -98,48 +98,24 @@ export const customAuthProvider: Required<AuthProvider> & {
 	  // Email check with Loops (only if no password provided)
 	  if (!password) {
 		try {
-		  // Check if email exists in Loops - use correct API endpoint format
-		  const response = await fetch(`/api/loops?endpoint=contacts/find&email=${encodeURIComponent(email)}`, {
-			method: "GET",
-			headers: { "Content-Type": "application/json" },
-		  });
+		  // Use cachedLoopsRequest for finding contacts in Loops
+		  const loopsResponse = await cachedLoopsRequest('contacts/find', email);
 		  
-		  if (response.ok) {
-			const data = await response.json();
-			if (Array.isArray(data) && data.length > 0) {
-			  return { success: true }; // Prompt for password
-			}
-			// Email not found in Loops, suggest registration
-			return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
-		  } else {
-			console.warn("Loops API check failed with status:", response.status);
-			
-			// Try fallback mechanism if Loops API fails
-			try {
-			  const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email }),
-			  });
-			  
-			  if (checkResponse.ok) {
-				const checkData = await checkResponse.json();
-				if (checkData.exists) {
-				  return { success: true }; // Prompt for password
-				}
-			  }
-			} catch (fallbackError) {
-			  console.error("Fallback email check failed:", fallbackError);
-			}
-			
-			// If all checks fail, assume registration is required
-			return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
+		  // If contact exists in Loops, prompt for password
+		  if (Array.isArray(loopsResponse) && loopsResponse.length > 0) {
+			return { success: true }; // Prompt for password
 		  }
+		  
+		  // Email not found in Loops, suggest registration
+		  return { 
+			success: false, 
+			error: { message: "Email not found. Please register.", name: "RegistrationRequired" } 
+		  };
 		} catch (error) {
 		  console.error("Loops check error:", error);
-		  // If the Loops API completely fails, try direct auth check
+		  
+		  // If Loops API fails, try direct auth check
 		  try {
-			// Try a lightweight check if the email exists in the auth system
 			const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
 			  method: "POST",
 			  headers: { "Content-Type": "application/json" },
@@ -156,8 +132,11 @@ export const customAuthProvider: Required<AuthProvider> & {
 			console.error("Fallback email check failed:", fallbackError);
 		  }
 		  
-		  // If we get here, email not found via either method
-		  return { success: false, error: { message: "Email not found. Please register.", name: "RegistrationRequired" } };
+		  // If all checks fail, assume registration is required
+		  return { 
+			success: false, 
+			error: { message: "Email not found. Please register.", name: "RegistrationRequired" } 
+		  };
 		}
 	  }
   
@@ -193,52 +172,47 @@ export const customAuthProvider: Required<AuthProvider> & {
 		error: { message: error instanceof Error ? error.message : "Login failed", name: "LoginError" },
 	  };
 	}
-  }
+  },
 
   async register(params: any) {
 	const { email, password, username } = params;
 
 	try {
-	  // Check if email exists in Loops
-	  const checkResponse = await fetch(`/api/loops?loops=contacts/find&email=${encodeURIComponent(email)}`, {
-		method: "GET",
-		headers: { "Content-Type": "application/json" },
-	  });
-	  const checkData = await checkResponse.json();
-	  if (checkResponse.ok && Array.isArray(checkData) && checkData.length > 0) {
+	  // Check if email exists in Loops using cachedLoopsRequest
+	  const checkData = await cachedLoopsRequest('contacts/find', email);
+	  
+	  if (Array.isArray(checkData) && checkData.length > 0) {
 		return { success: false, error: { message: "Email already registered", name: "EmailExists" } };
 	  }
 
 	  // Generate token and create contact
 	  const token = nanoid(21);
-	  const contactResponse = await fetch(`/api/loops?loops=contacts/create`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, registrationPending: true, validationEmailSent: true }),
+	  
+	  // Use cachedLoopsRequest for contact creation
+	  await cachedLoopsRequest('contacts/create', email, { 
+		email, 
+		registrationPending: true, 
+		validationEmailSent: true 
 	  });
-	  if (!contactResponse.ok) {
-		const errorData = await contactResponse.json();
-		throw new Error(errorData.message || "Failed to create contact");
-	  }
 
 	  // Send validation email
 	  const validationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify?token=${token}&email=${encodeURIComponent(email)}`;
-	  const emailResponse = await fetch(`/api/loops?loops=transactional`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-		  transactionalId: "cm7wuis1m08624etab0lrimzz",
-		  email,
-		  dataVariables: { "verify-url": validationUrl },
-		}),
+	  
+	  // Use cachedLoopsRequest for sending transactional email
+	  await cachedLoopsRequest('transactional', email, {
+		transactionalId: "cm7wuis1m08624etab0lrimzz",
+		email,
+		dataVariables: { "verify-url": validationUrl },
 	  });
-	  if (!emailResponse.ok) {
-		const errorData = await emailResponse.json();
-		throw new Error(errorData.message || "Failed to send validation email");
-	  }
 
 	  // Store pending user data
-	  localStorage.setItem("pendingUser", JSON.stringify({ email, username: username || email.split("@")[0], token, password }));
+	  localStorage.setItem("pendingUser", JSON.stringify({ 
+		email, 
+		username: username || email.split("@")[0], 
+		token, 
+		password 
+	  }));
+	  
 	  return { success: true };
 	} catch (error) {
 	  return {
@@ -386,11 +360,12 @@ export const customAuthProvider: Required<AuthProvider> & {
 	  authUtils.saveTokens(data.accessToken, data.refreshToken);
 	  authUtils.setAuthenticatedState(true);
 
-	  // Update Loops contact
-	  await fetch(`/api/loops?loops=contacts/update`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, emailVerified: true, registrationPending: false, registrationComplete: true }),
+	  // Update Loops contact using cachedLoopsRequest
+	  await cachedLoopsRequest('contacts/update', email, {
+		email, 
+		emailVerified: true, 
+		registrationPending: false, 
+		registrationComplete: true
 	  }).catch(() => {}); // Ignore Loops update errors
 
 	  localStorage.removeItem("pendingUser");
