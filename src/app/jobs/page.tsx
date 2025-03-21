@@ -62,6 +62,8 @@ export default function JobList() {
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  // Add refresh counter state
+  const [refreshCounter, setRefreshCounter] = useState(0);
   
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const { show, create } = useNavigation();
@@ -71,6 +73,9 @@ export default function JobList() {
     resource: "jobs",
     queryOptions: {
       enabled: !!identity?.token,
+      // Improve caching behavior
+      cacheTime: 5000, // 5 seconds cache time
+      staleTime: 0, // Always consider data stale
     },
     pagination: {
       current: pageIndex + 1,
@@ -101,7 +106,7 @@ export default function JobList() {
 
   useEffect(() => {
     if (identity?.token) refetch();
-  }, [identity, refetch]);
+  }, [identity, refetch, refreshCounter]); // Add refreshCounter dependency
 
   const handleRowClick = (doc: Job) => {
     show("jobs", doc._id); // Navigate to /jobs/show/:id
@@ -110,6 +115,15 @@ export default function JobList() {
   const handleCreateJob = () => {
     create("jobs");
   };
+
+  // Improved refresh handler
+  const handleRefresh = useCallback(() => {
+    console.log("Refresh button clicked in JobList");
+    // Use force: true to bypass cache
+    refetch({ force: true });
+    // Update counter to force re-render
+    setRefreshCounter(prev => prev + 1);
+  }, [refetch]);
 
   const checkStatus = useCallback(async () => {
     setIsLoadingStatus(true);
@@ -179,11 +193,12 @@ export default function JobList() {
   return (
     <>
       <DocumentsTable<Job>
+        key={`jobs-list-${refreshCounter}`} // Add key to force re-render
         data={formatJobData(data?.data || [])}
         onRowClick={handleRowClick}
         formatDate={formatDate}
         isLoading={isLoading}
-        onRefresh={refetch}
+        onRefresh={handleRefresh} // Use the new handler
         error={error}
         title={`JOBS LIST [${data?.data?.length || 0}]`}
         extraColumns={extraColumns}

@@ -395,30 +395,61 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     
     const columnsCount = visibleColumns.length;
     
+    // Define fixed widths for secondary columns
+    const dateColumnWidth = '120px';
+    const statusColumnWidth = '100px';
+    const actionsColumnWidth = '100px';
+    
+    // For extra columns, allocate fixed widths
+    const typeColumnWidth = '100px';
+    const logicColumnWidth = '140px';
+    
     // Determine if we're in the processing list (fewer columns) or jobs list (more columns)
     const isProcessingList = columnsCount === 0 && !showStatus;
     
     if (isProcessingList) {
-      // For processing list: title gets more space, date and actions get fixed widths
-      return hasActions ? 
-        `60% ${showDate ? '15% ' : ''}${hasActions ? '25%' : ''}` : 
-        `70% ${showDate ? '30%' : ''}`;
+      // For processing list: title gets flexible space with minmax, date and actions get fixed widths
+      return hasActions 
+        ? `minmax(300px, 1fr) ${showDate ? dateColumnWidth : ''} ${actionsColumnWidth}`
+        : `minmax(300px, 1fr) ${showDate ? dateColumnWidth : ''}`;
     } else if (columnsCount === 0) {
-      // For other views with just status: title gets space, status and date get fixed widths
+      // For other views with just status: title gets flexible space, status and date get fixed widths
       return hasActions 
-        ? `50% ${showStatus ? '10% ' : ''}${showDate ? '15% ' : ''}25%` 
-        : `60% ${showStatus ? '15% ' : ''}${showDate ? '25%' : ''}`;
+        ? `minmax(300px, 1fr) ${showStatus ? statusColumnWidth : ''} ${showDate ? dateColumnWidth : ''} ${actionsColumnWidth}`
+        : `minmax(300px, 1fr) ${showStatus ? statusColumnWidth : ''} ${showDate ? dateColumnWidth : ''}`;
     } else {
-      // For job list with extra columns: more balanced approach
-      // Title still gets priority, other columns are more evenly distributed
-      const extraColWidth = Math.max(8, 25 / columnsCount); // Minimum 8% width
+      // For job list with extra columns:
+      // Build a template string based on available columns
+      let template = `minmax(250px, 1fr) `; // Title column always flexible
       
-      return hasActions 
-        ? `45% ${showStatus ? '10% ' : ''}${showDate ? '15% ' : ''}repeat(${columnsCount}, ${extraColWidth}%) 15%`
-        : `50% ${showStatus ? '10% ' : ''}${showDate ? '15% ' : ''}repeat(${columnsCount}, ${extraColWidth}%)`;
+      if (showStatus) {
+        template += `${statusColumnWidth} `; // Status column
+      }
+      
+      if (showDate) {
+        template += `${dateColumnWidth} `; // Date column
+      }
+      
+      // Add extra columns with appropriate fixed widths
+      visibleColumns.forEach(col => {
+        if (col.header.toLowerCase() === 'type') {
+          template += `${typeColumnWidth} `;
+        } else if (col.header.toLowerCase() === 'logic') {
+          template += `${logicColumnWidth} `;
+        } else {
+          // Default width for other custom columns
+          template += `120px `;
+        }
+      });
+      
+      if (hasActions) {
+        template += actionsColumnWidth; // Actions column
+      }
+      
+      return template;
     }
   };
-
+  
   if (isLoading) {
     return (
       <Box p="xl" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px', backgroundColor: '#000000' }}>
@@ -426,7 +457,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       </Box>
     );
   }
-
+  
   if (error) {
     return (
       <Box p="md" style={{ backgroundColor: '#000000' }}>
@@ -440,10 +471,10 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       </Box>
     );
   }
-
+  
   // Define visible columns for different screen sizes
   const visibleColumns = extraColumns.filter(col => isMobile ? !col.hideOnMobile : true);
-
+  
   const renderDesktopView = () => {
     return (
       <>
@@ -469,7 +500,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
           ))}
           {hasActions && <Box style={{ textAlign: 'left' }}>/actions</Box>}
         </Box>
-
+  
         {/* Table Content */}
         {data && data.length > 0 ? (
           <Box style={{ overflow: 'auto', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
@@ -492,14 +523,22 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     cursor: onRowClick ? 'pointer' : 'default',
                     transition: 'background-color 0.2s ease-in-out',
                     backgroundColor: getRowBackground(uniqueId, doc.status),
-                    width: '100%',
-                    maxWidth: '100%'
+                    width: '100%'
                   }}
                 >
-                  <Box style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    {/* Use the new status indicator renderer */}
+                  {/* First column - Title with status indicator */}
+                  <Box style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '1rem',
+                    minWidth: 0, // Important for text-overflow to work properly
+                    overflow: 'hidden'
+                  }}>
+                    {/* Status indicator */}
                     {renderStatusIndicator(doc)}
-                    <Box style={{ overflow: 'hidden' }}>
+                    
+                    {/* Title and description */}
+                    <Box style={{ overflow: 'hidden', minWidth: 0 }}>
                       {titleRenderer ? titleRenderer(doc) : (
                         <>
                           <Text size="md" fw={500} style={{ 
@@ -521,27 +560,28 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                   </Box>
                   
+                  {/* Status column */}
                   {showStatus && (
-                    <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
                       <Text size="sm" c={getStatusTextColor(doc.status)}>
                         {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
                       </Text>
                     </Box>
                   )}
                   
+                  {/* Date column */}
                   {showDate && (
-                    <Box style={{ display: 'flex', alignItems: 'center', textAlign: 'left' }}>
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
                       <Text size="sm">{formatDate(doc.createdAt)}</Text>
                     </Box>
                   )}
                   
+                  {/* Extra columns */}
                   {visibleColumns.map((col, index) => (
                     <Box key={index} style={{ 
                       display: 'flex', 
-                      alignItems: 'center', 
-                      paddingRight: '8px', 
-                      textAlign: 'left',
-                      maxWidth: '100%' // Keep content within column
+                      alignItems: 'center',
+                      overflow: 'hidden'
                     }}>
                       {typeof col.accessor === 'function' ? (
                         col.accessor(doc)
@@ -557,6 +597,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                     </Box>
                   ))}
                   
+                  {/* Actions column */}
                   {hasActions && (
                     <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                       {actionsRenderer ? actionsRenderer(doc) : (
@@ -569,8 +610,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                                   e.stopPropagation();
                                   onView(doc, e);
                                 }}
-                                loading={loadingDocId === doc._id} // Add loading state for specific document
-                                disabled={loadingDocId === doc._id} // Disable while loading
+                                loading={loadingDocId === doc._id}
+                                disabled={loadingDocId === doc._id}
                                 style={{
                                   color: '#ffffff',
                                   '&:hover': { backgroundColor: '#2b2b2b' }
@@ -630,7 +671,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       </>
     );
   };
-
+  
   const renderMobileView = () => (
     <Box>
       {data && data.length > 0 ? (
@@ -677,9 +718,9 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                       flexShrink: 0
                     }} />
                   )}
-                  <Box style={{ flex: 1 }}>
+                  <Box style={{ flex: 1, minWidth: 0 }}>
                     <Flex justify="space-between" align="flex-start">
-                      <Box style={{ flex: 1 }}>
+                      <Box style={{ flex: 1, minWidth: 0 }}>
                         {titleRenderer ? titleRenderer(doc) : (
                           <>
                             <Text size="md" fw={500} style={{ 
@@ -711,7 +752,8 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                           disabled={loadingDocId === doc._id} // Disable while loading
                           style={{
                             color: '#ffffff',
-                            marginLeft: '8px'
+                            marginLeft: '8px',
+                            flexShrink: 0
                           }}
                         >
                           <ChevronRight size={16} />
@@ -792,7 +834,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
       )}
     </Box>
   );
-
+  
   // Render the component
   return (
   <Box style={{ 

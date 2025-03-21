@@ -59,11 +59,16 @@ const titleRenderer = (doc: ProcessedDocument) => {
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
+  // Add refresh counter state to force re-renders
+  const [refreshCounter, setRefreshCounter] = useState(0);
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
     queryOptions: {
       enabled: !!identity?.id,
+      // Add a cache key that includes the refresh counter
+      cacheTime: 0, // Disable caching to ensure fresh data
+      staleTime: 0, // Always consider data stale
     },
     pagination: {
       pageSize: 100,
@@ -91,7 +96,7 @@ export default function ProcessingList() {
       console.log("Fetching documents for user:", identity.id);
       refetch();
     }
-  }, [identity, refetch]);
+  }, [identity, refetch, refreshCounter]); // Add refreshCounter to dependencies
 
   // Prepare documents with consistent data for the table
   const prepareDocuments = (documents: any[] = []): ProcessedDocument[] => {
@@ -169,8 +174,13 @@ export default function ProcessingList() {
     }
   };
 
+  // Improved handleRefresh function
   const handleRefresh = () => {
-    refetch();
+    console.log("Refresh button clicked in ProcessingList");
+    // Use force: true to bypass cache
+    refetch({ force: true });
+    // Update counter to force re-render
+    setRefreshCounter(prev => prev + 1);
   };
 
   if (identityLoading || (isLoading && identity?.id)) {
@@ -198,8 +208,10 @@ export default function ProcessingList() {
   const preparedData = prepareDocuments(data?.data || []);
   console.log("Prepared documents for table:", preparedData);
 
+  // Key prop forces complete re-render when refreshCounter changes
   return (
     <DocumentsTable<ProcessedDocument>
+      key={`processing-list-${refreshCounter}`}
       data={preparedData}
       onView={handleViewDocument}
       onDelete={handleDelete}
