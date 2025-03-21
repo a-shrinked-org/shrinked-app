@@ -378,6 +378,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
               subscriptionPlan: userProfile.subscriptionPlan,
               apiKeys: userProfile.apiKeys || [],
               userId: userProfile.userId || userProfile._id || userProfile.id,
+              usage: userProfile.usage,
             };
           }
         } catch (error) {
