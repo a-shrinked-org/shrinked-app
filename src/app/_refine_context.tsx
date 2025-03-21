@@ -255,18 +255,37 @@ const App = (props: React.PropsWithChildren<{}>) => {
         signIn(params.providerName, { callbackUrl, redirect: true });
         return { success: false, error: { message: `Redirecting to ${params.providerName}...`, name: params.providerName } };
       }
-
+    
       try {
+        // Debug log to check if login flow is being triggered
+        console.log("[AUTH] Attempting login with email:", email);
+        
         const result = await customAuthProvider.login(params);
         if (result.success && params.password) {
+          // Debug log to verify we reached the success path
+          console.log("[AUTH] Login successful, showing welcome toast");
+          
           lastFullAuthCheckTime = Date.now();
           authUtils.setupRefreshTimer();
           setAuthState({ isChecking: false, isAuthenticated: true, initialized: true });
-          notificationProvider.open({ message: "Welcome back!", type: "success", key: "login-success" });
+          
+          // Make sure the toast is more visible with a longer duration
+          toast.success("Welcome back!", { 
+            position: "top-center",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "dark",
+          });
+          
           return { ...result, redirectTo: returnUrl || "/jobs" };
         }
-
+    
         if (!result.success) {
+          console.log("[AUTH] Login failed:", result.error);
           notificationProvider.open({
             message: "Login Failed",
             description: result.error?.message || "Invalid credentials",

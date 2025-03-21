@@ -11,14 +11,16 @@ import {
   Progress,
   Stack,
   Burger,
-  Drawer
+  Drawer,
+  Tooltip
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLogout, useGetIdentity } from "@refinedev/core";
 import { GeistMono } from 'geist/font/mono';
 import Link from 'next/link';
-import { UserAvatar } from '@/components/UserAvatar'; // Import the UserAvatar component
+import { UserAvatar } from '@/components/UserAvatar';
+import { LogOut } from 'lucide-react';
 
 interface Identity {
   id?: string;
@@ -110,6 +112,10 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         setDrawerOpened(false);
       }
     }
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   const userInfo = {
@@ -249,14 +255,30 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           <Text size="xs" c="#a1a1a1" mt="xs">some exampleiner</Text>
         </Box>
 
-        {/* User Profile - Updated with UserAvatar */}
+        {/* User Profile with LogOut Icon */}
         <Flex align="center" gap="xs">
           <Box>
             <Text size="xs">{userInfo.name}</Text>
             <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
           </Box>
-          {/* Updated Avatar section with UserAvatar */}
-          <Group ml="auto" gap={-8}>
+          {/* Add a LogOut icon + the UserAvatar */}
+          <Group ml="auto" gap="sm">
+            <Tooltip label="Logout" position="top" withArrow>
+              <UnstyledButton onClick={handleLogout} style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#a1a1a1',
+                padding: '4px',
+                borderRadius: '4px',
+                '&:hover': {
+                  color: '#ffffff',
+                }
+              }}>
+                <LogOut size={18} />
+              </UnstyledButton>
+            </Tooltip>
             <UserAvatar
               name={userInfo.name}
               src={userInfo.avatar}

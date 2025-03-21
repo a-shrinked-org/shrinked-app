@@ -1,6 +1,6 @@
 // src/components/UserAvatar.tsx
 import React from 'react';
-import { Avatar, MantineTheme } from '@mantine/core';
+import { Avatar } from '@mantine/core';
 import { GeistMono } from 'geist/font/mono';
 
 interface UserAvatarProps {
@@ -37,7 +37,7 @@ export function UserAvatar({ name, src, size = 40, radius = '50%', className = '
       onClick={onClick}
       styles={{
         root: {
-          backgroundColor: '#000',
+          backgroundColor: 'rgb(13, 13, 13)', // Updated background color as requested
           color: '#fff',
           fontFamily: GeistMono.style.fontFamily,
           fontWeight: 500,
@@ -48,7 +48,7 @@ export function UserAvatar({ name, src, size = 40, radius = '50%', className = '
           userSelect: 'none',
           transition: 'all 0.2s ease',
           '&:hover': {
-            backgroundColor: onClick ? '#222' : '#000',
+            backgroundColor: onClick ? '#222' : 'rgb(13, 13, 13)',
           },
         },
         placeholder: {
