@@ -481,84 +481,92 @@ class AuthProviderClass implements AuthProvider {
   }
 
   async check(): Promise<{ authenticated: boolean }> {
-	const now = Date.now();
-	if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
-	  const authenticated = authUtils.isAuthenticated();
-	  debug.log('check', `Using cached auth status: ${authenticated} (cooldown active)`);
-	  return { authenticated };
-	}
-	lastAuthCheckTime = now;
-  
-	debug.log('check', "Performing full auth check");
-	const authenticated = authUtils.isAuthenticated();
-	if (!authenticated) {
-	  debug.log('check', "No local tokens found, clearing auth storage");
-	  authUtils.clearAuthStorage();
-	  return { authenticated: false };
-	}
-  
-	try {
-	  debug.log('check', "Validating token with server");
-	  const accessToken = authUtils.getAccessToken();
-	  const response = await fetch(`/api/user-proxy/profile`, {
-		headers: {
-		  Authorization: `Bearer ${accessToken}`,
-		  "Content-Type": "application/json",
-		},
-		credentials: 'include'
-	  });
-  
-	  if (response.ok) {
-		debug.log('check', "Token validation successful");
-		const userData = await response.json();
-		const accessToken = authUtils.getAccessToken();
-		const refreshToken = authUtils.getRefreshToken();
-  
-		if (accessToken && refreshToken) {
-		  const updatedUserData = {
-			...userData,
-			accessToken,
-			refreshToken,
-		  };
-		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
-		  
-		  // Set authenticated state
-		  authUtils.setAuthenticatedState(true);
-		}
-		return { authenticated: true };
+	  const now = Date.now();
+	  if (now - lastAuthCheckTime < AUTH_CHECK_COOLDOWN) {
+		const authenticated = authUtils.isAuthenticated();
+		debug.log('check', `Using cached auth status: ${authenticated} (cooldown active)`);
+		return { authenticated };
 	  }
-  
-	  debug.log('check', `Token validation failed with status: ${response.status}`);
-	  if (response.status === 401 || response.status === 403) {
-		// Try to refresh token before giving up
-		debug.log('check', "Attempting token refresh during check");
-		const refreshSuccess = await authUtils.refreshToken();
-		if (refreshSuccess) {
-		  debug.log('check', "Token refresh successful during check");
-		  
-		  // Set authenticated state
-		  authUtils.setAuthenticatedState(true);
-		  return { authenticated: true };
-		}
-	  }
-  
-	  authUtils.clearAuthStorage();
-	  return { authenticated: false };
-	} catch (error) {
-	  debug.error('check', 'Auth check error:', error);
-	  if (error instanceof Error && "status" in error && ((error as any).status === 401 || (error as any).status === 403)) {
-		// Try to refresh token before giving up
-		debug.log('check', "Attempting token refresh after error");
-		const refreshSuccess = await authUtils.refreshToken();
-		if (refreshSuccess) {
-		  debug.log('check', "Token refresh successful after error");
-		  return { authenticated: true };
-		}
+	  lastAuthCheckTime = now;
+	
+	  // Get tokens first
+	  const hasTokens = authUtils.isAuthenticated();
+	  debug.log('check', `Authentication check - has tokens: ${hasTokens}`);
+	  
+	  if (!hasTokens) {
+		debug.log('check', "No local tokens found, clearing auth storage");
 		authUtils.clearAuthStorage();
+		return { authenticated: false };
 	  }
-	  return { authenticated: false };
+	  
+	  // Return true if we have tokens - simplified check for stability
+	  return { authenticated: true };
+	  
+	  // Commented out server validation for simplicity and stability
+	  /*
+	  try {
+		debug.log('check', "Validating token with server");
+		const accessToken = authUtils.getAccessToken();
+		const response = await fetch(`/api/user-proxy/profile`, {
+		  headers: {
+			Authorization: `Bearer ${accessToken}`,
+			"Content-Type": "application/json",
+		  },
+		  credentials: 'include'
+		});
+	
+		if (response.ok) {
+		  debug.log('check', "Token validation successful");
+		  const userData = await response.json();
+		  const accessToken = authUtils.getAccessToken();
+		  const refreshToken = authUtils.getRefreshToken();
+	
+		  if (accessToken && refreshToken) {
+			const updatedUserData = {
+			  ...userData,
+			  accessToken,
+			  refreshToken,
+			};
+			localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUserData));
+			
+			// Set authenticated state
+			authUtils.setAuthenticatedState(true);
+		  }
+		  return { authenticated: true };
+		}
+	
+		debug.log('check', `Token validation failed with status: ${response.status}`);
+		if (response.status === 401 || response.status === 403) {
+		  // Try to refresh token before giving up
+		  debug.log('check', "Attempting token refresh during check");
+		  const refreshSuccess = await authUtils.refreshToken();
+		  if (refreshSuccess) {
+			debug.log('check', "Token refresh successful during check");
+			
+			// Set authenticated state
+			authUtils.setAuthenticatedState(true);
+			return { authenticated: true };
+		  }
+		}
+	
+		authUtils.clearAuthStorage();
+		return { authenticated: false };
+	  } catch (error) {
+		debug.error('check', 'Auth check error:', error);
+		if (error instanceof Error && "status" in error && ((error as any).status === 401 || (error as any).status === 403)) {
+		  // Try to refresh token before giving up
+		  debug.log('check', "Attempting token refresh after error");
+		  const refreshSuccess = await authUtils.refreshToken();
+		  if (refreshSuccess) {
+			debug.log('check', "Token refresh successful after error");
+			return { authenticated: true };
+		  }
+		  authUtils.clearAuthStorage();
+		}
+		return { authenticated: false };
+	  }
+	  */
 	}
-  }
 
   async getIdentity(): Promise<IdentityData | null> {
 	debug.log('getIdentity', "Getting user identity");

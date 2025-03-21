@@ -69,6 +69,20 @@ export default function JobList() {
   const { show, create } = useNavigation();
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
 
+  // Debug user identity and auth state
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window._debugAuthState) {
+      window._debugAuthState("JobList page mounted");
+    }
+    console.log("Identity data:", identity);
+    console.log("Is auth check loading:", identityLoading);
+    console.log("Current localStorage tokens:", {
+      access: !!authUtils.getAccessToken(),
+      refresh: !!authUtils.getRefreshToken()
+    });
+  }, [identity, identityLoading]);
+
+  // Use the proxy endpoint instead of direct API call
   const { data, isLoading, refetch, error } = useList<Job>({
     resource: "jobs",
     queryOptions: {
@@ -83,7 +97,7 @@ export default function JobList() {
     },
     meta: {
       headers: getAuthHeaders(),
-      url: `${API_CONFIG.API_URL}/jobs`
+      url: `/api/proxy/jobs` // Use proxy endpoint
     }
   });
 
@@ -104,9 +118,21 @@ export default function JobList() {
     }
   }, [error, refetch, refreshToken]);
 
+  // Force auth check and token refresh on mount
   useEffect(() => {
-    if (identity?.token) refetch();
-  }, [identity, refetch, refreshCounter]); // Add refreshCounter dependency
+    const checkAuth = async () => {
+      // Try to ensure we have a valid token
+      const token = await authUtils.ensureValidToken();
+      console.log("Ensured valid token:", !!token);
+      
+      if (identity?.token) {
+        console.log("Refetching jobs with token:", identity.token);
+        refetch();
+      }
+    };
+    
+    checkAuth();
+  }, [identity, refetch, refreshCounter]);
 
   const handleRowClick = (doc: Job) => {
     show("jobs", doc._id); // Navigate to /jobs/show/:id
@@ -116,13 +142,15 @@ export default function JobList() {
     create("jobs");
   };
 
-  // Fixed refresh handler - removed { force: true } parameter
+  // Fixed refresh handler
   const handleRefresh = useCallback(() => {
     console.log("Refresh button clicked in JobList");
-    // Call refetch without parameters to avoid type errors
-    refetch();
     // Update counter to force re-render
     setRefreshCounter(prev => prev + 1);
+    // Refresh auth token before refetching
+    authUtils.ensureValidToken().then(() => {
+      refetch();
+    });
   }, [refetch]);
 
   const checkStatus = useCallback(async () => {
@@ -186,6 +214,9 @@ export default function JobList() {
         <Alert icon={<AlertCircle size={16} />} title="Authentication Required" color="red">
           You must be logged in to view jobs.
         </Alert>
+        <Button onClick={() => window.location.href = '/login'}>
+          Go to Login
+        </Button>
       </Stack>
     );
   }
