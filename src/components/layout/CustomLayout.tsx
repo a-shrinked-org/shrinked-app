@@ -6,7 +6,6 @@ import {
   Text, 
   Flex,
   UnstyledButton,
-  Avatar,
   Group,
   Progress,
   Stack,
@@ -21,6 +20,7 @@ import { GeistMono } from 'geist/font/mono';
 import Link from 'next/link';
 import { UserAvatar } from '@/components/UserAvatar';
 import { LogOut } from 'lucide-react';
+import FeedbackModal from '@/components/FeedbackModal';
 
 interface Identity {
   id?: string;
@@ -35,9 +35,9 @@ interface CustomLayoutProps {
 
 interface MenuItem {
   label: string;
-  href?: string;  // Make href optional so Dashboard can be non-clickable
+  href?: string;
   active: boolean;
-  clickable?: boolean; // New prop to control clickability
+  clickable?: boolean;
 }
 
 // Function to format user ID: "67c79e808213b8eb757f6cb1" -> "67c..b1"
@@ -56,6 +56,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
   const { data: identity } = useGetIdentity<Identity>();
   const [drawerOpened, setDrawerOpened] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   // Format the user ID
   const formattedUserId = formatUserId(identity?.id);
@@ -64,7 +65,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
     { 
       label: 'Dashboard', 
       active: pathname === '/',
-      clickable: false // Make Dashboard non-clickable
+      clickable: false
     },
     { 
       label: 'JOB LIST', 
@@ -116,6 +117,10 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleOpenFeedback = () => {
+    setFeedbackModalOpen(true);
   };
 
   const userInfo = {
@@ -225,7 +230,13 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             DOCUMENTATION
           </Text>
         </a>
-        <Text size="sm" c="#a1a1a1" mb="xl">FEEDBACK</Text>
+        
+        {/* Feedback link - now clickable to open the feedback modal */}
+        <UnstyledButton onClick={handleOpenFeedback}>
+          <Text size="sm" c="#a1a1a1" mb="xl" style={{ cursor: 'pointer' }}>
+            FEEDBACK
+          </Text>
+        </UnstyledButton>
 
         {/* Usage Stats */}
         <Box 
@@ -346,6 +357,12 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
       <Box style={{ flex: 1, overflow: 'auto' }}>
         {children}
       </Box>
+      
+      {/* Feedback Modal */}
+      <FeedbackModal 
+        opened={feedbackModalOpen} 
+        onClose={() => setFeedbackModalOpen(false)} 
+      />
     </Flex>
   );
 };

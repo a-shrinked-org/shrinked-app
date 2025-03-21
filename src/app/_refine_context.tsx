@@ -269,7 +269,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           authUtils.setupRefreshTimer();
           setAuthState({ isChecking: false, isAuthenticated: true, initialized: true });
           
-          // Make sure the toast is more visible with a longer duration
+          // Use direct toast call instead of notificationProvider
           toast.success("Welcome back!", { 
             position: "top-center",
             autoClose: 5000,
@@ -286,11 +286,10 @@ const App = (props: React.PropsWithChildren<{}>) => {
     
         if (!result.success) {
           console.log("[AUTH] Login failed:", result.error);
-          notificationProvider.open({
-            message: "Login Failed",
-            description: result.error?.message || "Invalid credentials",
-            type: "error",
-            key: "login-error",
+          toast.error(result.error?.message || "Invalid credentials", {
+            position: "top-center",
+            autoClose: 5000,
+            theme: "dark",
           });
         }
         return result;
@@ -307,12 +306,12 @@ const App = (props: React.PropsWithChildren<{}>) => {
           }
         }
         
-        notificationProvider.open({
-          message: "Login Error",
-          description: errorMessage,
-          type: "error",
-          key: "login-error",
+        toast.error(errorMessage, {
+          position: "top-center",
+          autoClose: 5000,
+          theme: "dark",
         });
+        
         return { success: false, error: { message: "Login failed", name: "Auth Error" } };
       }
     },
