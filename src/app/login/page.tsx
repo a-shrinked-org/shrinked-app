@@ -16,7 +16,7 @@ import {
   Image,
 } from "@mantine/core";
 import { Book, Code, Rocket, Mailbox } from "lucide-react";
-import { customAuthProvider } from "@providers/customAuthProvider"; // Import customAuthProvider
+import { customAuthProvider } from "@providers/customAuthProvider";
 import "@/styles/fonts.css";
 import "@/styles/login-styles.css";
 
@@ -72,7 +72,6 @@ export default function Login() {
 
     try {
       if (step === "email") {
-        // Use customAuthProvider for email check with Loops
         const result = await customAuthProvider.login({ email: formData.email, password: "" });
         if (result.success) {
           setStep("password");
@@ -89,18 +88,14 @@ export default function Login() {
           return;
         }
 
-        const response = await fetch(`/api/auth-proxy/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, password: formData.password }),
-          credentials: "include",
+        const result = await customAuthProvider.login({
+          email: formData.email,
+          password: formData.password,
         });
-        const data = await response.json();
-
-        if (response.ok && data.accessToken && data.refreshToken) {
+        if (result.success) {
           router.push("/jobs");
         } else {
-          setError(data.error?.message || "Invalid email or password");
+          setError(result.error?.message || "Invalid email or password");
         }
       }
     } catch (error) {
@@ -114,18 +109,11 @@ export default function Login() {
 
   const handleRegistrationFlow = async () => {
     try {
-      const response = await fetch(`/api/auth-proxy/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email }),
-        credentials: "include",
-      });
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      const result = await customAuthProvider.register({ email: formData.email });
+      if (result.success) {
         setStep("verification-sent");
       } else {
-        setError(data.error?.message || "Failed to register");
+        setError(result.error?.message || "Failed to register");
       }
     } catch (error) {
       setError("Failed to register. Please try again.");
