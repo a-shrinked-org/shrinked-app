@@ -1,28 +1,25 @@
-// pages/auth/callback.tsx
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { API_CONFIG, authUtils } from "@/utils/authUtils";
 import "@/styles/callback-styles.css";
 
 export default function AuthCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
-	// Add Geist Mono font if needed
-	const link = document.createElement('link');
-	link.rel = 'stylesheet';
-	link.href = 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap';
+	const link = document.createElement("link");
+	link.rel = "stylesheet";
+	link.href = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap";
 	document.head.appendChild(link);
-	
-	// Simple progress animation
+
 	const progressInterval = setInterval(() => {
-	  setProgress(prev => (prev + 10) % 110);
+	  setProgress((prev) => (prev + 10) % 110);
 	}, 150);
 
 	return () => {
@@ -35,76 +32,47 @@ export default function AuthCallback() {
 	const exchangeCodeForTokens = async () => {
 	  try {
 		if (!searchParams) {
-		  setError('Navigation parameters not available');
+		  setError("Navigation parameters not available");
 		  setIsProcessing(false);
 		  return;
 		}
 
-		const code = searchParams.get('code');
-		
+		const code = searchParams.get("code");
 		if (!code) {
-		  setError('No authentication code found in URL');
+		  setError("No authentication code found in URL");
 		  setIsProcessing(false);
 		  return;
 		}
 
-		// Clear any existing auth data first
 		authUtils.clearAuthStorage();
-
 		console.log("OAuth callback: Processing code", code.substring(0, 5) + "...");
 
-		// Exchange the code for tokens
 		const response = await fetch(`/api/auth-proxy/exchange`, {
-		  method: 'POST',
-		  headers: {
-			'Content-Type': 'application/json',
-		  },
+		  method: "POST",
+		  headers: { "Content-Type": "application/json" },
 		  body: JSON.stringify({ code }),
-		  credentials: 'include'
+		  credentials: "include",
 		});
 
 		if (!response.ok) {
-		  console.error("OAuth error response:", response.status);
 		  const errorData = await response.json().catch(() => ({}));
-		  console.error("OAuth error details:", errorData);
 		  throw new Error(errorData.message || `Failed to exchange code: ${response.status}`);
 		}
 
 		const data = await response.json();
 		console.log("OAuth tokens received successfully");
 
-		// Save tokens
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
-		
-		// Set up token refresh
-		authUtils.setupRefreshTimer(false);
-
-		// Fetch user profile to store
-		const profileResponse = await fetch(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PROFILE}`, {
-		  headers: {
-			'Authorization': `Bearer ${data.accessToken}`,
-			'Content-Type': 'application/json',
-		  },
-		});
-
-		if (profileResponse.ok) {
-		  const userData = await profileResponse.json();
-		  
-		  // Save user data with tokens
-		  const userDataWithTokens = {
-			...userData,
-			accessToken: data.accessToken,
-			refreshToken: data.refreshToken,
-		  };
-		  
-		  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify(userDataWithTokens));
+		const profile = await authUtils.ensureUserProfile(); // Use authUtils to fetch and store profile
+		if (!profile) {
+		  throw new Error("Failed to fetch user profile");
 		}
 
-		// Redirect to jobs page
-		router.push('/jobs');
+		authUtils.setupRefreshTimer(); // No parameters as per updated authUtils
+		router.push("/jobs");
 	  } catch (err) {
 		console.error("Error during OAuth callback processing:", err);
-		setError(err instanceof Error ? err.message : 'Authentication failed');
+		setError(err instanceof Error ? err.message : "Authentication failed");
 		setIsProcessing(false);
 	  }
 	};
@@ -116,9 +84,7 @@ export default function AuthCallback() {
 	return (
 	  <div className="callback-container error-container">
 		<div className="callback-content">
-		  <div className="error-message">
-			{error}
-		  </div>
+		  <div className="error-message">{error}</div>
 		  <a href="/login" className="return-link">
 			RETURN TO LOGIN
 		  </a>
@@ -127,14 +93,10 @@ export default function AuthCallback() {
 	);
   }
 
-  // Just the bar and nothing else
   return (
 	<div className="callback-container">
 	  <div className="progress-container">
-		<div 
-		  className="progress-bar"
-		  style={{ width: `${Math.min(progress, 100)}%` }}
-		></div>
+		<div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
 	  </div>
 	</div>
   );
