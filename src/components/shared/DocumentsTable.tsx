@@ -82,6 +82,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   customGridTemplate?: string;
   statusIndicatorStyle?: StatusIndicatorStyle;
   loadingDocId?: string | null;
+  statusRenderer?: (doc: T) => React.ReactNode;
   // New props for coming soon feature
   comingSoon?: boolean; 
   comingSoonConfig?: {
@@ -397,7 +398,7 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
     
     // Define fixed widths for secondary columns
     const dateColumnWidth = '120px';
-    const statusColumnWidth = '100px';
+    const statusColumnWidth = '120px';
     const actionsColumnWidth = '100px';
     
     // For extra columns, allocate fixed widths
@@ -563,9 +564,11 @@ function DocumentsTable<T extends ProcessedDocument>(props: DocumentsTableProps<
                   {/* Status column */}
                   {showStatus && (
                     <Box style={{ display: 'flex', alignItems: 'center' }}>
-                      <Text size="sm" c={getStatusTextColor(doc.status)}>
-                        {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
-                      </Text>
+                      {statusRenderer ? statusRenderer(doc) : (
+                        <Text size="sm" c={getStatusTextColor(doc.status)}>
+                          {doc.status ? doc.status.toUpperCase() : 'UNKNOWN'}
+                        </Text>
+                      )}
                     </Box>
                   )}
                   

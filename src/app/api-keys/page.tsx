@@ -26,10 +26,12 @@ import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
+import { GeistMono } from 'geist/font/mono';
 
 interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
   keyValue?: string;
+  customStatus?: string;
 }
 
 // Custom title renderer to only show title without description
@@ -46,6 +48,37 @@ const titleRenderer = (doc: ExtendedApiKey) => {
         {doc.title || doc.output?.title || doc.fileName || 'Unnamed API Key'}
       </div>
     </div>
+  );
+};
+
+// Custom status renderer for API keys
+const renderApiKeyStatus = (doc: ExtendedApiKey) => {
+  return (
+    <Box style={{ 
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      paddingLeft: '4px'
+    }}>
+      {/* Status indicator circle */}
+      <Box style={{ 
+        height: '10px', 
+        width: '10px', 
+        borderRadius: '50%', 
+        // Use a neutral blue color instead of green
+        backgroundColor: '#3498db',
+        flexShrink: 0
+      }} />
+      
+      {/* Status text */}
+      <Text size="sm" style={{ 
+        color: '#ffffff',
+        fontFamily: GeistMono.style.fontFamily,
+        letterSpacing: '0.5px'
+      }}>
+        API KEY
+      </Text>
+    </Box>
   );
 };
 
@@ -159,8 +192,10 @@ export default function ApiKeysList() {
         `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
         key.key,
       createdAt: key.createdAt || new Date().toISOString(),
-      // Change status to "completed" so it shows green instead of yellow
-      status: 'completed',
+      // Use "active" for the status field which controls the circle color
+      status: 'active',
+      // Add custom status for rendering
+      customStatus: 'API KEY',
       output: { 
         title: (key.name || 'UNNAMED API KEY').toUpperCase(),
         // Remove description by setting to empty string
@@ -212,6 +247,8 @@ export default function ApiKeysList() {
         onAddNew={() => setIsCreateModalOpen(true)}
         // Add titleRenderer to customize title display
         titleRenderer={titleRenderer}
+        // Add custom status renderer
+        statusRenderer={renderApiKeyStatus}
       />
 
       <Modal
