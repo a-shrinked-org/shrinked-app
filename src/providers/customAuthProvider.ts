@@ -47,7 +47,7 @@ const cachedLoopsRequest = async (endpoint: string, email: string, body?: any) =
   }
   
   const method = body ? "POST" : "GET";
-  const url = `/api/loops?endpoint=${endpoint}&email=${encodeURIComponent(email)}`;
+  const url = `/api/loops?loops=${endpoint}&email=${encodeURIComponent(email)}`;
   
   try {
 	const response = await fetch(url, {
