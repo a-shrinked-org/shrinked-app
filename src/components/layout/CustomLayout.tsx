@@ -156,10 +156,14 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
       borderRight: '1px solid #2b2b2b',
       display: 'flex',
       flexDirection: 'column',
-      height: '100%',
-      overflow: 'auto'
+      height: '100vh', // Ensure the sidebar takes full viewport height
+      overflow: 'hidden', // Prevent sidebar from scrolling independently
     }}>
-      <Box p="md">
+      {/* Top section with logo, navigation - will take minimum required height */}
+      <Box style={{ 
+        padding: '16px',
+        flexShrink: 0, // Prevents this section from shrinking
+      }}>
         {/* Logo with right-aligned ID block */}
         <Flex align="center" justify="space-between" mb="xl">
           <Link href="https://app.shrinked.ai" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -191,7 +195,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         </Flex>
 
         {/* Updated App Description */}
-        <Box mb={48}>
+        <Box mb={32}>
           <Text size="xs" c="#d9d9d9" lh={1.3}>
             BUILD WITH SHRINKED.<br />
             DEVELOP DYNAMIC CONTEXT SOURCES<br />
@@ -212,7 +216,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         </Box>
 
         {/* Navigation Menu */}
-        <Stack gap="sm" mb={48}>
+        <Stack gap="sm" mb={24}>
           {menuItems.map((item) => (
             <UnstyledButton
               key={item.label}
@@ -242,10 +246,14 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         </Stack>
       </Box>
 
-      {/* Bottom Footer Section */}
-      <Box mt="auto" style={{ 
+      {/* Flexible middle space - will grow/shrink as needed */}
+      <Box style={{ flex: 1 }} />
+
+      {/* Bottom Footer Section - will always be at the bottom */}
+      <Box style={{ 
         borderTop: '1px solid #2b2b2b',
         padding: '24px',
+        flexShrink: 0, // Prevents this section from shrinking
       }}>
         {/* Updated Documentation link to go to docs.shrinked.ai */}
         <a 
@@ -406,7 +414,11 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
       )}
 
       {/* Main Content */}
-      <Box style={{ flex: 1, overflow: 'auto' }}>
+      <Box style={{ 
+        flex: 1,
+        height: '100vh',
+        overflow: 'auto' // Allow content area to scroll if needed
+      }}>
         {children}
       </Box>
       
