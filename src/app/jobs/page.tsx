@@ -130,11 +130,11 @@ const getSmartJobStatus = (job: Job): string => {
       
       const resultId = processingStep?.data?.resultId || '';
       
-      return `✓ Processed ${tokenUsage.toLocaleString()} tokens in ${duration}${resultId ? ` | Result: ${resultId.substring(resultId.length - 6)}` : ''}`;
+      return `Processed ${tokenUsage.toLocaleString()} tokens in ${duration}${resultId ? ` | Result: ${resultId.substring(resultId.length - 6)}` : ''}`;
     }
     
     // Generic completion message
-    return `✓ Completed all ${totalSteps} steps successfully`;
+    return `Completed all ${totalSteps} steps successfully`;
   }
   
   // For any other status
