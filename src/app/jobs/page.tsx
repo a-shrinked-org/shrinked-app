@@ -42,6 +42,21 @@ interface Job extends ProcessedDocument {
   isPublic: boolean;
   createPage: boolean;
   link: string;
+  steps?: Array<{
+    name: string;
+    status: string;
+    tokenUsage?: number;
+    totalDuration?: number;
+    data?: any;
+    _id: string;
+    createdAt: string;
+    updatedAt: string;
+    startTime?: string;
+    endTime?: string;
+  }>;
+  error?: string;
+  totalTokenUsage?: number;
+  totalDuration?: number;
 }
 
 const formatScenarioName = (scenario: string) => {
@@ -54,6 +69,76 @@ const formatScenarioName = (scenario: string) => {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+};
+
+// Smart job status generator
+const getSmartJobStatus = (job: Job): string => {
+  // Default message for jobs that haven't started processing
+  if (!job.steps || job.steps.length === 0) {
+    return `Job queued. Awaiting processing...`;
+  }
+
+  // Check if job has any errors
+  if (job.error) {
+    return `Processing error: ${job.error.substring(0, 50)}${job.error.length > 50 ? '...' : ''}`;
+  }
+
+  // Find the completed steps
+  const completedSteps = job.steps.filter(step => step.status === 'COMPLETED');
+  const totalSteps = job.steps.length;
+  
+  // If job is in progress, show which step is running
+  if (job.status === 'PROCESSING') {
+    const currentStep = job.steps.find(step => step.status === 'PROCESSING');
+    if (currentStep) {
+      return `Processing: ${currentStep.name.replace(/_/g, ' ').toLowerCase()} (${completedSteps.length}/${totalSteps})`;
+    }
+    return `Processing: step ${completedSteps.length + 1}/${totalSteps}`;
+  }
+  
+  // If job failed, show which step failed
+  if (job.status === 'FAILED') {
+    const failedStep = job.steps.find(step => step.status === 'FAILED');
+    if (failedStep) {
+      return `Failed at ${failedStep.name.replace(/_/g, ' ').toLowerCase()} (step ${job.steps.indexOf(failedStep) + 1}/${totalSteps})`;
+    }
+    return `Processing failed`;
+  }
+
+  // For completed jobs
+  if (job.status === 'COMPLETED') {
+    // Get the export step if available
+    const exportStep = job.steps.find(step => step.name === 'EXPORT_DOC');
+    
+    if (exportStep && exportStep.data) {
+      // Calculate the total token usage and time taken
+      const tokenUsage = job.totalTokenUsage || 
+        job.steps.reduce((sum, step) => sum + (step.tokenUsage || 0), 0);
+      
+      // Get duration in readable format
+      const duration = job.totalDuration ? 
+        (job.totalDuration > 60000 ? 
+          `${Math.round(job.totalDuration/1000/60)}m ${Math.round((job.totalDuration/1000) % 60)}s` : 
+          `${Math.round(job.totalDuration/1000)}s`) : 
+        '';
+        
+      // Look for a processing step to get resultId (for link to output)
+      const processingStep = job.steps.find(step => 
+        step.name === 'PLATOGRAM_PROCESSING' || 
+        step.name.includes('PROCESSING')
+      );
+      
+      const resultId = processingStep?.data?.resultId || '';
+      
+      return `✓ Processed ${tokenUsage.toLocaleString()} tokens in ${duration}${resultId ? ` | Result: ${resultId.substring(resultId.length - 6)}` : ''}`;
+    }
+    
+    // Generic completion message
+    return `✓ Completed all ${totalSteps} steps successfully`;
+  }
+  
+  // For any other status
+  return `Status: ${job.status || 'UNKNOWN'} (${completedSteps.length}/${totalSteps} steps done)`;
 };
 
 export default function JobList() {
@@ -97,7 +182,8 @@ export default function JobList() {
     },
     meta: {
       headers: getAuthHeaders(),
-      url: `/api/proxy/jobs` // Use proxy endpoint
+      // Include steps data for the smart status
+      url: `/api/proxy/jobs?fields=_id,jobName,title,status,createdAt,fileName,scenario,lang,isPublic,createPage,link,type,steps,error,totalTokenUsage,totalDuration`
     }
   });
 
@@ -171,7 +257,7 @@ export default function JobList() {
   const formatJobData = (jobs: Job[]): Job[] => {
     return jobs.map(job => ({
       _id: job._id,
-      title: job.jobName || 'Short Generated Summary Headline for a File',
+      title: job.jobName || 'Untitled Job',
       createdAt: job.createdAt,
       status: job.status,
       fileName: job.jobName,
@@ -183,7 +269,13 @@ export default function JobList() {
       link: job.link,
       type: job.type || 'MP3',
       logic: formatScenarioName(job.scenario || ''),
-      description: 'Here is a detailed burger recipe that you can follow to...'
+      // Use the smart status generator
+      description: getSmartJobStatus(job),
+      // Include steps data for reference
+      steps: job.steps,
+      error: job.error,
+      totalTokenUsage: job.totalTokenUsage,
+      totalDuration: job.totalDuration
     }));
   };
 
