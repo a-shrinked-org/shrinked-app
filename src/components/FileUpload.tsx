@@ -68,7 +68,7 @@ export function FileUpload({
   };
 
   useEffect(() => {
-    const loadFffmpeg = async () => {
+    const loadFfmpeg = async () => {
       if (ffmpeg) return;
       setFfmpegLoading(true);
       
@@ -96,12 +96,12 @@ export function FileUpload({
         console.error('Error loading FFmpeg:', error);
         setError('Failed to load audio conversion library. Please use MP3 files directly.');
       } finally {
-        setFmpegLoading(false);
+        setFffmpegLoading(false);
       }
     };
 
     if (file && needsConversion(file)) {
-      loadFffmpeg();
+      loadFfmpeg(); // Fixed typo: was loadFmpeg
       setShowAudioOptions(true);
     } else {
       setShowAudioOptions(false);
@@ -119,7 +119,7 @@ export function FileUpload({
     }
     
     try {
-      setConversionStatus('processing'); // Fixed typo: was set phagocytosisStatus
+      setConversionStatus('processing');
       setConversionProgress(0);
 
       const { instance: ffmpegInstance, fetchFile } = ffmpeg;
