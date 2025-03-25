@@ -91,16 +91,16 @@ export function FileUpload({
         // Try multiple CDNs to avoid CORS issues
         const cdnOptions = [
           {
-            name: "unpkg standard",
-            coreURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.js",
-            wasmURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.wasm",
+            name: "standard",
+            coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/esm/ffmpeg-core.js",
+            wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/esm/ffmpeg-core.wasm",
             workerURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.worker.js",
           },
           {
             name: "jsdelivr",
             coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.js",
             wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.wasm",
-            workerURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.worker.js",
+            workerURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.worker.js",
           }
         ];
         
