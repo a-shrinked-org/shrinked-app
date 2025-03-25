@@ -11,6 +11,7 @@ export default function AuthCallback() {
   const [error, setError] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
+  const [statusMessage, setStatusMessage] = useState<string>("Establishing secure connection...");
 
   useEffect(() => {
 	const link = document.createElement("link");
@@ -19,7 +20,22 @@ export default function AuthCallback() {
 	document.head.appendChild(link);
 
 	const progressInterval = setInterval(() => {
-	  setProgress((prev) => (prev + 10) % 110);
+	  setProgress((prev) => {
+		const newProgress = (prev + 5) % 110;
+		
+		// Update status message based on progress
+		if (newProgress > 20 && newProgress <= 40) {
+		  setStatusMessage("Validating authentication tokens...");
+		} else if (newProgress > 40 && newProgress <= 60) {
+		  setStatusMessage("Retrieving account information...");
+		} else if (newProgress > 60 && newProgress <= 80) {
+		  setStatusMessage("Setting up secure session...");
+		} else if (newProgress > 80) {
+		  setStatusMessage("Finalizing authentication...");
+		}
+		
+		return newProgress;
+	  });
 	}, 150);
 
 	return () => {
@@ -112,8 +128,11 @@ export default function AuthCallback() {
 
   return (
 	<div className="callback-container">
-	  <div className="progress-container">
-		<div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+	  <div className="callback-content">
+		<div className="status-message">{statusMessage}</div>
+		<div className="progress-container">
+		  <div className="progress-bar" style={{ width: `${Math.min(progress, 100)}%` }}></div>
+		</div>
 	  </div>
 	</div>
   );
