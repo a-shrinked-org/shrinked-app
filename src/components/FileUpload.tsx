@@ -70,23 +70,26 @@ export function FileUpload({
       try {
         console.log('Starting FFmpeg load...');
         
-        // Ensure version consistency - using 0.12.1 to match package.json
-        const FFmpegModule = await import('@ffmpeg/ffmpeg');
-        const UtilModule = await import('@ffmpeg/util');
+        // Import all required FFmpeg modules
+        const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+        const { fetchFile } = await import('@ffmpeg/util');
         
-        // Make sure this version matches your package.json
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd';
-        const ffmpegInstance = new FFmpegModule.FFmpeg();
-
-        await ffmpegInstance.load({
-          coreURL: `${baseURL}/ffmpeg-core.js`,
-          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-          workerURL: `${baseURL}/ffmpeg-core.worker.js`,
-        });
+        // Import core directly - this is the most reliable method with Next.js
+        // Next.js will handle the bundling appropriately for client-side rendering
+        await import('@ffmpeg/core');
+        
+        // Create FFmpeg instance
+        const ffmpegInstance = new FFmpeg();
+        
+        // Load without explicit URLs - FFmpeg will find the core module automatically
+        // when properly imported above
+        await ffmpegInstance.load();
+        
+        console.log("FFmpeg loaded successfully");
 
         const ffmpegObj = { 
           instance: ffmpegInstance, 
-          fetchFile: UtilModule.fetchFile 
+          fetchFile 
         };
         
         setFfmpeg(ffmpegObj);
