@@ -96,7 +96,7 @@ export function FileUpload({
         console.error('Error loading FFmpeg:', error);
         setError('Failed to load audio conversion library. Please use MP3 files directly.');
       } finally {
-        setFfmpegLoading(false); // Fixed typo: was setFmpegLoading
+        setFfmpegLoading(false);
       }
     };
 
@@ -129,7 +129,7 @@ export function FileUpload({
       
       await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
 
-      ffmpegInstance.on('progress', ({ progress }) => {
+      ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
         setConversionProgress(Math.round(progress * 100));
       });
 
@@ -240,7 +240,7 @@ export function FileUpload({
       clearInterval(progressInterval);
 
       if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload to storage: ${preignedResponse.status}`);
+        throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
       }
 
       setProgress(100);
