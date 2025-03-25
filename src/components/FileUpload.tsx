@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert, Loader } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
 import { Upload, X, FileText, AlertCircle } from 'lucide-react';
@@ -37,16 +37,19 @@ export function FileUpload({
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [conversionProgress, setConversionProgress] = useState(0);
   const [convertedFile, setConvertedFile] = useState<File | null>(null);
+  // Define state for environment support
+  const [isEnvironmentSupported, setIsEnvironmentSupported] = useState<boolean | null>(null);
   
   // Use a ref to track the FFmpeg loading promise
   const ffmpegPromiseRef = useRef<Promise<FFmpegInstance | null> | null>(null);
 
   const { fetchWithAuth, handleAuthError } = useAuth();
 
-  const audioFileTypes = [
+  // Move audioFileTypes inside component to avoid unnecessary re-renders
+  const audioFileTypes = useMemo(() => [
     'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a', 'audio/flac', 'audio/webm',
     'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
-  ];
+  ], []);
 
   const defaultAcceptedTypes = {
     'audio/mpeg': ['.mp3'], 'audio/mp3': ['.mp3'], 'audio/wav': ['.wav'],
@@ -54,6 +57,11 @@ export function FileUpload({
     'audio/flac': ['.flac'], 'audio/webm': ['.weba'], 'video/mp4': ['.mp4'],
     'video/quicktime': ['.mov'], 'video/x-msvideo': ['.avi'], 'video/webm': ['.webm'],
   };
+
+  // Define needsConversion as a memoized function to prevent dependency issues
+  const needsConversion = useCallback((file: File): boolean => {
+    return audioFileTypes.some(type => file.type.includes(type));
+  }, [audioFileTypes]);
 
   // Load FFmpeg only once and keep track of the loading promise
   const loadFfmpeg = useCallback(async (): Promise<FFmpegInstance | null> => {
@@ -126,7 +134,6 @@ export function FileUpload({
 
   // Check if the environment supports SharedArrayBuffer (needed for FFmpeg)
   useEffect(() => {
-    // Define a local function to check the environment
     const checkEnvironment = () => {
       try {
         // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
@@ -139,26 +146,21 @@ export function FileUpload({
         
         const supported = isSABSupported && isCrossOriginIsolated;
         console.log(`Environment support check: SharedArrayBuffer: ${isSABSupported}, CrossOriginIsolated: ${isCrossOriginIsolated}`);
-        // Remove this line since it's causing an error
-        // setIsEnvironmentSupported(supported);
         return supported;
       } catch (error) {
         console.warn("Error checking environment support:", error);
-        // Remove this line since it's causing an error
-        // setIsEnvironmentSupported(false);
         return false;
       }
     };
     
-    // Set the environment support directly
-    const isSupported = checkEnvironment();
-    setEnvironmentSupported(isSupported);
+    const supported = checkEnvironment();
+    setIsEnvironmentSupported(supported);
   }, []);
   
   // Auto-load FFmpeg when a file that needs conversion is selected
   useEffect(() => {
     const initFFmpeg = async () => {
-      if (file && needsConversion(file) && environmentSupported !== false) {
+      if (file && needsConversion(file) && isEnvironmentSupported !== false) {
         try {
           await loadFfmpeg();
         } catch (error) {
@@ -169,14 +171,8 @@ export function FileUpload({
     };
     
     initFFmpeg();
-    // Removed isEnvironmentSupported from dependency array as it's a state variable
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file, loadFfmpeg, needsConversion]);
-
-  // Define needsConversion as a memoized function to prevent dependency issues
-  const needsConversion = useCallback((file: File): boolean => {
-    return audioFileTypes.some(type => file.type.includes(type));
-  }, [audioFileTypes]);
 
   const convertToMp3 = async (inputFile: File): Promise<File | null> => {
     if (!inputFile) return null;
@@ -335,7 +331,7 @@ export function FileUpload({
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
         await uploadFile(droppedFile);
       } else if (needsConversion(droppedFile)) {
-        if (environmentSupported === false) {
+        if (isEnvironmentSupported === false) {
           // Environment doesn't support FFmpeg, warn user and upload original
           console.warn("Environment doesn't support audio conversion, uploading original file");
           setError("Your browser doesn't support audio conversion. The file will be uploaded as-is.");
