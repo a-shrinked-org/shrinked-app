@@ -4,12 +4,10 @@ import { useNavigation, useGetIdentity } from "@refinedev/core";
 import { useForm, useFieldArray } from "react-hook-form";
 import { 
   TextInput, 
-  Select, 
   Button, 
   Stack, 
   Group, 
   Box, 
-  Title,
   Paper,
   Alert,
   Divider,
@@ -29,11 +27,12 @@ import {
   Upload, 
   Plus, 
   Trash, 
-  FileText 
+  FileText,
+  InfoCircle,
+  ExternalLink 
 } from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from '@/components/FileUpload';
-import { useState } from 'react';
 import { GeistMono } from 'geist/font/mono';
 
 interface Identity {
@@ -58,17 +57,6 @@ interface JobCreateForm {
   files: FileItem[];
 }
 
-// Updated scenario options based on API documentation
-const scenarioOptions = [
-  { value: 'SINGLE_FILE_DEFAULT', label: 'Single File Default' },
-  { value: 'SINGLE_FILE_PLATOGRAM_DOC', label: 'Single File with Document' },
-];
-
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'uk', label: 'Ukrainian' },
-];
-
 export default function JobCreate() {
   const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
@@ -79,8 +67,8 @@ export default function JobCreate() {
     defaultValues: {
       isPublic: false, // Default to Private
       createPage: false, // Default to No
-      lang: 'en',
-      scenario: 'SINGLE_FILE_DEFAULT',
+      lang: 'en', // English only for now
+      scenario: 'SINGLE_FILE_DEFAULT', // Default scenario
       files: [{ type: 'link', url: '' }]
     }
   });
@@ -119,7 +107,7 @@ export default function JobCreate() {
     setValue(`files.${index}.filename`, filename);
     
     showNotification({
-      title: 'File Uploaded',
+      title: 'Success',
       message: 'File URL has been added',
       color: 'green',
     });
@@ -218,56 +206,81 @@ export default function JobCreate() {
   });
 
   return (
-    <Box p={{ base: 'xs', sm: 'md' }} style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
-      <Paper p={{ base: 'xs', sm: 'md' }} radius="md" style={{ backgroundColor: '#0D0D0D', border: '1px solid #2b2b2b' }}>
-        <Stack gap="lg">
-          <Group justify="space-between" p="sm" style={{ borderBottom: '1px solid #2b2b2b' }}>
-            <Text size="sm" fw={500} style={{ 
-              fontFamily: GeistMono.style.fontFamily, 
-              letterSpacing: '0.5px',
-              display: 'flex',
-              alignItems: 'center',
-              height: '100%'
-            }}>
-              NEW JOB
-            </Text>
-            <Button 
-              variant="subtle"
-              onClick={() => list('jobs')}
-              leftSection={<ArrowLeft size={16} />}
-              styles={{
-                root: {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  fontWeight: 500,
-                  textTransform: 'uppercase',
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  border: 'none',
-                  '&:hover': {
-                    backgroundColor: '#1a1a1a',
-                  },
+    <Box style={{ 
+      backgroundColor: '#000000', 
+      color: '#ffffff', 
+      minHeight: '100vh', 
+      width: '100%'
+    }}>
+      <Box 
+        style={{ 
+          backgroundColor: '#000000', 
+          width: '100%',
+          maxWidth: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        <Group justify="space-between" p="sm" style={{ 
+          borderBottom: '1px solid #2b2b2b',
+          flexShrink: 0
+        }}>
+          <Text size="sm" fw={500} style={{ 
+            fontFamily: GeistMono.style.fontFamily, 
+            letterSpacing: '0.5px',
+            display: 'flex',
+            alignItems: 'center',
+            height: '100%'
+          }}>NEW JOB</Text>
+          
+          <Button 
+            variant="subtle"
+            onClick={() => list('jobs')}
+            leftSection={<ArrowLeft size={14} />}
+            styles={{
+              root: {
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                border: 'none',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
                 },
-              }}
-            >
-              <Text size="xs" fw={500}>BACK TO LIST</Text>
-            </Button>
-          </Group>
+              },
+            }}
+          >
+            <Text size="xs" fw={500}>BACK TO LIST</Text>
+          </Button>
+        </Group>
 
-          {errors?.root?.message && (
-            <Alert 
-              icon={<AlertCircle size={16} />}
-              color="red" 
-              title="Error"
-              style={{ backgroundColor: 'rgba(244, 67, 54, 0.1)', border: '1px solid rgba(244, 67, 54, 0.3)' }}
-            >
-              {errors.root.message}
-            </Alert>
-          )}
+        <form onSubmit={onSubmit}>
+          <Box style={{ 
+            width: '100%', 
+            maxWidth: '100%', 
+            overflowX: 'hidden',
+            flex: 1
+          }}>
+            {errors?.root?.message && (
+              <Alert 
+                icon={<AlertCircle size={16} />}
+                color="red" 
+                title="Error"
+                style={{ 
+                  backgroundColor: 'rgba(244, 67, 54, 0.1)', 
+                  border: '1px solid rgba(244, 67, 54, 0.3)', 
+                  margin: '1rem' 
+                }}
+              >
+                {errors.root.message}
+              </Alert>
+            )}
 
-          <form onSubmit={onSubmit}>
             <Stack gap="md" p="md">
               <TextInput
                 label="Job Name"
@@ -287,67 +300,35 @@ export default function JobCreate() {
                 }}
               />
 
-              <Select
-                label="Scenario"
-                data={scenarioOptions}
-                required
-                defaultValue="SINGLE_FILE_DEFAULT"
-                error={errors?.scenario?.message}
-                onChange={(value) => setValue('scenario', value || '')}
-                styles={{
-                  input: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
-                    color: '#ffffff',
-                  },
-                  label: {
-                    color: '#a1a1a1',
-                  },
-                  dropdown: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
-                  },
-                  option: {
-                    '&[data-selected]': {
-                      backgroundColor: '#2b2b2b',
-                    },
-                    '&[data-hovered]': {
-                      backgroundColor: '#1a1a1a',
-                    },
-                  },
-                }}
-              />
+              <Group align="center" style={{ marginBottom: '0.5rem' }}>
+                <Text size="sm" style={{ color: '#a1a1a1' }}>Logic:</Text>
+                <Text size="sm">Default</Text>
+                <Tooltip 
+                  label={
+                    <Group align="center">
+                      <Text size="xs">Find advanced logic configurations at the logic page</Text>
+                      <ActionIcon 
+                        variant="subtle" 
+                        component="a" 
+                        href="/logic" 
+                        target="_blank"
+                        size="xs"
+                      >
+                        <ExternalLink size={12} />
+                      </ActionIcon>
+                    </Group>
+                  }
+                  multiline
+                  width={200}
+                >
+                  <InfoCircle size={16} style={{ color: '#a1a1a1', cursor: 'help' }} />
+                </Tooltip>
+              </Group>
 
-              <Select
-                label="Language"
-                data={languageOptions}
-                required
-                defaultValue="en"
-                error={errors?.lang?.message}
-                onChange={(value) => setValue('lang', value || '')}
-                styles={{
-                  input: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
-                    color: '#ffffff',
-                  },
-                  label: {
-                    color: '#a1a1a1',
-                  },
-                  dropdown: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
-                  },
-                  option: {
-                    '&[data-selected]': {
-                      backgroundColor: '#2b2b2b',
-                    },
-                    '&[data-hovered]': {
-                      backgroundColor: '#1a1a1a',
-                    },
-                  },
-                }}
-              />
+              <Group align="center" style={{ marginBottom: '0.5rem' }}>
+                <Text size="sm" style={{ color: '#a1a1a1' }}>Language:</Text>
+                <Text size="sm">English</Text>
+              </Group>
 
               <Divider 
                 label="FILES" 
@@ -401,9 +382,11 @@ export default function JobCreate() {
                       backgroundColor: 'transparent',
                       flexDirection: isMobile ? 'column' : undefined,
                       gap: isMobile ? rem(10) : undefined,
+                    }}
+                    style={{
                       '&:hover': {
                         backgroundColor: '#111111',
-                      },
+                      }
                     }}
                   >
                     <Box style={{ display: 'flex', alignItems: 'center' }}>
@@ -418,9 +401,7 @@ export default function JobCreate() {
                             border: 'none',
                           },
                           tab: {
-                            padding: '4px 8px',
-                            fontSize: '12px',
-                            fontFamily: GeistMono.style.fontFamily,
+                            padding: '8px',
                             color: '#a1a1a1',
                             '&[data-active="true"]': {
                               color: '#F5A623',
@@ -430,11 +411,11 @@ export default function JobCreate() {
                         }}
                       >
                         <Tabs.List>
-                          <Tabs.Tab value="link" leftSection={<LinkIcon size={12} />}>
-                            LINK
+                          <Tabs.Tab value="link" leftSection={null}>
+                            <LinkIcon size={16} />
                           </Tabs.Tab>
-                          <Tabs.Tab value="upload" leftSection={<Upload size={12} />}>
-                            FILE
+                          <Tabs.Tab value="upload" leftSection={null}>
+                            <Upload size={16} />
                           </Tabs.Tab>
                         </Tabs.List>
                       </Tabs>
@@ -515,9 +496,6 @@ export default function JobCreate() {
                               variant="subtle"
                               color="red"
                               onClick={() => remove(index)}
-                              style={{
-                                '&:hover': { backgroundColor: '#2b2b2b' }
-                              }}
                             >
                               <Trash size={16} />
                             </ActionIcon>
@@ -549,21 +527,6 @@ export default function JobCreate() {
                 </Box>
               </Card>
 
-              {/* Hidden fields - set to default values but not shown to user */}
-              {/* <Group>
-                <Switch
-                  label="Public"
-                  checked={watch('isPublic')}
-                  onChange={(event) => setValue('isPublic', event.currentTarget.checked)}
-                />
-
-                <Switch
-                  label="Create Page"
-                  checked={watch('createPage')}
-                  onChange={(event) => setValue('createPage', event.currentTarget.checked)}
-                />
-              </Group> */}
-
               <Group justify="flex-end" mt="md">
                 <Button 
                   type="submit" 
@@ -587,9 +550,9 @@ export default function JobCreate() {
                 </Button>
               </Group>
             </Stack>
-          </form>
-        </Stack>
-      </Paper>
+          </Box>
+        </form>
+      </Box>
     </Box>
   );
 }
