@@ -237,7 +237,8 @@ function DocumentsTable<T extends ProcessedDocument>({
     description: "This feature is currently in development. Check back later for updates.",
     buttonText: "LEARN MORE",
     buttonAction: () => console.log('Coming soon feature clicked')
-  }
+  },
+  buttonText
 }: DocumentsTableProps<T>) {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
