@@ -60,7 +60,19 @@ export function FileUpload({
 
   // Define needsConversion as a memoized function to prevent dependency issues
   const needsConversion = useCallback((file: File): boolean => {
-    return audioFileTypes.some(type => file.type.includes(type));
+    // If it's already an MP3, no conversion needed
+    if (file.type === 'audio/mp3' || file.type === 'audio/mpeg') {
+      return false;
+    }
+    
+    // Check for audio and video types that need conversion
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    // Check both the MIME type and file extension
+    return audioFileTypes.some(type => 
+      file.type.includes(type.split('/')[1]) || // Check if MIME contains format (e.g., "m4a")
+      (fileExtension && ['wav', 'ogg', 'aac', 'm4a', 'flac', 'mp4', 'mov', 'avi', 'webm'].includes(fileExtension))
+    );
   }, [audioFileTypes]);
 
   // Load FFmpeg only once and keep track of the loading promise
