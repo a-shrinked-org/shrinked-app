@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert } from '@mantine/core';
+import React, { useState, useEffect } from 'react';
+import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert, Loader, Collapse, TextInput } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
-import { Upload, X, FileText, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, Music, RefreshCw } from 'lucide-react';
 import { showNotification } from '@mantine/notifications';
 import { authUtils, useAuth } from "@/utils/authUtils";
 
@@ -28,28 +28,177 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [ffmpeg, setFfmpeg] = useState<any>(null);
+  const [ffmpegLoading, setFfmpegLoading] = useState(false);
+  const [conversionStatus, setConversionStatus] = useState<string | null>(null);
+  const [conversionProgress, setConversionProgress] = useState(0);
+  const [convertedFile, setConvertedFile] = useState<File | null>(null);
+  const [showAudioOptions, setShowAudioOptions] = useState(false);
+  const [startTime, setStartTime] = useState('');
+  const [duration, setDuration] = useState('');
 
   const { fetchWithAuth, handleAuthError } = useAuth();
 
+  // Audio file types that need conversion
+  const audioFileTypes = [
+    'audio/wav',
+    'audio/ogg',
+    'audio/aac',
+    'audio/m4a',
+    'audio/flac',
+    'audio/webm',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
+  ];
+
+  // Default accepted file types (including audio and video)
   const defaultAcceptedTypes = {
-    'audio/m4a': ['.m4a'],
     'audio/mpeg': ['.mp3'],
+    'audio/mp3': ['.mp3'],
     'audio/wav': ['.wav'],
     'audio/ogg': ['.ogg'],
     'audio/aac': ['.aac'],
+    'audio/m4a': ['.m4a'],
+    'audio/flac': ['.flac'],
+    'audio/webm': ['.weba'],
     'video/mp4': ['.mp4'],
     'video/quicktime': ['.mov'],
     'video/x-msvideo': ['.avi'],
     'video/webm': ['.webm'],
   };
 
-  const uploadFile = async (file: File) => {
+  // Load FFmpeg when a convertible file is detected
+  useEffect(() => {
+    const loadFfmpeg = async () => {
+      if (ffmpeg) return; // Already loaded
+      setFfmpegLoading(true);
+      
+      try {
+        // Dynamic imports to ensure client-side only
+        const FFmpegModule = await import('@ffmpeg/ffmpeg');
+        const UtilModule = await import('@ffmpeg/util');
+        
+        // Initialize FFmpeg with specific CDN URLs
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        
+        const ffmpegInstance = new FFmpegModule.FFmpeg();
+        
+        // Load FFmpeg with progress tracking
+        await ffmpegInstance.load({
+          coreURL: `${baseURL}/ffmpeg-core.js`,
+          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+          workerURL: `${baseURL}/ffmpeg-core.worker.js`
+        });
+        
+        // Store both FFmpeg instance and fetchFile utility
+        setFfmpeg({ 
+          instance: ffmpegInstance, 
+          fetchFile: UtilModule.fetchFile 
+        });
+        
+        console.log('FFmpeg loaded successfully');
+      } catch (error) {
+        console.error('Error loading FFmpeg:', error);
+        setError('Failed to load audio conversion library. Please use MP3 files directly.');
+      } finally {
+        setFfmpegLoading(false);
+      }
+    };
+
+    // If file is not MP3 and needs conversion, load FFmpeg
+    if (file && needsConversion(file)) {
+      loadFfmpeg();
+      setShowAudioOptions(true);
+    } else {
+      setShowAudioOptions(false);
+    }
+  }, [file, ffmpeg]);
+
+  // Helper to check if a file needs conversion
+  const needsConversion = (file: File): boolean => {
+    return file && audioFileTypes.some(type => file.type.includes(type));
+  };
+
+  // Convert audio to MP3 using FFmpeg
+  const convertToMp3 = async () => {
+    if (!file || !ffmpeg?.instance) {
+      setError('Audio conversion library not loaded');
+      return null;
+    }
+    
+    try {
+      setConversionStatus('processing');
+      setConversionProgress(0);
+
+      const { instance: ffmpegInstance, fetchFile } = ffmpeg;
+
+      // Write input file
+      const inputFileName = 'input' + file.name.substring(file.name.lastIndexOf('.'));
+      const outputFileName = 'output.mp3';
+      
+      await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
+
+      // Set up progress handler
+      ffmpegInstance.on('progress', ({ progress }) => {
+        setConversionProgress(Math.round(progress * 100));
+      });
+
+      // Prepare FFmpeg command
+      const ffmpegArgs = [
+        '-i', inputFileName,
+        ...(startTime ? ['-ss', startTime] : []),
+        ...(duration ? ['-t', duration] : []),
+        '-vn',  // Remove video stream
+        '-acodec', 'libmp3lame',  // Use MP3 codec
+        '-q:a', '2',  // Set quality (0-9, lower is better)
+        outputFileName
+      ];
+
+      // Run FFmpeg command
+      await ffmpegInstance.exec(ffmpegArgs);
+
+      // Read the result
+      const data = await ffmpegInstance.readFile(outputFileName);
+      const blob = new Blob([data], { type: 'audio/mp3' });
+      
+      // Create a File object from the blob
+      const convertedFileName = file.name.substring(0, file.name.lastIndexOf('.')) + '.mp3';
+      const convertedFile = new File([blob], convertedFileName, { 
+        type: 'audio/mp3',
+        lastModified: new Date().getTime()
+      });
+      
+      // Clean up files
+      await ffmpegInstance.deleteFile(inputFileName);
+      await ffmpegInstance.deleteFile(outputFileName);
+
+      setConversionStatus('complete');
+      setConvertedFile(convertedFile);
+      
+      showNotification({
+        title: 'Success',
+        message: 'Audio converted to MP3 successfully',
+        color: 'green',
+      });
+      
+      return convertedFile;
+    } catch (error) {
+      console.error('Error converting audio:', error);
+      setConversionStatus('error');
+      setError(error instanceof Error ? `Conversion error: ${error.message}` : 'Failed to convert audio file');
+      return null;
+    }
+  };
+
+  const uploadFile = async (fileToUpload: File) => {
     setError(null);
     setUploading(true);
     setProgress(0);
 
     try {
-      if (file.size > maxSizeMB * 1024 * 1024) {
+      if (fileToUpload.size > maxSizeMB * 1024 * 1024) {
         throw new Error(`File size exceeds the maximum limit of ${maxSizeMB}MB`);
       }
 
@@ -59,11 +208,11 @@ export function FileUpload({
 
       const timestamp = new Date().getTime();
       const randomString = Math.random().toString(36).substring(2, 10);
-      const fileName = `${timestamp}-${randomString}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const fileName = `${timestamp}-${randomString}-${fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
       console.log('Requesting presigned URL for:', {
         fileName,
-        contentType: file.type,
+        contentType: fileToUpload.type,
         bucketName: R2_CONFIG.bucketName,
       });
 
@@ -74,7 +223,7 @@ export function FileUpload({
         },
         body: JSON.stringify({
           fileName,
-          contentType: file.type,
+          contentType: fileToUpload.type,
           bucketName: R2_CONFIG.bucketName,
         }),
       });
@@ -100,9 +249,9 @@ export function FileUpload({
       const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': fileToUpload.type,
         },
-        body: file,
+        body: fileToUpload,
       });
 
       clearInterval(progressInterval);
@@ -130,7 +279,11 @@ export function FileUpload({
         message: errorMessage,
         color: 'red',
       });
-      setFile(null);
+      
+      // Don't reset file if it's a network error - allow retry
+      if (!(error instanceof Error && error.message.includes('offline'))) {
+        setFile(null);
+      }
     } finally {
       setUploading(false);
     }
@@ -139,7 +292,17 @@ export function FileUpload({
   const handleDrop = (files: FileWithPath[]) => {
     if (files.length > 0) {
       setFile(files[0]);
-      uploadFile(files[0]);
+      setConvertedFile(null);
+      setConversionStatus(null);
+      
+      const droppedFile = files[0];
+      
+      // Check if the file is already an MP3
+      if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
+        // If MP3, upload directly
+        uploadFile(droppedFile);
+      }
+      // Otherwise, file will wait for conversion
     }
   };
 
@@ -148,6 +311,28 @@ export function FileUpload({
     else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
     else if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
+  // Handle the full process of conversion and upload
+  const handleConvertAndUpload = async () => {
+    if (!file) return;
+    
+    try {
+      const convertedFile = await convertToMp3();
+      if (convertedFile) {
+        await uploadFile(convertedFile);
+      }
+    } catch (error) {
+      console.error('Convert and upload error:', error);
+      setError('Failed to process and upload file');
+    }
+  };
+
+  // After successful conversion, handle upload
+  const handleUploadAfterConversion = () => {
+    if (convertedFile) {
+      uploadFile(convertedFile);
+    }
   };
 
   return (
@@ -188,14 +373,133 @@ export function FileUpload({
                 Drag file here or click to select
               </Text>
               <Text size="sm" color="dimmed" inline mt={7}>
-                Max file size: {maxSizeMB} MB
+                MP3 files will upload directly. Other audio/video formats will be converted first.
               </Text>
             </div>
           </Group>
         </Dropzone>
       ) : (
         <Box>
-          {uploading ? (
+          {/* Show file info */}
+          <Group
+            justify="space-between"
+            p="md"
+            mb="md"
+            style={{ border: `1px solid ${theme.colors.gray[3]}`, borderRadius: theme.radius.md }}
+          >
+            <Group>
+              <FileText size={24} />
+              <Box>
+                <Text size="sm" fw={500}>
+                  {convertedFile ? convertedFile.name : file?.name}
+                </Text>
+                {file && (
+                  <Text size="xs" color="dimmed">
+                    {formatFileSize(convertedFile ? convertedFile.size : file.size)}
+                  </Text>
+                )}
+              </Box>
+            </Group>
+            <Button 
+              variant="light" 
+              color="red" 
+              size="xs" 
+              onClick={() => {
+                setFile(null);
+                setConvertedFile(null);
+                setConversionStatus(null);
+                setShowAudioOptions(false);
+              }}
+              disabled={uploading}
+            >
+              Remove
+            </Button>
+          </Group>
+
+          {/* Audio conversion options */}
+          {showAudioOptions && (
+            <Box mb="md">
+              <Collapse in={showAudioOptions}>
+                <Box p="md" style={{ border: `1px solid ${theme.colors.blue[3]}`, borderRadius: theme.radius.md, background: theme.colors.blue[0] }}>
+                  <Text size="sm" fw={500} mb="md">
+                    <Music size={16} style={{ marginRight: '8px', display: 'inline' }} />
+                    Audio Conversion Options
+                  </Text>
+                  
+                  <Box mb="md">
+                    <TextInput
+                      label="Start Time (optional)"
+                      placeholder="00:00:00"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      size="xs"
+                      disabled={conversionStatus === 'processing' || uploading}
+                    />
+                    <Text size="xs" color="dimmed" mt={4}>Format: HH:MM:SS or seconds</Text>
+                  </Box>
+
+                  <Box mb="md">
+                    <TextInput
+                      label="Duration (optional)"
+                      placeholder="00:00:00"
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      size="xs"
+                      disabled={conversionStatus === 'processing' || uploading}
+                    />
+                    <Text size="xs" color="dimmed" mt={4}>Format: HH:MM:SS or seconds</Text>
+                  </Box>
+                  
+                  {ffmpegLoading && (
+                    <Group justify="center" mb="md">
+                      <Loader size="sm" />
+                      <Text size="sm">Loading audio conversion library...</Text>
+                    </Group>
+                  )}
+                  
+                  {/* Conversion progress */}
+                  {conversionStatus === 'processing' && (
+                    <Box mb="md">
+                      <Group justify="space-between" mb={5}>
+                        <Text size="sm" fw={500}>Converting to MP3...</Text>
+                        <Text size="sm" fw={500}>{conversionProgress}%</Text>
+                      </Group>
+                      <Progress value={conversionProgress} size="sm" radius="xl" />
+                    </Box>
+                  )}
+                  
+                  {/* Conversion actions */}
+                  {!convertedFile && conversionStatus !== 'processing' && (
+                    <Button
+                      onClick={handleConvertAndUpload}
+                      leftSection={<RefreshCw size={16} />}
+                      color="blue"
+                      fullWidth
+                      disabled={ffmpegLoading || !ffmpeg || uploading}
+                      loading={conversionStatus === 'processing'}
+                    >
+                      Convert to MP3 & Upload
+                    </Button>
+                  )}
+                  
+                  {/* Upload after conversion */}
+                  {convertedFile && !uploading && (
+                    <Button
+                      onClick={handleUploadAfterConversion}
+                      leftSection={<Upload size={16} />}
+                      color="green"
+                      fullWidth
+                    >
+                      Upload Converted MP3
+                    </Button>
+                  )}
+                </Box>
+              </Collapse>
+            </Box>
+          )}
+
+          {/* Upload progress */}
+          {uploading && (
             <Box>
               <Group justify="space-between" mb={5}>
                 <Text size="sm" fw={500}>
@@ -207,29 +511,6 @@ export function FileUpload({
               </Group>
               <Progress value={progress} size="xl" radius="xl" />
             </Box>
-          ) : (
-            <Group
-              justify="space-between"
-              p="md"
-              style={{ border: `1px solid ${theme.colors.gray[3]}`, borderRadius: theme.radius.md }}
-            >
-              <Group>
-                <FileText size={24} />
-                <Box>
-                  <Text size="sm" fw={500}>
-                    {file?.name}
-                  </Text>
-                  {file && (
-                    <Text size="xs" color="dimmed">
-                      {formatFileSize(file.size)}
-                    </Text>
-                  )}
-                </Box>
-              </Group>
-              <Button variant="light" color="red" size="xs" onClick={() => setFile(null)}>
-                Remove
-              </Button>
-            </Group>
           )}
         </Box>
       )}
