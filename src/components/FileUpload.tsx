@@ -78,19 +78,20 @@ export function FileUpload({
       try {
         console.log('Starting FFmpeg load...');
         
-        // Import all required FFmpeg modules
+        // Import FFmpeg modules
         const { FFmpeg } = await import('@ffmpeg/ffmpeg');
         const { fetchFile } = await import('@ffmpeg/util');
-        
-        // Just import the core directly
-        await import('@ffmpeg/core');
         
         // Create FFmpeg instance
         const ffmpegInstance = new FFmpeg();
         
-        // This will use the imported core
-        console.log("Loading FFmpeg from local package...");
-        await ffmpegInstance.load();
+        // Load with CDN URLs instead of local packages to avoid WebAssembly import issues
+        console.log("Loading FFmpeg from CDN...");
+        await ffmpegInstance.load({
+          coreURL: 'https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.js',
+          wasmURL: 'https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.wasm',
+          workerURL: 'https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.worker.js'
+        });
 
         const ffmpegObj = { 
           instance: ffmpegInstance, 
