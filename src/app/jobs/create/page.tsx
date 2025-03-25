@@ -45,6 +45,8 @@ interface FileItem {
   url: string;
   filename?: string;
   size?: number;
+  mimeType?: string;
+  date?: string;
 }
 
 interface JobCreateForm {
@@ -95,6 +97,34 @@ export default function JobCreate() {
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
+  // Helper to guess MIME type from URL or filename
+  const guessMimeType = (url: string): string => {
+    const extension = url.split('.').pop()?.toLowerCase();
+    
+    const mimeTypes: Record<string, string> = {
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'ogg': 'audio/ogg',
+      'aac': 'audio/aac',
+      'm4a': 'audio/mp4',
+      'flac': 'audio/flac',
+      'mp4': 'video/mp4',
+      'webm': 'video/webm',
+      'mov': 'video/quicktime',
+      'avi': 'video/x-msvideo',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'txt': 'text/plain',
+      'csv': 'text/csv',
+      'json': 'application/json',
+    };
+    
+    return extension && extension in mimeTypes 
+      ? mimeTypes[extension] 
+      : 'application/octet-stream';
+  };
+
   // Handle file upload success
   const handleFileUploaded = (fileUrl: string, index: number = 0) => {
     setValue(`files.${index}.url`, fileUrl);
@@ -104,6 +134,12 @@ export default function JobCreate() {
     const filenameWithParams = urlParts[urlParts.length - 1];
     const filename = filenameWithParams.split('?')[0]; // Remove query parameters if any
     setValue(`files.${index}.filename`, filename);
+    
+    // Add MIME type based on file extension
+    setValue(`files.${index}.mimeType`, guessMimeType(fileUrl));
+    
+    // Add current date
+    setValue(`files.${index}.date`, new Date().toISOString());
     
     showNotification({
       title: 'Success',
@@ -135,6 +171,17 @@ export default function JobCreate() {
         return;
       }
 
+      // Prepare complete file data for API
+      const enhancedFiles = validFiles.map(file => {
+        return {
+          url: file.url,
+          name: file.filename || file.url.split('/').pop() || 'Unnamed file',
+          mimeType: file.mimeType || guessMimeType(file.url),
+          size: file.size || 0,
+          uploadDate: file.date || new Date().toISOString()
+        };
+      });
+
       // For API compatibility - if only one file, submit with link parameter
       // otherwise create a multi-file job
       let apiData;
@@ -148,14 +195,14 @@ export default function JobCreate() {
           link: validFiles[0].url
         };
       } else {
-        // Format for multi-file job - assuming backend support
+        // Format for multi-file job with complete file data
         apiData = {
           jobName: data.jobName,
           scenario: data.scenario,
           lang: data.lang,
           isPublic: data.isPublic,
           createPage: data.createPage,
-          files: validFiles.map(file => ({ url: file.url }))
+          files: enhancedFiles
         };
       }
       
@@ -422,6 +469,22 @@ export default function JobCreate() {
                         <TextInput
                           placeholder="Enter file URL"
                           {...register(`files.${index}.url`)}
+                          onChange={(e) => {
+                            // Set URL
+                            setValue(`files.${index}.url`, e.target.value);
+                            
+                            // Auto-extract filename and set MIME type if URL is valid
+                            if (e.target.value) {
+                              try {
+                                const filename = e.target.value.split('/').pop() || '';
+                                setValue(`files.${index}.filename`, filename);
+                                setValue(`files.${index}.mimeType`, guessMimeType(e.target.value));
+                                setValue(`files.${index}.date`, new Date().toISOString());
+                              } catch (error) {
+                                console.warn('Failed to auto-extract file info from URL');
+                              }
+                            }
+                          }}
                           styles={{
                             input: {
                               backgroundColor: '#0d0d0d',
@@ -469,6 +532,8 @@ export default function JobCreate() {
                                   setValue(`files.${index}.url`, '');
                                   setValue(`files.${index}.filename`, '');
                                   setValue(`files.${index}.size`, undefined);
+                                  setValue(`files.${index}.mimeType`, undefined);
+                                  setValue(`files.${index}.date`, undefined);
                                 }}
                               >
                                 Change
