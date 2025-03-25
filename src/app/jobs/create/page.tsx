@@ -114,7 +114,6 @@ export default function JobCreate() {
 
   const onSubmit = handleSubmit(async (data: JobCreateForm) => {
     try {
-      // Check if online before making request
       if (!navigator.onLine) {
         showNotification({
           title: 'Error',
@@ -124,54 +123,46 @@ export default function JobCreate() {
         });
         return;
       }
-      
-      // Check if we have at least one valid file URL
+  
       const validFiles = data.files.filter(file => file.url.trim() !== '');
       if (validFiles.length === 0) {
-        setError('root', { 
-          type: 'manual', 
-          message: 'Please provide at least one file link or upload a file' 
-        });
+        setError('root', { type: 'manual', message: 'Please provide at least one file link or upload a file' });
         return;
       }
-
-      // For API compatibility - if only one file, submit with link parameter
-      // otherwise create a multi-file job with links array
+  
       let apiData;
       if (validFiles.length === 1) {
         apiData = {
           jobName: data.jobName,
           scenario: data.scenario,
+          email: identity?.email || '', // Add email from identity
           lang: data.lang,
           isPublic: data.isPublic,
           createPage: data.createPage,
           link: validFiles[0].url
         };
       } else {
-        // Format for multi-file job with links array
         apiData = {
           jobName: data.jobName,
           scenario: data.scenario,
+          email: identity?.email || '', // Add email from identity
           lang: data.lang,
           isPublic: data.isPublic,
           createPage: data.createPage,
           links: validFiles.map(file => file.url)
         };
       }
-      
-      // Use centralized fetchWithAuth for API calls
+  
       const response = await fetchWithAuth(`/api/jobs-proxy`, {
         method: 'POST',
         body: JSON.stringify(apiData)
       });
-
-      // Handle Cloudflare errors
+  
       if (response.status === 521 || response.status === 522 || response.status === 523) {
         throw new Error('The server is currently unreachable. Please try again later.');
       }
-
+  
       if (!response.ok) {
-        // Attempt to parse error message from response
         let errorMessage;
         try {
           const errorData = await response.json();
@@ -181,20 +172,17 @@ export default function JobCreate() {
         }
         throw new Error(errorMessage);
       }
-
+  
       showNotification({
         title: 'Success',
         message: 'Job created successfully',
         color: 'green'
       });
-
+  
       list('jobs');
     } catch (error) {
       console.error("Create job error:", error);
-      
-      // Use centralized error handling
       handleAuthError(error);
-      
       showNotification({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to create job',
