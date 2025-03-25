@@ -134,7 +134,7 @@ export function FileUpload({
         // Check if the page is cross-origin isolated (required for SharedArrayBuffer)
         const isCrossOriginIsolated = 
           typeof window !== 'undefined' && 
-          (window.crossOriginIsolated || Boolean(window.chrome));
+          window.crossOriginIsolated;
         
         const supported = isSABSupported && isCrossOriginIsolated;
         console.log(`Environment support check: SharedArrayBuffer: ${isSABSupported}, CrossOriginIsolated: ${isCrossOriginIsolated}`);
@@ -162,7 +162,7 @@ export function FileUpload({
     };
     
     initFFmpeg();
-  }, [file, loadFfmpeg, isEnvironmentSupported]);
+  }, [file, loadFfmpeg, isEnvironmentSupported, needsConversion]);
 
   const needsConversion = (file: File): boolean => {
     return audioFileTypes.some(type => file.type.includes(type));
