@@ -68,7 +68,7 @@ export function FileUpload({
   };
 
   useEffect(() => {
-    const loadFfmpeg = async () => {
+    const loadFffmpeg = async () => {
       if (ffmpeg) return;
       setFfmpegLoading(true);
       
@@ -96,12 +96,12 @@ export function FileUpload({
         console.error('Error loading FFmpeg:', error);
         setError('Failed to load audio conversion library. Please use MP3 files directly.');
       } finally {
-        setFffmpegLoading(false);
+        setFfmpegLoading(false); // Fixed typo: was setFmpegLoading
       }
     };
 
     if (file && needsConversion(file)) {
-      loadFfmpeg(); // Fixed typo: was loadFmpeg
+      loadFffmpeg();
       setShowAudioOptions(true);
     } else {
       setShowAudioOptions(false);
@@ -240,7 +240,7 @@ export function FileUpload({
       clearInterval(progressInterval);
 
       if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
+        throw new Error(`Failed to upload to storage: ${preignedResponse.status}`);
       }
 
       setProgress(100);
