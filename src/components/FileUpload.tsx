@@ -18,6 +18,21 @@ interface FileUploadProps {
   acceptedFileTypes?: Record<string, string[]>;
 }
 
+// FFmpeg types
+interface FFmpegInstance {
+  load: (options: any) => Promise<void>;
+  writeFile: (name: string, data: Uint8Array) => Promise<void>;
+  readFile: (name: string) => Promise<Uint8Array>;
+  deleteFile: (name: string) => Promise<void>;
+  exec: (args: string[]) => Promise<void>;
+  on: (event: string, callback: (eventData: any) => void) => void;
+}
+
+interface FFmpegType {
+  instance: FFmpegInstance;
+  fetchFile: (file: File) => Promise<Uint8Array>;
+}
+
 export function FileUpload({
   onFileUploaded,
   maxSizeMB = 100,
@@ -28,7 +43,7 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [ffmpeg, setFfmpeg] = useState<any>(null);
+  const [ffmpeg, setFfmpeg] = useState<FFmpegType | null>(null);
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [conversionStatus, setConversionStatus] = useState<string | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
@@ -67,6 +82,11 @@ export function FileUpload({
     'video/quicktime': ['.mov'],
     'video/x-msvideo': ['.avi'],
     'video/webm': ['.webm'],
+  };
+
+  // Helper to check if a file needs conversion
+  const needsConversion = (file: File): boolean => {
+    return file && audioFileTypes.some(type => file.type.includes(type));
   };
 
   // Load FFmpeg when a convertible file is detected
@@ -116,11 +136,6 @@ export function FileUpload({
     }
   }, [file, ffmpeg]);
 
-  // Helper to check if a file needs conversion
-  const needsConversion = (file: File): boolean => {
-    return file && audioFileTypes.some(type => file.type.includes(type));
-  };
-
   // Convert audio to MP3 using FFmpeg
   const convertToMp3 = async () => {
     if (!file || !ffmpeg?.instance) {
@@ -141,8 +156,8 @@ export function FileUpload({
       await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
 
       // Set up progress handler
-      ffmpegInstance.on('progress', ({ progress }) => {
-        setConversionProgress(Math.round(progress * 100));
+      ffmpegInstance.on('progress', (eventData: { progress: number }) => {
+        setConversionProgress(Math.round(eventData.progress * 100));
       });
 
       // Prepare FFmpeg command
