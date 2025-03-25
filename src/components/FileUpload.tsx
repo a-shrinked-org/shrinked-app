@@ -92,9 +92,9 @@ export function FileUpload({
         const cdnOptions = [
           {
             name: "unpkg standard",
-            coreURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.js",
-            wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.wasm",
-            workerURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.worker.js",
+            coreURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.js",
+            wasmURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.wasm",
+            workerURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.worker.js",
           },
           {
             name: "jsdelivr",
