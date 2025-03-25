@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert, Loader, Collapse, TextInput } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
 import { Upload, X, FileText, AlertCircle, Music, RefreshCw } from 'lucide-react';
-import { showNotification } from '@mantine/notifications';
+import { notifications } from '@mantine/notifications'; // Updated import
 import { authUtils, useAuth } from "@/utils/authUtils";
 
 // R2 Configuration from environment variables
@@ -18,6 +18,11 @@ interface FileUploadProps {
   acceptedFileTypes?: Record<string, string[]>;
 }
 
+// Define FFmpeg progress event type
+interface FFmpegProgress {
+  progress: number;
+}
+
 export function FileUpload({
   onFileUploaded,
   maxSizeMB = 100,
@@ -28,7 +33,7 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [ffmpeg, setFfmpeg] = useState<any>(null);
+  const [ffmpeg, setFmpeg] = useState<any>(null);
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [conversionStatus, setConversionStatus] = useState<string | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
@@ -36,7 +41,6 @@ export function FileUpload({
   const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [startTime, setStartTime] = useState('');
   const [duration, setDuration] = useState('');
-  const [needsManualConversion, setNeedsManualConversion] = useState(false);
 
   const { fetchWithAuth, handleAuthError } = useAuth();
 
@@ -54,7 +58,6 @@ export function FileUpload({
     'video/x-msvideo',
   ];
 
-  // Default accepted file types (including audio and video)
   const defaultAcceptedTypes = {
     'audio/mpeg': ['.mp3'],
     'audio/mp3': ['.mp3'],
@@ -70,44 +73,53 @@ export function FileUpload({
     'video/webm': ['.webm'],
   };
 
-  // Check if a file needs conversion
-  const checkFileNeedsConversion = (file: File): boolean => {
-    return Boolean(file && audioFileTypes.some(type => file.type.includes(type)));
-  };
-
-  // Load FFmpeg when needed
   useEffect(() => {
-    if (!file) return;
-    
-    const needsConversion = checkFileNeedsConversion(file);
-    setNeedsManualConversion(needsConversion);
-    setShowAudioOptions(needsConversion);
-    
-    if (needsConversion && !ffmpeg) {
-      const loadFfmpeg = async () => {
-        setFfmpegLoading(true);
-        try {
-          const { createFFmpeg, fetchFile } = await import('@ffmpeg/ffmpeg');
-          const ffmpegInstance = createFFmpeg({ 
-            log: true,
-            corePath: 'https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js'
-          });
-          await ffmpegInstance.load();
-          setFfmpeg({ instance: ffmpegInstance, fetchFile });
-        } catch (error) {
-          console.error('Error loading FFmpeg:', error);
-          setError('Failed to load audio conversion library. Please use MP3 files directly.');
-        } finally {
-          setFfmpegLoading(false);
-        }
-      };
-      loadFfmpeg();
+    const loadFfmpeg = async () => {
+      if (ffmpeg) return;
+      setFfmpegLoading(true);
+      
+      try {
+        const FFmpegModule = await import('@ffmpeg/ffmpeg');
+        const UtilModule = await import('@ffmpeg/util');
+        
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        
+        const ffmpegInstance = new FFmpegModule.FFmpeg();
+        
+        await ffmpegInstance.load({
+          coreURL: `${baseURL}/ffmpeg-core.js`,
+          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+          workerURL: `${baseURL}/ffmpeg-core.worker.js`
+        });
+        
+        setFmpeg({ 
+          instance: ffmpegInstance, 
+          fetchFile: UtilModule.fetchFile 
+        });
+        
+        console.log('FFmpeg loaded successfully');
+      } catch (error) {
+        console.error('Error loading FFmpeg:', error);
+        setError('Failed to load audio conversion library. Please use MP3 files directly.');
+      } finally {
+        setFfmpegLoading(false);
+      }
+    };
+
+    if (file && needsConversion(file)) {
+      loadFmpeg();
+      setShowAudioOptions(true);
+    } else {
+      setShowAudioOptions(false);
     }
   }, [file, ffmpeg]);
 
-  // Convert audio to MP3 using FFmpeg
+  const needsConversion = (file: File): boolean => {
+    return file && audioFileTypes.some(type => file.type.includes(type));
+  };
+
   const convertToMp3 = async () => {
-    if (!file || !ffmpeg) {
+    if (!file || !ffmpeg?.instance) {
       setError('Audio conversion library not loaded');
       return null;
     }
@@ -118,62 +130,44 @@ export function FileUpload({
 
       const { instance: ffmpegInstance, fetchFile } = ffmpeg;
 
-      // Write input file
       const inputFileName = 'input' + file.name.substring(file.name.lastIndexOf('.'));
       const outputFileName = 'output.mp3';
       
-      ffmpegInstance.FS('writeFile', inputFileName, await fetchFile(file));
+      await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
 
-      // Set up progress tracking
-      ffmpegInstance.setProgress(({ ratio }) => {
-        setConversionProgress(Math.round(ratio * 100));
+      // Set up progress handler with typed parameter
+      ffmpegInstance.on('progress', ({ progress }: FFmpegProgress) => {
+        setConversionProgress(Math.round(progress * 100));
       });
 
-      // Prepare FFmpeg command
       const ffmpegArgs = [
-        '-i', inputFileName
-      ];
-      
-      // Add start time if specified
-      if (startTime) {
-        ffmpegArgs.push('-ss', startTime);
-      }
-      
-      // Add duration if specified  
-      if (duration) {
-        ffmpegArgs.push('-t', duration);
-      }
-      
-      // Add output options
-      ffmpegArgs.push(
-        '-vn',  // Remove video stream
-        '-acodec', 'libmp3lame',  // Use MP3 codec
-        '-q:a', '2',  // Set quality (0-9, lower is better)
+        '-i', inputFileName,
+        ...(startTime ? ['-ss', startTime] : []),
+        ...(duration ? ['-t', duration] : []),
+        '-vn',
+        '-acodec', 'libmp3lame',
+        '-q:a', '2',
         outputFileName
-      );
+      ];
 
-      // Run FFmpeg command
-      await ffmpegInstance.run(...ffmpegArgs);
+      await ffmpegInstance.exec(ffmpegArgs);
 
-      // Read the result
-      const data = ffmpegInstance.FS('readFile', outputFileName);
-      const blob = new Blob([data.buffer], { type: 'audio/mp3' });
+      const data = await ffmpegInstance.readFile(outputFileName);
+      const blob = new Blob([data], { type: 'audio/mp3' });
       
-      // Create a File object from the blob
       const convertedFileName = file.name.substring(0, file.name.lastIndexOf('.')) + '.mp3';
       const convertedFile = new File([blob], convertedFileName, { 
         type: 'audio/mp3',
         lastModified: new Date().getTime()
       });
       
-      // Clean up files
-      ffmpegInstance.FS('unlink', inputFileName);
-      ffmpegInstance.FS('unlink', outputFileName);
+      await ffmpegInstance.deleteFile(inputFileName);
+      await ffmpegInstance.deleteFile(outputFileName);
 
       setConversionStatus('complete');
       setConvertedFile(convertedFile);
       
-      showNotification({
+      notifications.show({
         title: 'Success',
         message: 'Audio converted to MP3 successfully',
         color: 'green',
@@ -206,12 +200,6 @@ export function FileUpload({
       const randomString = Math.random().toString(36).substring(2, 10);
       const fileName = `${timestamp}-${randomString}-${fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
-      console.log('Requesting presigned URL for:', {
-        fileName,
-        contentType: fileToUpload.type,
-        bucketName: R2_CONFIG.bucketName,
-      });
-
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
         headers: {
@@ -230,9 +218,7 @@ export function FileUpload({
       }
 
       const { presignedUrl, fileUrl } = await presignedResponse.json();
-      console.log('Received Presigned URL:', presignedUrl);
-      console.log('Expected File URL:', fileUrl);
-
+      
       setProgress(10);
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
@@ -259,7 +245,7 @@ export function FileUpload({
       setProgress(100);
       onFileUploaded(fileUrl);
 
-      showNotification({
+      notifications.show({
         title: 'Success',
         message: 'File uploaded successfully',
         color: 'green',
@@ -270,13 +256,12 @@ export function FileUpload({
       setError(errorMessage);
       handleAuthError(error);
 
-      showNotification({
+      notifications.show({
         title: 'Error',
         message: errorMessage,
         color: 'red',
       });
       
-      // Don't reset file if it's a network error - allow retry
       if (!(error instanceof Error && error.message.includes('offline'))) {
         setFile(null);
       }
@@ -293,12 +278,9 @@ export function FileUpload({
       
       const droppedFile = files[0];
       
-      // Check if the file is already an MP3
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
-        // If MP3, upload directly
         uploadFile(droppedFile);
       }
-      // Otherwise, file will wait for conversion
     }
   };
 
@@ -309,7 +291,6 @@ export function FileUpload({
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Handle the full process of conversion and upload
   const handleConvertAndUpload = async () => {
     if (!file) return;
     
@@ -324,7 +305,6 @@ export function FileUpload({
     }
   };
 
-  // After successful conversion, handle upload
   const handleUploadAfterConversion = () => {
     if (convertedFile) {
       uploadFile(convertedFile);
@@ -376,7 +356,6 @@ export function FileUpload({
         </Dropzone>
       ) : (
         <Box>
-          {/* Show file info */}
           <Group
             justify="space-between"
             p="md"
@@ -412,7 +391,6 @@ export function FileUpload({
             </Button>
           </Group>
 
-          {/* Audio conversion options */}
           {showAudioOptions && (
             <Box mb="md">
               <Collapse in={showAudioOptions}>
@@ -453,7 +431,6 @@ export function FileUpload({
                     </Group>
                   )}
                   
-                  {/* Conversion progress */}
                   {conversionStatus === 'processing' && (
                     <Box mb="md">
                       <Group justify="space-between" mb={5}>
@@ -464,7 +441,6 @@ export function FileUpload({
                     </Box>
                   )}
                   
-                  {/* Conversion actions */}
                   {!convertedFile && conversionStatus !== 'processing' && (
                     <Button
                       onClick={handleConvertAndUpload}
@@ -478,7 +454,6 @@ export function FileUpload({
                     </Button>
                   )}
                   
-                  {/* Upload after conversion */}
                   {convertedFile && !uploading && (
                     <Button
                       onClick={handleUploadAfterConversion}
@@ -494,7 +469,6 @@ export function FileUpload({
             </Box>
           )}
 
-          {/* Upload progress */}
           {uploading && (
             <Box>
               <Group justify="space-between" mb={5}>
