@@ -18,21 +18,6 @@ interface FileUploadProps {
   acceptedFileTypes?: Record<string, string[]>;
 }
 
-// FFmpeg types
-interface FFmpegInstance {
-  load: (options: any) => Promise<void>;
-  writeFile: (name: string, data: Uint8Array) => Promise<void>;
-  readFile: (name: string) => Promise<Uint8Array>;
-  deleteFile: (name: string) => Promise<void>;
-  exec: (args: string[]) => Promise<void>;
-  on: (event: string, callback: (eventData: any) => void) => void;
-}
-
-interface FFmpegType {
-  instance: FFmpegInstance;
-  fetchFile: (file: File) => Promise<Uint8Array>;
-}
-
 export function FileUpload({
   onFileUploaded,
   maxSizeMB = 100,
@@ -43,7 +28,7 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [ffmpeg, setFfmpeg] = useState<FFmpegType | null>(null);
+  const [ffmpeg, setFfmpeg] = useState<any>(null);
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [conversionStatus, setConversionStatus] = useState<string | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
@@ -51,6 +36,7 @@ export function FileUpload({
   const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [startTime, setStartTime] = useState('');
   const [duration, setDuration] = useState('');
+  const [needsManualConversion, setNeedsManualConversion] = useState(false);
 
   const { fetchWithAuth, handleAuthError } = useAuth();
 
@@ -84,61 +70,44 @@ export function FileUpload({
     'video/webm': ['.webm'],
   };
 
-  // Helper to check if a file needs conversion
-  const needsConversion = (file: File): boolean => {
-    return file && audioFileTypes.some(type => file.type.includes(type));
+  // Check if a file needs conversion
+  const checkFileNeedsConversion = (file: File): boolean => {
+    return Boolean(file && audioFileTypes.some(type => file.type.includes(type)));
   };
 
-  // Load FFmpeg when a convertible file is detected
+  // Load FFmpeg when needed
   useEffect(() => {
-    const loadFfmpeg = async () => {
-      if (ffmpeg) return; // Already loaded
-      setFfmpegLoading(true);
-      
-      try {
-        // Dynamic imports to ensure client-side only
-        const FFmpegModule = await import('@ffmpeg/ffmpeg');
-        const UtilModule = await import('@ffmpeg/util');
-        
-        // Initialize FFmpeg with specific CDN URLs
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-        
-        const ffmpegInstance = new FFmpegModule.FFmpeg();
-        
-        // Load FFmpeg with progress tracking
-        await ffmpegInstance.load({
-          coreURL: `${baseURL}/ffmpeg-core.js`,
-          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-          workerURL: `${baseURL}/ffmpeg-core.worker.js`
-        });
-        
-        // Store both FFmpeg instance and fetchFile utility
-        setFfmpeg({ 
-          instance: ffmpegInstance, 
-          fetchFile: UtilModule.fetchFile 
-        });
-        
-        console.log('FFmpeg loaded successfully');
-      } catch (error) {
-        console.error('Error loading FFmpeg:', error);
-        setError('Failed to load audio conversion library. Please use MP3 files directly.');
-      } finally {
-        setFfmpegLoading(false);
-      }
-    };
-
-    // If file is not MP3 and needs conversion, load FFmpeg
-    if (file && needsConversion(file)) {
+    if (!file) return;
+    
+    const needsConversion = checkFileNeedsConversion(file);
+    setNeedsManualConversion(needsConversion);
+    setShowAudioOptions(needsConversion);
+    
+    if (needsConversion && !ffmpeg) {
+      const loadFfmpeg = async () => {
+        setFfmpegLoading(true);
+        try {
+          const { createFFmpeg, fetchFile } = await import('@ffmpeg/ffmpeg');
+          const ffmpegInstance = createFFmpeg({ 
+            log: true,
+            corePath: 'https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js'
+          });
+          await ffmpegInstance.load();
+          setFfmpeg({ instance: ffmpegInstance, fetchFile });
+        } catch (error) {
+          console.error('Error loading FFmpeg:', error);
+          setError('Failed to load audio conversion library. Please use MP3 files directly.');
+        } finally {
+          setFfmpegLoading(false);
+        }
+      };
       loadFfmpeg();
-      setShowAudioOptions(true);
-    } else {
-      setShowAudioOptions(false);
     }
   }, [file, ffmpeg]);
 
   // Convert audio to MP3 using FFmpeg
   const convertToMp3 = async () => {
-    if (!file || !ffmpeg?.instance) {
+    if (!file || !ffmpeg) {
       setError('Audio conversion library not loaded');
       return null;
     }
@@ -153,30 +122,42 @@ export function FileUpload({
       const inputFileName = 'input' + file.name.substring(file.name.lastIndexOf('.'));
       const outputFileName = 'output.mp3';
       
-      await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
+      ffmpegInstance.FS('writeFile', inputFileName, await fetchFile(file));
 
-      // Set up progress handler
-      ffmpegInstance.on('progress', (eventData: { progress: number }) => {
-        setConversionProgress(Math.round(eventData.progress * 100));
+      // Set up progress tracking
+      ffmpegInstance.setProgress(({ ratio }) => {
+        setConversionProgress(Math.round(ratio * 100));
       });
 
       // Prepare FFmpeg command
       const ffmpegArgs = [
-        '-i', inputFileName,
-        ...(startTime ? ['-ss', startTime] : []),
-        ...(duration ? ['-t', duration] : []),
+        '-i', inputFileName
+      ];
+      
+      // Add start time if specified
+      if (startTime) {
+        ffmpegArgs.push('-ss', startTime);
+      }
+      
+      // Add duration if specified  
+      if (duration) {
+        ffmpegArgs.push('-t', duration);
+      }
+      
+      // Add output options
+      ffmpegArgs.push(
         '-vn',  // Remove video stream
         '-acodec', 'libmp3lame',  // Use MP3 codec
         '-q:a', '2',  // Set quality (0-9, lower is better)
         outputFileName
-      ];
+      );
 
       // Run FFmpeg command
-      await ffmpegInstance.exec(ffmpegArgs);
+      await ffmpegInstance.run(...ffmpegArgs);
 
       // Read the result
-      const data = await ffmpegInstance.readFile(outputFileName);
-      const blob = new Blob([data], { type: 'audio/mp3' });
+      const data = ffmpegInstance.FS('readFile', outputFileName);
+      const blob = new Blob([data.buffer], { type: 'audio/mp3' });
       
       // Create a File object from the blob
       const convertedFileName = file.name.substring(0, file.name.lastIndexOf('.')) + '.mp3';
@@ -186,8 +167,8 @@ export function FileUpload({
       });
       
       // Clean up files
-      await ffmpegInstance.deleteFile(inputFileName);
-      await ffmpegInstance.deleteFile(outputFileName);
+      ffmpegInstance.FS('unlink', inputFileName);
+      ffmpegInstance.FS('unlink', outputFileName);
 
       setConversionStatus('complete');
       setConvertedFile(convertedFile);
