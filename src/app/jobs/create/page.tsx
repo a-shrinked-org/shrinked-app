@@ -480,7 +480,7 @@ export default function JobCreate() {
                                 </Text>
                                 {watch(`files.${index}.size`) && (
                                   <Text size="xs" c="dimmed">
-                                    {formatFileSize(watch(`files.${index}.size` || 0))}
+                                    {formatFileSize(watch(`files.${index}.size`) as number)}
                                   </Text>
                                 )}
                               </Box>
