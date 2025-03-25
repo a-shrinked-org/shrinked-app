@@ -273,9 +273,9 @@ export function FileUpload({
         });
         
         return convertedFile;
-      } catch (conversionError) {
+      } catch (conversionError: any) {
         console.error('Error during conversion process:', conversionError);
-        throw new Error(`Conversion process failed: ${conversionError.message || 'Unknown error'}`);
+        throw new Error(`Conversion process failed: ${conversionError?.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error converting audio:', error);
