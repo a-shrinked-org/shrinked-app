@@ -17,9 +17,10 @@ import {
   Text,
   ActionIcon,
   Card,
-  Table,
-  Tooltip
+  Tooltip,
+  rem
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { showNotification } from '@mantine/notifications';
 import { 
   ArrowLeft, 
@@ -72,6 +73,7 @@ export default function JobCreate() {
   const { list } = useNavigation();
   const { data: identity } = useGetIdentity<Identity>();
   const { fetchWithAuth, handleAuthError } = useAuth();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const form = useForm<JobCreateForm>({
     defaultValues: {
@@ -106,7 +108,7 @@ export default function JobCreate() {
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Updated to match FileUpload component's callback
+  // Handle file upload success
   const handleFileUploaded = (fileUrl: string, index: number = 0) => {
     setValue(`files.${index}.url`, fileUrl);
     
@@ -371,42 +373,34 @@ export default function JobCreate() {
                   overflow: 'hidden'
                 }}
               >
-                <Box 
-                  style={{ 
+                {/* Header row - hide on mobile */}
+                {!isMobile && (
+                  <Box style={{ 
                     display: 'grid', 
                     gridTemplateColumns: 'minmax(50px, 1fr) minmax(300px, 3fr) 100px',
                     padding: '1rem 1.5rem',
                     borderBottom: '1px solid #2b2b2b',
                     color: '#a1a1a1',
                     fontSize: '12px',
-                  }}
-                  sx={{
-                    '@media (max-width: 768px)': {
-                      display: 'none'
-                    }
-                  }}
-                >
-                  <Box style={{ textAlign: 'left' }}>/type</Box>
-                  <Box style={{ textAlign: 'left' }}>/source</Box>
-                  <Box style={{ textAlign: 'right' }}>/actions</Box>
-                </Box>
+                  }}>
+                    <Box style={{ textAlign: 'left' }}>/type</Box>
+                    <Box style={{ textAlign: 'left' }}>/source</Box>
+                    <Box style={{ textAlign: 'right' }}>/actions</Box>
+                  </Box>
+                )}
 
                 {fields.map((field, index) => (
                   <Box
                     key={field.id}
                     style={{ 
-                      display: 'grid',
+                      display: isMobile ? 'flex' : 'grid',
                       gridTemplateColumns: 'minmax(50px, 1fr) minmax(300px, 3fr) 100px',
                       padding: '1rem 1.5rem',
                       borderBottom: index < fields.length - 1 ? '1px solid #2b2b2b' : 'none',
                       transition: 'background-color 0.2s ease-in-out',
                       backgroundColor: 'transparent',
-                    }}
-                    sx={{
-                      '@media (max-width: 768px)': {
-                        gridTemplateColumns: '1fr',
-                        gap: '0.5rem'
-                      },
+                      flexDirection: isMobile ? 'column' : undefined,
+                      gap: isMobile ? rem(10) : undefined,
                       '&:hover': {
                         backgroundColor: '#111111',
                       },
@@ -446,7 +440,7 @@ export default function JobCreate() {
                       </Tabs>
                     </Box>
 
-                    <Box style={{ padding: '0 1rem' }} sx={{ '@media (max-width: 768px)': { padding: '0' } }}>
+                    <Box style={{ padding: isMobile ? 0 : '0 1rem', width: '100%' }}>
                       {watch(`files.${index}.type`) === 'link' ? (
                         <TextInput
                           placeholder="Enter file URL"
@@ -457,13 +451,16 @@ export default function JobCreate() {
                               borderColor: '#2b2b2b',
                               color: '#ffffff',
                             },
+                            wrapper: {
+                              width: '100%'
+                            }
                           }}
                         />
                       ) : (
-                        <Box>
+                        <Box style={{ width: '100%' }}>
                           {!watch(`files.${index}.url`) ? (
                             <FileUpload 
-                              onFileUploaded={(fileUrl, filename, size) => handleFileUploaded(fileUrl, index, filename, size)} 
+                              onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)} 
                               maxSizeMB={100}
                             />
                           ) : (
@@ -482,7 +479,7 @@ export default function JobCreate() {
                                   {watch(`files.${index}.filename`) || 'Uploaded file'}
                                 </Text>
                                 {watch(`files.${index}.size`) && (
-                                  <Text size="xs" color="dimmed">
+                                  <Text size="xs" c="dimmed">
                                     {formatFileSize(watch(`files.${index}.size` || 0))}
                                   </Text>
                                 )}
@@ -505,15 +502,12 @@ export default function JobCreate() {
                       )}
                     </Box>
 
-                    <Box 
-                      style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
-                      sx={{
-                        '@media (max-width: 768px)': {
-                          justifyContent: 'flex-start',
-                          marginTop: '0.5rem'
-                        }
-                      }}
-                    >
+                    <Box style={{ 
+                      display: 'flex', 
+                      justifyContent: isMobile ? 'flex-start' : 'flex-end', 
+                      alignItems: 'center',
+                      marginTop: isMobile ? rem(10) : 0
+                    }}>
                       <Group>
                         {fields.length > 1 && (
                           <Tooltip label="Remove">
@@ -521,7 +515,7 @@ export default function JobCreate() {
                               variant="subtle"
                               color="red"
                               onClick={() => remove(index)}
-                              sx={{
+                              style={{
                                 '&:hover': { backgroundColor: '#2b2b2b' }
                               }}
                             >
