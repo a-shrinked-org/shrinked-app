@@ -8,7 +8,6 @@ import {
   Stack, 
   Group, 
   Box, 
-  Paper,
   Alert,
   Divider,
   Tabs,
@@ -319,7 +318,6 @@ export default function JobCreate() {
                     </Group>
                   }
                   multiline
-                  width={200}
                 >
                   <Info size={16} style={{ color: '#a1a1a1', cursor: 'help' }} />
                 </Tooltip>
