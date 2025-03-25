@@ -103,6 +103,13 @@ export function FileUpload({
         // Try multiple CDNs to avoid CORS issues
         const cdnOptions = [
           {
+            name: "local",
+            coreURL: "/ffmpeg/ffmpeg-core.js",  // Served from your domain's public folder
+            wasmURL: "/ffmpeg/ffmpeg-core.wasm", // Served from your domain's public folder
+            workerURL: "/ffmpeg/ffmpeg-core.worker.js" // Served from your domain's public folder
+          },
+          // Keep these as fallbacks
+          {
             name: "standard",
             coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/esm/ffmpeg-core.js",
             wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/esm/ffmpeg-core.wasm",
