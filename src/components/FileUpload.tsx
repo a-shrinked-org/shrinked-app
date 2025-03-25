@@ -32,6 +32,7 @@ export function FileUpload({
   const { fetchWithAuth, handleAuthError } = useAuth();
 
   const defaultAcceptedTypes = {
+    'audio/m4a': ['.m4a'],
     'audio/mpeg': ['.mp3'],
     'audio/wav': ['.wav'],
     'audio/ogg': ['.ogg'],
