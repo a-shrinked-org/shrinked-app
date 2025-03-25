@@ -82,34 +82,15 @@ export function FileUpload({
         const { FFmpeg } = await import('@ffmpeg/ffmpeg');
         const { fetchFile } = await import('@ffmpeg/util');
         
+        // Just import the core directly
+        await import('@ffmpeg/core');
+        
         // Create FFmpeg instance
         const ffmpegInstance = new FFmpeg();
         
-        // Load FFmpeg with specific module versions matching your package.json
-        console.log("Starting FFmpeg load...");
-        try {
-          // First try loading without explicit paths
-          await ffmpegInstance.load();
-          console.log("FFmpeg loaded successfully via auto-detection");
-        } catch (error) {
-          console.warn("Auto-loading FFmpeg failed, trying with explicit URLs:", error);
-          
-          try {
-            // Get the correct version from the installed packages
-            const version = "0.12.1"; // Match your package.json version
-            const baseURL = `https://unpkg.com/@ffmpeg/core@${version}/dist/umd`;
-            
-            await ffmpegInstance.load({
-              coreURL: `${baseURL}/ffmpeg-core.js`,
-              wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-              workerURL: `${baseURL}/ffmpeg-core.worker.js`,
-            });
-            console.log("FFmpeg loaded successfully with explicit URLs");
-          } catch (secondError) {
-            console.error("Failed to load FFmpeg with explicit URLs:", secondError);
-            throw new Error("Failed to load audio conversion library. Please try again later.");
-          }
-        }
+        // This will use the imported core
+        console.log("Loading FFmpeg from local package...");
+        await ffmpegInstance.load();
 
         const ffmpegObj = { 
           instance: ffmpegInstance, 
