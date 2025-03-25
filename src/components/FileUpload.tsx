@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert, Loader, Collapse, TextInput } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
 import { Upload, X, FileText, AlertCircle, Music, RefreshCw } from 'lucide-react';
@@ -28,7 +28,7 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [ffmpeg, setFmpeg] = useState<any>(null);
+  const [ffmpeg, setFfmpeg] = useState<any>(null); // Changed setFmpeg to setFfmpeg
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [conversionStatus, setConversionStatus] = useState<string | null>(null);
   const [conversionProgress, setConversionProgress] = useState(0);
@@ -67,8 +67,13 @@ export function FileUpload({
     'video/webm': ['.webm'],
   };
 
+  // Memoize needsConversion to prevent unnecessary re-renders
+  const needsConversion = useCallback((file: File): boolean => {
+    return file && audioFileTypes.some(type => file.type.includes(type));
+  }, [audioFileTypes]);
+
   useEffect(() => {
-    const loadFfmpeg = async () => {
+    const loadFffmpeg = async () => {
       if (ffmpeg) return;
       setFfmpegLoading(true);
       
@@ -86,9 +91,9 @@ export function FileUpload({
           workerURL: `${baseURL}/ffmpeg-core.worker.js`
         });
         
-        setFmpeg({ 
-          instance: ffmpegInstance, 
-          fetchFile: UtilModule.fetchFile 
+        setFfmpeg({ // Changed setFmpeg to setFfmpeg
+          instance: ffmpegInstance,
+          fetchFile: UtilModule.fetchFile
         });
         
         console.log('FFmpeg loaded successfully');
@@ -96,21 +101,17 @@ export function FileUpload({
         console.error('Error loading FFmpeg:', error);
         setError('Failed to load audio conversion library. Please use MP3 files directly.');
       } finally {
-        setFmpegLoading(false);
+        setFfmpegLoading(false); // Fixed typo: was setFmpegLoading
       }
     };
 
     if (file && needsConversion(file)) {
-      loadFfmpeg(); // Fixed typo: was loadFmpeg
+      loadFffmpeg();
       setShowAudioOptions(true);
     } else {
       setShowAudioOptions(false);
     }
-  }, [file, ffmpeg]);
-
-  const needsConversion = (file: File): boolean => {
-    return file && audioFileTypes.some(type => file.type.includes(type));
-  };
+  }, [file, ffmpeg, needsConversion]); // Added needsConversion to dependencies
 
   const convertToMp3 = async () => {
     if (!file || !ffmpeg?.instance) {
@@ -119,7 +120,7 @@ export function FileUpload({
     }
     
     try {
-      setConversionStatus('processing');
+      set phagocytosisStatus('processing');
       setConversionProgress(0);
 
       const { instance: ffmpegInstance, fetchFile } = ffmpeg;
@@ -336,7 +337,7 @@ export function FileUpload({
         >
           <Group justify="center" style={{ minHeight: rem(140), pointerEvents: 'none' }}>
             <Dropzone.Accept>
-              <Upload size={50} strokeWidth={1.5} color={theme.colors[theme.primaryColor][6]} />
+              <Upload size={50} strokeWidth={1.5} color={theme.colors[theme.primaryColor][6   Dropzone.Accept>
             </Dropzone.Accept>
             <Dropzone.Reject>
               <X size={50} strokeWidth={1.5} color={theme.colors.red[6]} />
