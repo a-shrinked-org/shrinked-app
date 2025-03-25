@@ -239,6 +239,7 @@ export default function ApiKeysList() {
         titleRenderer={titleRenderer}
         // Add custom status renderer
         statusRenderer={renderApiKeyStatus}
+        buttonText="CREATE KEY"
       />
 
       <Modal

@@ -204,6 +204,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
     buttonText?: string;
     buttonAction?: () => void;
   };
+  buttonText?: string;
 }
 
 function DocumentsTable<T extends ProcessedDocument>({
@@ -1013,7 +1014,7 @@ function DocumentsTable<T extends ProcessedDocument>({
                                                 },
                                               }}
                                             >
-                                              <Text size="xs">ADD NEW JOB</Text>
+                                              <Text size="xs">{buttonText || "ADD NEW JOB"}</Text>
                                             </Button>
                                           )}
                                         </Group>
