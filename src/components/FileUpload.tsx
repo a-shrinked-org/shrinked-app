@@ -151,14 +151,14 @@ export function FileUpload({
     };
     
     // Set the environment support directly
-    const environmentSupported = checkEnvironment();
-    setIsEnvironmentSupported(environmentSupported);
+    const isSupported = checkEnvironment();
+    setEnvironmentSupported(isSupported);
   }, []);
   
   // Auto-load FFmpeg when a file that needs conversion is selected
   useEffect(() => {
     const initFFmpeg = async () => {
-      if (file && needsConversion(file) && isEnvironmentSupported !== false) {
+      if (file && needsConversion(file) && environmentSupported !== false) {
         try {
           await loadFfmpeg();
         } catch (error) {
@@ -173,9 +173,10 @@ export function FileUpload({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file, loadFfmpeg, needsConversion]);
 
-  const needsConversion = (file: File): boolean => {
+  // Define needsConversion as a memoized function to prevent dependency issues
+  const needsConversion = useCallback((file: File): boolean => {
     return audioFileTypes.some(type => file.type.includes(type));
-  };
+  }, [audioFileTypes]);
 
   const convertToMp3 = async (inputFile: File): Promise<File | null> => {
     if (!inputFile) return null;
@@ -334,7 +335,7 @@ export function FileUpload({
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
         await uploadFile(droppedFile);
       } else if (needsConversion(droppedFile)) {
-        if (isEnvironmentSupported === false) {
+        if (environmentSupported === false) {
           // Environment doesn't support FFmpeg, warn user and upload original
           console.warn("Environment doesn't support audio conversion, uploading original file");
           setError("Your browser doesn't support audio conversion. The file will be uploaded as-is.");
