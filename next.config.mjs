@@ -16,6 +16,20 @@ const nextConfig = {
         fullySpecified: false,
       },
     });
+
+    // Enable WebAssembly for FFmpeg
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      layers: true,
+    };
+
+    // Add rule for handling .wasm files
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'webassembly/async',
+    });
+
     return config;
   },
   // Modern handling of images and other static assets

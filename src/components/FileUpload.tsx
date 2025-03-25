@@ -74,18 +74,34 @@ export function FileUpload({
         const { FFmpeg } = await import('@ffmpeg/ffmpeg');
         const { fetchFile } = await import('@ffmpeg/util');
         
-        // Import core directly - this is the most reliable method with Next.js
-        // Next.js will handle the bundling appropriately for client-side rendering
-        await import('@ffmpeg/core');
-        
         // Create FFmpeg instance
         const ffmpegInstance = new FFmpeg();
         
-        // Load without explicit URLs - FFmpeg will find the core module automatically
-        // when properly imported above
-        await ffmpegInstance.load();
-        
-        console.log("FFmpeg loaded successfully");
+        // Load FFmpeg with specific module versions matching your package.json
+        console.log("Starting FFmpeg load...");
+        try {
+          // First try loading without explicit paths
+          await ffmpegInstance.load();
+          console.log("FFmpeg loaded successfully via auto-detection");
+        } catch (error) {
+          console.warn("Auto-loading FFmpeg failed, trying with explicit URLs:", error);
+          
+          try {
+            // Get the correct version from the installed packages
+            const version = "0.12.1"; // Match your package.json version
+            const baseURL = `https://unpkg.com/@ffmpeg/core@${version}/dist/umd`;
+            
+            await ffmpegInstance.load({
+              coreURL: `${baseURL}/ffmpeg-core.js`,
+              wasmURL: `${baseURL}/ffmpeg-core.wasm`,
+              workerURL: `${baseURL}/ffmpeg-core.worker.js`,
+            });
+            console.log("FFmpeg loaded successfully with explicit URLs");
+          } catch (secondError) {
+            console.error("Failed to load FFmpeg with explicit URLs:", secondError);
+            throw new Error("Failed to load audio conversion library. Please try again later.");
+          }
+        }
 
         const ffmpegObj = { 
           instance: ffmpegInstance, 
@@ -108,16 +124,45 @@ export function FileUpload({
     return ffmpegPromiseRef.current;
   }, [ffmpeg]);
 
+  // Check if the environment supports SharedArrayBuffer (needed for FFmpeg)
+  useEffect(() => {
+    const checkEnvironment = () => {
+      try {
+        // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
+        const isSABSupported = typeof SharedArrayBuffer !== 'undefined';
+        
+        // Check if the page is cross-origin isolated (required for SharedArrayBuffer)
+        const isCrossOriginIsolated = 
+          typeof window !== 'undefined' && 
+          (window.crossOriginIsolated || Boolean(window.chrome));
+        
+        const supported = isSABSupported && isCrossOriginIsolated;
+        console.log(`Environment support check: SharedArrayBuffer: ${isSABSupported}, CrossOriginIsolated: ${isCrossOriginIsolated}`);
+        setIsEnvironmentSupported(supported);
+      } catch (error) {
+        console.warn("Error checking environment support:", error);
+        setIsEnvironmentSupported(false);
+      }
+    };
+    
+    checkEnvironment();
+  }, []);
+  
   // Auto-load FFmpeg when a file that needs conversion is selected
   useEffect(() => {
     const initFFmpeg = async () => {
-      if (file && needsConversion(file)) {
-        await loadFfmpeg();
+      if (file && needsConversion(file) && isEnvironmentSupported !== false) {
+        try {
+          await loadFfmpeg();
+        } catch (error) {
+          console.error("Failed to initialize FFmpeg:", error);
+          setError("Failed to initialize audio conversion library. Using MP3 files directly is recommended.");
+        }
       }
     };
     
     initFFmpeg();
-  }, [file, loadFfmpeg]);
+  }, [file, loadFfmpeg, isEnvironmentSupported]);
 
   const needsConversion = (file: File): boolean => {
     return audioFileTypes.some(type => file.type.includes(type));
@@ -280,13 +325,28 @@ export function FileUpload({
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
         await uploadFile(droppedFile);
       } else if (needsConversion(droppedFile)) {
-        // Load FFmpeg if needed
-        await loadFfmpeg();
-        
-        // Convert the file
-        const converted = await convertToMp3(droppedFile);
-        if (converted) {
-          await uploadFile(converted);
+        if (isEnvironmentSupported === false) {
+          // Environment doesn't support FFmpeg, warn user and upload original
+          console.warn("Environment doesn't support audio conversion, uploading original file");
+          setError("Your browser doesn't support audio conversion. The file will be uploaded as-is.");
+          await uploadFile(droppedFile);
+        } else {
+          // Load FFmpeg and convert
+          try {
+            await loadFfmpeg();
+            const converted = await convertToMp3(droppedFile);
+            if (converted) {
+              await uploadFile(converted);
+            } else {
+              // Fallback to original if conversion fails
+              setError("Conversion failed, uploading original file");
+              await uploadFile(droppedFile);
+            }
+          } catch (conversionError) {
+            console.error("Conversion error:", conversionError);
+            setError("Audio conversion failed. Uploading original file.");
+            await uploadFile(droppedFile);
+          }
         }
       } else {
         // Handle other file types
