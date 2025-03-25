@@ -271,16 +271,20 @@ export function FileUpload({
     }
   };
 
-  const handleDrop = (files: FileWithPath[]) => {
+  const handleDrop = async (files: FileWithPath[]) => {
     if (files.length > 0) {
-      setFile(files[0]);
+      const droppedFile = files[0];
+      setFile(droppedFile);
       setConvertedFile(null);
       setConversionStatus(null);
       
-      const droppedFile = files[0];
-      
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
-        uploadFile(droppedFile);
+        await uploadFile(droppedFile);
+      } else if (needsConversion(droppedFile)) {
+        const converted = await convertToMp3();
+        if (converted) {
+          await uploadFile(converted);
+        }
       }
     }
   };
