@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Group, Text, useMantineTheme, rem, Box, Button, Progress, Alert, Loader, Collapse, TextInput } from '@mantine/core';
 import { Dropzone, FileWithPath } from '@mantine/dropzone';
 import { Upload, X, FileText, AlertCircle, Music, RefreshCw } from 'lucide-react';
-import { notifications } from '@mantine/notifications'; // Updated import
+import { showNotification } from '@mantine/notifications';
 import { authUtils, useAuth } from "@/utils/authUtils";
 
 // R2 Configuration from environment variables
@@ -16,11 +16,6 @@ interface FileUploadProps {
   onFileUploaded: (fileUrl: string) => void;
   maxSizeMB?: number;
   acceptedFileTypes?: Record<string, string[]>;
-}
-
-// Define FFmpeg progress event type
-interface FFmpegProgress {
-  progress: number;
 }
 
 export function FileUpload({
@@ -44,7 +39,6 @@ export function FileUpload({
 
   const { fetchWithAuth, handleAuthError } = useAuth();
 
-  // Audio file types that need conversion
   const audioFileTypes = [
     'audio/wav',
     'audio/ogg',
@@ -102,12 +96,12 @@ export function FileUpload({
         console.error('Error loading FFmpeg:', error);
         setError('Failed to load audio conversion library. Please use MP3 files directly.');
       } finally {
-        setFfmpegLoading(false);
+        setFmpegLoading(false);
       }
     };
 
     if (file && needsConversion(file)) {
-      loadFmpeg();
+      loadFfmpeg(); // Fixed typo: was loadFmpeg
       setShowAudioOptions(true);
     } else {
       setShowAudioOptions(false);
@@ -135,8 +129,7 @@ export function FileUpload({
       
       await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
 
-      // Set up progress handler with typed parameter
-      ffmpegInstance.on('progress', ({ progress }: FFmpegProgress) => {
+      ffmpegInstance.on('progress', ({ progress }) => {
         setConversionProgress(Math.round(progress * 100));
       });
 
@@ -167,7 +160,7 @@ export function FileUpload({
       setConversionStatus('complete');
       setConvertedFile(convertedFile);
       
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Audio converted to MP3 successfully',
         color: 'green',
@@ -200,6 +193,12 @@ export function FileUpload({
       const randomString = Math.random().toString(36).substring(2, 10);
       const fileName = `${timestamp}-${randomString}-${fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
+      console.log('Requesting presigned URL for:', {
+        fileName,
+        contentType: fileToUpload.type,
+        bucketName: R2_CONFIG.bucketName,
+      });
+
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
         headers: {
@@ -218,7 +217,9 @@ export function FileUpload({
       }
 
       const { presignedUrl, fileUrl } = await presignedResponse.json();
-      
+      console.log('Received Presigned URL:', presignedUrl);
+      console.log('Expected File URL:', fileUrl);
+
       setProgress(10);
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
@@ -245,7 +246,7 @@ export function FileUpload({
       setProgress(100);
       onFileUploaded(fileUrl);
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'File uploaded successfully',
         color: 'green',
@@ -256,7 +257,7 @@ export function FileUpload({
       setError(errorMessage);
       handleAuthError(error);
 
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: errorMessage,
         color: 'red',
