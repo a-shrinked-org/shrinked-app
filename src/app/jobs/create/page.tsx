@@ -28,7 +28,7 @@ import {
   Plus, 
   Trash, 
   FileText,
-  InfoCircle,
+  Info,
   ExternalLink 
 } from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
@@ -321,7 +321,7 @@ export default function JobCreate() {
                   multiline
                   width={200}
                 >
-                  <InfoCircle size={16} style={{ color: '#a1a1a1', cursor: 'help' }} />
+                  <Info size={16} style={{ color: '#a1a1a1', cursor: 'help' }} />
                 </Tooltip>
               </Group>
 
@@ -382,11 +382,9 @@ export default function JobCreate() {
                       backgroundColor: 'transparent',
                       flexDirection: isMobile ? 'column' : undefined,
                       gap: isMobile ? rem(10) : undefined,
-                    }}
-                    style={{
                       '&:hover': {
                         backgroundColor: '#111111',
-                      }
+                      },
                     }}
                   >
                     <Box style={{ display: 'flex', alignItems: 'center' }}>
@@ -411,10 +409,10 @@ export default function JobCreate() {
                         }}
                       >
                         <Tabs.List>
-                          <Tabs.Tab value="link" leftSection={null}>
+                          <Tabs.Tab value="link">
                             <LinkIcon size={16} />
                           </Tabs.Tab>
-                          <Tabs.Tab value="upload" leftSection={null}>
+                          <Tabs.Tab value="upload">
                             <Upload size={16} />
                           </Tabs.Tab>
                         </Tabs.List>
