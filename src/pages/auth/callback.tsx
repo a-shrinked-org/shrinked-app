@@ -11,7 +11,8 @@ export default function AuthCallback() {
   const [error, setError] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
-  const [statusMessage, setStatusMessage] = useState<string>("Establishing secure connection...");
+  const [statusMessage, setStatusMessage] = useState<string>("Initializing secure authentication...");
+  const [paramsChecked, setParamsChecked] = useState<boolean>(false);
 
   useEffect(() => {
 	const link = document.createElement("link");
@@ -40,7 +41,9 @@ export default function AuthCallback() {
 
 	return () => {
 	  clearInterval(progressInterval);
-	  document.head.removeChild(link);
+	  if (document.head.contains(link)) {
+		document.head.removeChild(link);
+	  }
 	};
   }, []);
 
@@ -48,18 +51,19 @@ export default function AuthCallback() {
 	const exchangeCodeForTokens = async () => {
 	  try {
 		if (!searchParams) {
-		  setError("Navigation parameters not available");
-		  setIsProcessing(false);
+		  setStatusMessage("Waiting for authentication parameters...");
+		  setParamsChecked(true);
 		  return;
 		}
   
 		const code = searchParams.get("code");
 		if (!code) {
-		  setError("No authentication code found in URL");
-		  setIsProcessing(false);
+		  setStatusMessage("Waiting for authentication code...");
+		  setParamsChecked(true);
 		  return;
 		}
   
+		setParamsChecked(true);
 		authUtils.clearAuthStorage();
 		console.log("OAuth callback: Processing code", code.substring(0, 5) + "...");
   
@@ -113,7 +117,8 @@ export default function AuthCallback() {
 	exchangeCodeForTokens();
   }, [searchParams, router]);
 
-  if (error) {
+  // Only show the error container if we have an error AND we've checked the params
+  if (error && paramsChecked) {
 	return (
 	  <div className="callback-container error-container">
 		<div className="callback-content">
