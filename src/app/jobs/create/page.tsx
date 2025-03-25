@@ -106,17 +106,15 @@ export default function JobCreate() {
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Handle file upload success
-  const handleFileUploaded = (fileUrl: string, index: number, fileName?: string, fileSize?: number) => {
+  // Updated to match FileUpload component's callback
+  const handleFileUploaded = (fileUrl: string, index: number = 0) => {
     setValue(`files.${index}.url`, fileUrl);
     
-    if (fileName) {
-      setValue(`files.${index}.filename`, fileName);
-    }
-    
-    if (fileSize) {
-      setValue(`files.${index}.size`, fileSize);
-    }
+    // Extract filename from URL
+    const urlParts = fileUrl.split('/');
+    const filenameWithParams = urlParts[urlParts.length - 1];
+    const filename = filenameWithParams.split('?')[0]; // Remove query parameters if any
+    setValue(`files.${index}.filename`, filename);
     
     showNotification({
       title: 'File Uploaded',
@@ -218,8 +216,8 @@ export default function JobCreate() {
   });
 
   return (
-    <Box p="md" style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
-      <Paper p="md" radius="md" style={{ backgroundColor: '#0D0D0D', border: '1px solid #2b2b2b' }}>
+    <Box p={{ base: 'xs', sm: 'md' }} style={{ backgroundColor: '#000000', color: '#ffffff', minHeight: '100vh' }}>
+      <Paper p={{ base: 'xs', sm: 'md' }} radius="md" style={{ backgroundColor: '#0D0D0D', border: '1px solid #2b2b2b' }}>
         <Stack gap="lg">
           <Group justify="space-between" p="sm" style={{ borderBottom: '1px solid #2b2b2b' }}>
             <Text size="sm" fw={500} style={{ 
@@ -373,14 +371,21 @@ export default function JobCreate() {
                   overflow: 'hidden'
                 }}
               >
-                <Box style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'minmax(50px, 1fr) minmax(300px, 3fr) 100px',
-                  padding: '1rem 1.5rem',
-                  borderBottom: '1px solid #2b2b2b',
-                  color: '#a1a1a1',
-                  fontSize: '12px',
-                }}>
+                <Box 
+                  style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'minmax(50px, 1fr) minmax(300px, 3fr) 100px',
+                    padding: '1rem 1.5rem',
+                    borderBottom: '1px solid #2b2b2b',
+                    color: '#a1a1a1',
+                    fontSize: '12px',
+                  }}
+                  sx={{
+                    '@media (max-width: 768px)': {
+                      display: 'none'
+                    }
+                  }}
+                >
                   <Box style={{ textAlign: 'left' }}>/type</Box>
                   <Box style={{ textAlign: 'left' }}>/source</Box>
                   <Box style={{ textAlign: 'right' }}>/actions</Box>
@@ -396,6 +401,12 @@ export default function JobCreate() {
                       borderBottom: index < fields.length - 1 ? '1px solid #2b2b2b' : 'none',
                       transition: 'background-color 0.2s ease-in-out',
                       backgroundColor: 'transparent',
+                    }}
+                    sx={{
+                      '@media (max-width: 768px)': {
+                        gridTemplateColumns: '1fr',
+                        gap: '0.5rem'
+                      },
                       '&:hover': {
                         backgroundColor: '#111111',
                       },
@@ -406,14 +417,18 @@ export default function JobCreate() {
                         value={field.type}
                         onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
                         styles={{
-                          tabsList: {
+                          root: {
+                            width: 'auto'
+                          },
+                          list: {
                             border: 'none',
                           },
                           tab: {
                             padding: '4px 8px',
                             fontSize: '12px',
                             fontFamily: GeistMono.style.fontFamily,
-                            '&[data-active]': {
+                            color: '#a1a1a1',
+                            '&[data-active="true"]': {
                               color: '#F5A623',
                               borderColor: '#F5A623',
                             },
@@ -431,7 +446,7 @@ export default function JobCreate() {
                       </Tabs>
                     </Box>
 
-                    <Box style={{ padding: '0 1rem' }}>
+                    <Box style={{ padding: '0 1rem' }} sx={{ '@media (max-width: 768px)': { padding: '0' } }}>
                       {watch(`files.${index}.type`) === 'link' ? (
                         <TextInput
                           placeholder="Enter file URL"
@@ -448,7 +463,7 @@ export default function JobCreate() {
                         <Box>
                           {!watch(`files.${index}.url`) ? (
                             <FileUpload 
-                              onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)} 
+                              onFileUploaded={(fileUrl, filename, size) => handleFileUploaded(fileUrl, index, filename, size)} 
                               maxSizeMB={100}
                             />
                           ) : (
@@ -459,6 +474,7 @@ export default function JobCreate() {
                                 borderRadius: '4px', 
                                 backgroundColor: '#0d0d0d'
                               }}
+                              wrap="nowrap"
                             >
                               <FileText size={16} />
                               <Box style={{ flex: 1, overflow: 'hidden' }}>
@@ -489,7 +505,15 @@ export default function JobCreate() {
                       )}
                     </Box>
 
-                    <Box style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <Box 
+                      style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}
+                      sx={{
+                        '@media (max-width: 768px)': {
+                          justifyContent: 'flex-start',
+                          marginTop: '0.5rem'
+                        }
+                      }}
+                    >
                       <Group>
                         {fields.length > 1 && (
                           <Tooltip label="Remove">
@@ -497,7 +521,7 @@ export default function JobCreate() {
                               variant="subtle"
                               color="red"
                               onClick={() => remove(index)}
-                              style={{
+                              sx={{
                                 '&:hover': { backgroundColor: '#2b2b2b' }
                               }}
                             >
