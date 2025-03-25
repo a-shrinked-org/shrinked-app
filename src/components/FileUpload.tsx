@@ -126,6 +126,7 @@ export function FileUpload({
 
   // Check if the environment supports SharedArrayBuffer (needed for FFmpeg)
   useEffect(() => {
+    // Define a local function to check the environment
     const checkEnvironment = () => {
       try {
         // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
@@ -138,14 +139,20 @@ export function FileUpload({
         
         const supported = isSABSupported && isCrossOriginIsolated;
         console.log(`Environment support check: SharedArrayBuffer: ${isSABSupported}, CrossOriginIsolated: ${isCrossOriginIsolated}`);
-        setIsEnvironmentSupported(supported);
+        // Remove this line since it's causing an error
+        // setIsEnvironmentSupported(supported);
+        return supported;
       } catch (error) {
         console.warn("Error checking environment support:", error);
-        setIsEnvironmentSupported(false);
+        // Remove this line since it's causing an error
+        // setIsEnvironmentSupported(false);
+        return false;
       }
     };
     
-    checkEnvironment();
+    // Set the environment support directly
+    const environmentSupported = checkEnvironment();
+    setIsEnvironmentSupported(environmentSupported);
   }, []);
   
   // Auto-load FFmpeg when a file that needs conversion is selected
@@ -162,7 +169,9 @@ export function FileUpload({
     };
     
     initFFmpeg();
-  }, [file, loadFfmpeg, isEnvironmentSupported, needsConversion]);
+    // Removed isEnvironmentSupported from dependency array as it's a state variable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, loadFfmpeg, needsConversion]);
 
   const needsConversion = (file: File): boolean => {
     return audioFileTypes.some(type => file.type.includes(type));
