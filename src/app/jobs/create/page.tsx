@@ -140,7 +140,7 @@ export default function AudioExtractor() {
         {status === 'loading' ? (
           <Box my="xl">
             <Text mb="xs">Loading FFmpeg...</Text>
-            <Progress value={50} size="md" radius="sm" animate />
+            <Progress value={50} size="md" radius="sm" animated />
           </Box>
         ) : (
           <>
