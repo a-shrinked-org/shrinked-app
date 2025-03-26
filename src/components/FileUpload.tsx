@@ -104,8 +104,8 @@ export function FileUpload({
         const cdnOptions = [
           {
             name: "skypack",
-            coreURL: "https://cdn.skypack.dev/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
-            wasmURL: "https://cdn.skypack.dev/@ffmpeg/core@0.10.0/dist/ffmpeg-core.wasm",
+            coreURL: "https://cdn.skypack.dev/pin/@ffmpeg/core@v0.10.0-Fb1fjl7vnn9XhXHszYbg/mode=imports/optimized/@ffmpeg/core.js",
+            wasmURL: "https://app.unpkg.com/@ffmpeg/core@0.11.0/files/dist/ffmpeg-core.wasm",
             workerURL: undefined // Add this to match the FFmpeg.load() interface
           },
           {
