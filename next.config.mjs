@@ -56,19 +56,9 @@ const nextConfig = {
         ],
       },
       {
-        source: '/ffmpeg/:path*.wasm',
+        source: '/ffmpeg/:path*',
         headers: [
           { key: 'Content-Type', value: 'application/wasm' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
-          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
-      {
-        source: '/ffmpeg/:path*.js',
-        headers: [
-          { key: 'Content-Type', value: 'application/javascript' },
           { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
           { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },

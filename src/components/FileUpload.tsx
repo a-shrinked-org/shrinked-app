@@ -56,38 +56,7 @@ export function FileUpload({
     );
   }, [audioFileTypes]);
 
-  // Load FFmpeg proactively on component mount
-  useEffect(() => {
-    const loadFffmpeg = async () => {
-      if (ffmpeg) return;
-
-      setFfmpegLoading(true);
-      try {
-        console.log('Starting FFmpeg load...');
-        const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-        const { fetchFile } = await import('@ffmpeg/util');
-        const ffmpegInstance = new FFmpeg();
-
-        console.log("Loading FFmpeg from UNPKG...");
-        await ffmpegInstance.load({
-          coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-          wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-          workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js',
-        });
-
-        setFfmpeg({ instance: ffmpegInstance, fetchFile });
-        console.log('FFmpeg loaded successfully from UNPKG');
-      } catch (error) {
-        console.error('Error loading FFmpeg:', error);
-        setError('Failed to load audio conversion library. Original file will be uploaded instead.');
-      } finally {
-        setFfmpegLoading(false);
-      }
-    };
-
-    loadFffmpeg();
-  }, [ffmpeg]);
-
+  // Check environment support before trying to load FFmpeg
   useEffect(() => {
     const checkEnvironment = () => {
       const isSABSupported = typeof SharedArrayBuffer !== 'undefined';
@@ -103,10 +72,51 @@ export function FileUpload({
     checkEnvironment();
   }, []);
 
-  const convertToMp3 = async (inputFile: File): Promise<File | null> => {
-    if (!inputFile || !ffmpeg) return null;
+  // Only load FFmpeg when needed (when a file is dropped and needs conversion)
+  const loadFfmpeg = async () => {
+    if (ffmpeg) return ffmpeg;
+    
+    if (!isEnvironmentSupported) {
+      console.warn('Environment does not support FFmpeg, skipping loading');
+      return null;
+    }
 
-    const { instance: ffmpegInstance, fetchFile } = ffmpeg;
+    setFfmpegLoading(true);
+    try {
+      console.log('Starting FFmpeg load...');
+      const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+      const { fetchFile } = await import('@ffmpeg/util');
+      const ffmpegInstance = new FFmpeg();
+
+      console.log("Loading FFmpeg from local files...");
+      // Use locally hosted files instead of UNPKG
+      await ffmpegInstance.load({
+        coreURL: '/ffmpeg/ffmpeg-core.js',
+        wasmURL: '/ffmpeg/ffmpeg-core.wasm',
+        workerURL: '/ffmpeg/ffmpeg-core.worker.js',
+      });
+
+      const instance = { instance: ffmpegInstance, fetchFile };
+      setFfmpeg(instance);
+      console.log('FFmpeg loaded successfully');
+      return instance;
+    } catch (error) {
+      console.error('Error loading FFmpeg:', error);
+      setError('Failed to load audio conversion library. Original file will be uploaded instead.');
+      return null;
+    } finally {
+      setFfmpegLoading(false);
+    }
+  };
+
+  const convertToMp3 = async (inputFile: File): Promise<File | null> => {
+    if (!inputFile) return null;
+    
+    // Try to load FFmpeg if not already loaded
+    const ffmpegInstance = ffmpeg || await loadFfmpeg();
+    if (!ffmpegInstance) return null;
+    
+    const { instance: ffmpegCore, fetchFile } = ffmpegInstance;
     const inputFileName = 'input' + inputFile.name.substring(inputFile.name.lastIndexOf('.'));
     const outputFileName = 'output.mp3';
 
@@ -115,23 +125,23 @@ export function FileUpload({
       console.log(`Fetching file data for ${inputFile.name}...`);
       const fileData = await fetchFile(inputFile);
       console.log(`Writing file to FFmpeg...`);
-      await ffmpegInstance.writeFile(inputFileName, fileData);
+      await ffmpegCore.writeFile(inputFileName, fileData);
 
-      ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
+      ffmpegCore.on('progress', ({ progress }: { progress: number }) => {
         setConversionProgress(Math.round(progress * 100));
       });
 
       console.log(`Starting conversion to MP3...`);
-      await ffmpegInstance.exec(['-i', inputFileName, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', outputFileName]);
+      await ffmpegCore.exec(['-i', inputFileName, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', outputFileName]);
       console.log(`Conversion completed successfully`);
 
-      const data = await ffmpegInstance.readFile(outputFileName);
+      const data = await ffmpegCore.readFile(outputFileName);
       const blob = new Blob([data], { type: 'audio/mp3' });
       const convertedFileName = inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) + '.mp3';
       const convertedFile = new File([blob], convertedFileName, { type: 'audio/mp3' });
 
-      await ffmpegInstance.deleteFile(inputFileName);
-      await ffmpegInstance.deleteFile(outputFileName);
+      await ffmpegCore.deleteFile(inputFileName);
+      await ffmpegCore.deleteFile(outputFileName);
 
       setConvertedFile(convertedFile);
       showNotification({ title: 'Success', message: 'Audio converted to MP3', color: 'green' });
@@ -206,8 +216,9 @@ export function FileUpload({
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
         console.log('File is MP3, uploading directly...');
         await uploadFile(droppedFile);
-      } else if (needsConversion(droppedFile) && isEnvironmentSupported && ffmpeg) {
+      } else if (needsConversion(droppedFile) && isEnvironmentSupported) {
         console.log('File needs conversion, proceeding...');
+        // Only try to load FFmpeg when actually needed
         const converted = await convertToMp3(droppedFile);
         if (converted) await uploadFile(converted);
         else throw new Error('Conversion failed');
