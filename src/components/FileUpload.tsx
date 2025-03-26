@@ -104,9 +104,9 @@ export function FileUpload({
         const cdnOptions = [
           {
             name: "local",
-            coreURL: "/ffmpeg/ffmpeg-core.js",  // Served from your domain's public folder
-            wasmURL: "/ffmpeg/ffmpeg-core.wasm", // Served from your domain's public folder
-            workerURL: "/ffmpeg/ffmpeg-core.worker.js" // Served from your domain's public folder
+            coreURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.js",
+            wasmURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.wasm",
+            workerURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.worker.js"
           },
           // Keep these as fallbacks
           {
