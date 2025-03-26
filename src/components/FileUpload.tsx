@@ -72,7 +72,6 @@ export function FileUpload({
     checkEnvironment();
   }, []);
 
-  // Only load FFmpeg when needed (when a file is dropped and needs conversion)
   const loadFfmpeg = async () => {
     if (ffmpeg) return ffmpeg;
     
@@ -80,23 +79,24 @@ export function FileUpload({
       console.warn('Environment does not support FFmpeg, skipping loading');
       return null;
     }
-
+  
     setFfmpegLoading(true);
     try {
       console.log('Starting FFmpeg load...');
       const { FFmpeg } = await import('@ffmpeg/ffmpeg');
       const { fetchFile } = await import('@ffmpeg/util');
       const ffmpegInstance = new FFmpeg();
-
+  
       console.log("Loading FFmpeg core files...");
-      // Note: Next.js serves files from the public directory at the root path
-      // No need to include 'public' in the path - just use '/ffmpeg/'
+      // Use absolute URLs with origin
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
       await ffmpegInstance.load({
-        coreURL: '/ffmpeg/ffmpeg-core.js',
-        wasmURL: '/ffmpeg/ffmpeg-core.wasm',
-        workerURL: '/ffmpeg/ffmpeg-core.worker.js',
+        coreURL: `${origin}/ffmpeg/ffmpeg-core.js`,
+        wasmURL: `${origin}/ffmpeg/ffmpeg-core.wasm`,
+        workerURL: `${origin}/ffmpeg/ffmpeg-core.worker.js`,
+        toBlobURL: true // Added this to help with CORS issues
       });
-
+  
       const instance = { instance: ffmpegInstance, fetchFile };
       setFfmpeg(instance);
       console.log('FFmpeg loaded successfully');
