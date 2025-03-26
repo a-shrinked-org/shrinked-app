@@ -84,9 +84,9 @@ export function FileUpload({
 
         console.log("Loading FFmpeg from local assets...");
         await ffmpegInstance.load({
-          coreURL: '/ffmpeg/ffmpeg-core.js',
-          wasmURL: '/ffmpeg/ffmpeg-core.wasm',
-          workerURL: '/ffmpeg/ffmpeg-core.worker.js',
+          coreURL: 'https://app.shrinked.ai/ffmpeg/ffmpeg-core.js',
+          wasmURL: 'https://app.shrinked.ai/ffmpeg/ffmpeg-core.wasm',
+          workerURL: 'https://app.shrinked.ai/ffmpeg/ffmpeg-core.worker.js',
         });
 
         const ffmpegObj = { instance: ffmpegInstance, fetchFile };
