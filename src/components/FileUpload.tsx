@@ -72,7 +72,6 @@ export function FileUpload({
     checkEnvironment();
   }, []);
 
-  // Only load FFmpeg when needed (when a file is dropped and needs conversion)
   const loadFfmpeg = async () => {
     if (ffmpeg) return ffmpeg;
     
@@ -80,26 +79,25 @@ export function FileUpload({
       console.warn('Environment does not support FFmpeg, skipping loading');
       return null;
     }
-
+  
     setFfmpegLoading(true);
     try {
       console.log('Starting FFmpeg load...');
       const { FFmpeg } = await import('@ffmpeg/ffmpeg');
       const { fetchFile } = await import('@ffmpeg/util');
       const ffmpegInstance = new FFmpeg();
-
-      console.log("Loading FFmpeg using proxy API...");
+  
+      console.log("Loading FFmpeg from CDN...");
       
-      // Use our proxy API instead of CDN URLs
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      // Use a reliable CDN with proper CORS headers
       await ffmpegInstance.load({
-        coreURL: `${origin}/api/ffmpeg-proxy/ffmpeg-core.js`,
-        wasmURL: `${origin}/api/ffmpeg-proxy/ffmpeg-core.wasm`,
-        workerURL: `${origin}/api/ffmpeg-proxy/ffmpeg-core.worker.js`
+        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+        wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+        workerURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
       });
-
+  
       setFfmpeg({ instance: ffmpegInstance, fetchFile });
-      console.log('FFmpeg loaded successfully with FFmpeg class API');
+      console.log('FFmpeg loaded successfully');
       return { instance: ffmpegInstance, fetchFile };
     } catch (error) {
       console.error('Error loading FFmpeg:', error);
