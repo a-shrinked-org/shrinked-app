@@ -1,232 +1,556 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import { useNavigation, useGetIdentity } from "@refinedev/core";
+import { useForm, useFieldArray } from "react-hook-form";
 import { 
-  Box, 
-  Text, 
-  Button, 
-  Progress, 
-  Group, 
-  Paper, 
   TextInput, 
-  Alert 
+  Button, 
+  Stack, 
+  Group, 
+  Box, 
+  Alert,
+  Divider,
+  Tabs,
+  Text,
+  ActionIcon,
+  Card,
+  Tooltip,
+  rem
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
+import { showNotification } from '@mantine/notifications';
+import { 
+  ArrowLeft, 
+  AlertCircle, 
+  Link as LinkIcon, 
+  Upload, 
+  Plus, 
+  Trash, 
+  FileText,
+  Info,
+  ExternalLink 
+} from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
-import { AlertCircle } from 'lucide-react';
+import { FileUpload } from '@/components/FileUpload';
+import { GeistMono } from 'geist/font/mono';
 
-export default function AudioExtractor() {
-  // State variables for file processing
-  const [status, setStatus] = useState<'idle' | 'loading' | 'processing' | 'complete' | 'error'>('idle');
-  const [progress, setProgress] = useState(0);
-  const [audioUrl, setAudioUrl] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [duration, setDuration] = useState('');
-  const [ffmpeg, setFfmpeg] = useState<any>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { fetchWithAuth } = useAuth();
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+}
 
-  // Load FFmpeg on component mount
-  useEffect(() => {
-    // Only run on client side
-    if (typeof window === 'undefined') return;
+interface FileItem {
+  type: 'link' | 'upload';
+  url: string;
+  filename?: string;
+  size?: number;
+}
 
-    const loadFfmpeg = async () => {
-      try {
-        setStatus('loading');
+interface JobCreateForm {
+  jobName: string;
+  scenario: string;
+  lang: string;
+  isPublic: boolean;
+  createPage: boolean;
+  files: FileItem[];
+}
 
-        const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-        const { fetchFile } = await import('@ffmpeg/util');
-        
-        // Initialize FFmpeg with specific CDN URLs
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-        
-        const ffmpegInstance = new FFmpeg();
-        await ffmpegInstance.load({
-          coreURL: `${baseURL}/ffmpeg-core.js`,
-          wasmURL: `${baseURL}/ffmpeg-core.wasm`,
-          workerURL: `${baseURL}/ffmpeg-core.worker.js`
-        });
-        
-        // Store both FFmpeg instance and fetchFile utility
-        setFfmpeg({ instance: ffmpegInstance, fetchFile });
-        setStatus('idle');
-      } catch (error) {
-        console.error('Error loading FFmpeg:', error);
-        setStatus('error');
-      }
-    };
+export default function JobCreate() {
+  const { list } = useNavigation();
+  const { data: identity } = useGetIdentity<Identity>();
+  const { fetchWithAuth, handleAuthError } = useAuth();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
-    loadFfmpeg();
-  }, []);
-
-  const extractAudio = async (file: File) => {
-    if (!ffmpeg?.instance) return;
-
-    try {
-      setStatus('processing');
-      setProgress(0);
-
-      const { instance: ffmpegInstance, fetchFile } = ffmpeg;
-
-      // Write input file
-      const inputFileName = 'input' + file.name.substring(file.name.lastIndexOf('.'));
-      const outputFileName = 'output.mp3';
-      
-      await ffmpegInstance.writeFile(inputFileName, await fetchFile(file));
-
-      // Set up progress handler
-      ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
-        setProgress(Math.round(progress * 100));
-      });
-
-      // Prepare FFmpeg command
-      const ffmpegArgs = [
-        '-i', inputFileName,
-        ...(startTime ? ['-ss', startTime] : []),
-        ...(duration ? ['-t', duration] : []),
-        '-vn',  // Remove video stream
-        '-acodec', 'libmp3lame',  // Use MP3 codec
-        '-q:a', '2',  // Set quality (0-9, lower is better)
-        outputFileName
-      ];
-
-      // Run FFmpeg command
-      await ffmpegInstance.exec(ffmpegArgs);
-
-      // Read the result
-      const data = await ffmpegInstance.readFile(outputFileName);
-      const blob = new Blob([data], { type: 'audio/mp3' });
-      
-      // Clean up files
-      await ffmpegInstance.deleteFile(inputFileName);
-      await ffmpegInstance.deleteFile(outputFileName);
-
-      setAudioUrl(URL.createObjectURL(blob));
-      setStatus('complete');
-    } catch (error) {
-      console.error('Error extracting audio:', error);
-      setStatus('error');
+  const form = useForm<JobCreateForm>({
+    defaultValues: {
+      isPublic: false, // Default to Private
+      createPage: false, // Default to No
+      lang: 'en', // English only for now
+      scenario: 'SINGLE_FILE_DEFAULT', // Default scenario
+      files: [{ type: 'link', url: '' }]
     }
+  });
+
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors }, 
+    setValue, 
+    control,
+    watch,
+    setError
+  } = form;
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "files"
+  });
+
+  // Format file size for display
+  const formatFileSize = (size: number): string => {
+    if (size < 1024) return `${size} bytes`;
+    else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    else if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  // Handle file upload success
+  const handleFileUploaded = (fileUrl: string, index: number = 0) => {
+    setValue(`files.${index}.url`, fileUrl);
     
-    const file = files[0];
-    setSelectedFile(file);
+    // Extract filename from URL for display purposes only
+    const urlParts = fileUrl.split('/');
+    const filenameWithParams = urlParts[urlParts.length - 1];
+    const filename = filenameWithParams.split('?')[0]; // Remove query parameters if any
+    setValue(`files.${index}.filename`, filename);
+    
+    showNotification({
+      title: 'Success',
+      message: 'File URL has been added',
+      color: 'green',
+    });
   };
 
-  const handleExtract = () => {
-    if (selectedFile) {
-      extractAudio(selectedFile);
+  const onSubmit = handleSubmit(async (data: JobCreateForm) => {
+    try {
+      if (!navigator.onLine) {
+        showNotification({
+          title: 'Error',
+          message: 'You appear to be offline. Please check your internet connection.',
+          color: 'red',
+          icon: <AlertCircle size={16} />
+        });
+        return;
+      }
+  
+      const validFiles = data.files.filter(file => file.url.trim() !== '');
+      if (validFiles.length === 0) {
+        setError('root', { type: 'manual', message: 'Please provide at least one file link or upload a file' });
+        return;
+      }
+  
+      let apiData;
+      if (validFiles.length === 1) {
+        apiData = {
+          jobName: data.jobName,
+          scenario: data.scenario,
+          email: identity?.email || '', // Add email from identity
+          lang: data.lang,
+          isPublic: data.isPublic,
+          createPage: data.createPage,
+          link: validFiles[0].url
+        };
+      } else {
+        apiData = {
+          jobName: data.jobName,
+          scenario: data.scenario,
+          email: identity?.email || '', // Add email from identity
+          lang: data.lang,
+          isPublic: data.isPublic,
+          createPage: data.createPage,
+          links: validFiles.map(file => file.url)
+        };
+      }
+  
+      const response = await fetchWithAuth(`/api/jobs-proxy`, {
+        method: 'POST',
+        body: JSON.stringify(apiData)
+      });
+  
+      if (response.status === 521 || response.status === 522 || response.status === 523) {
+        throw new Error('The server is currently unreachable. Please try again later.');
+      }
+  
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || `Error: ${response.status}`;
+        } catch {
+          errorMessage = `Error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+  
+      showNotification({
+        title: 'Success',
+        message: 'Job created successfully',
+        color: 'green'
+      });
+  
+      list('jobs');
+    } catch (error) {
+      console.error("Create job error:", error);
+      handleAuthError(error);
+      showNotification({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to create job',
+        color: 'red',
+        icon: <AlertCircle size={16} />
+      });
     }
-  };
-
-  const downloadAudio = () => {
-    const a = document.createElement('a');
-    a.href = audioUrl;
-    a.download = 'extracted_audio.mp3';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  });
 
   return (
-    <Box p="md" style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <Paper p="xl" shadow="sm" withBorder>
-        <Text size="xl" fw={700} mb="md">Audio Extractor</Text>
-        
-        {status === 'loading' ? (
-          <Box my="xl">
-            <Text mb="xs">Loading FFmpeg...</Text>
-            <Progress value={50} size="md" radius="sm" animated />
-          </Box>
-        ) : (
-          <>
-            <Group grow mb="md">
-              <TextInput
-                label="Start Time (optional)"
-                placeholder="00:00:00"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                description="Format: HH:MM:SS or seconds"
-              />
-              <TextInput
-                label="Duration (optional)"
-                placeholder="00:00:00"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                description="Format: HH:MM:SS or seconds"
-              />
-            </Group>
-            
-            <Box my="md">
-              <Text size="sm" fw={500} mb="xs">Select video or audio file</Text>
-              <input
-                type="file"
-                accept="video/*,audio/*"
-                onChange={handleFileSelect}
-                style={{ 
-                  width: '100%',
-                  padding: '10px',
-                  marginBottom: '10px',
-                  border: '1px dashed #ccc',
-                  borderRadius: '4px'
-                }}
-              />
-              {selectedFile && (
-                <Text size="sm" mt="xs">Selected: {selectedFile.name}</Text>
-              )}
-            </Box>
-            
-            <Button 
-              onClick={handleExtract} 
-              disabled={!selectedFile || status === 'processing' || !ffmpeg?.instance}
-              loading={status === 'processing'}
-              fullWidth
-              mb="md"
-            >
-              {status === 'processing' ? `Converting... ${progress}%` : 'Extract Audio'}
-            </Button>
+    <Box style={{ 
+      backgroundColor: '#000000', 
+      color: '#ffffff', 
+      minHeight: '100vh', 
+      width: '100%'
+    }}>
+      <Box 
+        style={{ 
+          backgroundColor: '#000000', 
+          width: '100%',
+          maxWidth: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        <Group justify="space-between" p="sm" style={{ 
+          borderBottom: '1px solid #2b2b2b',
+          flexShrink: 0
+        }}>
+          <Text size="sm" fw={500} style={{ 
+            fontFamily: GeistMono.style.fontFamily, 
+            letterSpacing: '0.5px',
+            display: 'flex',
+            alignItems: 'center',
+            height: '100%'
+          }}>NEW JOB</Text>
+          
+          <Button 
+            variant="subtle"
+            onClick={() => list('jobs')}
+            leftSection={<ArrowLeft size={14} />}
+            styles={{
+              root: {
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                border: 'none',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
+                },
+              },
+            }}
+          >
+            <Text size="xs" fw={500}>BACK TO LIST</Text>
+          </Button>
+        </Group>
 
-            {status === 'error' && (
+        <form onSubmit={onSubmit}>
+          <Box style={{ 
+            width: '100%', 
+            maxWidth: '100%', 
+            overflowX: 'hidden',
+            flex: 1
+          }}>
+            {errors?.root?.message && (
               <Alert 
-                icon={<AlertCircle size={16} />} 
-                title="Error" 
+                icon={<AlertCircle size={16} />}
                 color="red" 
-                mb="md"
+                title="Error"
+                style={{ 
+                  backgroundColor: 'rgba(244, 67, 54, 0.1)', 
+                  border: '1px solid rgba(244, 67, 54, 0.3)', 
+                  margin: '1rem' 
+                }}
               >
-                Failed to extract audio. Please try again.
+                {errors.root.message}
               </Alert>
             )}
-            
-            {status === 'complete' && (
-              <Box mt="md">
-                <Alert 
-                  title="Success" 
-                  color="green" 
-                  mb="md"
+
+            <Stack gap="md" p="md">
+              <TextInput
+                label="Job Name"
+                placeholder="Enter job name"
+                required
+                error={errors?.jobName?.message}
+                {...register('jobName', { required: 'Job name is required' })}
+                styles={{
+                  input: {
+                    backgroundColor: '#0d0d0d',
+                    borderColor: '#2b2b2b',
+                    color: '#ffffff',
+                  },
+                  label: {
+                    color: '#a1a1a1',
+                  },
+                }}
+              />
+
+              <Group align="center" style={{ marginBottom: '0.5rem' }}>
+                <Text size="sm" style={{ color: '#a1a1a1' }}>Logic:</Text>
+                <Text size="sm">Default</Text>
+                <Tooltip 
+                  label={
+                    <Group align="center">
+                      <Text size="xs">Find advanced logic configurations at the logic page</Text>
+                      <ActionIcon 
+                        variant="subtle" 
+                        component="a" 
+                        href="/logic" 
+                        target="_blank"
+                        size="xs"
+                      >
+                        <ExternalLink size={12} />
+                      </ActionIcon>
+                    </Group>
+                  }
+                  multiline
                 >
-                  Audio extracted successfully!
-                </Alert>
-                
-                <Box mb="md">
-                  <Text size="sm" fw={500} mb="xs">Preview:</Text>
-                  <audio controls src={audioUrl} style={{ width: '100%' }} />
+                  <Info size={16} style={{ color: '#a1a1a1', cursor: 'help' }} />
+                </Tooltip>
+              </Group>
+
+              <Group align="center" style={{ marginBottom: '0.5rem' }}>
+                <Text size="sm" style={{ color: '#a1a1a1' }}>Language:</Text>
+                <Text size="sm">English</Text>
+              </Group>
+
+              <Divider 
+                label="FILES" 
+                labelPosition="center" 
+                styles={{
+                  label: {
+                    fontFamily: GeistMono.style.fontFamily,
+                    color: '#a1a1a1',
+                    fontSize: '12px',
+                  },
+                  root: {
+                    borderTop: '1px solid #2b2b2b',
+                  },
+                }}
+              />
+
+              <Card 
+                p={0} 
+                withBorder 
+                style={{ 
+                  backgroundColor: '#0D0D0D', 
+                  borderColor: '#2B2B2B',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Header row - hide on mobile */}
+                {!isMobile && (
+                  <Box style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'minmax(50px, 1fr) minmax(300px, 3fr) 100px',
+                    padding: '1rem 1.5rem',
+                    borderBottom: '1px solid #2b2b2b',
+                    color: '#a1a1a1',
+                    fontSize: '12px',
+                  }}>
+                    <Box style={{ textAlign: 'left' }}>/type</Box>
+                    <Box style={{ textAlign: 'left' }}>/source</Box>
+                    <Box style={{ textAlign: 'right' }}>/actions</Box>
+                  </Box>
+                )}
+
+                {fields.map((field, index) => (
+                  <Box
+                    key={field.id}
+                    style={{ 
+                      display: isMobile ? 'flex' : 'grid',
+                      gridTemplateColumns: 'minmax(50px, 1fr) minmax(300px, 3fr) 100px',
+                      padding: '1rem 1.5rem',
+                      borderBottom: index < fields.length - 1 ? '1px solid #2b2b2b' : 'none',
+                      transition: 'background-color 0.2s ease-in-out',
+                      backgroundColor: 'transparent',
+                      flexDirection: isMobile ? 'column' : undefined,
+                      gap: isMobile ? rem(10) : undefined,
+                      '&:hover': {
+                        backgroundColor: '#111111',
+                      },
+                    }}
+                  >
+                    <Box style={{ display: 'flex', alignItems: 'center' }}>
+                      <Tabs
+                        value={field.type}
+                        onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
+                        styles={{
+                          root: {
+                            width: 'auto'
+                          },
+                          list: {
+                            border: 'none',
+                          },
+                          tab: {
+                            padding: '8px',
+                            color: '#a1a1a1',
+                            '&[data-active="true"]': {
+                              color: '#F5A623',
+                              borderColor: '#F5A623',
+                            },
+                          },
+                        }}
+                      >
+                        <Tabs.List>
+                          <Tabs.Tab value="link">
+                            <LinkIcon size={16} />
+                          </Tabs.Tab>
+                          <Tabs.Tab value="upload">
+                            <Upload size={16} />
+                          </Tabs.Tab>
+                        </Tabs.List>
+                      </Tabs>
+                    </Box>
+
+                    <Box style={{ padding: isMobile ? 0 : '0 1rem', width: '100%' }}>
+                      {watch(`files.${index}.type`) === 'link' ? (
+                        <TextInput
+                          placeholder="Enter file URL"
+                          {...register(`files.${index}.url`)}
+                          onChange={(e) => {
+                            // Set URL
+                            setValue(`files.${index}.url`, e.target.value);
+                            
+                            // Extract filename for display only
+                            if (e.target.value) {
+                              try {
+                                const filename = e.target.value.split('/').pop() || '';
+                                setValue(`files.${index}.filename`, filename);
+                              } catch (error) {
+                                console.warn('Failed to extract filename from URL');
+                              }
+                            }
+                          }}
+                          styles={{
+                            input: {
+                              backgroundColor: '#0d0d0d',
+                              borderColor: '#2b2b2b',
+                              color: '#ffffff',
+                            },
+                            wrapper: {
+                              width: '100%'
+                            }
+                          }}
+                        />
+                      ) : (
+                        <Box style={{ width: '100%' }}>
+                          {!watch(`files.${index}.url`) ? (
+                            <FileUpload 
+                              onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)} 
+                              maxSizeMB={100}
+                            />
+                          ) : (
+                            <Group 
+                              p="sm" 
+                              style={{ 
+                                border: '1px solid #2b2b2b', 
+                                borderRadius: '4px', 
+                                backgroundColor: '#0d0d0d'
+                              }}
+                              wrap="nowrap"
+                            >
+                              <FileText size={16} />
+                              <Box style={{ flex: 1, overflow: 'hidden' }}>
+                                <Text size="sm" truncate>
+                                  {watch(`files.${index}.filename`) || 'Uploaded file'}
+                                </Text>
+                                {watch(`files.${index}.size`) && (
+                                  <Text size="xs" c="dimmed">
+                                    {formatFileSize(watch(`files.${index}.size`) as number)}
+                                  </Text>
+                                )}
+                              </Box>
+                              <Button 
+                                size="xs" 
+                                variant="light" 
+                                color="gray"
+                                onClick={() => {
+                                  setValue(`files.${index}.url`, '');
+                                  setValue(`files.${index}.filename`, '');
+                                  setValue(`files.${index}.size`, undefined);
+                                }}
+                              >
+                                Change
+                              </Button>
+                            </Group>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+
+                    <Box style={{ 
+                      display: 'flex', 
+                      justifyContent: isMobile ? 'flex-start' : 'flex-end', 
+                      alignItems: 'center',
+                      marginTop: isMobile ? rem(10) : 0
+                    }}>
+                      <Group>
+                        {fields.length > 1 && (
+                          <Tooltip label="Remove">
+                            <ActionIcon 
+                              variant="subtle"
+                              color="red"
+                              onClick={() => remove(index)}
+                            >
+                              <Trash size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        )}
+                      </Group>
+                    </Box>
+                  </Box>
+                ))}
+
+                <Box p="md" style={{ borderTop: '1px solid #2b2b2b' }}>
+                  <Button
+                    leftSection={<Plus size={16} />}
+                    variant="outline"
+                    fullWidth
+                    onClick={() => append({ type: 'link', url: '' })}
+                    styles={{
+                      root: {
+                        borderColor: '#2b2b2b',
+                        color: '#f5a623',
+                        '&:hover': {
+                          backgroundColor: 'rgba(245, 166, 35, 0.1)',
+                        },
+                      },
+                    }}
+                  >
+                    Add File
+                  </Button>
                 </Box>
-                
+              </Card>
+
+              <Group justify="flex-end" mt="md">
                 <Button 
-                  onClick={downloadAudio}
-                  fullWidth
+                  type="submit" 
+                  styles={{
+                    root: {
+                      fontFamily: GeistMono.style.fontFamily,
+                      fontSize: '14px',
+                      fontWeight: 400,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      padding: '8px 16px',
+                      backgroundColor: '#F5A623',
+                      color: '#000000',
+                      '&:hover': {
+                        backgroundColor: '#E09612',
+                      },
+                    },
+                  }}
                 >
-                  Download MP3
+                  <Text size="xs">Create Job</Text>
                 </Button>
-              </Box>
-            )}
-          </>
-        )}
-      </Paper>
+              </Group>
+            </Stack>
+          </Box>
+        </form>
+      </Box>
     </Box>
   );
 }

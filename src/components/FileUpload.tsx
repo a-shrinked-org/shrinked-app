@@ -88,12 +88,14 @@ export function FileUpload({
       const { fetchFile } = await import('@ffmpeg/util');
       const ffmpegInstance = new FFmpeg();
 
-      console.log("Loading FFmpeg with CDN URLs...");
-      // Use CDN URLs which are more reliable
+      console.log("Loading FFmpeg using proxy API...");
+      
+      // Use our proxy API instead of CDN URLs
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
       await ffmpegInstance.load({
-        coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-        wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-        workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
+        coreURL: `${origin}/api/ffmpeg-proxy/ffmpeg-core.js`,
+        wasmURL: `${origin}/api/ffmpeg-proxy/ffmpeg-core.wasm`,
+        workerURL: `${origin}/api/ffmpeg-proxy/ffmpeg-core.worker.js`
       });
 
       setFfmpeg({ instance: ffmpegInstance, fetchFile });
