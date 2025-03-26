@@ -106,11 +106,13 @@ export function FileUpload({
             name: "skypack",
             coreURL: "https://cdn.skypack.dev/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
             wasmURL: "https://cdn.skypack.dev/@ffmpeg/core@0.10.0/dist/ffmpeg-core.wasm",
+            workerURL: undefined // Add this to match the FFmpeg.load() interface
           },
           {
             name: "unpkg",
             coreURL: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
             wasmURL: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.wasm",
+            workerURL: undefined // Add this to match the FFmpeg.load() interface
           }
         ];
         
