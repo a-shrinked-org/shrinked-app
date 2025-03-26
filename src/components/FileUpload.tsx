@@ -68,33 +68,33 @@ export function FileUpload({
   const loadFffmpeg = useCallback(async (): Promise<FFmpegInstance | null> => {
     if (ffmpeg) return ffmpeg;
     if (ffmpegPromiseRef.current) return ffmpegPromiseRef.current;
-
+  
     const timeoutPromise = new Promise<FFmpegInstance | null>((_, reject) => {
       setTimeout(() => reject(new Error('FFmpeg loading timed out after 15 seconds')), 15000);
     });
-
+  
     setFfmpegLoading(true);
-
+  
     const loadingPromise = (async () => {
       try {
         console.log('Starting FFmpeg load...');
         const { FFmpeg } = await import('@ffmpeg/ffmpeg');
         const { fetchFile } = await import('@ffmpeg/util');
         const ffmpegInstance = new FFmpeg();
-
-        console.log("Loading FFmpeg from local assets...");
+  
+        console.log("Loading FFmpeg from UNPKG...");
         await ffmpegInstance.load({
-          coreURL: 'https://app.shrinked.ai/ffmpeg/ffmpeg-core.js',
-          wasmURL: 'https://app.shrinked.ai/ffmpeg/ffmpeg-core.wasm',
-          workerURL: 'https://app.shrinked.ai/ffmpeg/ffmpeg-core.worker.js',
+          coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+          wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+          workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js',
         });
-
+  
         const ffmpegObj = { instance: ffmpegInstance, fetchFile };
         setFfmpeg(ffmpegObj);
-        console.log('FFmpeg loaded successfully from local assets');
+        console.log('FFmpeg loaded successfully from UNPKG');
         return ffmpegObj;
       } catch (error) {
-        console.error('Error loading FFmpeg from local assets:', error);
+        console.error('Error loading FFmpeg from UNPKG:', error);
         setError('Failed to load audio conversion library. Original file will be uploaded instead.');
         ffmpegPromiseRef.current = null;
         return null;
@@ -102,7 +102,7 @@ export function FileUpload({
         setFfmpegLoading(false);
       }
     })();
-
+  
     ffmpegPromiseRef.current = Promise.race([loadingPromise, timeoutPromise]).catch((error) => {
       console.error('FFmpeg loading error or timeout:', error);
       setFfmpegLoading(false);
@@ -110,7 +110,7 @@ export function FileUpload({
       ffmpegPromiseRef.current = null;
       return null;
     });
-
+  
     return ffmpegPromiseRef.current;
   }, [ffmpeg]);
 
