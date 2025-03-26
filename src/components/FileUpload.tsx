@@ -103,23 +103,14 @@ export function FileUpload({
         // Try multiple CDNs to avoid CORS issues
         const cdnOptions = [
           {
-            name: "local",
-            coreURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.js",
-            wasmURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.wasm",
-            workerURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.worker.js"
-          },
-          // Keep these as fallbacks
-          {
-            name: "standard",
-            coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/esm/ffmpeg-core.js",
-            wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/esm/ffmpeg-core.wasm",
-            workerURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.worker.js",
+            name: "skypack",
+            coreURL: "https://cdn.skypack.dev/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
+            wasmURL: "https://cdn.skypack.dev/@ffmpeg/core@0.10.0/dist/ffmpeg-core.wasm",
           },
           {
-            name: "jsdelivr",
-            coreURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.js",
-            wasmURL: "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.wasm",
-            workerURL: "https://app.unpkg.com/@ffmpeg/core@0.12.1/files/dist/ffmpeg-core.worker.js",
+            name: "unpkg",
+            coreURL: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
+            wasmURL: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.wasm",
           }
         ];
         
