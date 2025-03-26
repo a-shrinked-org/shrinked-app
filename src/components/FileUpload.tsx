@@ -37,7 +37,7 @@ export function FileUpload({
   const [conversionProgress, setConversionProgress] = useState(0);
   const [convertedFile, setConvertedFile] = useState<File | null>(null);
   const [isEnvironmentSupported, setIsEnvironmentSupported] = useState<boolean | null>(null);
-  
+
   const ffmpegPromiseRef = useRef<Promise<FFmpegInstance | null> | null>(null);
 
   const { fetchWithAuth, handleAuthError } = useAuth();
@@ -66,7 +66,7 @@ export function FileUpload({
     );
   }, [audioFileTypes]);
 
-  const loadFfmpeg = useCallback(async (): Promise<FFmpegInstance | null> => {
+  const loadFffmpeg = useCallback(async (): Promise<FFmpegInstance | null> => {
     if (ffmpeg) return ffmpeg;
     if (ffmpegPromiseRef.current) return ffmpegPromiseRef.current;
     
@@ -182,7 +182,7 @@ export function FileUpload({
     const initFFmpeg = async () => {
       if (file && needsConversion(file) && isEnvironmentSupported !== false) {
         try {
-          await loadFfmpeg();
+          await loadFffmpeg();
         } catch (error) {
           console.error("Failed to initialize FFmpeg:", error);
           setError("Failed to initialize audio conversion library. Using MP3 files directly is recommended.");
@@ -191,14 +191,14 @@ export function FileUpload({
     };
     
     initFFmpeg();
-  }, [file, loadFfmpeg, needsConversion]);
+  }, [file, loadFffmpeg, needsConversion, isEnvironmentSupported]); // Added isEnvironmentSupported
 
   const convertToMp3 = async (inputFile: File): Promise<File | null> => {
     if (!inputFile) return null;
 
     try {
       setConversionProgress(0);
-      const ffmpegObj = await loadFfmpeg();
+      const ffmpegObj = await loadFffmpeg();
       if (!ffmpegObj) {
         throw new Error('Audio conversion library not loaded');
       }
@@ -362,7 +362,7 @@ export function FileUpload({
         
         try {
           console.log(`Environment supports conversion, proceeding...`);
-          const ffmpegLoadPromise = loadFmpeg();
+          const ffmpegLoadPromise = loadFffmpeg(); // Fixed typo here
           const timeoutPromise = new Promise<null>((_, reject) => {
             setTimeout(() => reject(new Error('FFmpeg loading timed out')), 10000);
           });
