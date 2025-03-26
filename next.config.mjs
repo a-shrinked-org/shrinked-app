@@ -9,7 +9,6 @@ const nextConfig = {
     NEXT_PUBLIC_R2_SECRET_ACCESS_KEY: process.env.NEXT_PUBLIC_R2_SECRET_ACCESS_KEY,
   },
   webpack: (config) => {
-    // Required for ReactFlow in production
     config.module.rules.push({
       test: /\.m?js$/,
       resolve: {
@@ -17,14 +16,12 @@ const nextConfig = {
       },
     });
 
-    // Enable WebAssembly for FFmpeg
     config.experiments = {
       ...config.experiments,
       asyncWebAssembly: true,
       layers: true,
     };
 
-    // Add rule for handling .wasm files
     config.module.rules.push({
       test: /\.wasm$/,
       type: 'webassembly/async',
@@ -32,16 +29,14 @@ const nextConfig = {
 
     return config;
   },
-  // Modern handling of images and other static assets
   images: {
     domains: [
-      'avatars.githubusercontent.com', 
+      'avatars.githubusercontent.com',
       'lh3.googleusercontent.com',
-      'refine.ams3.cdn.digitaloceanspaces.com'
+      'refine.ams3.cdn.digitaloceanspaces.com',
     ],
     unoptimized: process.env.NODE_ENV === 'development',
   },
-  // Add CORS and cross-origin isolation headers
   async headers() {
     return [
       {
@@ -54,7 +49,6 @@ const nextConfig = {
         ],
       },
       {
-        // Add cross-origin isolation headers for the entire site
         source: '/(.*)',
         headers: [
           { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
@@ -62,15 +56,22 @@ const nextConfig = {
         ],
       },
       {
-        // Specific headers for WebAssembly files
-        source: '/ffmpeg/:path*',
+        source: '/ffmpeg/:path*.wasm',
         headers: [
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
           { key: 'Content-Type', value: 'application/wasm' },
           { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/ffmpeg/:path*.js',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },

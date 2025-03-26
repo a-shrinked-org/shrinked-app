@@ -7,7 +7,6 @@ import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 import { showNotification } from '@mantine/notifications';
 import { useAuth } from "@/utils/authUtils";
 
-// R2 Configuration from environment variables
 const R2_CONFIG = {
   bucketName: process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'apptemp',
 };
@@ -37,15 +36,12 @@ export function FileUpload({
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [conversionProgress, setConversionProgress] = useState(0);
   const [convertedFile, setConvertedFile] = useState<File | null>(null);
-  // Define state for environment support
   const [isEnvironmentSupported, setIsEnvironmentSupported] = useState<boolean | null>(null);
   
-  // Use a ref to track the FFmpeg loading promise
   const ffmpegPromiseRef = useRef<Promise<FFmpegInstance | null> | null>(null);
 
   const { fetchWithAuth, handleAuthError } = useAuth();
 
-  // Move audioFileTypes inside component to avoid unnecessary re-renders
   const audioFileTypes = useMemo(() => [
     'audio/wav', 'audio/ogg', 'audio/aac', 'audio/m4a', 'audio/x-m4a', 'audio/flac', 'audio/webm',
     'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
@@ -58,65 +54,55 @@ export function FileUpload({
     'video/quicktime': ['.mov'], 'video/x-msvideo': ['.avi'], 'video/webm': ['.webm'],
   };
 
-  // Define needsConversion as a memoized function to prevent dependency issues
   const needsConversion = useCallback((file: File): boolean => {
-    // If it's already an MP3, no conversion needed
     if (file.type === 'audio/mp3' || file.type === 'audio/mpeg') {
       return false;
     }
     
-    // Check for audio and video types that need conversion
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    
-    // Check both the MIME type and file extension
     return audioFileTypes.some(type => 
-      file.type.includes(type.split('/')[1]) || // Check if MIME contains format (e.g., "m4a")
+      file.type.includes(type.split('/')[1]) || 
       (fileExtension && ['wav', 'ogg', 'aac', 'm4a', 'flac', 'mp4', 'mov', 'avi', 'webm'].includes(fileExtension))
     );
   }, [audioFileTypes]);
 
-  // Load FFmpeg only once and keep track of the loading promise
   const loadFfmpeg = useCallback(async (): Promise<FFmpegInstance | null> => {
-    // If FFmpeg is already loaded, return it
     if (ffmpeg) return ffmpeg;
-    
-    // If there's already a loading promise in progress, return that
     if (ffmpegPromiseRef.current) return ffmpegPromiseRef.current;
     
-    // Create a timeout promise to prevent hanging
     const timeoutPromise = new Promise<FFmpegInstance | null>((_, reject) => {
       setTimeout(() => reject(new Error('FFmpeg loading timed out after 15 seconds')), 15000);
     });
     
-    // Start loading FFmpeg
     setFfmpegLoading(true);
     
     const loadingPromise = (async () => {
       try {
         console.log('Starting FFmpeg load...');
-        
-        // Import FFmpeg modules
         const { FFmpeg } = await import('@ffmpeg/ffmpeg');
         const { fetchFile } = await import('@ffmpeg/util');
-        
-        // Create FFmpeg instance
         const ffmpegInstance = new FFmpeg();
         
-        console.log("Loading FFmpeg from CDN...");
-
-        // Try multiple CDNs to avoid CORS issues
+        console.log("Loading FFmpeg from local assets...");
+        
         const cdnOptions = [
           {
-            name: "unpkg",
-            coreURL: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js",
-            wasmURL: "https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.wasm"
+            name: "local-12.1",
+            coreURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.js",
+            wasmURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.wasm",
+            workerURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.worker.js"
+          },
+          {
+            name: "unpkg-fallback",
+            coreURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.js",
+            wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.wasm",
+            workerURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.worker.js"
           }
         ];
         
         let loaded = false;
         let lastError = null;
         
-        // Try each CDN option
         for (const cdn of cdnOptions) {
           if (loaded) break;
           
@@ -124,7 +110,8 @@ export function FileUpload({
             console.log(`Attempting to load FFmpeg from ${cdn.name}...`);
             await ffmpegInstance.load({
               coreURL: cdn.coreURL,
-              wasmURL: cdn.wasmURL
+              wasmURL: cdn.wasmURL,
+              workerURL: cdn.workerURL
             });
             console.log(`FFmpeg loaded successfully from ${cdn.name}`);
             loaded = true;
@@ -134,29 +121,11 @@ export function FileUpload({
           }
         }
         
-        // If all CDN options failed, try loading without explicit paths
-        if (!loaded) {
-          try {
-            console.log("Attempting to load FFmpeg without explicit paths...");
-            await ffmpegInstance.load();
-            console.log("FFmpeg loaded successfully without explicit paths");
-            loaded = true;
-          } catch (error) {
-            console.error("Failed to load FFmpeg without explicit paths:", error);
-            lastError = error;
-          }
-        }
-        
-        // If all loading attempts failed, throw the last error
         if (!loaded) {
           throw lastError || new Error("Failed to load FFmpeg from any source");
         }
 
-        const ffmpegObj = { 
-          instance: ffmpegInstance, 
-          fetchFile 
-        };
-        
+        const ffmpegObj = { instance: ffmpegInstance, fetchFile };
         setFfmpeg(ffmpegObj);
         console.log('FFmpeg loaded successfully');
         return ffmpegObj;
@@ -170,7 +139,6 @@ export function FileUpload({
       }
     })();
     
-    // Race the loading against the timeout
     ffmpegPromiseRef.current = Promise.race([loadingPromise, timeoutPromise])
       .catch(error => {
         console.error('FFmpeg loading error or timeout:', error);
@@ -183,35 +151,26 @@ export function FileUpload({
     return ffmpegPromiseRef.current;
   }, [ffmpeg]);
 
-  // Check if the environment supports SharedArrayBuffer (needed for FFmpeg)
   useEffect(() => {
     const checkEnvironment = () => {
       try {
-        // Check if SharedArrayBuffer is available (required for FFmpeg WASM)
         const isSABSupported = typeof SharedArrayBuffer !== 'undefined';
-        
-        // Check if the page is cross-origin isolated (required for SharedArrayBuffer)
         const isCrossOriginIsolated = 
           typeof window !== 'undefined' && 
           Boolean(window.crossOriginIsolated);
         
-        // Log environment details to help with debugging
         console.log("Environment check:", {
           sharedArrayBuffer: isSABSupported ? "Available" : "Not available",
           crossOriginIsolated: isCrossOriginIsolated ? "Yes" : "No",
           userAgent: navigator.userAgent
         });
         
-        // We'll attempt conversion even if the environment check fails
-        // Modern browsers are increasingly supporting this without strict COOP/COEP
-        // But we'll still log the environment status for debugging
         const supported = true; // Force to true to attempt conversion
-        
         console.log(`Will attempt conversion: ${supported}`);
         return supported;
       } catch (error) {
         console.warn("Error checking environment support:", error);
-        return true; // Try anyway
+        return true;
       }
     };
     
@@ -219,7 +178,6 @@ export function FileUpload({
     setIsEnvironmentSupported(supported);
   }, []);
   
-  // Auto-load FFmpeg when a file that needs conversion is selected
   useEffect(() => {
     const initFFmpeg = async () => {
       if (file && needsConversion(file) && isEnvironmentSupported !== false) {
@@ -233,7 +191,6 @@ export function FileUpload({
     };
     
     initFFmpeg();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file, loadFfmpeg, needsConversion]);
 
   const convertToMp3 = async (inputFile: File): Promise<File | null> => {
@@ -241,8 +198,6 @@ export function FileUpload({
 
     try {
       setConversionProgress(0);
-      
-      // Ensure FFmpeg is loaded
       const ffmpegObj = await loadFfmpeg();
       if (!ffmpegObj) {
         throw new Error('Audio conversion library not loaded');
@@ -253,32 +208,30 @@ export function FileUpload({
       const outputFileName = 'output.mp3';
 
       try {
-        // Convert the file using FFmpeg
         console.log(`Fetching file data for ${inputFile.name}...`);
         const fileData = await fetchFile(inputFile);
         console.log(`Writing file to FFmpeg...`);
         await ffmpegInstance.writeFile(inputFileName, fileData);
         
-        // Set up progress tracking
         ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
           setConversionProgress(Math.round(progress * 100));
         });
 
-        // Run conversion with appropriate quality settings
         console.log(`Starting conversion to MP3...`);
         const ffmpegArgs = ['-i', inputFileName, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', outputFileName];
         await ffmpegInstance.exec(ffmpegArgs);
         console.log(`Conversion completed successfully`);
 
-        // Read the converted file
         console.log(`Reading converted file...`);
         const data = await ffmpegInstance.readFile(outputFileName);
         console.log(`Creating MP3 blob...`);
         const blob = new Blob([data], { type: 'audio/mp3' });
         const convertedFileName = inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) + '.mp3';
-        const convertedFile = new File([blob], convertedFileName, { type: 'audio/mp3', lastModified: new Date().getTime() });
+        const convertedFile = new File([blob], convertedFileName, { 
+          type: 'audio/mp3', 
+          lastModified: new Date().getTime() 
+        });
 
-        // Clean up
         console.log(`Cleaning up temporary files...`);
         await ffmpegInstance.deleteFile(inputFileName);
         await ffmpegInstance.deleteFile(outputFileName);
@@ -316,12 +269,10 @@ export function FileUpload({
         throw new Error('You appear to be offline. Please check your internet connection.');
       }
 
-      // Create a unique filename
       const timestamp = new Date().getTime();
       const randomString = Math.random().toString(36).substring(2, 10);
       const fileName = `${timestamp}-${randomString}-${fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
-      // Get a pre-signed URL for uploading
       console.log(`Requesting presigned URL for ${fileName}...`);
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
@@ -341,13 +292,11 @@ export function FileUpload({
       const { presignedUrl, fileUrl } = await presignedResponse.json();
       console.log(`Received presigned URL, beginning upload...`);
       
-      // Start progress updates
       setProgress(10);
       const progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + (Math.floor(Math.random() * 10) + 5), 90));
       }, 500);
 
-      // Upload the file
       console.log(`Uploading file to storage...`);
       const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
@@ -382,7 +331,6 @@ export function FileUpload({
         color: 'red' 
       });
       
-      // Only reset the file if it's not an offline error
       if (!(error instanceof Error && error.message.includes('offline'))) {
         setFile(null);
       }
@@ -396,7 +344,6 @@ export function FileUpload({
   const handleDrop = async (files: FileWithPath[]) => {
     if (files.length === 0) return;
     
-    // Reset state for new file
     const droppedFile = files[0];
     setFile(droppedFile);
     setConvertedFile(null);
@@ -407,28 +354,22 @@ export function FileUpload({
     console.log(`File dropped: ${droppedFile.name} (${droppedFile.type})`);
 
     try {
-      // Check if file is already MP3 or needs conversion
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
         console.log(`File is already MP3, uploading directly...`);
         await uploadFile(droppedFile);
       } else if (needsConversion(droppedFile)) {
         console.log(`File needs conversion, checking environment...`);
         
-        // Try to load FFmpeg with a timeout
         try {
           console.log(`Environment supports conversion, proceeding...`);
-          const ffmpegLoadPromise = loadFfmpeg();
-          
-          // Create a timeout for FFmpeg loading
+          const ffmpegLoadPromise = loadFmpeg();
           const timeoutPromise = new Promise<null>((_, reject) => {
             setTimeout(() => reject(new Error('FFmpeg loading timed out')), 10000);
           });
           
-          // Race the loading against the timeout
           const ffmpegObj = await Promise.race([ffmpegLoadPromise, timeoutPromise]);
           
           if (ffmpegObj) {
-            // FFmpeg loaded successfully, proceed with conversion
             const converted = await convertToMp3(droppedFile);
             if (converted) {
               console.log(`Conversion successful, uploading converted file...`);
@@ -440,13 +381,11 @@ export function FileUpload({
             throw new Error('FFmpeg failed to load');
           }
         } catch (conversionError) {
-          // On any error, fall back to uploading the original file
           console.warn(`FFmpeg error, falling back to original file: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}`);
           setError("Audio conversion unavailable. Uploading original file instead.");
           await uploadFile(droppedFile);
         }
       } else {
-        // Handle other file types
         console.log(`File doesn't need conversion, uploading directly...`);
         await uploadFile(droppedFile);
       }
@@ -454,7 +393,6 @@ export function FileUpload({
       console.error('Error processing file:', error);
       setError(error instanceof Error ? error.message : 'Failed to process file');
       
-      // Always try to upload the original file as a fallback
       if (file) {
         try {
           console.log('Falling back to uploading original file...');
