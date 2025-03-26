@@ -58,10 +58,9 @@ export function FileUpload({
     if (file.type === 'audio/mp3' || file.type === 'audio/mpeg') {
       return false;
     }
-    
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    return audioFileTypes.some(type => 
-      file.type.includes(type.split('/')[1]) || 
+    return audioFileTypes.some(type =>
+      file.type.includes(type.split('/')[1]) ||
       (fileExtension && ['wav', 'ogg', 'aac', 'm4a', 'flac', 'mp4', 'mov', 'avi', 'webm'].includes(fileExtension))
     );
   }, [audioFileTypes]);
@@ -69,68 +68,33 @@ export function FileUpload({
   const loadFffmpeg = useCallback(async (): Promise<FFmpegInstance | null> => {
     if (ffmpeg) return ffmpeg;
     if (ffmpegPromiseRef.current) return ffmpegPromiseRef.current;
-    
+
     const timeoutPromise = new Promise<FFmpegInstance | null>((_, reject) => {
       setTimeout(() => reject(new Error('FFmpeg loading timed out after 15 seconds')), 15000);
     });
-    
+
     setFfmpegLoading(true);
-    
+
     const loadingPromise = (async () => {
       try {
         console.log('Starting FFmpeg load...');
         const { FFmpeg } = await import('@ffmpeg/ffmpeg');
         const { fetchFile } = await import('@ffmpeg/util');
         const ffmpegInstance = new FFmpeg();
-        
+
         console.log("Loading FFmpeg from local assets...");
-        
-        const cdnOptions = [
-          {
-            name: "local-12.1",
-            coreURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.js",
-            wasmURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.wasm",
-            workerURL: "https://app.shrinked.ai/ffmpeg/ffmpeg-core.worker.js"
-          },
-          {
-            name: "unpkg-fallback",
-            coreURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.js",
-            wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.wasm",
-            workerURL: "https://unpkg.com/@ffmpeg/core@0.12.1/dist/umd/ffmpeg-core.worker.js"
-          }
-        ];
-        
-        let loaded = false;
-        let lastError = null;
-        
-        for (const cdn of cdnOptions) {
-          if (loaded) break;
-          
-          try {
-            console.log(`Attempting to load FFmpeg from ${cdn.name}...`);
-            await ffmpegInstance.load({
-              coreURL: cdn.coreURL,
-              wasmURL: cdn.wasmURL,
-              workerURL: cdn.workerURL
-            });
-            console.log(`FFmpeg loaded successfully from ${cdn.name}`);
-            loaded = true;
-          } catch (error) {
-            console.warn(`Failed to load FFmpeg from ${cdn.name}:`, error);
-            lastError = error;
-          }
-        }
-        
-        if (!loaded) {
-          throw lastError || new Error("Failed to load FFmpeg from any source");
-        }
+        await ffmpegInstance.load({
+          coreURL: '/ffmpeg/ffmpeg-core.js',
+          wasmURL: '/ffmpeg/ffmpeg-core.wasm',
+          workerURL: '/ffmpeg/ffmpeg-core.worker.js',
+        });
 
         const ffmpegObj = { instance: ffmpegInstance, fetchFile };
         setFfmpeg(ffmpegObj);
-        console.log('FFmpeg loaded successfully');
+        console.log('FFmpeg loaded successfully from local assets');
         return ffmpegObj;
       } catch (error) {
-        console.error('Error loading FFmpeg:', error);
+        console.error('Error loading FFmpeg from local assets:', error);
         setError('Failed to load audio conversion library. Original file will be uploaded instead.');
         ffmpegPromiseRef.current = null;
         return null;
@@ -138,16 +102,15 @@ export function FileUpload({
         setFfmpegLoading(false);
       }
     })();
-    
-    ffmpegPromiseRef.current = Promise.race([loadingPromise, timeoutPromise])
-      .catch(error => {
-        console.error('FFmpeg loading error or timeout:', error);
-        setFfmpegLoading(false);
-        setError('Failed to load audio conversion library. Original file will be uploaded instead.');
-        ffmpegPromiseRef.current = null;
-        return null;
-      });
-    
+
+    ffmpegPromiseRef.current = Promise.race([loadingPromise, timeoutPromise]).catch((error) => {
+      console.error('FFmpeg loading error or timeout:', error);
+      setFfmpegLoading(false);
+      setError('Failed to load audio conversion library. Original file will be uploaded instead.');
+      ffmpegPromiseRef.current = null;
+      return null;
+    });
+
     return ffmpegPromiseRef.current;
   }, [ffmpeg]);
 
@@ -155,43 +118,43 @@ export function FileUpload({
     const checkEnvironment = () => {
       try {
         const isSABSupported = typeof SharedArrayBuffer !== 'undefined';
-        const isCrossOriginIsolated = 
-          typeof window !== 'undefined' && 
+        const isCrossOriginIsolated =
+          typeof window !== 'undefined' &&
           Boolean(window.crossOriginIsolated);
-        
+
         console.log("Environment check:", {
           sharedArrayBuffer: isSABSupported ? "Available" : "Not available",
           crossOriginIsolated: isCrossOriginIsolated ? "Yes" : "No",
-          userAgent: navigator.userAgent
+          userAgent: navigator.userAgent,
         });
-        
-        const supported = true; // Force to true to attempt conversion
+
+        const supported = isSABSupported && isCrossOriginIsolated;
         console.log(`Will attempt conversion: ${supported}`);
         return supported;
       } catch (error) {
         console.warn("Error checking environment support:", error);
-        return true;
+        return false;
       }
     };
-    
+
     const supported = checkEnvironment();
     setIsEnvironmentSupported(supported);
   }, []);
-  
+
   useEffect(() => {
     const initFFmpeg = async () => {
-      if (file && needsConversion(file) && isEnvironmentSupported !== false) {
+      if (file && needsConversion(file) && isEnvironmentSupported) {
         try {
           await loadFffmpeg();
         } catch (error) {
           console.error("Failed to initialize FFmpeg:", error);
-          setError("Failed to initialize audio conversion library. Using MP3 files directly is recommended.");
+          setError("Failed to initialize audio conversion library. Using original file instead.");
         }
       }
     };
-    
+
     initFFmpeg();
-  }, [file, loadFffmpeg, needsConversion, isEnvironmentSupported]); // Added isEnvironmentSupported
+  }, [file, loadFffmpeg, needsConversion, isEnvironmentSupported]);
 
   const convertToMp3 = async (inputFile: File): Promise<File | null> => {
     if (!inputFile) return null;
@@ -207,47 +170,42 @@ export function FileUpload({
       const inputFileName = 'input' + inputFile.name.substring(inputFile.name.lastIndexOf('.'));
       const outputFileName = 'output.mp3';
 
-      try {
-        console.log(`Fetching file data for ${inputFile.name}...`);
-        const fileData = await fetchFile(inputFile);
-        console.log(`Writing file to FFmpeg...`);
-        await ffmpegInstance.writeFile(inputFileName, fileData);
-        
-        ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
-          setConversionProgress(Math.round(progress * 100));
-        });
+      console.log(`Fetching file data for ${inputFile.name}...`);
+      const fileData = await fetchFile(inputFile);
+      console.log(`Writing file to FFmpeg...`);
+      await ffmpegInstance.writeFile(inputFileName, fileData);
 
-        console.log(`Starting conversion to MP3...`);
-        const ffmpegArgs = ['-i', inputFileName, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', outputFileName];
-        await ffmpegInstance.exec(ffmpegArgs);
-        console.log(`Conversion completed successfully`);
+      ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
+        setConversionProgress(Math.round(progress * 100));
+      });
 
-        console.log(`Reading converted file...`);
-        const data = await ffmpegInstance.readFile(outputFileName);
-        console.log(`Creating MP3 blob...`);
-        const blob = new Blob([data], { type: 'audio/mp3' });
-        const convertedFileName = inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) + '.mp3';
-        const convertedFile = new File([blob], convertedFileName, { 
-          type: 'audio/mp3', 
-          lastModified: new Date().getTime() 
-        });
+      console.log(`Starting conversion to MP3...`);
+      const ffmpegArgs = ['-i', inputFileName, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', outputFileName];
+      await ffmpegInstance.exec(ffmpegArgs);
+      console.log(`Conversion completed successfully`);
 
-        console.log(`Cleaning up temporary files...`);
-        await ffmpegInstance.deleteFile(inputFileName);
-        await ffmpegInstance.deleteFile(outputFileName);
+      console.log(`Reading converted file...`);
+      const data = await ffmpegInstance.readFile(outputFileName);
+      console.log(`Creating MP3 blob...`);
+      const blob = new Blob([data], { type: 'audio/mp3' });
+      const convertedFileName = inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) + '.mp3';
+      const convertedFile = new File([blob], convertedFileName, {
+        type: 'audio/mp3',
+        lastModified: new Date().getTime(),
+      });
 
-        setConvertedFile(convertedFile);
-        showNotification({ 
-          title: 'Success', 
-          message: 'Audio converted to MP3', 
-          color: 'green' 
-        });
-        
-        return convertedFile;
-      } catch (conversionError: any) {
-        console.error('Error during conversion process:', conversionError);
-        throw new Error(`Conversion process failed: ${conversionError?.message || 'Unknown error'}`);
-      }
+      console.log(`Cleaning up temporary files...`);
+      await ffmpegInstance.deleteFile(inputFileName);
+      await ffmpegInstance.deleteFile(outputFileName);
+
+      setConvertedFile(convertedFile);
+      showNotification({
+        title: 'Success',
+        message: 'Audio converted to MP3',
+        color: 'green',
+      });
+
+      return convertedFile;
     } catch (error) {
       console.error('Error converting audio:', error);
       setError(error instanceof Error ? `Conversion error: ${error.message}` : 'Failed to convert audio file');
@@ -277,10 +235,10 @@ export function FileUpload({
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          fileName, 
-          contentType: fileToUpload.type, 
-          bucketName: R2_CONFIG.bucketName 
+        body: JSON.stringify({
+          fileName,
+          contentType: fileToUpload.type,
+          bucketName: R2_CONFIG.bucketName,
         }),
       });
 
@@ -291,7 +249,7 @@ export function FileUpload({
 
       const { presignedUrl, fileUrl } = await presignedResponse.json();
       console.log(`Received presigned URL, beginning upload...`);
-      
+
       setProgress(10);
       const progressInterval = setInterval(() => {
         setProgress((prev) => Math.min(prev + (Math.floor(Math.random() * 10) + 5), 90));
@@ -305,7 +263,7 @@ export function FileUpload({
       });
 
       clearInterval(progressInterval);
-      
+
       if (!uploadResponse.ok) {
         throw new Error(`Failed to upload to storage: ${uploadResponse.status}`);
       }
@@ -313,28 +271,28 @@ export function FileUpload({
       console.log(`Upload completed successfully`);
       setProgress(100);
       onFileUploaded(fileUrl);
-      showNotification({ 
-        title: 'Success', 
-        message: 'File uploaded successfully', 
-        color: 'green' 
+      showNotification({
+        title: 'Success',
+        message: 'File uploaded successfully',
+        color: 'green',
       });
-      
+
       return true;
     } catch (error) {
       console.error('Upload error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload file';
       setError(errorMessage);
       handleAuthError(error);
-      showNotification({ 
-        title: 'Error', 
-        message: errorMessage, 
-        color: 'red' 
+      showNotification({
+        title: 'Error',
+        message: errorMessage,
+        color: 'red',
       });
-      
+
       if (!(error instanceof Error && error.message.includes('offline'))) {
         setFile(null);
       }
-      
+
       return false;
     } finally {
       setUploading(false);
@@ -343,7 +301,7 @@ export function FileUpload({
 
   const handleDrop = async (files: FileWithPath[]) => {
     if (files.length === 0) return;
-    
+
     const droppedFile = files[0];
     setFile(droppedFile);
     setConvertedFile(null);
@@ -357,50 +315,29 @@ export function FileUpload({
       if (droppedFile.type === 'audio/mp3' || droppedFile.type === 'audio/mpeg') {
         console.log(`File is already MP3, uploading directly...`);
         await uploadFile(droppedFile);
-      } else if (needsConversion(droppedFile)) {
-        console.log(`File needs conversion, checking environment...`);
-        
-        try {
-          console.log(`Environment supports conversion, proceeding...`);
-          const ffmpegLoadPromise = loadFffmpeg(); // Fixed typo here
-          const timeoutPromise = new Promise<null>((_, reject) => {
-            setTimeout(() => reject(new Error('FFmpeg loading timed out')), 10000);
-          });
-          
-          const ffmpegObj = await Promise.race([ffmpegLoadPromise, timeoutPromise]);
-          
-          if (ffmpegObj) {
-            const converted = await convertToMp3(droppedFile);
-            if (converted) {
-              console.log(`Conversion successful, uploading converted file...`);
-              await uploadFile(converted);
-            } else {
-              throw new Error('Conversion failed');
-            }
+      } else if (needsConversion(droppedFile) && isEnvironmentSupported) {
+        console.log(`File needs conversion, proceeding...`);
+        const ffmpegObj = await loadFffmpeg();
+
+        if (ffmpegObj) {
+          const converted = await convertToMp3(droppedFile);
+          if (converted) {
+            console.log(`Conversion successful, uploading converted file...`);
+            await uploadFile(converted);
           } else {
-            throw new Error('FFmpeg failed to load');
+            throw new Error('Conversion failed');
           }
-        } catch (conversionError) {
-          console.warn(`FFmpeg error, falling back to original file: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}`);
-          setError("Audio conversion unavailable. Uploading original file instead.");
-          await uploadFile(droppedFile);
+        } else {
+          throw new Error('FFmpeg failed to load');
         }
       } else {
-        console.log(`File doesn't need conversion, uploading directly...`);
+        console.log(`File doesn't need conversion or environment unsupported, uploading directly...`);
         await uploadFile(droppedFile);
       }
     } catch (error) {
-      console.error('Error processing file:', error);
-      setError(error instanceof Error ? error.message : 'Failed to process file');
-      
-      if (file) {
-        try {
-          console.log('Falling back to uploading original file...');
-          await uploadFile(droppedFile);
-        } catch (uploadError) {
-          console.error('Even fallback upload failed:', uploadError);
-        }
-      }
+      console.warn(`Processing error, falling back to original file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError("Audio conversion unavailable. Uploading original file instead.");
+      await uploadFile(droppedFile);
     }
   };
 
@@ -414,12 +351,12 @@ export function FileUpload({
   return (
     <Box>
       {error && (
-        <Alert 
-          icon={<AlertCircle size={16} />} 
-          color="red" 
-          mb="md" 
-          title="Upload Error" 
-          withCloseButton 
+        <Alert
+          icon={<AlertCircle size={16} />}
+          color="red"
+          mb="md"
+          title="Upload Error"
+          withCloseButton
           onClose={() => setError(null)}
         >
           {error}
@@ -427,10 +364,10 @@ export function FileUpload({
       )}
 
       {!file && !uploading ? (
-        <Dropzone 
-          onDrop={handleDrop} 
-          maxSize={maxSizeMB * 1024 * 1024} 
-          accept={acceptedFileTypes || defaultAcceptedTypes} 
+        <Dropzone
+          onDrop={handleDrop}
+          maxSize={maxSizeMB * 1024 * 1024}
+          accept={acceptedFileTypes || defaultAcceptedTypes}
           loading={uploading || ffmpegLoading}
         >
           <Group justify="center" style={{ minHeight: rem(140), pointerEvents: 'none' }}>
@@ -453,13 +390,13 @@ export function FileUpload({
         </Dropzone>
       ) : (
         <Box>
-          <Group 
-            justify="space-between" 
-            p="md" 
-            mb="md" 
-            style={{ 
-              border: `1px solid ${theme.colors.gray[3]}`, 
-              borderRadius: theme.radius.md 
+          <Group
+            justify="space-between"
+            p="md"
+            mb="md"
+            style={{
+              border: `1px solid ${theme.colors.gray[3]}`,
+              borderRadius: theme.radius.md,
             }}
           >
             <Group>
