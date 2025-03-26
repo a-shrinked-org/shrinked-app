@@ -94,7 +94,7 @@ export function FileUpload({
         coreURL: `${origin}/ffmpeg/ffmpeg-core.js`,
         wasmURL: `${origin}/ffmpeg/ffmpeg-core.wasm`,
         workerURL: `${origin}/ffmpeg/ffmpeg-core.worker.js`,
-        toBlobURL: true // Added this to help with CORS issues
+        toBlobUrl: true // Correct property name (lowercase "u")
       });
   
       const instance = { instance: ffmpegInstance, fetchFile };
