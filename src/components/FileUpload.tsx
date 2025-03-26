@@ -84,42 +84,21 @@ export function FileUpload({
     setFfmpegLoading(true);
     try {
       console.log('Starting FFmpeg load...');
-      
-      // Try using the older style createFFmpeg API first
-      try {
-        const { createFFmpeg, fetchFile } = await import('@ffmpeg/ffmpeg');
-        const ffmpegInstance = createFFmpeg({ 
-          log: true,
-          corePath: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js'
-        });
-        
-        console.log("Loading FFmpeg with createFFmpeg API...");
-        await ffmpegInstance.load();
-        
-        // Return with the older API format
-        setFfmpeg({ instance: ffmpegInstance, fetchFile });
-        console.log('FFmpeg loaded successfully with createFFmpeg API');
-        return { instance: ffmpegInstance, fetchFile };
-      } catch (createError) {
-        console.warn('Failed to load with createFFmpeg API, trying newer FFmpeg class...', createError);
-        
-        // If that fails, try the newer FFmpeg class API
-        const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-        const { fetchFile } = await import('@ffmpeg/util');
-        const ffmpegInstance = new FFmpeg();
+      const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+      const { fetchFile } = await import('@ffmpeg/util');
+      const ffmpegInstance = new FFmpeg();
 
-        console.log("Loading FFmpeg with CDN URLs...");
-        // Use CDN URLs which are more reliable
-        await ffmpegInstance.load({
-          coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-          wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-          workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
-        });
+      console.log("Loading FFmpeg with CDN URLs...");
+      // Use CDN URLs which are more reliable
+      await ffmpegInstance.load({
+        coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+        wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+        workerURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.worker.js'
+      });
 
-        setFfmpeg({ instance: ffmpegInstance, fetchFile });
-        console.log('FFmpeg loaded successfully with FFmpeg class API');
-        return { instance: ffmpegInstance, fetchFile };
-      }
+      setFfmpeg({ instance: ffmpegInstance, fetchFile });
+      console.log('FFmpeg loaded successfully with FFmpeg class API');
+      return { instance: ffmpegInstance, fetchFile };
     } catch (error) {
       console.error('Error loading FFmpeg:', error);
       setError('Failed to load audio conversion library. Original file will be uploaded instead.');
