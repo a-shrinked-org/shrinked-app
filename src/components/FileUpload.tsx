@@ -88,8 +88,9 @@ export function FileUpload({
       const { fetchFile } = await import('@ffmpeg/util');
       const ffmpegInstance = new FFmpeg();
 
-      console.log("Loading FFmpeg from local files...");
-      // Use locally hosted files instead of UNPKG
+      console.log("Loading FFmpeg core files...");
+      // Note: Next.js serves files from the public directory at the root path
+      // No need to include 'public' in the path - just use '/ffmpeg/'
       await ffmpegInstance.load({
         coreURL: '/ffmpeg/ffmpeg-core.js',
         wasmURL: '/ffmpeg/ffmpeg-core.wasm',
@@ -153,6 +154,10 @@ export function FileUpload({
     }
   };
 
+  // Rest of your component remains the same
+  // ...
+
+  // Your upload and handle drop functions...
   const uploadFile = async (fileToUpload: File): Promise<boolean> => {
     setUploading(true);
     setProgress(0);
