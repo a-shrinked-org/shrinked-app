@@ -110,6 +110,94 @@ export default function JobShow() {
   const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   
   const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
+  
+  // Move this section UP from its current position
+  const { queryResult } = useShow<Job>({
+    resource: "jobs",
+    id: jobId,
+    queryOptions: {
+      enabled: !!jobId && !!identity?.token,
+      staleTime: 30000,
+      onSuccess: (data) => {
+        // Your onSuccess code
+      },
+      onError: (error) => {
+        // Your onError code
+      }
+    },
+    meta: {
+      headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` }
+    }
+  });
+  
+  // Move these variable declarations UP, right after the queryResult
+  const { data, isLoading, isError } = queryResult;
+  const record = data?.data;
+  
+  // The rest of your state variables
+  const [activeTab, setActiveTab] = useState("preview");
+  // ...other state variables
+  
+  // Now your useCallback functions like handleShareDocument can reference record
+  // ...
+}
+With these changes, the record variable will be defined before it's used in any dependency arrays, which should fix the error.
+Make sure you don't have any other references to variables before they're declared. Remember that in JavaScript, the order of declarations matters, especially when using hooks that depend on variables defined elsewhere in your component.RetryICCan you give me the full updated JobShow() ?EditI'll provide the full updated JobShow() function with the necessary changes to fix the type errors:
+typescriptCopyexport default function JobShow() {
+  const params = useParams();
+  const { list } = useNavigation();
+  const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
+  
+  const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
+  
+  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
+  
+  // Move queryResult up
+  const { queryResult } = useShow<Job>({
+    resource: "jobs",
+    id: jobId,
+    queryOptions: {
+      enabled: !!jobId && !!identity?.token,
+      staleTime: 30000,
+      onSuccess: (data) => {
+        console.log("Show query success:", data);
+        const resultId = extractResultId(data.data);
+        if (resultId) {
+          console.log("Found resultId:", resultId);
+          setProcessingDocId(resultId);
+        } else {
+          console.log("No resultId found");
+          setErrorMessage("No processing document ID found in job data.");
+        }
+        const uploadStep = data.data?.steps?.find(step => 
+          step.name === "UPLOAD_FILE" || 
+          step.name === "FILE_UPLOAD" || 
+          step.name === "CONVERT_FILE" ||
+          step.name === "AUDIO_TRANSCRIPTION"
+        );
+        const foundLink = uploadStep?.data?.output?.link || uploadStep?.data?.link || data.data?.link;
+        if (foundLink) {
+          console.log("Found upload file link:", foundLink);
+          setUploadFileLink(foundLink);
+        } else {
+          console.log("No upload file link found");
+        }
+      },
+      onError: (error) => {
+        console.error("Show query error:", error);
+        handleAuthError(error);
+        setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
+      }
+    },
+    meta: {
+      headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` }
+    }
+  });
+  
+  // Extract these variables early
+  const { data, isLoading, isError } = queryResult;
+  const record = data?.data;
+  
   const [activeTab, setActiveTab] = useState("preview");
   const [processingDocId, setProcessingDocId] = useState<string | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
@@ -126,7 +214,12 @@ export default function JobShow() {
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
 
-  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
+  // Calculate combinedData using useMemo to avoid dependency issues
+  const combinedData = React.useMemo(() => {
+    return processingDoc?.output || record?.output || {};
+  }, [processingDoc, record]);
+
+  const isDocLoading = isLoading || isLoadingDoc;
 
   useEffect(() => {
     if (processingDocId) {
@@ -252,47 +345,6 @@ export default function JobShow() {
     }
   }, [documentId]);
 
-  const { queryResult } = useShow<Job>({
-    resource: "jobs",
-    id: jobId,
-    queryOptions: {
-      enabled: !!jobId && !!identity?.token,
-      staleTime: 30000,
-      onSuccess: (data) => {
-        console.log("Show query success:", data);
-        const resultId = extractResultId(data.data);
-        if (resultId) {
-          console.log("Found resultId:", resultId);
-          setProcessingDocId(resultId);
-        } else {
-          console.log("No resultId found");
-          setErrorMessage("No processing document ID found in job data.");
-        }
-        const uploadStep = data.data?.steps?.find(step => 
-          step.name === "UPLOAD_FILE" || 
-          step.name === "FILE_UPLOAD" || 
-          step.name === "CONVERT_FILE" ||
-          step.name === "AUDIO_TRANSCRIPTION"
-        );
-        const foundLink = uploadStep?.data?.output?.link || uploadStep?.data?.link || data.data?.link;
-        if (foundLink) {
-          console.log("Found upload file link:", foundLink);
-          setUploadFileLink(foundLink);
-        } else {
-          console.log("No upload file link found");
-        }
-      },
-      onError: (error) => {
-        console.error("Show query error:", error);
-        handleAuthError(error);
-        setErrorMessage("Failed to load job details: " + (error.message || "Unknown error"));
-      }
-    },
-    meta: {
-      headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` }
-    }
-  });
-
   useEffect(() => {
     if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId) && !isFetchingProcessingDoc.current) {
       getProcessingDocument();
@@ -356,7 +408,7 @@ export default function JobShow() {
           ? combinedData.chapters.map(ch => ch.title).join('\n') 
           : (combinedData.chapters || ''),
         introduction: combinedData.introduction || '',
-        discussion: '',
+        discussion: '', // Fix: Just provide an empty string since 'discussion' doesn't exist
         conclusion: combinedData.conclusion || '',
         references: Array.isArray(combinedData.references) 
           ? combinedData.references.map(ref => ref.item).join('\n') 
@@ -405,7 +457,6 @@ export default function JobShow() {
     processingDocId, 
     record, 
     processingDoc, 
-    combinedData, 
     uploadFileLink, 
     jobId, 
     fetchWithAuth, 
@@ -581,10 +632,6 @@ export default function JobShow() {
     }
   };
 
-  const { data, isLoading, isError } = queryResult;
-  const record = data?.data;
-  const isDocLoading = isLoading || isLoadingDoc;
-
   if (!identity?.token) {
     return (
       <Box>
@@ -727,8 +774,6 @@ export default function JobShow() {
       </Box>
     );
   }
-
-  const combinedData = processingDoc?.output || record?.output || {};
 
   return (
     <Box style={{ 
