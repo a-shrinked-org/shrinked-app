@@ -356,7 +356,7 @@ export default function JobShow() {
           ? combinedData.chapters.map(ch => ch.title).join('\n') 
           : (combinedData.chapters || ''),
         introduction: combinedData.introduction || '',
-        discussion: combinedData.discussion || '',
+        discussion: '',
         conclusion: combinedData.conclusion || '',
         references: Array.isArray(combinedData.references) 
           ? combinedData.references.map(ref => ref.item).join('\n') 
