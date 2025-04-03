@@ -1179,12 +1179,12 @@ export default function JobShow() {
           </Box>
         </Flex>
       )}
+      <ShareDialog 
+        opened={shareDialogOpened}
+        onClose={closeShareDialog}
+        shareUrl={sharedUrl}
+        documentTitle={processingDoc?.title || record?.jobName || 'Untitled Document'}
+      />
     </Box>
   );
-  <ShareDialog 
-    opened={shareDialogOpened}
-    onClose={closeShareDialog}
-    shareUrl={sharedUrl}
-    documentTitle={processingDoc?.title || record?.jobName || 'Untitled Document'}
-  />
 }
