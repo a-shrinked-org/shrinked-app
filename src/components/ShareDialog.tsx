@@ -79,22 +79,23 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         },
       }}
     >
-      <Stack spacing="md">
+      <Box mb="md">
         <Text 
           size="lg" 
           fw={700}
           style={{
             fontFamily: 'Geist, sans-serif'
           }}
+          mb="md"
         >
           Share Document
         </Text>
         
-        <Text size="sm" c="dimmed">
+        <Text size="sm" c="dimmed" mb="md">
           Copy the link below to share this document:
         </Text>
         
-        <Group>
+        <Group mb="md">
           <TextInput
             style={{ flex: 1 }}
             value={fullShareUrl}
@@ -134,7 +135,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           </CopyButton>
         </Group>
         
-        <Box>
+        <Box mb="md">
           <Text size="sm" c="dimmed" mb="sm">
             Or share directly to:
           </Text>
@@ -206,7 +207,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         <Text size="xs" c="dimmed" mt="md">
           Anyone with this link can view this document
         </Text>
-      </Stack>
+      </Box>
     </Dialog>
   );
 };
