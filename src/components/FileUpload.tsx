@@ -47,6 +47,26 @@ export function FileUpload({
     'video/quicktime': ['.mov'], 'video/x-msvideo': ['.avi'], 'video/webm': ['.webm'],
   };
 
+  // Improved file name sanitization function
+  const sanitizeFileName = (fileName: string): string => {
+    // 1. Remove any directory paths
+    const baseName = fileName.split(/[\/\\]/).pop() || fileName;
+    
+    // 2. Replace any non-alphanumeric characters except for basic safe ones
+    // Only allow alphanumeric, periods, hyphens, and underscores
+    const sanitized = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    
+    // 3. Ensure the file name isn't too long (many storage systems have limits)
+    // Max length of 100 characters should be safe
+    const truncated = sanitized.length > 100 ? sanitized.substring(0, 100) : sanitized;
+    
+    // 4. Add a timestamp and random string for uniqueness
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 10);
+    
+    return `${timestamp}-${randomStr}-${truncated}`;
+  };
+
   const needsConversion = useCallback((file: File): boolean => {
     if (file.type === 'audio/mp3' || file.type === 'audio/mpeg') return false;
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
@@ -136,7 +156,8 @@ export function FileUpload({
 
       const data = await ffmpegCore.readFile(outputFileName);
       const blob = new Blob([data], { type: 'audio/mp3' });
-      const convertedFileName = inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) + '.mp3';
+      // Use sanitized filename for the converted file as well
+      const convertedFileName = sanitizeFileName(inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) + '.mp3');
       const convertedFile = new File([blob], convertedFileName, { type: 'audio/mp3' });
 
       await ffmpegCore.deleteFile(inputFileName);
@@ -160,7 +181,9 @@ export function FileUpload({
         throw new Error(`File size exceeds ${maxSizeMB}MB`);
       }
 
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}-${fileToUpload.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      // Use the sanitized file name function instead of the old method
+      const fileName = sanitizeFileName(fileToUpload.name);
+      
       const presignedResponse = await fetchWithAuth('/api/presigned-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
