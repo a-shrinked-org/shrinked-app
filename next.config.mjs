@@ -49,26 +49,18 @@ const nextConfig = {
         ],
       },
       {
-        source: '/(.*)',
+        // Root paths need COOP/COEP headers for SharedArrayBuffer
+        source: '/:path*',
         headers: [
           { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
         ],
       },
       {
-        source: '/ffmpeg/:path*.wasm',
+        // Specific headers for FFmpeg WASM files
+        source: '/ffmpeg/:path*',
         headers: [
           { key: 'Content-Type', value: 'application/wasm' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
-          { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
-      {
-        source: '/ffmpeg/:path*.js',
-        headers: [
-          { key: 'Content-Type', value: 'application/javascript' },
           { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
           { key: 'Cross-Origin-Resource-Policy', value: 'cross-origin' },
