@@ -28,6 +28,8 @@ import { useParams } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
+import { useDisclosure } from '@mantine/hooks';
+import ShareDialog from "@/components/ShareDialog"; 
 import { GeistMono } from 'geist/font/mono';
 import { debounce } from 'lodash';
 
@@ -119,6 +121,10 @@ export default function JobShow() {
   
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
+  
+  const [shareDialogOpened, { open: openShareDialog, close: closeShareDialog }] = useDisclosure(false);
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
 
@@ -310,6 +316,102 @@ export default function JobShow() {
     );
     return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
   };
+  
+  const handleShareDocument = useCallback(async () => {
+    if (!processingDocId) {
+      setErrorMessage("No document ID found to share");
+      return;
+    }
+  
+    try {
+      // If we already have a link, just open the share dialog
+      if (record?.link && record.link.includes('/docs/')) {
+        setSharedUrl(record.link);
+        openShareDialog();
+        return;
+      }
+      
+      // Otherwise, create a new shared document
+      setIsSharing(true);
+      setErrorMessage(null);
+  
+      // Get a title for the slug
+      const title = processingDoc?.title || 
+                    record?.output?.title || 
+                    record?.jobName || 
+                    'document';
+      
+      // Create a slug from the title
+      const slug = title.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || processingDocId;
+  
+      // Prepare the content payload
+      const content = {
+        title: title,
+        origin: uploadFileLink || '',
+        abstract: combinedData.abstract || '',
+        contributors: combinedData.contributors || '',
+        chapters: Array.isArray(combinedData.chapters) 
+          ? combinedData.chapters.map(ch => ch.title).join('\n') 
+          : (combinedData.chapters || ''),
+        introduction: combinedData.introduction || '',
+        discussion: combinedData.discussion || '',
+        conclusion: combinedData.conclusion || '',
+        references: Array.isArray(combinedData.references) 
+          ? combinedData.references.map(ref => ref.item).join('\n') 
+          : (combinedData.references || '')
+      };
+  
+      // Send the request to create a shared document
+      const response = await fetchWithAuth('/api/share-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          slug,
+          content,
+          jobId: jobId // Include the job ID for updating the job record
+        })
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to share document: ${response.status}`);
+      }
+  
+      const result = await response.json();
+  
+      if (result.status === 'created' && result.link) {
+        // Set the shared URL and open the dialog
+        setSharedUrl(result.link);
+        openShareDialog();
+        
+        // Update the job data in our state if possible
+        if (queryResult.refetch) {
+          queryResult.refetch();
+        }
+      } else if (result.error) {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("Failed to share document:", error);
+      setErrorMessage(`Error sharing document: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsSharing(false);
+    }
+  }, [
+    processingDocId, 
+    record, 
+    processingDoc, 
+    combinedData, 
+    uploadFileLink, 
+    jobId, 
+    fetchWithAuth, 
+    queryResult, 
+    openShareDialog
+  ]);
 
   const renderSkeletonLoader = () => (
     <Flex style={{ flex: 1, overflow: 'hidden' }}>
@@ -547,6 +649,8 @@ export default function JobShow() {
             <Button 
               variant="subtle"
               leftSection={<Share size={14} />}
+              onClick={handleShareDocument}
+              loading={isSharing}
               styles={{
                 root: {
                   fontFamily: GeistMono.style.fontFamily,
@@ -1077,4 +1181,10 @@ export default function JobShow() {
       )}
     </Box>
   );
+  <ShareDialog 
+    opened={shareDialogOpened}
+    onClose={closeShareDialog}
+    shareUrl={sharedUrl}
+    documentTitle={processingDoc?.title || record?.jobName || 'Untitled Document'}
+  />
 }
