@@ -19,7 +19,7 @@ interface FileUploadProps {
 
 export function FileUpload({
   onFileUploaded,
-  maxSizeMB = 100,
+  maxSizeMB,
   acceptedFileTypes,
 }: FileUploadProps) {
   const theme = useMantineTheme();
@@ -156,7 +156,7 @@ export function FileUpload({
     setUploading(true);
     setProgress(0);
     try {
-      if (fileToUpload.size > maxSizeMB * 1024 * 1024) {
+      if (maxSizeMB && fileToUpload.size > maxSizeMB * 1024 * 1024) {
         throw new Error(`File size exceeds ${maxSizeMB}MB`);
       }
 
@@ -249,7 +249,7 @@ export function FileUpload({
       {!file && !uploading ? (
         <Dropzone
           onDrop={handleDrop}
-          maxSize={maxSizeMB * 1024 * 1024}
+          maxSize={maxSizeMB ? maxSizeMB * 1024 * 1024 : undefined}
           accept={acceptedFileTypes || defaultAcceptedTypes}
           loading={uploading || ffmpegLoading}
         >

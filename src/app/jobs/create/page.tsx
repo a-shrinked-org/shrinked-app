@@ -439,8 +439,7 @@ export default function JobCreate() {
                         <Box style={{ width: '100%' }}>
                           {!watch(`files.${index}.url`) ? (
                             <FileUpload 
-                              onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)} 
-                              maxSizeMB={100}
+                              onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)}
                             />
                           ) : (
                             <Group 

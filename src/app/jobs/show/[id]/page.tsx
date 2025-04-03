@@ -791,6 +791,8 @@ export default function JobShow() {
           <Button 
             variant="subtle"
             leftSection={<Share size={14} />}
+            onClick={handleShareDocument}
+            loading={isSharing}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
