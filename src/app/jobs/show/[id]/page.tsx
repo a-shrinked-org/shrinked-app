@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import { 
   Text, 
@@ -25,7 +26,6 @@ import {
   Download
 } from 'lucide-react';
 import { useParams } from "next/navigation";
-import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 import { useDisclosure } from '@mantine/hooks';
@@ -105,45 +105,6 @@ interface ProcessingDocument {
 }
 
 export default function JobShow() {
-  const params = useParams();
-  const { list } = useNavigation();
-  const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
-  
-  const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
-  
-  // Move this section UP from its current position
-  const { queryResult } = useShow<Job>({
-    resource: "jobs",
-    id: jobId,
-    queryOptions: {
-      enabled: !!jobId && !!identity?.token,
-      staleTime: 30000,
-      onSuccess: (data) => {
-        // Your onSuccess code
-      },
-      onError: (error) => {
-        // Your onError code
-      }
-    },
-    meta: {
-      headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` }
-    }
-  });
-  
-  // Move these variable declarations UP, right after the queryResult
-  const { data, isLoading, isError } = queryResult;
-  const record = data?.data;
-  
-  // The rest of your state variables
-  const [activeTab, setActiveTab] = useState("preview");
-  // ...other state variables
-  
-  // Now your useCallback functions like handleShareDocument can reference record
-  // ...
-}
-With these changes, the record variable will be defined before it's used in any dependency arrays, which should fix the error.
-Make sure you don't have any other references to variables before they're declared. Remember that in JavaScript, the order of declarations matters, especially when using hooks that depend on variables defined elsewhere in your component.RetryICCan you give me the full updated JobShow() ?EditI'll provide the full updated JobShow() function with the necessary changes to fix the type errors:
-typescriptCopyexport default function JobShow() {
   const params = useParams();
   const { list } = useNavigation();
   const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
@@ -461,7 +422,8 @@ typescriptCopyexport default function JobShow() {
     jobId, 
     fetchWithAuth, 
     queryResult, 
-    openShareDialog
+    openShareDialog,
+    combinedData
   ]);
 
   const renderSkeletonLoader = () => (
@@ -774,7 +736,7 @@ typescriptCopyexport default function JobShow() {
       </Box>
     );
   }
-
+  
   return (
     <Box style={{ 
       display: 'flex', 
