@@ -29,7 +29,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   documentTitle 
 }) => {
   const [copied, setCopied] = useState(false);
-  const fullShareUrl = shareUrl ? window.location.origin + shareUrl : '';
+  const fullShareUrl = shareUrl ? `https://pdf.shrinked.ai${shareUrl}` : '';
   
   const handleSocialShare = (platform: string) => {
     let shareLink = '';
