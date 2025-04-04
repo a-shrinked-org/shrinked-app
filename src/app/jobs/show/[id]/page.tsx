@@ -369,7 +369,9 @@ export default function JobShow() {
           ? combinedData.chapters.map(ch => ch.title).join('\n') 
           : (combinedData.chapters || ''),
         introduction: combinedData.introduction || '',
-        discussion: '', // Fix: Just provide an empty string since 'discussion' doesn't exist
+        passages: Array.isArray(combinedData.passages) 
+          ? combinedData.passages.join('\n\n') 
+          : (combinedData.passages || ''),
         conclusion: combinedData.conclusion || '',
         references: Array.isArray(combinedData.references) 
           ? combinedData.references.map(ref => ref.item).join('\n') 
