@@ -283,131 +283,72 @@ function DocumentMarkdocRenderer({
       className="markdoc-container"
     >
       <style jsx global>{`
-        /* Scoped styles for markdown content */
-        .markdoc-container {
-          /* Container styles */
-          background-color: white;
-          color: black;
-          padding: 2rem;
-          border-radius: 0.5rem;
+        .mantine-title-h1, .mantine-title-h2, .mantine-title-h3, .mantine-title-h4, .mantine-title-h5, .mantine-title-h6 {
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          color: #000000;
+        }
+        .mantine-title-h1 { font-size: 2.25rem; font-weight: 700; line-height: 1.3; margin-top: 2rem; margin-bottom: 1rem; }
+        .mantine-title-h2 { font-size: 1.875rem; font-weight: 600; line-height: 1.35; margin-top: 1.75rem; margin-bottom: 0.75rem; }
+        .mantine-title-h3 { font-size: 1.5rem; font-weight: 600; line-height: 1.4; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .mantine-title-h4 { font-size: 1.25rem; font-weight: 600; line-height: 1.45; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .mantine-title-h5 { font-size: 1.1rem; font-weight: 600; line-height: 1.5; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .mantine-title-h6 { font-size: 1rem; font-weight: 600; line-height: 1.5; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .markdoc-container p {
+          margin-bottom: 1rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 1rem; color: #000000;
+        }
+        .citation-ref {
+          color: #0066cc; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        }
+        .citation-ref:hover { text-decoration: underline; }
+        .markdoc-container [id^="ts-"] { scroll-margin-top: 2rem; }
+        
+        /* Reset list styles to remove browser default styling first */
+        .markdoc-container ul,
+        .markdoc-container ol {
+          list-style-type: none; /* Remove all bullet points first */
+          margin: 0;
+          padding: 0;
+        }
+        
+        /* Then add our own styling */
+        .markdoc-container ul {
+          margin-bottom: 1rem; 
+          padding-left: 2rem; 
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          list-style-type: disc; /* Add back disc bullets only for this container */
+        }
+        
+        .markdoc-container ol {
+          margin-bottom: 1rem; 
+          padding-left: 2rem; 
+          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          list-style-type: decimal; /* Add back numeric bullets only for this container */
         }
         
         .markdoc-container a
         {
-          color:rgb(144, 146, 150)
+          color:rgb(161, 161, 161)
         }
         
-        
-        /* Title styles with more specific selectors to increase specificity */
-        .markdoc-container .mantine-title-h1, 
-        .markdoc-container .mantine-title-h2, 
-        .markdoc-container .mantine-title-h3, 
-        .markdoc-container .mantine-title-h4, 
-        .markdoc-container .mantine-title-h5, 
-        .markdoc-container .mantine-title-h6 {
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          color: #000000;
-        }
-        .markdoc-container .mantine-title-h1 { font-size: 2.25rem; font-weight: 700; line-height: 1.3; margin-top: 2rem; margin-bottom: 1rem; }
-        .markdoc-container .mantine-title-h2 { font-size: 1.875rem; font-weight: 600; line-height: 1.35; margin-top: 1.75rem; margin-bottom: 0.75rem; }
-        .markdoc-container .mantine-title-h3 { font-size: 1.5rem; font-weight: 600; line-height: 1.4; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-        .markdoc-container .mantine-title-h4 { font-size: 1.25rem; font-weight: 600; line-height: 1.45; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-        .markdoc-container .mantine-title-h5 { font-size: 1.1rem; font-weight: 600; line-height: 1.5; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-        .markdoc-container .mantine-title-h6 { font-size: 1rem; font-weight: 600; line-height: 1.5; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-        
-        /* Reset and restyle lists explicitly within markdoc container */
-        .markdoc-container ul, .markdoc-container ol {
-          margin-bottom: 1rem;
-          margin-block-start: 1em;
-          margin-block-end: 1em;
-          padding-inline-start: 2rem;
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        /* Menu-specific list styling - keep these free of bullets */
+        .menu ul, .menu ol {
+          list-style-type: none !important;
+          margin: 0 !important;
+          padding-left: 1rem !important;
         }
         
-        /* Explicitly set list styles */
-        .markdoc-container ul {
-          list-style-type: disc !important;
-        }
-        
-        .markdoc-container ol {
-          list-style-type: decimal !important;
-        }
-        
-        .markdoc-container li {
-          margin-bottom: 0.5rem;
-          display: list-item;
-          list-style-type:none !important;
-        }
-        
-        /* Paragraph styles */
-        .markdoc-container p {
-          margin-bottom: 1rem;
-          line-height: 1.7;
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          font-size: 1rem;
-          color: #000000;
-        }
-        
-        /* Citation reference styles */
-        .markdoc-container .citation-ref {
-          color: #0066cc;
-          text-decoration: none;
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-        }
-        .markdoc-container .citation-ref:hover {
-          text-decoration: underline;
-        }
-        
-        /* Reference targets */
-        .markdoc-container [id^="ts-"] {
-          scroll-margin-top: 2rem;
-        }
-        
-        /* Table styles */
+        .markdoc-container li { margin-bottom: 0.5rem; }
         .markdoc-container table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 1rem;
-          font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
-        .markdoc-container th,
-        .markdoc-container td {
-          border: 1px solid #e0e0e0;
-          padding: 8px 12px;
-          text-align: left;
+        .markdoc-container th, .markdoc-container td { border: 1px solid #e0e0e0; padding: 8px 12px; text-align: left; }
+        .markdoc-container th { background-color: #f5f5f5; font-weight: 600; }
+        .markdoc-container pre, .markdoc-container code {
+          font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace; background-color: #f5f5f5; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em;
         }
-        .markdoc-container th {
-          background-color: #f5f5f5;
-          font-weight: 600;
-        }
-        
-        /* Code and pre styles */
-        .markdoc-container pre,
-        .markdoc-container code {
-          font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
-          background-color: #f5f5f5;
-          padding: 0.2em 0.4em;
-          border-radius: 3px;
-          font-size: 0.9em;
-        }
-        .markdoc-container pre {
-          padding: 1em;
-          overflow-x: auto;
-          line-height: 1.5;
-        }
-        .markdoc-container pre code {
-          background-color: transparent;
-          padding: 0;
-        }
-        
-        /* Blockquote style */
-        .markdoc-container blockquote {
-          border-left: 4px solid #e0e0e0;
-          margin-left: 0;
-          padding-left: 1em;
-          color: #555;
-          font-style: italic;
-        }
+        .markdoc-container pre { padding: 1em; overflow-x: auto; line-height: 1.5; }
+        .markdoc-container pre code { background-color: transparent; padding: 0; }
+        .markdoc-container blockquote { border-left: 4px solid #e0e0e0; margin-left: 0; padding-left: 1em; color: #555; font-style: italic; }
       `}</style>
       {markdownContent ? (
         <div
