@@ -27,6 +27,11 @@
   ul:not(.menu ul) {
     @apply list-disc my-4;
   }
+  
+  /* Only apply list styles to ol elements that are not in the menu */
+  ol:not(.menu ol) {
+    @apply list-decimal my-4;
+  }
 
   a {
     @apply text-blue-700 underline;
@@ -86,7 +91,7 @@
   }
 
   /* Remove the bullet points from menu lists specifically */
-  .menu ul {
+  .menu ul, .menu ol {
     @apply pl-4 list-none;
   }
 
