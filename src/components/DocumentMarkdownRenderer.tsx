@@ -196,6 +196,7 @@ function DocumentMarkdocRenderer({
       const ast = Markdoc.parse(processedContent);
       const contentAst = Markdoc.transform(ast);
       let html = Markdoc.renderers.html(contentAst);
+      
       // Map headers to Mantine classes
       html = html
         .replace(/<h1([^>]*)>(.*?)<\/h1>/g, '<div class="mantine-title-h1"$1>$2</div>')
@@ -204,6 +205,12 @@ function DocumentMarkdocRenderer({
         .replace(/<h4([^>]*)>(.*?)<\/h4>/g, '<div class="mantine-title-h4"$1>$2</div>')
         .replace(/<h5([^>]*)>(.*?)<\/h5>/g, '<div class="mantine-title-h5"$1>$2</div>')
         .replace(/<h6([^>]*)>(.*?)<\/h6>/g, '<div class="mantine-title-h6"$1>$2</div>');
+      
+      // Fix nested lists by flattening them
+      // This pattern matches list items that contain only another list
+      html = html.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
+      html = html.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
+      
       return html;
     } catch (error) {
       console.error('Error rendering Markdoc:', error);
