@@ -241,9 +241,9 @@ const App = (props: React.PropsWithChildren<{}>) => {
     debouncedAuthCheck();
     
     // Clean up the debounced function when component unmounts
-    return () => debouncedAuthCheck.cancel();
-  }, [status, session]);
-
+      return () => debouncedAuthCheck.cancel();
+    }, [status, session, debouncedAuthCheck]); // Added debouncedAuthCheck as dependency
+    
   const authProvider = {
     ...customAuthProvider,
     login: async (params: any) => {
