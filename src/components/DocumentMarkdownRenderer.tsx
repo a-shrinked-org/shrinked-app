@@ -10,7 +10,7 @@ interface DocumentMarkdocRendererProps {
     contributors?: string;
     introduction?: string;
     conclusion?: string;
-    passages?: string; // Changed to string to match create-page structure
+    passages?: string;
     references?: Array<{ item: string }>;
     chapters?: Array<{ title: string }>;
   } | null;
