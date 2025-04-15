@@ -323,17 +323,11 @@ function DocumentMarkdocRenderer({
         }
         
         /* Explicitly set list styles */
-        .markdoc-container ul {
-          list-style-type: none !important;
-        }
-        
-        .markdoc-container ol {
-          list-style-type: none !important;
-        }
         
         .markdoc-container li {
           margin-bottom: 0.5rem;
           display: list-item;
+          list-style-type: none !important;
         }
         
         /* Paragraph styles */
