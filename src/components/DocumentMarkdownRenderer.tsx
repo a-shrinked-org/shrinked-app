@@ -190,77 +190,26 @@ function DocumentMarkdocRenderer({
     return processed;
   };
 
-  // This function directly fixes the structure in the HTML
+  // Fix the nested list structure in HTML
   const fixNestedLists = (html: string): string => {
     let result = html;
     
-    // Function to recursively process and fix nested list structures
-    const processWithRegExp = (html: string): string => {
-      // Fix single item nesting for unordered lists
-      let processed = html.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
-      
-      // Fix single item nesting for ordered lists - more specific for ordered list handling
-      processed = processed.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
-      
-      // If there's nested content with multiple items, unwrap the outer list item
-      processed = processed.replace(/<li>\s*<ul>([\s\S]*?)<\/ul>\s*<\/li>/g, (match, innerList) => {
-        // If the inner list has only one item, simplify it
-        if (innerList.split('<li>').length - 1 === 1) {
-          return match.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
-        }
-        // Otherwise return the inner list items directly
-        return innerList;
-      });
-      
-      // Similar processing for ordered lists
-      processed = processed.replace(/<li>\s*<ol>([\s\S]*?)<\/ol>\s*<\/li>/g, (match, innerList) => {
-        if (innerList.split('<li>').length - 1 === 1) {
-          return match.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
-        }
-        return innerList;
-      });
-      
-      // Clean up any empty lists that might be created
-      processed = processed.replace(/<ul>\s*<\/ul>/g, '');
-      processed = processed.replace(/<ol>\s*<\/ol>/g, '');
-      
-      return processed;
-    };
+    // Clean up reference entries with numbered timestamp links
+    // This very specific pattern matches the structure you shared:
+    // <li><ol start="289"><li><a href="None#t=1350">00:22:30</a>: Probably more.</li></ol></li>
+    result = result.replace(/<li><ol\s+start="\d+"><li>(.*?)<\/li><\/ol><\/li>/g, '<li>$1</li>');
     
-    // Repeat the processing multiple times to handle nested structures
-    let lastResult = '';
-    while (lastResult !== result) {
-      lastResult = result;
-      result = processWithRegExp(result);
-    }
+    // Fix general nested list items (simple case)
+    result = result.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
+    result = result.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
     
-    // Specific fix for more complex reference structures
-    // Handle references that might be specific to the document
-    result = result.replace(/<ol>\s*(?:<li>\s*<ul>\s*<li>.*?<\/li>\s*<\/ul>\s*<\/li>\s*)+<\/ol>/g, (match) => {
-      // Extract just the actual list items and flatten them
-      const items = match.match(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g) || [];
-      const flattenedItems = items.map(item => 
-        item.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>')
-      );
-      return '<ol>' + flattenedItems.join('') + '</ol>';
-    });
+    // Fix empty lists that might remain
+    result = result.replace(/<ul>\s*<\/ul>/g, '');
+    result = result.replace(/<ol>\s*<\/ol>/g, '');
     
-    // Special handling for reference sections or complex lists
-    result = result.replace(/<ol[^>]*>(\s*<li[^>]*>.*?<\/li>\s*)+<\/ol>/g, (match) => {
-      // If the entire list has each item containing another list, rebuild it flat
-      if (match.includes('<li><ul>') || match.includes('<li><ol>')) {
-        const items = [];
-        const regex = /<li>(?:<ul>|<ol>)\s*<li>(.*?)<\/li>\s*(?:<\/ul>|<\/ol>)<\/li>/g;
-        let itemMatch;
-        while ((itemMatch = regex.exec(match)) !== null) {
-          items.push(`<li>${itemMatch[1]}</li>`);
-        }
-        if (items.length > 0) {
-          return '<ol>' + items.join('') + '</ol>';
-        }
-      }
-      return match;
-    });
+    // Second pass for deeply nested structures
+    result = result.replace(/<li><ol[^>]*><li>(.*?)<\/li><\/ol><\/li>/g, '<li>$1</li>');
+    result = result.replace(/<li><ul[^>]*><li>(.*?)<\/li><\/ul><\/li>/g, '<li>$1</li>');
     
     return result;
   };
@@ -281,7 +230,7 @@ function DocumentMarkdocRenderer({
         .replace(/<h5([^>]*)>(.*?)<\/h5>/g, '<div class="mantine-title-h5"$1>$2</div>')
         .replace(/<h6([^>]*)>(.*?)<\/h6>/g, '<div class="mantine-title-h6"$1>$2</div>');
       
-      // Apply the more robust list fixer
+      // Fix nested lists
       html = fixNestedLists(html);
       
       return html;
@@ -415,8 +364,6 @@ function DocumentMarkdocRenderer({
           margin: 0 !important;
           padding-left: 1rem !important;
         }
-        
-        .markdoc-container li { margin-bottom: 0.5rem; }
         .markdoc-container table {
           width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
