@@ -364,6 +364,8 @@ function DocumentMarkdocRenderer({
           margin: 0 !important;
           padding-left: 1rem !important;
         }
+        
+        .markdoc-container li { margin-bottom: 0.25rem; }
         .markdoc-container table {
           width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
