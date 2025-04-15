@@ -366,7 +366,7 @@ export default function JobShow() {
         abstract: combinedData.abstract || '',
         contributors: combinedData.contributors || '',
         chapters: Array.isArray(combinedData.chapters) 
-          ? combinedData.chapters.map(ch => ch.title).join('\n') 
+          ? combinedData.chapters.map(ch => `- ${ch.title}`).join('\n') 
           : (combinedData.chapters || ''),
         introduction: combinedData.introduction || '',
         passages: Array.isArray(combinedData.passages) 

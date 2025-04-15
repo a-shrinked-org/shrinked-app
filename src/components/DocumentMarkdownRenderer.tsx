@@ -10,7 +10,7 @@ interface DocumentMarkdocRendererProps {
     contributors?: string;
     introduction?: string;
     conclusion?: string;
-    passages?: string[];
+    passages?: string; // Changed to string to match create-page structure
     references?: Array<{ item: string }>;
     chapters?: Array<{ title: string }>;
   } | null;
@@ -78,7 +78,7 @@ function DocumentMarkdocRenderer({
           <Clock size={48} style={{ opacity: 0.7, margin: '0 auto 20px' }} />
           <Text size="xl" fw={600} mb="md">Your document is being processed</Text>
           <Text size="sm" c="dimmed" mb="lg">
-            We&apos;re analyzing your content and generating a comprehensive document. 
+            We're analyzing your content and generating a comprehensive document. 
             This may take a few minutes depending on the file size and complexity.
           </Text>
           <Progress 
@@ -124,31 +124,68 @@ function DocumentMarkdocRenderer({
 
   const processReferences = (html: string): string => {
     let processed = html;
+    // Handle [[num]](#ts-num) format
     processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
-    processed = processed.replace(
-      /<a id="ts-(\d+)" class="ref-target"><\/a>\[(\d+)\]/g,
-      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
-    );
-    processed = processed.replace(
-      /<a id="ts-(\d+)"[^>]*><\/a>\[(\d+)\]/g,
-      '<a href="#ts-$1" class="citation-ref">[$2]</a>'
-    );
+    // Handle [num](#ts-num) format
     processed = processed.replace(
       /\[(\d+)\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
-    processed = processed.replace(/\{#ref-ts-\d+\}/g, '');
+    // Clean up any leftover reference markers
+    processed = processed.replace(/\{#ts-\d+\}/g, '');
+    // Format reference section
+    processed = processed.replace(
+      /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
+      '<p id="ts-$1">$2. [$3]: $5</p>'
+    );
     return processed;
   };
 
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
+    // Convert chapters to proper list format
     processed = processed.replace(
-      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
-      (match, num, id) => `[${num}](#ts-${id})`
+      /## Chapters\n([\s\S]+?)(?=\n##|$)/g,
+      (match, chaptersContent) => {
+        const formattedChapters = chaptersContent
+          .split('\n')
+          .filter(line => line.trim())
+          .map(line => {
+            const cleanLine = line.replace(/^[-*]\s*/, '').trim();
+            const timestampMatch = cleanLine.match(/\[(\d+)\]$/);
+            if (timestampMatch) {
+              const tsNum = timestampMatch[1];
+              const cleanText = cleanLine.replace(/\[\d+\]$/, '').trim();
+              return `- ${cleanText} [[${tsNum}](#ts-${tsNum})]`;
+            }
+            return `- ${cleanLine}`;
+          })
+          .join('\n');
+        return `## Chapters\n${formattedChapters}`;
+      }
+    );
+    // Ensure passages have proper sub-headers
+    processed = processed.replace(
+      /## Passages\n([\s\S]+?)(?=\n##|$)/g,
+      (match, passagesContent) => {
+        const formattedPassages = passagesContent
+          .split('\n\n')
+          .filter(section => section.trim())
+          .map(section => {
+            const lines = section.split('\n');
+            const header = lines[0].trim();
+            const content = lines.slice(1).join('\n').trim();
+            if (!header.startsWith('###')) {
+              return `### ${header}\n${content}`;
+            }
+            return section;
+          })
+          .join('\n\n');
+        return `## Passages\n${formattedPassages}`;
+      }
     );
     return processed;
   };
@@ -159,6 +196,7 @@ function DocumentMarkdocRenderer({
       const ast = Markdoc.parse(processedContent);
       const contentAst = Markdoc.transform(ast);
       let html = Markdoc.renderers.html(contentAst);
+      // Map headers to Mantine classes
       html = html
         .replace(/<h1([^>]*)>(.*?)<\/h1>/g, '<div class="mantine-title-h1"$1>$2</div>')
         .replace(/<h2([^>]*)>(.*?)<\/h2>/g, '<div class="mantine-title-h2"$1>$2</div>')
@@ -173,113 +211,74 @@ function DocumentMarkdocRenderer({
     }
   };
 
-  if (markdown && isCompleted) {
-    return (
-      <Paper
-        p="xl" 
-        bg="white"
-        c="black" 
-        radius="md"
-        className="markdoc-container"
-      >
-        <style jsx global>{`
-          .mantine-title-h1, .mantine-title-h2, .mantine-title-h3, .mantine-title-h4, .mantine-title-h5, .mantine-title-h6 {
-            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-            color: #000000;
-          }
-          .mantine-title-h1 { font-size: 2.25rem; font-weight: 700; line-height: 1.3; margin-top: 2rem; margin-bottom: 1rem; }
-          .mantine-title-h2 { font-size: 1.875rem; font-weight: 600; line-height: 1.35; margin-top: 1.75rem; margin-bottom: 0.75rem; }
-          .mantine-title-h3 { font-size: 1.5rem; font-weight: 600; line-height: 1.4; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-          .mantine-title-h4 { font-size: 1.25rem; font-weight: 600; line-height: 1.45; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-          .mantine-title-h5 { font-size: 1.1rem; font-weight: 600; line-height: 1.5; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-          .mantine-title-h6 { font-size: 1rem; font-weight: 600; line-height: 1.5; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-          .markdoc-container p {
-            margin-bottom: 1rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 1rem; color: #000000;
-          }
-          .citation-ref {
-            color: #0066cc; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          }
-          .citation-ref:hover { text-decoration: underline; }
-          .markdoc-container [id^="ts-"] { scroll-margin-top: 2rem; }
-          .markdoc-container ul, .markdoc-container ol {
-            margin-bottom: 1rem; padding-left: 2rem; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          }
-          .markdoc-container li { margin-bottom: 0.5rem; }
-          .markdoc-container table {
-            width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          }
-          .markdoc-container th, .markdoc-container td { border: 1px solid #e0e0e0; padding: 8px 12px; text-align: left; }
-          .markdoc-container th { background-color: #f5f5f5; font-weight: 600; }
-          .markdoc-container pre, .markdoc-container code {
-            font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace; background-color: #f5f5f5; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em;
-          }
-          .markdoc-container pre { padding: 1em; overflow-x: auto; line-height: 1.5; }
-          .markdoc-container pre code { background-color: transparent; padding: 0; }
-          .markdoc-container blockquote { border-left: 4px solid #e0e0e0; margin-left: 0; padding-left: 1em; color: #555; font-style: italic; }
-        `}</style>
-        <div 
-          className="markdoc-content"
-          dangerouslySetInnerHTML={{ __html: processReferences(renderMarkdoc(markdown)) }}
-        />
-      </Paper>
-    );
-  }
-
-  if (!data && !markdown) {
-    return (
-      <Alert 
-        color="gray" 
-        title="No content" 
-        icon={<AlertCircle size={16} />}
-      >
-        No document content is available.
-        <Button 
-          variant="light" 
-          size="sm" 
-          mt="md" 
-          leftSection={<RefreshCw size={16} />}
-          onClick={onRefresh}
-        >
-          Refresh
-        </Button>
-      </Alert>
-    );
-  }
-
   const generateMarkdown = () => {
     let md = '';
     if (data?.title) md += `# ${data.title}\n\n`;
-    if (data?.abstract) md += `## Abstract\n\n${data.abstract}\n\n`;
-    if (data?.contributors) md += `## Contributors\n\n${data.contributors}\n\n`;
-    if (data?.introduction) md += `## Introduction\n\n${data.introduction}\n\n`;
+    if (data?.abstract) md += `## Abstract\n${data.abstract}\n\n`;
+    if (data?.contributors) md += `## Contributors\n${data.contributors}\n\n`;
+    
+    // Format chapters properly
     if (data?.chapters && data.chapters.length > 0) {
-      data.chapters.forEach((chapter, index) => {
-        md += `## ${chapter.title || `Chapter ${index + 1}`}\n\n`;
-        if (data.passages && data.passages[index]) md += `${data.passages[index]}\n\n`;
-      });
-    } else if (data?.passages && data.passages.length > 0) {
-      data.passages.forEach((passage, index) => {
-        md += `## Section ${index + 1}\n\n${passage}\n\n`;
-      });
+      md += `## Chapters\n`;
+      md += data.chapters
+        .map(chapter => {
+          const title = chapter.title.trim();
+          const timestampMatch = title.match(/\[(\d+)\]$/);
+          if (timestampMatch) {
+            const tsNum = timestampMatch[1];
+            const cleanTitle = title.replace(/\[\d+\]$/, '').trim();
+            return `- ${cleanTitle} [[${tsNum}](#ts-${tsNum})]`;
+          }
+          return `- ${title}`;
+        })
+        .join('\n');
+      md += '\n\n';
     }
-    if (data?.conclusion) md += `## Conclusion\n\n${data.conclusion}\n\n`;
+
+    if (data?.introduction) md += `## Introduction\n${data.introduction}\n\n`;
+    
+    // Format passages with sub-headers
+    if (data?.passages && data.passages.trim() && data.passages.trim() !== 'No passages provided') {
+      md += `## Passages\n`;
+      const passagesSections = data.passages.split('\n\n').filter(section => section.trim());
+      md += passagesSections
+        .map(section => {
+          const lines = section.split('\n');
+          const header = lines[0].trim();
+          const content = lines.slice(1).join('\n').trim();
+          return `### ${header}\n${content}`;
+        })
+        .join('\n\n');
+      md += '\n\n';
+    }
+
+    if (data?.conclusion) md += `## Conclusion\n${data.conclusion}\n\n`;
+    
     if (data?.references && data.references.length > 0) {
-      md += `## References\n\n`;
-      data.references.forEach((ref, index) => {
-        md += `${index + 1}. ${ref.item}\n`;
-      });
+      md += `## References\n`;
+      md += data.references
+        .map((ref, index) => {
+          const match = ref.item.match(/^(\d+)\.\s+\[([^\]]+)\](?:\((.*?)\))?:\s*(.+)$/);
+          if (match) {
+            const [, num, timestamp, url, text] = match;
+            return `##### {#ts-${num}}\n${num}. [${timestamp}]${url ? `(${url})` : '(None#t=0)'}: ${text}`;
+          }
+          return ref.item;
+        })
+        .join('\n\n');
       md += '\n';
     }
-    return md;
+
+    return md.trim();
   };
 
-  const markdownContent = generateMarkdown();
-  
+  const markdownContent = markdown || generateMarkdown();
+
   return (
     <Paper
       p="xl"
       bg="white"
-      c="black" 
+      c="black"
       radius="md"
       className="markdoc-container"
     >
@@ -325,7 +324,24 @@ function DocumentMarkdocRenderer({
             __html: processReferences(renderMarkdoc(markdownContent)) 
           }}
         />
-      ) : null}
+      ) : (
+        <Alert 
+          color="gray" 
+          title="No content" 
+          icon={<AlertCircle size={16} />}
+        >
+          No document content is available.
+          <Button 
+            variant="light" 
+            size="sm" 
+            mt="md" 
+            leftSection={<RefreshCw size={16} />}
+            onClick={onRefresh}
+          >
+            Refresh
+          </Button>
+        </Alert>
+      )}
     </Paper>
   );
 }
