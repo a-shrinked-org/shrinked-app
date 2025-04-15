@@ -190,6 +190,39 @@ function DocumentMarkdocRenderer({
     return processed;
   };
 
+  const flattenNestedLists = (html: string): string => {
+    let result = html;
+    let previousResult = '';
+    
+    // Keep applying the replacements until no more changes are made
+    // This handles deeply nested structures
+    while (previousResult !== result) {
+      previousResult = result;
+      
+      // Fix unordered lists (ul)
+      result = result.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
+      
+      // Fix ordered lists (ol)
+      result = result.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
+      
+      // Fix mixed nesting: ol inside ul
+      result = result.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
+      
+      // Fix mixed nesting: ul inside ol
+      result = result.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
+    }
+    
+    // Fix empty lists
+    result = result.replace(/<ul>\s*<\/ul>/g, '');
+    result = result.replace(/<ol>\s*<\/ol>/g, '');
+    
+    // Convert consecutive identical list items
+    result = result.replace(/<\/li>\s*<li><ul>/g, '<ul>');
+    result = result.replace(/<\/li>\s*<li><ol>/g, '<ol>');
+    
+    return result;
+  };
+
   const renderMarkdoc = (content: string) => {
     try {
       const processedContent = preprocessMarkdown(content);
@@ -206,10 +239,8 @@ function DocumentMarkdocRenderer({
         .replace(/<h5([^>]*)>(.*?)<\/h5>/g, '<div class="mantine-title-h5"$1>$2</div>')
         .replace(/<h6([^>]*)>(.*?)<\/h6>/g, '<div class="mantine-title-h6"$1>$2</div>');
       
-      // Fix nested lists by flattening them
-      // This pattern matches list items that contain only another list
-      html = html.replace(/<li>\s*<ul>\s*<li>(.*?)<\/li>\s*<\/ul>\s*<\/li>/g, '<li>$1</li>');
-      html = html.replace(/<li>\s*<ol>\s*<li>(.*?)<\/li>\s*<\/ol>\s*<\/li>/g, '<li>$1</li>');
+      // Fix nested lists
+      html = flattenNestedLists(html);
       
       return html;
     } catch (error) {
@@ -332,9 +363,8 @@ function DocumentMarkdocRenderer({
           list-style-type: decimal; /* Add back numeric bullets only for this container */
         }
         
-        .markdoc-container a
-        {
-          color:rgb(161, 161, 161)
+        .markdoc-container a {
+          color: rgb(161, 161, 161);
         }
         
         /* Menu-specific list styling - keep these free of bullets */
