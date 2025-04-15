@@ -152,8 +152,8 @@ function DocumentMarkdocRenderer({
       (match, chaptersContent) => {
         const formattedChapters = chaptersContent
           .split('\n')
-          .filter(line => line.trim())
-          .map(line => {
+          .filter((line: string) => line.trim())
+          .map((line: string) => {
             const cleanLine = line.replace(/^[-*]\s*/, '').trim();
             const timestampMatch = cleanLine.match(/\[(\d+)\]$/);
             if (timestampMatch) {
@@ -173,8 +173,8 @@ function DocumentMarkdocRenderer({
       (match, passagesContent) => {
         const formattedPassages = passagesContent
           .split('\n\n')
-          .filter(section => section.trim())
-          .map(section => {
+          .filter((section: string) => section.trim())
+          .map((section: string) => {
             const lines = section.split('\n');
             const header = lines[0].trim();
             const content = lines.slice(1).join('\n').trim();
@@ -221,7 +221,7 @@ function DocumentMarkdocRenderer({
     if (data?.chapters && data.chapters.length > 0) {
       md += `## Chapters\n`;
       md += data.chapters
-        .map(chapter => {
+        .map((chapter: { title: string }) => {
           const title = chapter.title.trim();
           const timestampMatch = title.match(/\[(\d+)\]$/);
           if (timestampMatch) {
@@ -240,9 +240,9 @@ function DocumentMarkdocRenderer({
     // Format passages with sub-headers
     if (data?.passages && data.passages.trim() && data.passages.trim() !== 'No passages provided') {
       md += `## Passages\n`;
-      const passagesSections = data.passages.split('\n\n').filter(section => section.trim());
+      const passagesSections = data.passages.split('\n\n').filter((section: string) => section.trim());
       md += passagesSections
-        .map(section => {
+        .map((section: string) => {
           const lines = section.split('\n');
           const header = lines[0].trim();
           const content = lines.slice(1).join('\n').trim();
@@ -257,7 +257,7 @@ function DocumentMarkdocRenderer({
     if (data?.references && data.references.length > 0) {
       md += `## References\n`;
       md += data.references
-        .map((ref, index) => {
+        .map((ref: { item: string }, index: number) => {
           const match = ref.item.match(/^(\d+)\.\s+\[([^\]]+)\](?:\((.*?)\))?:\s*(.+)$/);
           if (match) {
             const [, num, timestamp, url, text] = match;
