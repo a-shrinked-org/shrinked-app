@@ -291,6 +291,10 @@ function DocumentMarkdocRenderer({
           padding: 2rem;
           border-radius: 0.5rem;
         }
+        .markdoc-container a
+        {
+          color:rgb(144, 146, 150);
+        }
         
         /* Title styles with more specific selectors to increase specificity */
         .markdoc-container .mantine-title-h1, 
@@ -320,11 +324,11 @@ function DocumentMarkdocRenderer({
         
         /* Explicitly set list styles */
         .markdoc-container ul {
-          list-style-type: disc !important;
+          list-style-type: none !important;
         }
         
         .markdoc-container ol {
-          list-style-type: decimal !important;
+          list-style-type: none !important;
         }
         
         .markdoc-container li {
