@@ -23,7 +23,8 @@
     @apply text-2xl font-bold my-6;
   }
 
-  ul {
+  /* Only apply list-disc to ul elements that are not in the menu */
+  ul:not(.menu ul) {
     @apply list-disc my-4;
   }
 
@@ -84,6 +85,11 @@
     @apply flex-shrink-0 p-2 pr-4 border-r border-gray-300;
   }
 
+  /* Remove the bullet points from menu lists specifically */
+  .menu ul {
+    @apply pl-4 list-none;
+  }
+
   .menu a {
     @apply text-black;
   }
@@ -96,9 +102,5 @@
     .menu {
       @apply border-r-0 border-b border-gray-300;
     }
-  }
-
-  .menu ul {
-    @apply pl-4;
   }
 }
