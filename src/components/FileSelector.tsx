@@ -51,7 +51,6 @@ const FileSelector: React.FC<FileSelectorProps> = ({
   
   const { getAccessToken, ensureValidToken } = useAuth();
   
-  // Fetch user documents from the document store
   const fetchFiles = useCallback(async () => {
     if (!opened) return;
     
@@ -62,8 +61,6 @@ const FileSelector: React.FC<FileSelectorProps> = ({
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      // Determine the current user ID
-      // First, attempt to get it from the token (assuming JWT)
       let userId = '';
       try {
         const tokenPayload = JSON.parse(atob(token.split('.')[1]));
@@ -72,12 +69,15 @@ const FileSelector: React.FC<FileSelectorProps> = ({
         console.warn('Could not extract user ID from token');
       }
       
-      // If we couldn't get the ID from token, fetch user profile
       if (!userId) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
         const profileResponse = await fetch(`${API_CONFIG.API_URL}/users/profile`, {
           method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         
         if (profileResponse.ok) {
           const profile = await profileResponse.json();
@@ -91,11 +91,14 @@ const FileSelector: React.FC<FileSelectorProps> = ({
       
       console.log(`[FileSelector] Fetching documents for user: ${userId}`);
       
-      // Use the processing/user/{userId}/documents endpoint as shown in the docstore page
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
       const response = await fetch(`${API_CONFIG.API_URL}/processing/user/${userId}/documents`, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.error(`[FileSelector] Error fetching documents: ${response.status}`);
@@ -105,7 +108,6 @@ const FileSelector: React.FC<FileSelectorProps> = ({
       const data = await response.json();
       console.log('[FileSelector] Fetched documents:', data);
       
-      // Filter out files that are already in the capsule
       const availableFiles = Array.isArray(data) 
         ? data.filter(file => !existingFileIds.includes(file._id))
         : [];
@@ -113,7 +115,11 @@ const FileSelector: React.FC<FileSelectorProps> = ({
       setFiles(availableFiles);
     } catch (error) {
       console.error('[FileSelector] Error fetching files:', error);
-      setError(`Error fetching files: ${error instanceof Error ? error.message : String(error)}`);
+      setError(error instanceof Error 
+        ? error.name === 'AbortError' 
+          ? 'Request timed out while fetching files. Please try again.'
+          : error.message 
+        : String(error));
     } finally {
       setIsLoading(false);
     }
@@ -147,14 +153,12 @@ const FileSelector: React.FC<FileSelectorProps> = ({
     onClose();
   };
   
-  // Filter files based on search query
   const filteredFiles = files.filter(file => {
     const searchLower = searchQuery.toLowerCase();
     const title = file.title || file.output?.title || file.fileName || '';
     return title.toLowerCase().includes(searchLower);
   });
   
-  // Format date for display
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);

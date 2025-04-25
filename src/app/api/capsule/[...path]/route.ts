@@ -13,20 +13,18 @@ async function handleRequest(
   method: string
 ) {
   try {
-	// Get path segments and join them
+	const startTime = Date.now();
 	const pathSegments = params.path || [];
 	const pathSuffix = pathSegments.join('/');
 	
 	console.log(`[Capsule Proxy] ${method} request for path: ${pathSuffix}`);
 	
-	// Check for authorization
 	const authHeader = request.headers.get('authorization');
 	if (!authHeader) {
 	  console.log("[Capsule Proxy] Missing authorization header");
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 	
-	// Get query parameters
 	const url = new URL(request.url);
 	const searchParams = new URLSearchParams();
 	url.searchParams.forEach((value, key) => {
@@ -34,11 +32,9 @@ async function handleRequest(
 	});
 	const searchParamsString = searchParams.toString();
 	
-	// Construct API URL
 	const apiUrl = `${API_URL}/capsules/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
 	console.log(`[Capsule Proxy] Sending ${method} request to: ${apiUrl}`);
 	
-	// Prepare request options
 	const options: RequestInit = {
 	  method,
 	  headers: {
@@ -46,9 +42,9 @@ async function handleRequest(
 		'Content-Type': 'application/json'
 	  },
 	  credentials: 'omit',
+	  keepalive: true // Optimize connection handling
 	};
 	
-	// Add body for methods that support it
 	if (['POST', 'PUT', 'PATCH'].includes(method)) {
 	  const body = await request.json().catch(err => {
 		console.error("[Capsule Proxy] Error parsing request body:", err);
@@ -57,16 +53,23 @@ async function handleRequest(
 	  options.body = JSON.stringify(body);
 	}
 	
-	// Make request to API
-	const response = await fetch(apiUrl, options);
-	console.log(`[Capsule Proxy] API response: status=${response.status}, content-type=${response.headers.get('content-type')}`);
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 	
-	// Handle 204 No Content response
+	const response = await fetch(apiUrl, {
+	  ...options,
+	  signal: controller.signal
+	});
+	
+	clearTimeout(timeoutId);
+	
+	const responseTime = Date.now() - startTime;
+	console.log(`[Capsule Proxy] API response: status=${response.status}, content-type=${response.headers.get('content-type')}, time=${responseTime}ms`);
+	
 	if (response.status === 204) {
 	  return new NextResponse(null, { status: 204 });
 	}
 	
-	// Process response
 	const contentType = response.headers.get('content-type') || '';
 	let data;
 	
@@ -93,11 +96,10 @@ async function handleRequest(
 	return NextResponse.json({ 
 	  error: "Failed to process request",
 	  message: error instanceof Error ? error.message : "Unknown error"
-	}, { status: 500 });
+	}, { status: error.name === 'AbortError' ? 504 : 500 });
   }
 }
 
-// Handler methods for different HTTP verbs
 export async function GET(request: NextRequest, params: { params: { path: string[] }}) {
   return handleRequest(request, params, 'GET');
 }

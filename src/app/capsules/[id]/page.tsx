@@ -18,10 +18,8 @@ import {
 } from '@mantine/core';
 import { 
   ArrowLeft, 
-  Share,
   RefreshCw,
   Download,
-  Pencil,
   Plus,
   Trash,
   AlertCircle
@@ -77,8 +75,8 @@ export default function CapsuleView() {
     queryOptions: {
       enabled: !!capsuleId && !!identity?.token,
       staleTime: 30000,
-      retry: false, // Disable retries on error
-      refetchInterval: false, // Disable polling
+      retry: false,
+      refetchInterval: false,
       onSuccess: (data) => {
         console.log("[CapsuleView] Capsule data loaded:", data);
       },
@@ -93,7 +91,6 @@ export default function CapsuleView() {
     },
     meta: {
       headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` },
-      // Use our new simplified proxy approach
       url: `/api/capsule/${capsuleId}`
     }
   });
@@ -106,6 +103,7 @@ export default function CapsuleView() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
+  const [lastFileIds, setLastFileIds] = useState<string[]>([]);
   
   const handleRegenerateCapsule = useCallback(async () => {
     if (!capsuleId) return;
@@ -118,11 +116,14 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      // Use the new simplified proxy approach
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
       const response = await fetch(`/api/capsule/${capsuleId}/regenerate`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -134,7 +135,12 @@ export default function CapsuleView() {
       
     } catch (error) {
       console.error("[CapsuleView] Failed to regenerate capsule:", error);
-      setErrorMessage(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error 
+        ? error.name === 'AbortError' 
+          ? "Request timed out while regenerating capsule. Please try again."
+          : error.message 
+        : String(error);
+      setErrorMessage(message);
     } finally {
       setIsRegenerating(false);
     }
@@ -150,37 +156,70 @@ export default function CapsuleView() {
     try {
       setIsAddingFiles(true);
       setErrorMessage(null);
+      setLastFileIds(fileIds);
       
-      console.log(`[CapsuleView] Adding files to capsule: ${fileIds}`);
+      console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      // Use the simplified proxy approach
-      const response = await fetch(`/api/capsule/${capsuleId}/files`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fileIds })
-      });
+      const BATCH_SIZE = 5; // Batch to reduce backend load
+      const batches = [];
+      for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
+        batches.push(fileIds.slice(i, i + BATCH_SIZE));
+      }
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to add files to capsule: ${response.status}`);
+      console.log(`[CapsuleView] Processing ${batches.length} batches of files`);
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        console.log(`[CapsuleView] Sending batch ${i + 1}/${batches.length} with ${batch.length} files: ${JSON.stringify(batch)}`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+        const response = await fetch(`/api/capsule/${capsuleId}/files`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ fileIds: batch }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to add files in batch ${i + 1}: ${response.status}`);
+        }
+        
+        console.log(`[CapsuleView] Batch ${i + 1}/${batches.length} added successfully`);
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay between batches
+        }
       }
       
       await handleRegenerateCapsule();
       queryResult.refetch();
-      console.log("[CapsuleView] Files added successfully");
+      console.log("[CapsuleView] All files added successfully");
       
     } catch (error) {
       console.error("[CapsuleView] Failed to add files:", error);
-      setErrorMessage(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error 
+        ? error.name === 'AbortError' 
+          ? "Request timed out while adding files. Try selecting fewer files or retry."
+          : error.message 
+        : String(error);
+      setErrorMessage(message);
     } finally {
       setIsAddingFiles(false);
     }
   }, [capsuleId, ensureValidToken, handleRegenerateCapsule, queryResult]);
+
+  const handleRetry = useCallback(() => {
+    if (lastFileIds.length > 0) {
+      handleFileSelect(lastFileIds);
+    }
+  }, [lastFileIds, handleFileSelect]);
 
   const handleRemoveFile = useCallback(async (fileId: string) => {
     if (!capsuleId || !fileId) return;
@@ -192,11 +231,14 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      // Use the simplified proxy approach
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
       const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -208,7 +250,12 @@ export default function CapsuleView() {
       
     } catch (error) {
       console.error("[CapsuleView] Failed to remove file:", error);
-      setErrorMessage(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error 
+        ? error.name === 'AbortError' 
+          ? "Request timed out while removing file. Please try again."
+          : error.message 
+        : String(error);
+      setErrorMessage(message);
     }
   }, [capsuleId, ensureValidToken, queryResult]);
 
@@ -370,6 +417,22 @@ export default function CapsuleView() {
           icon={<AlertCircle size={16} />}
         >
           {errorMessage}
+          {errorMessage.includes("timed out") && lastFileIds.length > 0 && (
+            <Button
+              mt="sm"
+              onClick={handleRetry}
+              leftSection={<RefreshCw size={16} />}
+              styles={{
+                root: {
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': { backgroundColor: '#E09612' },
+                },
+              }}
+            >
+              Retry
+            </Button>
+          )}
         </Alert>
       )}
 
@@ -521,7 +584,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Generating content...</Text>
                         <Text ta="center" c="dimmed" mb="md">
-                          We&apos;re processing your files and generating capsule content. 
+                          We're processing your files and generating capsule content. 
                           This may take a few minutes.
                         </Text>
                         <LoadingOverlay visible={true} />
@@ -530,7 +593,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Ready to generate</Text>
                         <Text ta="center" c="dimmed" mb="xl">
-                          You&apos;ve added files to your capsule. Click the &quot;Regenerate&quot; button 
+                          You've added files to your capsule. Click the "Regenerate" button 
                           to analyze them and generate content.
                         </Text>
                         <Button 
