@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import { 
   Text, 
@@ -69,16 +69,22 @@ export default function CapsuleView() {
   
   const { handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
   
-  const { queryResult } = useShow<Capsule>({
+  const { queryResult, refetch } = useShow<Capsule>({
     resource: "capsules",
     id: capsuleId,
     queryOptions: {
       enabled: !!capsuleId && !!identity?.token,
       staleTime: 30000,
       retry: false,
-      refetchInterval: false,
+      refetchInterval: (data) => {
+        // Poll for updates if the capsule is in processing state
+        return data?.data?.status === 'PROCESSING' ? 5000 : false;
+      },
       onSuccess: (data) => {
         console.log("[CapsuleView] Capsule data loaded:", data);
+        if (data?.data?.status === 'COMPLETED' && isRegenerating) {
+          setIsRegenerating(false);
+        }
       },
       onError: (error) => {
         console.error("[CapsuleView] Error loading capsule:", error);
@@ -104,6 +110,22 @@ export default function CapsuleView() {
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [lastFileIds, setLastFileIds] = useState<string[]>([]);
+  const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
+  
+  // Poll for updates if in processing state
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (record?.status === 'PROCESSING') {
+      intervalId = setInterval(() => {
+        refetch();
+      }, 5000);
+    }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [record?.status, refetch]);
   
   const handleRegenerateCapsule = useCallback(async () => {
     if (!capsuleId) return;
@@ -130,10 +152,11 @@ export default function CapsuleView() {
         throw new Error(errorData.error || `Failed to regenerate capsule: ${response.status}`);
       }
       
-      queryResult.refetch();
-      console.log("[CapsuleView] Capsule regenerated successfully");
+      // Refresh data after a short delay to allow processing to start
+      setTimeout(() => refetch(), 1000);
+      console.log("[CapsuleView] Regenerate request sent successfully");
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("[CapsuleView] Failed to regenerate capsule:", error);
       const message = error instanceof Error 
         ? error.name === 'AbortError' 
@@ -141,10 +164,9 @@ export default function CapsuleView() {
           : error.message 
         : String(error);
       setErrorMessage(message);
-    } finally {
       setIsRegenerating(false);
     }
-  }, [capsuleId, ensureValidToken, queryResult]);
+  }, [capsuleId, ensureValidToken, refetch]);
 
   const handleAddFile = useCallback(() => {
     setIsFileSelectorOpen(true);
@@ -161,6 +183,9 @@ export default function CapsuleView() {
       console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
+      
+      // Track which file IDs were successfully added
+      const successfullyAddedIds: string[] = [];
       
       const BATCH_SIZE = 5;
       const batches = [];
@@ -192,17 +217,29 @@ export default function CapsuleView() {
           throw new Error(errorData.error || `Failed to add files in batch ${i + 1}: ${response.status}`);
         }
         
+        // Add successful file IDs to our tracking array
+        successfullyAddedIds.push(...batch);
+        
         console.log(`[CapsuleView] Batch ${i + 1}/${batches.length} added successfully`);
         if (i < batches.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
-      await handleRegenerateCapsule();
-      queryResult.refetch();
+      // Store the successfully added file IDs
+      setAddedFileIds(successfullyAddedIds);
+      
+      // Refetch to update the file list
+      refetch();
+      
+      // Start regeneration if files were added
+      if (successfullyAddedIds.length > 0) {
+        await handleRegenerateCapsule();
+      }
+      
       console.log("[CapsuleView] All files added successfully");
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
       const message = error instanceof Error 
         ? error.name === 'AbortError' 
@@ -212,8 +249,9 @@ export default function CapsuleView() {
       setErrorMessage(message);
     } finally {
       setIsAddingFiles(false);
+      setIsFileSelectorOpen(false);  // Close the file selector
     }
-  }, [capsuleId, ensureValidToken, handleRegenerateCapsule, queryResult]);
+  }, [capsuleId, ensureValidToken, handleRegenerateCapsule, refetch]);
 
   const handleRetry = useCallback(() => {
     if (lastFileIds.length > 0) {
@@ -245,10 +283,16 @@ export default function CapsuleView() {
         throw new Error(errorData.error || `Failed to remove file: ${response.status}`);
       }
       
-      queryResult.refetch();
+      // Refresh data to update file list
+      refetch();
       console.log("[CapsuleView] File removed successfully");
       
-    } catch (error) {
+      // If we have at least one file left, regenerate the capsule
+      if ((record?.files?.length || 0) > 1) {
+        await handleRegenerateCapsule();
+      }
+      
+    } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
       const message = error instanceof Error 
         ? error.name === 'AbortError' 
@@ -257,7 +301,7 @@ export default function CapsuleView() {
         : String(error);
       setErrorMessage(message);
     }
-  }, [capsuleId, ensureValidToken, queryResult]);
+  }, [capsuleId, ensureValidToken, refetch, record?.files?.length, handleRegenerateCapsule]);
 
   const handleDownloadMarkdown = useCallback(async () => {
     if (!record?.output?.content) return;
@@ -311,6 +355,7 @@ export default function CapsuleView() {
 
   const hasFiles = record.files && record.files.length > 0;
   const hasOutput = record.output && record.output.content;
+  const isProcessing = record.status === 'PROCESSING';
   
   return (
     <Box style={{ 
@@ -358,7 +403,7 @@ export default function CapsuleView() {
             leftSection={<Plus size={16} />} 
             onClick={handleAddFile} 
             loading={isAddingFiles}
-            disabled={isRegenerating}
+            disabled={isRegenerating || isProcessing}
             styles={{
               root: {
                 borderColor: '#2b2b2b',
@@ -375,7 +420,7 @@ export default function CapsuleView() {
             variant="default" 
             leftSection={<RefreshCw size={16} />} 
             onClick={handleRegenerateCapsule}
-            loading={isRegenerating}
+            loading={isRegenerating || isProcessing}
             disabled={!hasFiles || isAddingFiles}
             styles={{
               root: {
@@ -387,13 +432,13 @@ export default function CapsuleView() {
               },
             }}
           >
-            Regenerate
+            {isProcessing ? 'Processing...' : 'Regenerate'}
           </Button>
           <Button 
             variant="default"
             leftSection={<Download size={16} />}
             onClick={handleDownloadMarkdown}
-            disabled={!hasOutput}
+            disabled={!hasOutput || isProcessing || isRegenerating}
             styles={{
               root: {
                 borderColor: '#2b2b2b',
@@ -467,7 +512,9 @@ export default function CapsuleView() {
                 <Group key={file._id} justify="space-between" style={{ 
                   padding: '8px 12px', 
                   borderRadius: '4px', 
-                  backgroundColor: '#1a1a1a'
+                  backgroundColor: '#1a1a1a',
+                  // Highlight newly added files
+                  border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid transparent'
                 }}>
                   <Text size="sm" lineClamp={1} style={{ flex: 1 }}>
                     {file.title}
@@ -475,7 +522,7 @@ export default function CapsuleView() {
                   <ActionIcon 
                     color="red" 
                     onClick={() => handleRemoveFile(file._id)}
-                    disabled={isRegenerating || isAddingFiles}
+                    disabled={isRegenerating || isAddingFiles || isProcessing}
                   >
                     <Trash size={16} />
                   </ActionIcon>
@@ -493,7 +540,7 @@ export default function CapsuleView() {
             mt="md" 
             leftSection={<Plus size={16} />} 
             onClick={handleAddFile}
-            disabled={isRegenerating || isAddingFiles}
+            disabled={isRegenerating || isAddingFiles || isProcessing}
             loading={isAddingFiles}
             styles={{
               root: {
@@ -580,7 +627,7 @@ export default function CapsuleView() {
                   </Box>
                 ) : (
                   <Stack align="center" justify="center" style={{ height: '100%', p: '20px' }}>
-                    {isRegenerating ? (
+                    {isProcessing || isRegenerating ? (
                       <>
                         <Text mb="md" fw={600}>Generating content...</Text>
                         <Text ta="center" c="dimmed" mb="md">
@@ -669,7 +716,9 @@ export default function CapsuleView() {
                   </Code>
                 ) : (
                   <Text ta="center" c="dimmed">
-                    No content available yet. Generate content first to see the source markdown.
+                    {isProcessing || isRegenerating ? 
+                      "Content is being generated..." : 
+                      "No content available yet. Generate content first to see the source markdown."}
                   </Text>
                 )}
               </Box>

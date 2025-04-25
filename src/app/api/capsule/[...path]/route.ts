@@ -1,8 +1,5 @@
-// app/api/capsule/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
-
 /**
  * Universal capsule proxy handler that forwards all requests to the API
  * Uses Next.js catch-all route parameter to handle any path structure
@@ -91,12 +88,24 @@ async function handleRequest(
 	}
 	
 	return NextResponse.json(data, { status: response.status });
-  } catch (error) {
+  } catch (error: unknown) {
 	console.error(`[Capsule Proxy] Error in ${method} handler:`, error);
+	
+	// Fixed error handling with proper type checking
+	let status = 500;
+	let errorMessage = "Unknown error";
+	
+	if (error instanceof Error) {
+	  errorMessage = error.message;
+	  if (error.name === 'AbortError') {
+		status = 504; // Gateway Timeout
+	  }
+	}
+	
 	return NextResponse.json({ 
 	  error: "Failed to process request",
-	  message: error instanceof Error ? error.message : "Unknown error"
-	}, { status: error.name === 'AbortError' ? 504 : 500 });
+	  message: errorMessage
+	}, { status });
   }
 }
 
