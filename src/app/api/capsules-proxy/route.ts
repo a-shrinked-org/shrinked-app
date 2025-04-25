@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 
-// Function to extract the capsule ID and additional path from the URL
+// Improved function to extract the capsule ID and additional path from the URL
 function extractPathInfo(url: URL) {
   const path = url.pathname;
   console.log("[Capsule Proxy] Original path:", path);
@@ -26,12 +26,14 @@ function extractPathInfo(url: URL) {
   }
   
   // Check if this is an ID request directly in the path
-  // MongoDB ObjectIds are 24 hex characters
-  const idMatch = relativePath.match(/\/([0-9a-f]{24})(\/.*)?$/i);
+  // MongoDB ObjectIds are 24 hex characters - improved regex to ensure we capture the full path correctly
+  const idRegex = /^\/([0-9a-f]{24})(\/.*)?$/i;
+  const idMatch = relativePath.match(idRegex);
+  
   if (idMatch) {
-	console.log("[Capsule Proxy] ID from path:", idMatch[1]);
 	const id = idMatch[1];
 	const remainingPath = idMatch[2] || '';
+	console.log(`[Capsule Proxy] Extracted ID from path: ${id}, remaining path: ${remainingPath}`);
 	return `/${id}${remainingPath}`;
   }
   
@@ -40,6 +42,15 @@ function extractPathInfo(url: URL) {
 	const originalPath = relativePath;
 	relativePath = relativePath.replace(/\/key\//, '/');
 	console.log(`[Capsule Proxy] Removed 'key/' from path: ${originalPath} -> ${relativePath}`);
+	
+	// Check again for MongoDB ObjectId after removing 'key/'
+	const keyIdMatch = relativePath.match(idRegex);
+	if (keyIdMatch) {
+	  const id = keyIdMatch[1];
+	  const remainingPath = keyIdMatch[2] || '';
+	  console.log(`[Capsule Proxy] Extracted ID after key removal: ${id}, remaining path: ${remainingPath}`);
+	  return `/${id}${remainingPath}`;
+	}
   }
   
   console.log("[Capsule Proxy] Final processed path:", relativePath);
@@ -132,7 +143,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Handle POST requests (similar updates as GET)
+// Handle POST requests
 export async function POST(request: NextRequest) {
   try {
 	const authHeader = request.headers.get('authorization');
@@ -202,7 +213,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handle PATCH requests (similar updates as GET)
+// Handle PATCH requests
 export async function PATCH(request: NextRequest) {
   try {
 	const authHeader = request.headers.get('authorization');
@@ -272,7 +283,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// Handle DELETE requests (similar updates as GET)
+// Handle DELETE requests
 export async function DELETE(request: NextRequest) {
   try {
 	const authHeader = request.headers.get('authorization');
