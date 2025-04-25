@@ -40,9 +40,9 @@ interface Capsule {
 
 export default function CapsuleDirectPage() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
-  const { fetchWithAuth } = useAuth();
+  const { fetchWithAuth, handleAuthError } = useAuth();
   const router = useRouter();
-  const { create, show } = useNavigation();
+  const { create } = useNavigation();
   
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -53,15 +53,20 @@ export default function CapsuleDirectPage() {
     queryOptions: {
       enabled: !!identity?.token,
       onSuccess: (data) => {
-        // If the user has at least one capsule, redirect to it
+        console.log("[CapsuleDirectPage] Fetched capsules:", data.data);
         if (data.data.length > 0) {
           const capsule = data.data[0];
+          console.log("[CapsuleDirectPage] Redirecting to capsule:", capsule._id);
           router.push(`/capsules/${capsule._id}`);
+        } else {
+          console.log("[CapsuleDirectPage] No capsules found");
+          setErrorMessage("No capsules available. Create a new one to get started.");
         }
       },
       onError: (error) => {
-        console.error("Error fetching capsules:", error);
-        setErrorMessage("Failed to fetch capsules. Please try again later.");
+        console.error("[CapsuleDirectPage] Error fetching capsules:", error);
+        handleAuthError(error);
+        setErrorMessage("Failed to fetch capsules: " + (error.message || "Unknown error"));
       }
     },
     pagination: {
@@ -78,7 +83,7 @@ export default function CapsuleDirectPage() {
       setIsCreating(true);
       setErrorMessage(null);
       
-      // Create a default capsule with a generic name
+      console.log("[CapsuleDirectPage] Creating new capsule");
       const response = await fetchWithAuth('/api/capsules-proxy', {
         method: 'POST',
         headers: {
@@ -95,23 +100,26 @@ export default function CapsuleDirectPage() {
       }
       
       const result = await response.json();
+      console.log("[CapsuleDirectPage] Created capsule:", result._id);
       
-      // Navigate to the new capsule
       router.push(`/capsules/${result._id}`);
       
     } catch (error) {
-      console.error("Failed to create capsule:", error);
+      console.error("[CapsuleDirectPage] Failed to create capsule:", error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setIsCreating(false);
     }
   }, [fetchWithAuth, router]);
   
-  // Handle create button click - can either direct to form or create directly
   const handleCreateClick = useCallback(() => {
-    // Create capsule directly with default values
     handleCreateCapsule();
   }, [handleCreateCapsule]);
+  
+  useEffect(() => {
+    console.log("[CapsuleDirectPage] Identity:", identity);
+    console.log("[CapsuleDirectPage] Loading state:", { identityLoading, isLoading });
+  }, [identity, identityLoading, isLoading]);
   
   if (identityLoading || isLoading) {
     return (
@@ -134,74 +142,61 @@ export default function CapsuleDirectPage() {
     );
   }
   
-  // If we've fetched data and there are no capsules, show empty state
-  if (data && data.data.length === 0) {
-    return (
-      <Box style={{ 
-        backgroundColor: '#0a0a0a', 
-        minHeight: '100vh', 
-        padding: '24px'
-      }}>
-        <Title order={2} mb="xl" style={{ 
-          fontFamily: GeistMono.style.fontFamily,
-          fontWeight: 500,
-          fontSize: '20px',
-          letterSpacing: '0.5px'
-        }}>
-          CAPSULE
-        </Title>
-        
-        {errorMessage && (
-          <Alert 
-            icon={<AlertCircle size={16} />}
-            color="red"
-            title="Error"
-            mb="xl"
-          >
-            {errorMessage}
-          </Alert>
-        )}
-        
-        <Card p="xl" radius="md" style={{ 
-          backgroundColor: '#131313', 
-          border: '1px solid #2b2b2b',
-          maxWidth: '600px',
-          margin: '0 auto'
-        }}>
-          {/* Fixed the Stack component by using gap instead of spacing */}
-          <Stack gap="lg" align="center">
-            {/* Fixed Text align to ta prop in Mantine v7 */}
-            <Text ta="center" size="lg" mb="md">You don&apos;t have a capsule yet</Text>
-            <Text ta="center" c="dimmed" mb="xl">
-              A capsule helps you organize and analyze multiple documents together into a single context.
-            </Text>
-            <Button 
-              leftSection={<Plus size={16} />}
-              onClick={handleCreateClick}
-              loading={isCreating}
-              styles={{
-                root: {
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  '&:hover': {
-                    backgroundColor: '#E09612',
-                  },
-                },
-              }}
-            >
-              Create Your Capsule
-            </Button>
-          </Stack>
-        </Card>
-      </Box>
-    );
-  }
-  
-  // This would normally be unreachable because we redirect in the onSuccess handler
-  // But it's a good fallback
   return (
-    <Box style={{ position: 'relative', minHeight: '300px' }}>
-      <LoadingOverlay visible={true} />
+    <Box style={{ 
+      backgroundColor: '#0a0a0a', 
+      minHeight: '100vh', 
+      padding: '24px'
+    }}>
+      <Title order={2} mb="xl" style={{ 
+        fontFamily: GeistMono.style.fontFamily,
+        fontWeight: 500,
+        fontSize: '20px',
+        letterSpacing: '0.5px'
+      }}>
+        CAPSULE
+      </Title>
+      
+      {errorMessage && (
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          color="red"
+          title="Error"
+          mb="xl"
+        >
+          {errorMessage}
+        </Alert>
+      )}
+      
+      <Card p="xl" radius="md" style={{ 
+        backgroundColor: '#131313', 
+        border: '1px solid #2b2b2b',
+        maxWidth: '600px',
+        margin: '0 auto'
+      }}>
+        <Stack gap="lg" align="center">
+          <Text ta="center" size="lg" mb="md">You don't have a capsule yet</Text>
+          <Text ta="center" c="dimmed" mb="xl">
+            A capsule helps you organize and analyze multiple documents together into a single context.
+          </Text>
+          <Button 
+            leftSection={<Plus size={16} />}
+            onClick={handleCreateClick}
+            loading={isCreating}
+            styles={{
+              root: {
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#E09612',
+                },
+              },
+            }}
+          >
+            Create Your Capsule
+          </Button>
+        </Stack>
+      </Card>
     </Box>
   );
 }

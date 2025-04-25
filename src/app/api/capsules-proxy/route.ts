@@ -5,19 +5,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 // Function to extract the capsule ID and additional path from the URL
 function extractPathInfo(url: URL) {
   const path = url.pathname;
-  
-  // Remove '/api/capsules-proxy' from the beginning
+  console.log("[Capsule Proxy] Original path:", path); // Debug
   let relativePath = path.replace(/^\/api\/capsules-proxy/, '');
-  
-  // If there's no additional path, return empty string
   if (!relativePath || relativePath === '/') {
 	return '';
   }
-  
-  // Fix for the incorrect "key/" pattern
-  // If the path contains "/key/", remove the "key/" portion
   relativePath = relativePath.replace(/\/key\//, '/');
-  
+  console.log("[Capsule Proxy] Processed path:", relativePath); // Debug
   return relativePath;
 }
 
@@ -29,11 +23,8 @@ export async function GET(request: NextRequest) {
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 
-	// Get the URL and extract the path info
 	const url = new URL(request.url);
 	const pathSuffix = extractPathInfo(url);
-	
-	// Add any query parameters
 	const searchParams = url.searchParams.toString();
 	const apiUrl = `${API_URL}/capsules${pathSuffix}${searchParams ? `?${searchParams}` : ''}`;
 	
@@ -48,15 +39,23 @@ export async function GET(request: NextRequest) {
 	  credentials: 'omit',
 	});
 
-	// If the response is 204 No Content
+	console.log(`[Capsule Proxy] Backend response: status=${response.status}, content-type=${response.headers.get('content-type')}`); // Debug
+	
 	if (response.status === 204) {
 	  return new NextResponse(null, { status: 204 });
 	}
 
-	const data = await response.json().catch(() => {
-	  console.error(`[Capsule Proxy] Error parsing JSON from response: ${response.status} ${response.statusText}`);
-	  return {};
-	});
+	const contentType = response.headers.get('content-type') || '';
+	let data;
+	if (contentType.includes('application/json')) {
+	  data = await response.json();
+	} else {
+	  console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}, status: ${response.status}`);
+	  data = { 
+		error: response.status === 404 ? "Capsule not found" : `Unexpected response format: ${contentType}`, 
+		status: response.status 
+	  };
+	}
 	
 	return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -73,11 +72,8 @@ export async function POST(request: NextRequest) {
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 
-	// Get the URL and extract the path info
 	const url = new URL(request.url);
 	const pathSuffix = extractPathInfo(url);
-	
-	// Get the request body
 	const body = await request.json().catch(() => {
 	  console.error("[Capsule Proxy] Error parsing request body");
 	  return {};
@@ -97,15 +93,23 @@ export async function POST(request: NextRequest) {
 	  body: JSON.stringify(body)
 	});
 
-	// If the response is 204 No Content
+	console.log(`[Capsule Proxy] Backend response: status=${response.status}, content-type=${response.headers.get('content-type')}`); // Debug
+	
 	if (response.status === 204) {
 	  return new NextResponse(null, { status: 204 });
 	}
 
-	const data = await response.json().catch(() => {
-	  console.error(`[Capsule Proxy] Error parsing JSON from response: ${response.status} ${response.statusText}`);
-	  return {};
-	});
+	const contentType = response.headers.get('content-type') || '';
+	let data;
+	if (contentType.includes('application/json')) {
+	  data = await response.json();
+	} else {
+	  console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}, status: ${response.status}`);
+	  data = { 
+		error: response.status === 404 ? "Capsule not found" : `Unexpected response format: ${contentType}`, 
+		status: response.status 
+	  };
+	}
 	
 	return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -122,11 +126,8 @@ export async function PATCH(request: NextRequest) {
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 
-	// Get the URL and extract the path info
 	const url = new URL(request.url);
 	const pathSuffix = extractPathInfo(url);
-	
-	// Get the request body
 	const body = await request.json().catch(() => {
 	  console.error("[Capsule Proxy] Error parsing request body");
 	  return {};
@@ -146,15 +147,23 @@ export async function PATCH(request: NextRequest) {
 	  body: JSON.stringify(body)
 	});
 
-	// If the response is 204 No Content
+	console.log(`[Capsule Proxy] Backend response: status=${response.status}, content-type=${response.headers.get('content-type')}`); // Debug
+	
 	if (response.status === 204) {
 	  return new NextResponse(null, { status: 204 });
 	}
 
-	const data = await response.json().catch(() => {
-	  console.error(`[Capsule Proxy] Error parsing JSON from response: ${response.status} ${response.statusText}`);
-	  return {};
-	});
+	const contentType = response.headers.get('content-type') || '';
+	let data;
+	if (contentType.includes('application/json')) {
+	  data = await response.json();
+	} else {
+	  console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}, status: ${response.status}`);
+	  data = { 
+		error: response.status === 404 ? "Capsule not found" : `Unexpected response format: ${contentType}`, 
+		status: response.status 
+	  };
+	}
 	
 	return NextResponse.json(data, { status: response.status });
   } catch (error) {
@@ -171,10 +180,8 @@ export async function DELETE(request: NextRequest) {
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 
-	// Get the URL and extract the path info
 	const url = new URL(request.url);
 	const pathSuffix = extractPathInfo(url);
-	
 	const apiUrl = `${API_URL}/capsules${pathSuffix}`;
 	
 	console.log(`[Capsule Proxy] DELETE ${apiUrl}`);
@@ -188,15 +195,23 @@ export async function DELETE(request: NextRequest) {
 	  credentials: 'omit',
 	});
 
-	// If the response is 204 No Content
+	console.log(`[Capsule Proxy] Backend response: status=${response.status}, content-type=${response.headers.get('content-type')}`); // Debug
+	
 	if (response.status === 204) {
 	  return new NextResponse(null, { status: 204 });
 	}
 
-	const data = await response.json().catch(() => {
-	  console.error(`[Capsule Proxy] Error parsing JSON from response: ${response.status} ${response.statusText}`);
-	  return {};
-	});
+	const contentType = response.headers.get('content-type') || '';
+	let data;
+	if (contentType.includes('application/json')) {
+	  data = await response.json();
+	} else {
+	  console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}, status: ${response.status}`);
+	  data = { 
+		error: response.status === 404 ? "Capsule not found" : `Unexpected response format: ${contentType}`, 
+		status: response.status 
+	  };
+	}
 	
 	return NextResponse.json(data, { status: response.status });
   } catch (error) {

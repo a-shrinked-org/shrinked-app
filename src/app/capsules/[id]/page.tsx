@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useCallback } from "react";
 import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import { 
   Text, 
@@ -14,8 +14,6 @@ import {
   Alert,
   Code,
   Flex, 
-  Collapse,
-  Skeleton
 } from '@mantine/core';
 import { 
   ArrowLeft, 
@@ -28,10 +26,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useParams } from "next/navigation";
-import { useAuth, API_CONFIG } from "@/utils/authUtils";
-// Import the wrapper component instead of the original
+import { useAuth } from "@/utils/authUtils";
 import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
-import { useDisclosure } from '@mantine/hooks';
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 
@@ -72,7 +68,7 @@ export default function CapsuleView() {
   
   const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
   
-  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
+  const { handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
   
   const { queryResult } = useShow<Capsule>({
     resource: "capsules",
@@ -80,13 +76,18 @@ export default function CapsuleView() {
     queryOptions: {
       enabled: !!capsuleId && !!identity?.token,
       staleTime: 30000,
+      retry: false, // Disable retries on error
+      refetchInterval: false, // Disable polling
       onSuccess: (data) => {
-        console.log("Capsule data loaded:", data);
+        console.log("[CapsuleView] Capsule data loaded:", data);
       },
       onError: (error) => {
-        console.error("Error loading capsule:", error);
+        console.error("[CapsuleView] Error loading capsule:", error);
         handleAuthError(error);
-        setErrorMessage("Failed to load capsule details: " + (error.message || "Unknown error"));
+        const message = error.status === 404 
+          ? "Capsule not found. Please check the capsule ID or create a new one."
+          : "Failed to load capsule details: " + (error.message || "Unknown error");
+        setErrorMessage(message);
       }
     },
     meta: {
@@ -99,9 +100,7 @@ export default function CapsuleView() {
   const record = data?.data;
   
   const [activeTab, setActiveTab] = useState("preview");
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
@@ -113,6 +112,7 @@ export default function CapsuleView() {
       setIsRegenerating(true);
       setErrorMessage(null);
       
+      console.log(`[CapsuleView] Regenerating capsule: url=/api/capsules-proxy/${capsuleId}/regenerate`);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
@@ -122,17 +122,15 @@ export default function CapsuleView() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to regenerate capsule: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to regenerate capsule: ${response.status}`);
       }
       
-      // After successful regeneration, refresh the data
       queryResult.refetch();
-      
-      // Set some success message or update UI as needed
-      console.log("Capsule regenerated successfully");
+      console.log("[CapsuleView] Capsule regenerated successfully");
       
     } catch (error) {
-      console.error("Failed to regenerate capsule:", error);
+      console.error("[CapsuleView] Failed to regenerate capsule:", error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setIsRegenerating(false);
@@ -150,6 +148,7 @@ export default function CapsuleView() {
       setIsAddingFiles(true);
       setErrorMessage(null);
       
+      console.log(`[CapsuleView] Adding files to capsule: ${fileIds}`);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
@@ -163,17 +162,16 @@ export default function CapsuleView() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to add files to capsule: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to add files to capsule: ${response.status}`);
       }
       
-      // After successfully adding files, regenerate the capsule
       await handleRegenerateCapsule();
-      
-      // Refresh the data to show the newly added files
       queryResult.refetch();
+      console.log("[CapsuleView] Files added successfully");
       
     } catch (error) {
-      console.error("Failed to add files:", error);
+      console.error("[CapsuleView] Failed to add files:", error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setIsAddingFiles(false);
@@ -186,6 +184,7 @@ export default function CapsuleView() {
     try {
       setErrorMessage(null);
       
+      console.log(`[CapsuleView] Removing file: ${fileId}`);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
@@ -195,14 +194,15 @@ export default function CapsuleView() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to remove file: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to remove file: ${response.status}`);
       }
       
-      // After successful removal, refresh the data
       queryResult.refetch();
+      console.log("[CapsuleView] File removed successfully");
       
     } catch (error) {
-      console.error("Failed to remove file:", error);
+      console.error("[CapsuleView] Failed to remove file:", error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
     }
   }, [capsuleId, ensureValidToken, queryResult]);
@@ -211,7 +211,7 @@ export default function CapsuleView() {
     if (!record?.output?.content) return;
     
     try {
-      // Create a blob from the markdown content
+      console.log("[CapsuleView] Downloading markdown");
       const blob = new Blob([record.output.content], { type: 'text/markdown' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -220,11 +220,10 @@ export default function CapsuleView() {
       document.body.appendChild(link);
       link.click();
       
-      // Clean up
       window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
     } catch (error) {
-      console.error("Failed to download markdown:", error);
+      console.error("[CapsuleView] Failed to download markdown:", error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
     }
   }, [record]);
@@ -252,7 +251,7 @@ export default function CapsuleView() {
           {errorMessage || "Failed to load capsule details. Please try again later."}
         </Alert>
         <Button mt="md" onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
-          Back to List
+          Back to Capsules
         </Button>
       </Box>
     );
@@ -267,7 +266,6 @@ export default function CapsuleView() {
       minHeight: '100vh', 
       padding: '24px'
     }}>
-      {/* Header */}
       <Group mb="xl" justify="space-between">
         <Group>
           <ActionIcon 
@@ -371,7 +369,6 @@ export default function CapsuleView() {
       )}
 
       <Flex gap="xl">
-        {/* File List */}
         <Box 
           w={300} 
           style={{ 
@@ -449,7 +446,6 @@ export default function CapsuleView() {
           </Button>
         </Box>
         
-        {/* Preview/Content Area */}
         <Box style={{ flex: 1 }}>
           <Tabs 
             value={activeTab} 
@@ -536,7 +532,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Generating content...</Text>
                         <Text ta="center" c="dimmed" mb="md">
-                          We&apos;re processing your files and generating capsule content. 
+                          We're processing your files and generating capsule content. 
                           This may take a few minutes.
                         </Text>
                         <LoadingOverlay visible={true} />
@@ -545,7 +541,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Ready to generate</Text>
                         <Text ta="center" c="dimmed" mb="xl">
-                          You&apos;ve added files to your capsule. Click the &quot;Regenerate&quot; button 
+                          You've added files to your capsule. Click the "Regenerate" button 
                           to analyze them and generate content.
                         </Text>
                         <Button 
@@ -630,13 +626,12 @@ export default function CapsuleView() {
         </Box>
       </Flex>
       
-      {/* File Selector Modal */}
       <FileSelector 
         opened={isFileSelectorOpen}
         onClose={() => setIsFileSelectorOpen(false)}
         onSelect={handleFileSelect}
         capsuleId={capsuleId}
-        existingFileIds={record.files?.map(f => f._id) || []}
+        existingFileIds={record?.files?.map(f => f._id) || []}
       />
     </Box>
   );
