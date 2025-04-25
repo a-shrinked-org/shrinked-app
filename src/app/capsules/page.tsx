@@ -175,7 +175,7 @@ export default function CapsuleDirectPage() {
         margin: '0 auto'
       }}>
         <Stack gap="lg" align="center">
-          <Text ta="center" size="lg" mb="md">You don't have a capsule yet</Text>
+          <Text ta="center" size="lg" mb="md">You don&apos;t have a capsule yet</Text>
           <Text ta="center" c="dimmed" mb="xl">
             A capsule helps you organize and analyze multiple documents together into a single context.
           </Text>
