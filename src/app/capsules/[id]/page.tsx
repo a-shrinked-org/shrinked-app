@@ -13,7 +13,8 @@ import {
   Badge,
   Alert,
   Code,
-  Flex, 
+  Flex,
+  Stack
 } from '@mantine/core';
 import { 
   ArrowLeft, 
@@ -391,15 +392,10 @@ export default function CapsuleView() {
           </Text>
           
           {hasFiles ? (
-            <Box 
-              style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: '8px',
-                maxHeight: 'calc(100vh - 250px)',
-                overflowY: 'auto'
-              }}
-            >
+            <Stack gap="sm" style={{ 
+              maxHeight: 'calc(100vh - 250px)',
+              overflowY: 'auto'
+            }}>
               {record.files.map((file) => (
                 <Group key={file._id} justify="space-between" style={{ 
                   padding: '8px 12px', 
@@ -418,7 +414,7 @@ export default function CapsuleView() {
                   </ActionIcon>
                 </Group>
               ))}
-            </Box>
+            </Stack>
           ) : (
             <Alert color="blue" title="No Files Added">
               Add files to your capsule to get started.
@@ -450,8 +446,8 @@ export default function CapsuleView() {
           <Tabs 
             value={activeTab} 
             onChange={(value) => setActiveTab(value as string)}
-            styles={(theme) => ({
- us             list: {
+            styles={{
+              list: {
                 borderBottom: '1px solid #2b2b2b',
               },
               tab: {
@@ -460,7 +456,7 @@ export default function CapsuleView() {
                   color: '#F5A623',
                 },
               },
-            })}
+            }}
           >
             <Tabs.List>
               <Tabs.Tab value="preview">Preview</Tabs.Tab>
@@ -507,27 +503,16 @@ export default function CapsuleView() {
                         border: '1px solid #2b2b2b' 
                       }}>
                         <Text fw={600} mb="md">References</Text>
-                        <Box style={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          gap: '8px' 
-                        }}>
+                        <Stack gap="sm">
                           {record.output.references.map((ref, index) => (
                             <Text key={index} size="sm">{ref.item}</Text>
                           ))}
-                        </Box>
+                        </Stack>
                       </Box>
                     )}
                   </Box>
                 ) : (
-                  <Box style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
-                    height: '100%',
-                    padding: '20px'
-                  }}>
+                  <Stack align="center" justify="center" style={{ height: '100%', p: '20px' }}>
                     {isRegenerating ? (
                       <>
                         <Text mb="md" fw={600}>Generating content...</Text>
@@ -583,7 +568,7 @@ export default function CapsuleView() {
                         </Button>
                       </>
                     )}
-                  </Box>
+                  </Stack>
                 )}
               </Box>
             </Tabs.Panel>
