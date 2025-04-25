@@ -197,9 +197,9 @@ export const shrinkedDataProvider = (
 ): DataProvider => {
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	  const url = meta?.url || `${apiUrl}/${resource}${resource === "jobs/key" ? "" : ""}`;
+	  // Respect meta.url if provided, otherwise construct default URL
+	  const url = meta?.url || `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
 	  
-	  // Handle pagination
 	  const { current = 1, pageSize = 10 } = pagination ?? {};
 	  
 	  const { data } = await httpClient.get(url, {
@@ -219,7 +219,9 @@ export const shrinkedDataProvider = (
 	},
 	
 	getOne: async ({ resource, id, meta }) => {
-	  const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
+	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
+	  const url = meta?.url || 
+		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}/${id}`;
 	  
 	  const { data } = await httpClient.get(url, {
 		headers: meta?.headers,
@@ -229,7 +231,9 @@ export const shrinkedDataProvider = (
 	},
 	
 	create: async ({ resource, variables, meta }) => {
-	  const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
+	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
+	  const url = meta?.url || 
+		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}`;
 	  
 	  const { data } = await httpClient.post(url, variables, {
 		headers: meta?.headers,
@@ -239,7 +243,9 @@ export const shrinkedDataProvider = (
 	},
 	
 	update: async ({ resource, id, variables, meta }) => {
-	  const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
+	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
+	  const url = meta?.url || 
+		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}/${id}`;
 	  
 	  const { data } = await httpClient.patch(url, variables, {
 		headers: meta?.headers,
@@ -249,7 +255,9 @@ export const shrinkedDataProvider = (
 	},
 	
 	deleteOne: async ({ resource, id, variables, meta }) => {
-	  const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}/${id}`;
+	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
+	  const url = meta?.url || 
+		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}/${id}`;
 	  
 	  const { data } = await httpClient.delete(url, {
 		data: variables,
@@ -260,7 +268,9 @@ export const shrinkedDataProvider = (
 	},
 	
 	getMany: async ({ resource, ids, meta }) => {
-	  const url = `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
+	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
+	  const url = meta?.url || 
+		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}`;
 	  
 	  const { data } = await httpClient.get(url, {
 		params: { ids: ids.join(",") },
