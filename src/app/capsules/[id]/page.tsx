@@ -117,7 +117,7 @@ export default function CapsuleView() {
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       const response = await fetch(`/api/capsule/${capsuleId}/regenerate`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -162,7 +162,7 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      const BATCH_SIZE = 5; // Batch to reduce backend load
+      const BATCH_SIZE = 5;
       const batches = [];
       for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
         batches.push(fileIds.slice(i, i + BATCH_SIZE));
@@ -175,7 +175,7 @@ export default function CapsuleView() {
         console.log(`[CapsuleView] Sending batch ${i + 1}/${batches.length} with ${batch.length} files: ${JSON.stringify(batch)}`);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
         const response = await fetch(`/api/capsule/${capsuleId}/files`, {
           method: 'POST',
           headers: { 
@@ -194,7 +194,7 @@ export default function CapsuleView() {
         
         console.log(`[CapsuleView] Batch ${i + 1}/${batches.length} added successfully`);
         if (i < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay between batches
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
@@ -232,7 +232,7 @@ export default function CapsuleView() {
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -584,7 +584,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Generating content...</Text>
                         <Text ta="center" c="dimmed" mb="md">
-                          We're processing your files and generating capsule content. 
+                          We\'re processing your files and generating capsule content. 
                           This may take a few minutes.
                         </Text>
                         <LoadingOverlay visible={true} />
@@ -593,7 +593,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Ready to generate</Text>
                         <Text ta="center" c="dimmed" mb="xl">
-                          You've added files to your capsule. Click the "Regenerate" button 
+                          You\'ve added files to your capsule. Click the \"Regenerate\" button 
                           to analyze them and generate content.
                         </Text>
                         <Button 
