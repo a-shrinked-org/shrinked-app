@@ -29,7 +29,8 @@ import {
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth, API_CONFIG } from "@/utils/authUtils";
-import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
+// Import the wrapper component instead of the original
+import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { useDisclosure } from '@mantine/hooks';
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
@@ -482,7 +483,6 @@ export default function CapsuleView() {
               }}>
                 {hasOutput ? (
                   <Box>
-                    {/* Added null checks for output properties */}
                     {record.output?.title && (
                       <Text size="xl" fw={700} mb="md">{record.output.title}</Text>
                     )}
@@ -499,7 +499,7 @@ export default function CapsuleView() {
                     )}
                     
                     {record.output?.content && (
-                      <DocumentMarkdownRenderer 
+                      <DocumentMarkdownWrapper 
                         markdown={record.output.content} 
                       />
                     )}
