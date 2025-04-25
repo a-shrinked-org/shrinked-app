@@ -168,7 +168,8 @@ export default function CapsuleDirectPage() {
           maxWidth: '600px',
           margin: '0 auto'
         }}>
-          <Stack spacing="lg" align="center">
+          {/* Fixed the Stack component by using gap instead of spacing */}
+          <Stack gap="lg" align="center">
             <Text align="center" size="lg" mb="md">You don&apos;t have a capsule yet</Text>
             <Text align="center" c="dimmed" mb="xl">
               A capsule helps you organize and analyze multiple documents together into a single context.

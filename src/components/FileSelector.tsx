@@ -7,7 +7,8 @@ import {
   Button, 
   Checkbox, 
   LoadingOverlay,
-  Alert
+  Alert,
+  Stack
 } from '@mantine/core';
 import { AlertCircle, Check } from 'lucide-react';
 import { useAuth } from '@/utils/authUtils';
@@ -119,106 +120,108 @@ const FileSelector: React.FC<FileSelectorProps> = ({
         close: { color: '#ffffff' },
       }}
     >
-      <Box style={{ position: 'relative', minHeight: '300px' }}>
-        <LoadingOverlay visible={isLoading} />
-        
-        {error && (
-          <Alert 
-            icon={<AlertCircle size={16} />}
-            color="red"
-            title="Error"
-            mb="md"
-          >
-            {error}
-          </Alert>
-        )}
-        
-        {!isLoading && files.length === 0 && !error && (
-          <Alert 
-            color="blue"
-            title="No files available"
-            mb="md"
-          >
-            You don&apos;t have any processed files to add to this capsule. Process some files first and then add them to your capsule.
-          </Alert>
-        )}
-        
-        {files.length > 0 && (
-          <Box mb="lg">
-            <Text mb="xs">Select files to add to your capsule:</Text>
-            
-            <Box style={{ 
-              border: '1px solid #2b2b2b',
-              borderRadius: '4px',
-              maxHeight: '300px',
-              overflowY: 'auto'
-            }}>
-              {files.map(file => (
-                <Box 
-                  key={file._id}
-                  p="sm"
-                  style={{ 
-                    borderBottom: '1px solid #2b2b2b',
-                    backgroundColor: selectedFileIds.includes(file._id) 
-                      ? '#1a1a1a' 
-                      : 'transparent',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleFileSelect(file._id)}
-                >
-                  <Group position="apart">
-                    <Box>
-                      <Text size="sm">{file.title}</Text>
-                      <Text size="xs" c="dimmed">Created: {formatDate(file.createdAt)}</Text>
-                    </Box>
-                    <Checkbox 
-                      checked={selectedFileIds.includes(file._id)}
-                      onChange={() => {}}
-                      styles={{
-                        input: { cursor: 'pointer' }
-                      }}
-                    />
-                  </Group>
-                </Box>
-              ))}
+      <Stack gap="md">
+        <Box style={{ position: 'relative', minHeight: '300px' }}>
+          <LoadingOverlay visible={isLoading} />
+          
+          {error && (
+            <Alert 
+              icon={<AlertCircle size={16} />}
+              color="red"
+              title="Error"
+              mb="md"
+            >
+              {error}
+            </Alert>
+          )}
+          
+          {!isLoading && files.length === 0 && !error && (
+            <Alert 
+              color="blue"
+              title="No files available"
+              mb="md"
+            >
+              You don&apos;t have any processed files to add to this capsule. Process some files first and then add them to your capsule.
+            </Alert>
+          )}
+          
+          {files.length > 0 && (
+            <Box mb="lg">
+              <Text mb="xs">Select files to add to your capsule:</Text>
+              
+              <Box style={{ 
+                border: '1px solid #2b2b2b',
+                borderRadius: '4px',
+                maxHeight: '300px',
+                overflowY: 'auto'
+              }}>
+                {files.map(file => (
+                  <Box 
+                    key={file._id}
+                    p="sm"
+                    style={{ 
+                      borderBottom: '1px solid #2b2b2b',
+                      backgroundColor: selectedFileIds.includes(file._id) 
+                        ? '#1a1a1a' 
+                        : 'transparent',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleFileSelect(file._id)}
+                  >
+                    <Group justify="space-between">
+                      <Box>
+                        <Text size="sm">{file.title}</Text>
+                        <Text size="xs" c="dimmed">Created: {formatDate(file.createdAt)}</Text>
+                      </Box>
+                      <Checkbox 
+                        checked={selectedFileIds.includes(file._id)}
+                        onChange={() => {}}
+                        styles={{
+                          input: { cursor: 'pointer' }
+                        }}
+                      />
+                    </Group>
+                  </Box>
+                ))}
+              </Box>
             </Box>
-          </Box>
-        )}
-        
-        <Group position="right" mt="md">
-          <Button 
-            variant="outline"
-            onClick={onClose}
-            styles={{
-              root: {
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#2b2b2b',
+          )}
+          
+          <Group justify="flex-end" mt="md">
+            <Button 
+              variant="outline"
+              onClick={onClose}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#2b2b2b',
+                  },
                 },
-              },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            leftSection={<Check size={16} />}
-            onClick={handleSubmit}
-            disabled={selectedFileIds.length === 0}
-            styles={{
-              root: {
-                backgroundColor: '#F5A623',
-                color: '#000000',
-                '&:hover': {
-                  backgroundColor: '#E09612',
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              leftSection={<Check size={16} />}
+              onClick={handleSubmit}
+              disabled={selectedFileIds.length === 0}
+              styles={{
+                root: {
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
                 },
-              },
-            }}
-          >
-            Add Selected Files
-          </Button>
-        </Group>
-      </Box>
+              }}
+            >
+              Add Selected Files
+            </Button>
+          </Group>
+        </Box>
+      </Stack>
     </Modal>
   );
 };
