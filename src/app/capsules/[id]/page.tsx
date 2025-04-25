@@ -93,7 +93,8 @@ export default function CapsuleView() {
     },
     meta: {
       headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` },
-      url: `/api/capsules-proxy/${capsuleId}`
+      // Use our new simplified proxy approach
+      url: `/api/capsule/${capsuleId}`
     }
   });
   
@@ -113,11 +114,12 @@ export default function CapsuleView() {
       setIsRegenerating(true);
       setErrorMessage(null);
       
-      console.log(`[CapsuleView] Regenerating capsule: url=/api/capsules-proxy/${capsuleId}/regenerate`);
+      console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      const response = await fetch(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+      // Use the new simplified proxy approach
+      const response = await fetch(`/api/capsule/${capsuleId}/regenerate`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -153,7 +155,8 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      const response = await fetch(`/api/capsules-proxy/${capsuleId}/files`, {
+      // Use the simplified proxy approach
+      const response = await fetch(`/api/capsule/${capsuleId}/files`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -189,7 +192,8 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      const response = await fetch(`/api/capsules-proxy/${capsuleId}/files/${fileId}`, {
+      // Use the simplified proxy approach
+      const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
