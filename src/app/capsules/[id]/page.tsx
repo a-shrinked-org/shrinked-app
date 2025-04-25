@@ -125,6 +125,7 @@ export default function CapsuleView() {
     if (!summaryContext) return null;
     
     // Extract content between <summary> tags
+    // Fixed: Removed 's' flag from regex to be compatible with older JS versions
     const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
     return summaryMatch ? summaryMatch[1].trim() : null;
   };
@@ -134,6 +135,7 @@ export default function CapsuleView() {
     if (!summaryContext) return null;
     
     // Extract content between <scratchpad> tags
+    // Fixed: Removed 's' flag from regex to be compatible with older JS versions
     const scratchpadMatch = summaryContext.match(/<scratchpad>([\s\S]*?)<\/scratchpad>/);
     return scratchpadMatch ? scratchpadMatch[1].trim() : null;
   };
@@ -771,8 +773,9 @@ export default function CapsuleView() {
                         <Stack gap="md">
                           {record.highlights.map((highlight, index) => {
                             // Simple XML parsing to extract field name and content
-                            const nameMatch = highlight.xml.match(/<field_name>(.*?)<\/field_name>/s);
-                            const contentMatch = highlight.xml.match(/<field_content>(.*?)<\/field_content>/s);
+                            // Fixed: Removed 's' flag from regex to be compatible with older JS versions
+                            const nameMatch = highlight.xml.match(/<field_name>([\s\S]*?)<\/field_name>/);
+                            const contentMatch = highlight.xml.match(/<field_content>([\s\S]*?)<\/field_content>/);
                             
                             if (!nameMatch || !contentMatch) return null;
                             
