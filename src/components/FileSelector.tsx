@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Modal, 
   Text, 
@@ -40,16 +40,8 @@ const FileSelector: React.FC<FileSelectorProps> = ({
   
   const { fetchWithAuth } = useAuth();
   
-  // Fetch available files when modal opens
-  useEffect(() => {
-    if (opened) {
-      fetchFiles();
-      // Reset selected files when modal opens
-      setSelectedFileIds([]);
-    }
-  }, [opened]);
-  
-  const fetchFiles = async () => {
+  // Define fetchFiles as a useCallback function to use it in the dependency array
+  const fetchFiles = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -75,7 +67,16 @@ const FileSelector: React.FC<FileSelectorProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchWithAuth, existingFileIds]);
+  
+  // Fetch available files when modal opens
+  useEffect(() => {
+    if (opened) {
+      fetchFiles();
+      // Reset selected files when modal opens
+      setSelectedFileIds([]);
+    }
+  }, [opened, fetchFiles]);
   
   const handleFileSelect = (fileId: string) => {
     setSelectedFileIds(prev => {
@@ -138,7 +139,7 @@ const FileSelector: React.FC<FileSelectorProps> = ({
             title="No files available"
             mb="md"
           >
-            You don't have any processed files to add to this capsule. Process some files first and then add them to your capsule.
+            You don&apos;t have any processed files to add to this capsule. Process some files first and then add them to your capsule.
           </Alert>
         )}
         
