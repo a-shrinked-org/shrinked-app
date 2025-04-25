@@ -51,6 +51,7 @@ interface Capsule {
   name: string;
   slug: string;
   files: File[];
+  fileIds?: string[]; // Added fileIds property
   userId: string;
   output?: {
     title?: string;
@@ -61,7 +62,7 @@ interface Capsule {
   updatedAt: string;
   createdAt: string;
   status: string;
-  summaryContext?: string; // Added summaryContext property
+  summaryContext?: string;
   highlights?: Array<{
     xml: string;
   }>;
@@ -76,7 +77,6 @@ export default function CapsuleView() {
   
   const { handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
   
-  // Fixed: useShow doesn't return refetch directly
   const { queryResult } = useShow<Capsule>({
     resource: "capsules",
     id: capsuleId,
@@ -92,6 +92,12 @@ export default function CapsuleView() {
         console.log("[CapsuleView] Capsule data loaded:", data);
         if (data?.data?.status === 'COMPLETED' && isRegenerating) {
           setIsRegenerating(false);
+        }
+        
+        // If we have summaryContext but no files loaded yet, fetch file details
+        if (data?.data?.summaryContext && data?.data?.fileIds && 
+            (!data?.data?.files || data?.data?.files.length === 0)) {
+          fetchFileDetails(data.data.fileIds);
         }
       },
       onError: (error) => {
@@ -112,20 +118,55 @@ export default function CapsuleView() {
   const { data, isLoading, isError, refetch } = queryResult;
   const record = data?.data;
   
-  const [activeTab, setActiveTab] = useState("preview");
+  const [activeTab, setActiveTab] = useState("context"); // Changed default tab to context
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [lastFileIds, setLastFileIds] = useState<string[]>([]);
   const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
+  const [loadedFiles, setLoadedFiles] = useState<File[]>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  
+  // Fetch file details if we have fileIds but no files
+  const fetchFileDetails = async (fileIds: string[]) => {
+    if (!fileIds || fileIds.length === 0) return;
+    
+    try {
+      setIsLoadingFiles(true);
+      console.log(`[CapsuleView] Fetching details for ${fileIds.length} files`);
+      
+      const token = await ensureValidToken();
+      if (!token) throw new Error('Authentication failed - unable to get valid token');
+      
+      // This is a placeholder - you'll need to replace with your actual file details endpoint
+      const response = await fetch(`/api/files?ids=${fileIds.join(',')}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file details: ${response.status}`);
+      }
+      
+      const filesData = await response.json();
+      if (filesData && Array.isArray(filesData)) {
+        setLoadedFiles(filesData);
+        console.log("[CapsuleView] File details loaded:", filesData);
+      }
+    } catch (error: any) {
+      console.error("[CapsuleView] Failed to fetch file details:", error);
+      // Not setting error message to avoid UI disruption
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
   
   // Extract summary content from summaryContext if available
   const extractSummaryContent = (summaryContext?: string) => {
     if (!summaryContext) return null;
     
     // Extract content between <summary> tags
-    // Fixed: Removed 's' flag from regex to be compatible with older JS versions
     const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
     return summaryMatch ? summaryMatch[1].trim() : null;
   };
@@ -135,7 +176,6 @@ export default function CapsuleView() {
     if (!summaryContext) return null;
     
     // Extract content between <scratchpad> tags
-    // Fixed: Removed 's' flag from regex to be compatible with older JS versions
     const scratchpadMatch = summaryContext.match(/<scratchpad>([\s\S]*?)<\/scratchpad>/);
     return scratchpadMatch ? scratchpadMatch[1].trim() : null;
   };
@@ -332,11 +372,26 @@ export default function CapsuleView() {
   }, [capsuleId, ensureValidToken, refetch, record?.files?.length, handleRegenerateCapsule]);
 
   const handleDownloadMarkdown = useCallback(async () => {
-    if (!record?.output?.content) return;
+    if (!record?.output?.content && !record?.summaryContext) return;
     
     try {
       console.log("[CapsuleView] Downloading markdown");
-      const blob = new Blob([record.output.content], { type: 'text/markdown' });
+      let content = "";
+      
+      if (record?.output?.content) {
+        content = record.output.content;
+      } else if (record?.summaryContext) {
+        const summaryContent = extractSummaryContent(record.summaryContext);
+        if (summaryContent) {
+          content = summaryContent;
+        }
+      }
+      
+      if (!content) {
+        throw new Error("No content available to download");
+      }
+      
+      const blob = new Blob([content], { type: 'text/markdown' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -381,13 +436,19 @@ export default function CapsuleView() {
     );
   }
 
-  const hasFiles = record.files && record.files.length > 0;
+  // Get files either from record.files or loadedFiles
+  const displayFiles = record.files && record.files.length > 0 
+    ? record.files 
+    : loadedFiles;
+    
+  const hasFiles = displayFiles && displayFiles.length > 0;
   const hasOutput = record.output && record.output.content;
   const isProcessing = record.status === 'PROCESSING';
   
   // Extract summary and scratchpad content
   const summaryContent = extractSummaryContent(record.summaryContext);
   const scratchpadContent = extractScratchpadContent(record.summaryContext);
+  const hasSummary = !!summaryContent;
   
   return (
     <Box style={{ 
@@ -417,7 +478,7 @@ export default function CapsuleView() {
           </Text>
           <Badge 
             color={
-              record.status === 'COMPLETED' ? 'green' : 
+              record.status === 'COMPLETED' || record.status === 'ready' ? 'green' : 
               record.status === 'PROCESSING' ? 'yellow' : 
               record.status === 'PENDING' ? 'blue' : 
               'gray'
@@ -470,7 +531,7 @@ export default function CapsuleView() {
             variant="default"
             leftSection={<Download size={16} />}
             onClick={handleDownloadMarkdown}
-            disabled={!hasOutput || isProcessing || isRegenerating}
+            disabled={(!hasOutput && !hasSummary) || isProcessing || isRegenerating}
             styles={{
               root: {
                 borderColor: '#2b2b2b',
@@ -540,7 +601,7 @@ export default function CapsuleView() {
               maxHeight: 'calc(100vh - 250px)',
               overflowY: 'auto'
             }}>
-              {record.files.map((file) => (
+              {displayFiles.map((file) => (
                 <Group key={file._id} justify="space-between" style={{ 
                   padding: '8px 12px', 
                   borderRadius: '4px', 
@@ -561,6 +622,16 @@ export default function CapsuleView() {
                 </Group>
               ))}
             </Stack>
+          ) : record.fileIds && record.fileIds.length > 0 ? (
+            <Box>
+              {isLoadingFiles ? (
+                <LoadingOverlay visible={true} />
+              ) : (
+                <Alert color="blue" title="Files Available">
+                  {record.fileIds.length} file(s) attached to this capsule.
+                </Alert>
+              )}
+            </Box>
           ) : (
             <Alert color="blue" title="No Files Added">
               Add files to your capsule to get started.
@@ -605,12 +676,12 @@ export default function CapsuleView() {
             }}
           >
             <Tabs.List>
-              <Tabs.Tab value="preview">Preview</Tabs.Tab>
-              <Tabs.Tab value="summary" disabled={!summaryContent}>Summary</Tabs.Tab>
+              <Tabs.Tab value="context">Context</Tabs.Tab>
+              <Tabs.Tab value="thinking" disabled={!scratchpadContent}>Thinking</Tabs.Tab>
               <Tabs.Tab value="source">Source</Tabs.Tab>
             </Tabs.List>
             
-            <Tabs.Panel value="preview">
+            <Tabs.Panel value="context">
               <Box p="md" style={{ 
                 backgroundColor: '#131313', 
                 borderRadius: '0 0 8px 8px', 
@@ -620,7 +691,41 @@ export default function CapsuleView() {
                 border: '1px solid #2b2b2b',
                 borderTop: 'none'
               }}>
-                {hasOutput ? (
+                {hasSummary ? (
+                  <Box>
+                    <DocumentMarkdownWrapper 
+                      markdown={summaryContent as string} 
+                    />
+                    
+                    {record.highlights && record.highlights.length > 0 && (
+                      <>
+                        <Divider my="lg" label="Highlights" labelPosition="center" />
+                        <Stack gap="md">
+                          {record.highlights.map((highlight, index) => {
+                            // Simple XML parsing to extract field name and content
+                            const nameMatch = highlight.xml.match(/<field_name>([\s\S]*?)<\/field_name>/);
+                            const contentMatch = highlight.xml.match(/<field_content>([\s\S]*?)<\/field_content>/);
+                            
+                            if (!nameMatch || !contentMatch) return null;
+                            
+                            return (
+                              <Box key={index} p="md" style={{ 
+                                backgroundColor: '#1a1a1a', 
+                                borderRadius: '4px',
+                                border: '1px solid #2b2b2b' 
+                              }}>
+                                <Title order={4} mb="xs">{nameMatch[1]}</Title>
+                                <DocumentMarkdownWrapper 
+                                  markdown={contentMatch[1]} 
+                                />
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      </>
+                    )}
+                  </Box>
+                ) : hasOutput ? (
                   <Box>
                     {record.output?.title && (
                       <Text size="xl" fw={700} mb="md">{record.output.title}</Text>
@@ -720,7 +825,7 @@ export default function CapsuleView() {
               </Box>
             </Tabs.Panel>
             
-            <Tabs.Panel value="summary">
+            <Tabs.Panel value="thinking">
               <Box p="md" style={{ 
                 backgroundColor: '#131313', 
                 borderRadius: '0 0 8px 8px', 
@@ -730,75 +835,30 @@ export default function CapsuleView() {
                 border: '1px solid #2b2b2b',
                 borderTop: 'none'
               }}>
-                {summaryContent ? (
+                {scratchpadContent ? (
                   <Box>
                     <Group mb="md" align="center">
                       <FileText size={20} />
-                      <Title order={3}>Generated Summary</Title>
+                      <Title order={3}>Thinking Process</Title>
                     </Group>
                     
-                    <DocumentMarkdownWrapper 
-                      markdown={summaryContent} 
-                    />
-                    
-                    {scratchpadContent && (
-                      <>
-                        <Divider my="lg" label="Analysis Process" labelPosition="center" />
-                        <Box mt="md" p="md" style={{ 
-                          backgroundColor: '#1a1a1a', 
-                          borderRadius: '4px',
-                          border: '1px solid #2b2b2b' 
-                        }}>
-                          <Title order={4} mb="md">Thinking Process</Title>
-                          <Code 
-                            block 
-                            style={{ 
-                              backgroundColor: '#0a0a0a',
-                              color: '#a0a0a0',
-                              fontFamily: GeistMono.style.fontFamily,
-                              fontSize: '14px',
-                              whiteSpace: 'pre-wrap',
-                              lineHeight: 1.6
-                            }}
-                          >
-                            {scratchpadContent}
-                          </Code>
-                        </Box>
-                      </>
-                    )}
-                    
-                    {record.highlights && record.highlights.length > 0 && (
-                      <>
-                        <Divider my="lg" label="Highlights" labelPosition="center" />
-                        <Stack gap="md">
-                          {record.highlights.map((highlight, index) => {
-                            // Simple XML parsing to extract field name and content
-                            // Fixed: Removed 's' flag from regex to be compatible with older JS versions
-                            const nameMatch = highlight.xml.match(/<field_name>([\s\S]*?)<\/field_name>/);
-                            const contentMatch = highlight.xml.match(/<field_content>([\s\S]*?)<\/field_content>/);
-                            
-                            if (!nameMatch || !contentMatch) return null;
-                            
-                            return (
-                              <Box key={index} p="md" style={{ 
-                                backgroundColor: '#1a1a1a', 
-                                borderRadius: '4px',
-                                border: '1px solid #2b2b2b' 
-                              }}>
-                                <Title order={4} mb="xs">{nameMatch[1]}</Title>
-                                <DocumentMarkdownWrapper 
-                                  markdown={contentMatch[1]} 
-                                />
-                              </Box>
-                            );
-                          })}
-                        </Stack>
-                      </>
-                    )}
+                    <Code 
+                      block 
+                      style={{ 
+                        backgroundColor: '#0a0a0a',
+                        color: '#a0a0a0',
+                        fontFamily: GeistMono.style.fontFamily,
+                        fontSize: '14px',
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.6
+                      }}
+                    >
+                      {scratchpadContent}
+                    </Code>
                   </Box>
                 ) : (
                   <Text ta="center" c="dimmed">
-                    No summary content available yet.
+                    No thinking process content available.
                   </Text>
                 )}
               </Box>
@@ -831,11 +891,28 @@ export default function CapsuleView() {
                   >
                     {record.output.content}
                   </Code>
+                ) : record.summaryContext ? (
+                  <Code 
+                    block 
+                    style={{ 
+                      backgroundColor: '#0a0a0a',
+                      border: '1px solid #2b2b2b',
+                      color: '#d4d4d4',
+                      minHeight: '500px',
+                      fontFamily: GeistMono.style.fontFamily,
+                      fontSize: '14px',
+                      lineHeight: 1.6,
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'break-word'
+                    }}
+                  >
+                    {record.summaryContext}
+                  </Code>
                 ) : (
                   <Text ta="center" c="dimmed">
                     {isProcessing || isRegenerating ? 
                       "Content is being generated..." : 
-                      "No content available yet. Generate content first to see the source markdown."}
+                      "No content available yet. Generate content first to see the source."}
                   </Text>
                 )}
               </Box>
@@ -849,7 +926,7 @@ export default function CapsuleView() {
         onClose={() => setIsFileSelectorOpen(false)}
         onSelect={handleFileSelect}
         capsuleId={capsuleId}
-        existingFileIds={record?.files?.map(f => f._id) || []}
+        existingFileIds={record?.files?.map(f => f._id) || record?.fileIds || []}
       />
     </Box>
   );
