@@ -170,8 +170,9 @@ export default function CapsuleDirectPage() {
         }}>
           {/* Fixed the Stack component by using gap instead of spacing */}
           <Stack gap="lg" align="center">
-            <Text align="center" size="lg" mb="md">You don&apos;t have a capsule yet</Text>
-            <Text align="center" c="dimmed" mb="xl">
+            {/* Fixed Text align to ta prop in Mantine v7 */}
+            <Text ta="center" size="lg" mb="md">You don&apos;t have a capsule yet</Text>
+            <Text ta="center" c="dimmed" mb="xl">
               A capsule helps you organize and analyze multiple documents together into a single context.
             </Text>
             <Button 
