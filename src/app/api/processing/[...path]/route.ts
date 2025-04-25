@@ -1,10 +1,10 @@
-// app/api/capsule/[...path]/route.ts
+// app/api/processing/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 
 /**
- * Universal capsule proxy handler that forwards all requests to the API
+ * Universal document processing proxy handler that forwards all requests to the processing API endpoints
  * Uses Next.js catch-all route parameter to handle any path structure
  */
 async function handleRequest(
@@ -17,12 +17,12 @@ async function handleRequest(
 	const pathSegments = params.path || [];
 	const pathSuffix = pathSegments.join('/');
 	
-	console.log(`[Capsule Proxy] ${method} request for path: ${pathSuffix}`);
+	console.log(`[Processing Proxy] ${method} request for path: ${pathSuffix}`);
 	
 	// Check for authorization
 	const authHeader = request.headers.get('authorization');
 	if (!authHeader) {
-	  console.log("[Capsule Proxy] Missing authorization header");
+	  console.log("[Processing Proxy] Missing authorization header");
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 	
@@ -35,8 +35,8 @@ async function handleRequest(
 	const searchParamsString = searchParams.toString();
 	
 	// Construct API URL
-	const apiUrl = `${API_URL}/capsules/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
-	console.log(`[Capsule Proxy] Sending ${method} request to: ${apiUrl}`);
+	const apiUrl = `${API_URL}/processing/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
+	console.log(`[Processing Proxy] Sending ${method} request to: ${apiUrl}`);
 	
 	// Prepare request options
 	const options: RequestInit = {
@@ -51,7 +51,7 @@ async function handleRequest(
 	// Add body for methods that support it
 	if (['POST', 'PUT', 'PATCH'].includes(method)) {
 	  const body = await request.json().catch(err => {
-		console.error("[Capsule Proxy] Error parsing request body:", err);
+		console.error("[Processing Proxy] Error parsing request body:", err);
 		return {};
 	  });
 	  options.body = JSON.stringify(body);
@@ -59,7 +59,7 @@ async function handleRequest(
 	
 	// Make request to API
 	const response = await fetch(apiUrl, options);
-	console.log(`[Capsule Proxy] API response: status=${response.status}, content-type=${response.headers.get('content-type')}`);
+	console.log(`[Processing Proxy] API response: status=${response.status}, content-type=${response.headers.get('content-type')}`);
 	
 	// Handle 204 No Content response
 	if (response.status === 204) {
@@ -68,28 +68,30 @@ async function handleRequest(
 	
 	// Process response
 	const contentType = response.headers.get('content-type') || '';
-	let data;
 	
 	if (contentType.includes('application/json')) {
-	  data = await response.json().catch(error => {
-		console.error(`[Capsule Proxy] Error parsing JSON response:`, error);
-		return { 
+	  try {
+		const data = await response.json();
+		return NextResponse.json(data, { status: response.status });
+	  } catch (error) {
+		console.error(`[Processing Proxy] Error parsing JSON response:`, error);
+		return NextResponse.json({ 
 		  error: "Failed to parse API response",
 		  status: response.status
-		};
-	  });
+		}, { status: response.status });
+	  }
 	} else {
-	  console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}`);
-	  data = { 
-		error: `Unexpected response format`,
-		message: `Expected JSON but got ${contentType}`,
-		status: response.status 
-	  };
+	  // For non-JSON responses, forward the raw response
+	  const blob = await response.blob();
+	  return new NextResponse(blob, {
+		status: response.status,
+		headers: {
+		  'Content-Type': contentType
+		}
+	  });
 	}
-	
-	return NextResponse.json(data, { status: response.status });
   } catch (error) {
-	console.error(`[Capsule Proxy] Error in ${method} handler:`, error);
+	console.error(`[Processing Proxy] Error in ${method} handler:`, error);
 	return NextResponse.json({ 
 	  error: "Failed to process request",
 	  message: error instanceof Error ? error.message : "Unknown error"

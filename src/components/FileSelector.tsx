@@ -2,21 +2,30 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Modal, 
   Text, 
-  Box, 
-  Group, 
-  Button, 
   Checkbox, 
+  Button, 
+  Group, 
+  Stack, 
+  TextInput,
   LoadingOverlay,
-  Alert,
-  Stack
+  Box,
+  Flex,
+  ScrollArea,
+  Divider,
+  Alert
 } from '@mantine/core';
-import { AlertCircle, Check } from 'lucide-react';
+import { Search, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/utils/authUtils';
+import { API_CONFIG } from '@/utils/authUtils';
 
 interface File {
   _id: string;
   title: string;
+  fileName?: string;
   createdAt: string;
+  output?: {
+    title?: string;
+  }
 }
 
 interface FileSelectorProps {
@@ -24,188 +33,229 @@ interface FileSelectorProps {
   onClose: () => void;
   onSelect: (fileIds: string[]) => void;
   capsuleId: string;
-  existingFileIds?: string[];
+  existingFileIds: string[];
 }
 
 const FileSelector: React.FC<FileSelectorProps> = ({ 
   opened, 
   onClose, 
   onSelect, 
-  capsuleId, 
-  existingFileIds = [] 
+  capsuleId,
+  existingFileIds = []
 }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   
-  const { fetchWithAuth } = useAuth();
+  const { getAccessToken, ensureValidToken } = useAuth();
   
-  // Define fetchFiles as a useCallback function to use it in the dependency array
+  // Fetch user documents from the document store
   const fetchFiles = useCallback(async () => {
+    if (!opened) return;
+    
     try {
       setIsLoading(true);
       setError(null);
       
-      // Using the jobs-proxy endpoint since it would connect to a different API endpoint
-      const response = await fetchWithAuth('/api/jobs-proxy/processing/documents');
+      const token = await ensureValidToken();
+      if (!token) throw new Error('Authentication failed - unable to get valid token');
+      
+      // Determine the current user ID
+      // First, attempt to get it from the token (assuming JWT)
+      let userId = '';
+      try {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
+      } catch (e) {
+        console.warn('Could not extract user ID from token');
+      }
+      
+      // If we couldn't get the ID from token, fetch user profile
+      if (!userId) {
+        const profileResponse = await fetch(`${API_CONFIG.API_URL}/users/profile`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (profileResponse.ok) {
+          const profile = await profileResponse.json();
+          userId = profile._id || profile.id || '';
+        }
+      }
+      
+      if (!userId) {
+        throw new Error('Could not determine current user ID');
+      }
+      
+      console.log(`[FileSelector] Fetching documents for user: ${userId}`);
+      
+      // Use the processing/user/{userId}/documents endpoint as shown in the docstore page
+      const response = await fetch(`${API_CONFIG.API_URL}/processing/user/${userId}/documents`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       
       if (!response.ok) {
+        console.error(`[FileSelector] Error fetching documents: ${response.status}`);
         throw new Error(`Failed to fetch files: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('[FileSelector] Fetched documents:', data);
       
       // Filter out files that are already in the capsule
-      const availableFiles = data.filter((file: File) => 
-        !existingFileIds.includes(file._id)
-      );
+      const availableFiles = Array.isArray(data) 
+        ? data.filter(file => !existingFileIds.includes(file._id))
+        : [];
       
       setFiles(availableFiles);
     } catch (error) {
-      console.error("Error fetching files:", error);
-      setError(error instanceof Error ? error.message : String(error));
+      console.error('[FileSelector] Error fetching files:', error);
+      setError(`Error fetching files: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
-  }, [fetchWithAuth, existingFileIds]);
+  }, [opened, ensureValidToken, existingFileIds]);
   
-  // Fetch available files when modal opens
   useEffect(() => {
     if (opened) {
       fetchFiles();
-      // Reset selected files when modal opens
       setSelectedFileIds([]);
     }
   }, [opened, fetchFiles]);
   
-  const handleFileSelect = (fileId: string) => {
-    setSelectedFileIds(prev => {
-      if (prev.includes(fileId)) {
-        return prev.filter(id => id !== fileId);
-      } else {
-        return [...prev, fileId];
-      }
-    });
+  const handleToggleFile = (fileId: string) => {
+    setSelectedFileIds(prev => 
+      prev.includes(fileId)
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId]
+    );
   };
   
-  const handleSubmit = () => {
-    if (selectedFileIds.length === 0) {
-      setError("Please select at least one file");
-      return;
+  const handleSelectAll = () => {
+    if (selectedFileIds.length === filteredFiles.length) {
+      setSelectedFileIds([]);
+    } else {
+      setSelectedFileIds(filteredFiles.map(file => file._id));
     }
-    
+  };
+  
+  const handleConfirm = () => {
     onSelect(selectedFileIds);
     onClose();
   };
   
+  // Filter files based on search query
+  const filteredFiles = files.filter(file => {
+    const searchLower = searchQuery.toLowerCase();
+    const title = file.title || file.output?.title || file.fileName || '';
+    return title.toLowerCase().includes(searchLower);
+  });
+  
+  // Format date for display
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (e) {
+      return dateString;
+    }
   };
   
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Select Files"
+      title={<Text fw={600} size="lg">Select Files</Text>}
       size="lg"
-      styles={{
-        header: { backgroundColor: '#000000', color: '#ffffff', borderBottom: '1px solid #2b2b2b' },
-        body: { backgroundColor: '#000000', color: '#ffffff' },
-        close: { color: '#ffffff' },
-      }}
     >
-      <Stack gap="md">
-        <Box style={{ position: 'relative', minHeight: '300px' }}>
-          <LoadingOverlay visible={isLoading} />
+      <Box style={{ position: 'relative', minHeight: '300px' }}>
+        <LoadingOverlay visible={isLoading} />
+        
+        <Stack gap="md">
+          <TextInput
+            placeholder="Search files..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.currentTarget.value)}
+            leftSection={<Search size={16} />}
+          />
           
           {error && (
-            <Alert 
-              icon={<AlertCircle size={16} />}
-              color="red"
-              title="Error"
-              mb="md"
-            >
+            <Alert color="red" title="Error" icon={<AlertCircle size={16} />}>
               {error}
             </Alert>
           )}
           
-          {!isLoading && files.length === 0 && !error && (
-            <Alert 
-              color="blue"
-              title="No files available"
-              mb="md"
-            >
-              You don&apos;t have any processed files to add to this capsule. Process some files first and then add them to your capsule.
+          {!isLoading && filteredFiles.length === 0 && !error && (
+            <Alert color="blue" title="No Files Available">
+              No files found {searchQuery ? 'matching your search' : 'available to add to this capsule'}.
             </Alert>
           )}
           
-          {files.length > 0 && (
-            <Box mb="lg">
-              <Text mb="xs">Select files to add to your capsule:</Text>
+          {filteredFiles.length > 0 && (
+            <>
+              <Group justify="space-between">
+                <Checkbox
+                  label={`${selectedFileIds.length === filteredFiles.length ? 'Deselect' : 'Select'} All (${filteredFiles.length})`}
+                  checked={selectedFileIds.length === filteredFiles.length && filteredFiles.length > 0}
+                  onChange={handleSelectAll}
+                />
+                <Text size="sm" c="dimmed">{selectedFileIds.length} selected</Text>
+              </Group>
               
-              <Box style={{ 
-                border: '1px solid #2b2b2b',
-                borderRadius: '4px',
-                maxHeight: '300px',
-                overflowY: 'auto'
-              }}>
-                {files.map(file => (
-                  <Box 
-                    key={file._id}
-                    p="sm"
-                    style={{ 
-                      borderBottom: '1px solid #2b2b2b',
-                      backgroundColor: selectedFileIds.includes(file._id) 
-                        ? '#1a1a1a' 
-                        : 'transparent',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => handleFileSelect(file._id)}
-                  >
-                    <Group justify="space-between">
-                      <Box>
-                        <Text size="sm">{file.title}</Text>
-                        <Text size="xs" c="dimmed">Created: {formatDate(file.createdAt)}</Text>
-                      </Box>
-                      <Checkbox 
-                        checked={selectedFileIds.includes(file._id)}
-                        onChange={() => {}}
-                        styles={{
-                          input: { cursor: 'pointer' }
-                        }}
-                      />
-                    </Group>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
+              <Divider />
+              
+              <ScrollArea h={350} offsetScrollbars>
+                <Stack gap="xs">
+                  {filteredFiles.map((file) => (
+                    <Box 
+                      key={file._id}
+                      style={{
+                        padding: '10px',
+                        borderRadius: '4px',
+                        backgroundColor: selectedFileIds.includes(file._id) ? '#1a1a1a' : 'transparent',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onClick={() => handleToggleFile(file._id)}
+                    >
+                      <Flex justify="space-between" gap="md">
+                        <Checkbox
+                          checked={selectedFileIds.includes(file._id)}
+                          onChange={() => handleToggleFile(file._id)}
+                          label={
+                            <Text lineClamp={1}>
+                              {file.title || file.output?.title || file.fileName || 'Untitled Document'}
+                            </Text>
+                          }
+                          styles={{
+                            label: {
+                              cursor: 'pointer',
+                              flex: 1,
+                            }
+                          }}
+                        />
+                        <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                          {formatDate(file.createdAt)}
+                        </Text>
+                      </Flex>
+                    </Box>
+                  ))}
+                </Stack>
+              </ScrollArea>
+            </>
           )}
           
           <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={onClose}>Cancel</Button>
             <Button 
-              variant="outline"
-              onClick={onClose}
-              styles={{
-                root: {
-                  borderColor: '#2b2b2b',
-                  color: '#ffffff',
-                  '&:hover': {
-                    backgroundColor: '#2b2b2b',
-                  },
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              leftSection={<Check size={16} />}
-              onClick={handleSubmit}
+              onClick={handleConfirm} 
               disabled={selectedFileIds.length === 0}
               styles={{
                 root: {
@@ -217,11 +267,11 @@ const FileSelector: React.FC<FileSelectorProps> = ({
                 },
               }}
             >
-              Add Selected Files
+              Add Selected ({selectedFileIds.length})
             </Button>
           </Group>
-        </Box>
-      </Stack>
+        </Stack>
+      </Box>
     </Modal>
   );
 };
