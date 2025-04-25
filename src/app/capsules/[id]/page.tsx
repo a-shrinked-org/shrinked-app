@@ -69,7 +69,8 @@ export default function CapsuleView() {
   
   const { handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
   
-  const { queryResult, refetch } = useShow<Capsule>({
+  // Fixed: useShow doesn't return refetch directly
+  const { queryResult } = useShow<Capsule>({
     resource: "capsules",
     id: capsuleId,
     queryOptions: {
@@ -101,7 +102,7 @@ export default function CapsuleView() {
     }
   });
   
-  const { data, isLoading, isError } = queryResult;
+  const { data, isLoading, isError, refetch } = queryResult;
   const record = data?.data;
   
   const [activeTab, setActiveTab] = useState("preview");
