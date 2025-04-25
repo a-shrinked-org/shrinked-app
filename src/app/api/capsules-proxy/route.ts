@@ -10,21 +10,29 @@ function extractPathInfo(url: URL) {
   // Remove '/api/capsules-proxy' from the beginning
   let relativePath = path.replace(/^\/api\/capsules-proxy/, '');
   
+  // Handle query parameters for the case of fetching a specific capsule by ID
+  const idParam = url.searchParams.get('id');
+  
+  // If there's an ID in the query params, that takes precedence
+  if (idParam) {
+	console.log("[Capsule Proxy] ID from query param:", idParam);
+	return `/${idParam}`;
+  }
+  
   // If there's no additional path, return empty string
   if (!relativePath || relativePath === '/') {
 	console.log("[Capsule Proxy] No path suffix, returning empty string");
 	return '';
   }
   
-  // Check if this is an ID request (path contains a MongoDB ObjectId format)
+  // Check if this is an ID request directly in the path
   // MongoDB ObjectIds are 24 hex characters
   const idMatch = relativePath.match(/\/([0-9a-f]{24})(\/.*)?$/i);
   if (idMatch) {
-	console.log("[Capsule Proxy] ID request detected:", idMatch[1]);
-	// This is an ID request, make sure we format it correctly
+	console.log("[Capsule Proxy] ID from path:", idMatch[1]);
 	const id = idMatch[1];
 	const remainingPath = idMatch[2] || '';
-	relativePath = `/${id}${remainingPath}`;
+	return `/${id}${remainingPath}`;
   }
   
   // Fix for the incorrect "key/" pattern that might be added by Refine.dev
@@ -47,13 +55,22 @@ export async function GET(request: NextRequest) {
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 
-	// Get the URL and extract the path info
+	// Get the URL
 	const url = new URL(request.url);
+	
+	// Extract path and prepare the API URL
 	const pathSuffix = extractPathInfo(url);
 	
-	// Add any query parameters
-	const searchParams = url.searchParams.toString();
-	const apiUrl = `${API_URL}/capsules${pathSuffix}${searchParams ? `?${searchParams}` : ''}`;
+	// Create a new URLSearchParams object excluding the 'id' parameter
+	const newParams = new URLSearchParams();
+	url.searchParams.forEach((value, key) => {
+	  if (key !== 'id') {
+		newParams.append(key, value);
+	  }
+	});
+	
+	const searchParamsString = newParams.toString();
+	const apiUrl = `${API_URL}/capsules${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
 	
 	console.log(`[Capsule Proxy] Sending GET request to: ${apiUrl}`);
 	
@@ -115,7 +132,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Handle POST requests
+// Handle POST requests (similar updates as GET)
 export async function POST(request: NextRequest) {
   try {
 	const authHeader = request.headers.get('authorization');
@@ -185,7 +202,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handle PATCH requests
+// Handle PATCH requests (similar updates as GET)
 export async function PATCH(request: NextRequest) {
   try {
 	const authHeader = request.headers.get('authorization');
@@ -255,7 +272,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// Handle DELETE requests
+// Handle DELETE requests (similar updates as GET)
 export async function DELETE(request: NextRequest) {
   try {
 	const authHeader = request.headers.get('authorization');
