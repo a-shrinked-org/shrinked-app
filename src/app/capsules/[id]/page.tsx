@@ -32,7 +32,7 @@ import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 import { useDisclosure } from '@mantine/hooks';
 import { GeistMono } from 'geist/font/mono';
-import FileSelector from '@/components/FileSelector';
+import FileSelector from '../FileSelector';
 
 interface Identity {
   token?: string;
@@ -453,8 +453,8 @@ export default function CapsuleView() {
           <Tabs 
             value={activeTab} 
             onChange={(value) => setActiveTab(value as string)}
-            styles={{
-              tabsList: {
+            styles={(theme) => ({
+              list: {
                 borderBottom: '1px solid #2b2b2b',
               },
               tab: {
@@ -463,7 +463,7 @@ export default function CapsuleView() {
                   color: '#F5A623',
                 },
               },
-            }}
+            })}
           >
             <Tabs.List>
               <Tabs.Tab value="preview">Preview</Tabs.Tab>
