@@ -482,11 +482,12 @@ export default function CapsuleView() {
               }}>
                 {hasOutput ? (
                   <Box>
-                    {record.output.title && (
+                    {/* Added null checks for output properties */}
+                    {record.output?.title && (
                       <Text size="xl" fw={700} mb="md">{record.output.title}</Text>
                     )}
                     
-                    {record.output.abstract && (
+                    {record.output?.abstract && (
                       <Box mb="md" p="md" style={{ 
                         backgroundColor: '#1a1a1a', 
                         borderRadius: '4px',
@@ -497,13 +498,13 @@ export default function CapsuleView() {
                       </Box>
                     )}
                     
-                    {record.output.content && (
+                    {record.output?.content && (
                       <DocumentMarkdownRenderer 
                         markdown={record.output.content} 
                       />
                     )}
                     
-                    {record.output.references && record.output.references.length > 0 && (
+                    {record.output?.references && record.output.references.length > 0 && (
                       <Box mt="xl" p="md" style={{ 
                         backgroundColor: '#1a1a1a', 
                         borderRadius: '4px',
@@ -601,7 +602,7 @@ export default function CapsuleView() {
                 border: '1px solid #2b2b2b',
                 borderTop: 'none'
               }}>
-                {hasOutput && record.output.content ? (
+                {hasOutput && record.output?.content ? (
                   <Code 
                     block 
                     style={{ 
