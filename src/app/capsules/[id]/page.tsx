@@ -32,7 +32,7 @@ import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 import { useDisclosure } from '@mantine/hooks';
 import { GeistMono } from 'geist/font/mono';
-import FileSelector from '../FileSelector';
+import FileSelector from '@/components/FileSelector';
 
 interface Identity {
   token?: string;
