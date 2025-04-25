@@ -14,7 +14,9 @@ import {
   Alert,
   Code,
   Flex,
-  Stack
+  Stack,
+  Divider,
+  Title
 } from '@mantine/core';
 import { 
   ArrowLeft, 
@@ -22,7 +24,8 @@ import {
   Download,
   Plus,
   Trash,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -58,6 +61,10 @@ interface Capsule {
   updatedAt: string;
   createdAt: string;
   status: string;
+  summaryContext?: string; // Added summaryContext property
+  highlights?: Array<{
+    xml: string;
+  }>;
 }
 
 export default function CapsuleView() {
@@ -112,6 +119,24 @@ export default function CapsuleView() {
   const [isAddingFiles, setIsAddingFiles] = useState(false);
   const [lastFileIds, setLastFileIds] = useState<string[]>([]);
   const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
+  
+  // Extract summary content from summaryContext if available
+  const extractSummaryContent = (summaryContext?: string) => {
+    if (!summaryContext) return null;
+    
+    // Extract content between <summary> tags
+    const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
+    return summaryMatch ? summaryMatch[1].trim() : null;
+  };
+
+  // Extract scratchpad content if available
+  const extractScratchpadContent = (summaryContext?: string) => {
+    if (!summaryContext) return null;
+    
+    // Extract content between <scratchpad> tags
+    const scratchpadMatch = summaryContext.match(/<scratchpad>([\s\S]*?)<\/scratchpad>/);
+    return scratchpadMatch ? scratchpadMatch[1].trim() : null;
+  };
   
   // Poll for updates if in processing state
   useEffect(() => {
@@ -358,6 +383,10 @@ export default function CapsuleView() {
   const hasOutput = record.output && record.output.content;
   const isProcessing = record.status === 'PROCESSING';
   
+  // Extract summary and scratchpad content
+  const summaryContent = extractSummaryContent(record.summaryContext);
+  const scratchpadContent = extractScratchpadContent(record.summaryContext);
+  
   return (
     <Box style={{ 
       backgroundColor: '#0a0a0a', 
@@ -575,6 +604,7 @@ export default function CapsuleView() {
           >
             <Tabs.List>
               <Tabs.Tab value="preview">Preview</Tabs.Tab>
+              <Tabs.Tab value="summary" disabled={!summaryContent}>Summary</Tabs.Tab>
               <Tabs.Tab value="source">Source</Tabs.Tab>
             </Tabs.List>
             
@@ -684,6 +714,89 @@ export default function CapsuleView() {
                       </>
                     )}
                   </Stack>
+                )}
+              </Box>
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="summary">
+              <Box p="md" style={{ 
+                backgroundColor: '#131313', 
+                borderRadius: '0 0 8px 8px', 
+                minHeight: 'calc(100vh - 250px)',
+                maxHeight: 'calc(100vh - 250px)',
+                overflowY: 'auto',
+                border: '1px solid #2b2b2b',
+                borderTop: 'none'
+              }}>
+                {summaryContent ? (
+                  <Box>
+                    <Group mb="md" align="center">
+                      <FileText size={20} />
+                      <Title order={3}>Generated Summary</Title>
+                    </Group>
+                    
+                    <DocumentMarkdownWrapper 
+                      markdown={summaryContent} 
+                    />
+                    
+                    {scratchpadContent && (
+                      <>
+                        <Divider my="lg" label="Analysis Process" labelPosition="center" />
+                        <Box mt="md" p="md" style={{ 
+                          backgroundColor: '#1a1a1a', 
+                          borderRadius: '4px',
+                          border: '1px solid #2b2b2b' 
+                        }}>
+                          <Title order={4} mb="md">Thinking Process</Title>
+                          <Code 
+                            block 
+                            style={{ 
+                              backgroundColor: '#0a0a0a',
+                              color: '#a0a0a0',
+                              fontFamily: GeistMono.style.fontFamily,
+                              fontSize: '14px',
+                              whiteSpace: 'pre-wrap',
+                              lineHeight: 1.6
+                            }}
+                          >
+                            {scratchpadContent}
+                          </Code>
+                        </Box>
+                      </>
+                    )}
+                    
+                    {record.highlights && record.highlights.length > 0 && (
+                      <>
+                        <Divider my="lg" label="Highlights" labelPosition="center" />
+                        <Stack gap="md">
+                          {record.highlights.map((highlight, index) => {
+                            // Simple XML parsing to extract field name and content
+                            const nameMatch = highlight.xml.match(/<field_name>(.*?)<\/field_name>/s);
+                            const contentMatch = highlight.xml.match(/<field_content>(.*?)<\/field_content>/s);
+                            
+                            if (!nameMatch || !contentMatch) return null;
+                            
+                            return (
+                              <Box key={index} p="md" style={{ 
+                                backgroundColor: '#1a1a1a', 
+                                borderRadius: '4px',
+                                border: '1px solid #2b2b2b' 
+                              }}>
+                                <Title order={4} mb="xs">{nameMatch[1]}</Title>
+                                <DocumentMarkdownWrapper 
+                                  markdown={contentMatch[1]} 
+                                />
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      </>
+                    )}
+                  </Box>
+                ) : (
+                  <Text ta="center" c="dimmed">
+                    No summary content available yet.
+                  </Text>
                 )}
               </Box>
             </Tabs.Panel>
