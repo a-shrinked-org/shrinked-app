@@ -7,12 +7,16 @@ function extractPathInfo(url: URL) {
   const path = url.pathname;
   
   // Remove '/api/capsules-proxy' from the beginning
-  const relativePath = path.replace(/^\/api\/capsules-proxy/, '');
+  let relativePath = path.replace(/^\/api\/capsules-proxy/, '');
   
   // If there's no additional path, return empty string
   if (!relativePath || relativePath === '/') {
 	return '';
   }
+  
+  // Fix for the incorrect "key/" pattern
+  // If the path contains "/key/", remove the "key/" portion
+  relativePath = relativePath.replace(/\/key\//, '/');
   
   return relativePath;
 }
