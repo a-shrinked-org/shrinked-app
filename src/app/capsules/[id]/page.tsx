@@ -584,7 +584,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Generating content...</Text>
                         <Text ta="center" c="dimmed" mb="md">
-                          We\'re processing your files and generating capsule content. 
+                          We&apos;re processing your files and generating capsule content. 
                           This may take a few minutes.
                         </Text>
                         <LoadingOverlay visible={true} />
@@ -593,7 +593,7 @@ export default function CapsuleView() {
                       <>
                         <Text mb="md" fw={600}>Ready to generate</Text>
                         <Text ta="center" c="dimmed" mb="xl">
-                          You\'ve added files to your capsule. Click the \"Regenerate\" button 
+                          You&apos;ve added files to your capsule. Click the &quot;Regenerate&quot; button 
                           to analyze them and generate content.
                         </Text>
                         <Button 
