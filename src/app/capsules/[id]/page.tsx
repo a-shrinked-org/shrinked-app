@@ -136,20 +136,35 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      // This is a placeholder - you'll need to replace with your actual file details endpoint
-      const response = await fetch(`/api/files?ids=${fileIds.join(',')}`, {
+      // Updated to use the correct API endpoint for files
+      const response = await fetch(`/api/processing/files?ids=${fileIds.join(',')}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch file details: ${response.status}`);
-      }
-      
-      const filesData = await response.json();
-      if (filesData && Array.isArray(filesData)) {
-        setLoadedFiles(filesData);
-        console.log("[CapsuleView] File details loaded:", filesData);
+        // If the first endpoint fails, try a fallback
+        console.log("[CapsuleView] First endpoint failed, trying fallback...");
+        const fallbackResponse = await fetch(`/api/document/files?ids=${fileIds.join(',')}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Failed to fetch file details: ${response.status}`);
+        }
+        
+        const filesData = await fallbackResponse.json();
+        if (filesData && Array.isArray(filesData)) {
+          setLoadedFiles(filesData);
+          console.log("[CapsuleView] File details loaded from fallback:", filesData);
+        }
+      } else {
+        const filesData = await response.json();
+        if (filesData && Array.isArray(filesData)) {
+          setLoadedFiles(filesData);
+          console.log("[CapsuleView] File details loaded:", filesData);
+        }
       }
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
@@ -163,9 +178,16 @@ export default function CapsuleView() {
   const extractContextSummary = (summaryContext?: string) => {
     if (!summaryContext) return null;
     
-    // Look for # Context Buffer Summary section
-    const contextMatch = summaryContext.match(/<summary>\s*(# Context Buffer Summary[\s\S]*?)(?:<\/summary>|$)/);
-    return contextMatch ? contextMatch[1].trim() : null;
+    // Look for content between <summary> tags
+    const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
+    
+    if (summaryMatch && summaryMatch[1]) {
+      // Look for # Context Buffer Summary section within the summary content
+      const contextContent = summaryMatch[1].trim();
+      return contextContent; 
+    }
+    
+    return null;
   };
   
   // Poll for updates if in processing state
@@ -406,6 +428,22 @@ export default function CapsuleView() {
       return dateString;
     }
   };
+  
+  // Debug function to examine the summary context
+  const debugSummaryContext = () => {
+    if (!record?.summaryContext) return "";
+    
+    // Extract content between summary tags
+    const summaryMatch = record.summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
+    
+    if (summaryMatch && summaryMatch[1]) {
+      console.log("Summary content found:", summaryMatch[1]);
+      return summaryMatch[1].trim();
+    } else {
+      console.log("No summary content found in:", record.summaryContext);
+      return "";
+    }
+  };
 
   if (isLoading) {
     return (
@@ -443,6 +481,13 @@ export default function CapsuleView() {
   // Extract context summary content
   const contextSummary = extractContextSummary(record.summaryContext);
   const hasContextSummary = !!contextSummary;
+  
+  // For debugging
+  if (record.summaryContext) {
+    console.log("summaryContext exists:", record.summaryContext?.substring(0, 100) + "...");
+    const summaryResult = debugSummaryContext();
+    console.log("Debug Result:", summaryResult?.substring(0, 100) + "...");
+  }
   
   return (
     <Box style={{ 
@@ -628,6 +673,20 @@ export default function CapsuleView() {
                         <Trash size={16} />
                       </ActionIcon>
                     )}
+          </Box>
+        </Box>
+      </Flex>
+      
+      <FileSelector 
+        opened={isFileSelectorOpen}
+        onClose={() => setIsFileSelectorOpen(false)}
+        onSelect={handleFileSelect}
+        capsuleId={capsuleId}
+        existingFileIds={record?.files?.map(f => f._id) || record?.fileIds || []}
+      />
+    </Box>
+  );
+}
                   </Group>
                   
                   {showDeleteConfirm === file._id && (
@@ -726,10 +785,10 @@ export default function CapsuleView() {
             border: '1px solid #2b2b2b',
             padding: '20px'
           }}>
-            {hasContextSummary ? (
+            {record.summaryContext ? (
               <Box>
                 <DocumentMarkdownWrapper 
-                  markdown={contextSummary as string} 
+                  markdown={contextSummary || record.summaryContext.replace(/<scratchpad>[\s\S]*?<\/scratchpad>/, "")} 
                 />
                 
                 {record.highlights && record.highlights.length > 0 && (
@@ -820,17 +879,3 @@ export default function CapsuleView() {
                 )}
               </Stack>
             )}
-          </Box>
-        </Box>
-      </Flex>
-      
-      <FileSelector 
-        opened={isFileSelectorOpen}
-        onClose={() => setIsFileSelectorOpen(false)}
-        onSelect={handleFileSelect}
-        capsuleId={capsuleId}
-        existingFileIds={record?.files?.map(f => f._id) || record?.fileIds || []}
-      />
-    </Box>
-  );
-}
