@@ -192,16 +192,39 @@ export const documentOperations = {
  * Enhanced Shrinked Data Provider
  */
 export const shrinkedDataProvider = (
+  // apiUrl is still passed but we will override it for capsules
   apiUrl: string,
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
+
+  // --- MINIMAL CHANGE: Helper to get correct base URL ---
+  const getBaseUrl = (resource: string, meta?: any): string => {
+	if (meta?.url) {
+		return meta.url; // Always respect explicit meta.url
+	}
+	if (resource === 'capsules') {
+		// Force capsules resource to use the proxy route
+		return '/api/capsules-proxy';
+	}
+	 // --- For other resources, use the original logic (will call direct API unless other proxies exist) ---
+	 // --- THIS WILL LIKELY CAUSE CORS for non-capsule resources! ---
+	return `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
+  };
+  // --- END MINIMAL CHANGE ---
+
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	  // Respect meta.url if provided, otherwise construct default URL
-	  const url = meta?.url || `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
-	  
+	  // --- MINIMAL CHANGE: Use getBaseUrl ---
+	  const baseUrl = getBaseUrl(resource, meta);
+	  // Construct final URL based on whether baseUrl already includes resource path
+	  const url = baseUrl.includes(`/${resource}`) ? baseUrl : `${baseUrl}`; // capsules-proxy already implies /capsules
+	  // --- END MINIMAL CHANGE ---
+
 	  const { current = 1, pageSize = 10 } = pagination ?? {};
-	  
+
+	  // Add Authorization header using authUtils
+	  const headers = authUtils.getAuthHeaders(meta?.headers); // Merge existing meta headers
+
 	  const { data } = await httpClient.get(url, {
 		params: {
 		  page: current,
@@ -209,104 +232,141 @@ export const shrinkedDataProvider = (
 		  ...generateFilters(filters),
 		  ...generateSort(sorters),
 		},
-		headers: meta?.headers,
+		// headers: meta?.headers, // Use merged headers below
+		headers: headers, // Pass merged headers
 	  });
-	  
+
 	  return {
-		data: data.data || data,
-		total: data.total || (data.data || data).length,
+		data: data.data || data, // Adjust based on your API response structure
+		total: data.total ?? (Array.isArray(data.data) ? data.data.length : (Array.isArray(data) ? data.length : 0)), // Better total calculation
 	  };
 	},
-	
+
 	getOne: async ({ resource, id, meta }) => {
-	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
-	  const url = meta?.url || 
-		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}/${id}`;
-	  
-	  const { data } = await httpClient.get(url, {
-		headers: meta?.headers,
-	  });
-	  
-	  return { data };
+	   // --- MINIMAL CHANGE: Use getBaseUrl and construct URL ---
+	   const baseUrl = getBaseUrl(resource, meta);
+	   // Append ID if the base URL doesn't already contain it (might happen with meta.url)
+	   const url = `${baseUrl}/${id}`;
+	   // --- END MINIMAL CHANGE ---
+
+	   // Add Authorization header
+	   const headers = authUtils.getAuthHeaders(meta?.headers);
+
+	   const { data } = await httpClient.get(url, {
+		  // headers: meta?.headers,
+		  headers: headers,
+	   });
+
+	   return { data };
 	},
-	
+
 	create: async ({ resource, variables, meta }) => {
-	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
-	  const url = meta?.url || 
-		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}`;
-	  
-	  const { data } = await httpClient.post(url, variables, {
-		headers: meta?.headers,
-	  });
-	  
-	  return { data };
+	   // --- MINIMAL CHANGE: Use getBaseUrl and construct URL ---
+	   const baseUrl = getBaseUrl(resource, meta);
+	   const url = baseUrl.includes(`/${resource}`) ? baseUrl : `${baseUrl}`; // Base proxy URL for create
+	   // --- END MINIMAL CHANGE ---
+
+		// Add Authorization header
+	   const headers = authUtils.getAuthHeaders(meta?.headers);
+
+	   const { data } = await httpClient.post(url, variables, {
+		  // headers: meta?.headers,
+		  headers: headers,
+	   });
+
+	   return { data };
 	},
-	
+
 	update: async ({ resource, id, variables, meta }) => {
-	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
-	  const url = meta?.url || 
-		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}/${id}`;
-	  
-	  const { data } = await httpClient.patch(url, variables, {
-		headers: meta?.headers,
-	  });
-	  
-	  return { data };
+	   // --- MINIMAL CHANGE: Use getBaseUrl and construct URL ---
+	   const baseUrl = getBaseUrl(resource, meta);
+	   const url = `${baseUrl}/${id}`;
+	   // --- END MINIMAL CHANGE ---
+
+		// Add Authorization header
+	   const headers = authUtils.getAuthHeaders(meta?.headers);
+
+	   const { data } = await httpClient.patch(url, variables, {
+		  // headers: meta?.headers,
+		  headers: headers,
+	   });
+
+	   return { data };
 	},
-	
+
 	deleteOne: async ({ resource, id, variables, meta }) => {
-	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
-	  const url = meta?.url || 
-		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}/${id}`;
-	  
-	  const { data } = await httpClient.delete(url, {
-		data: variables,
-		headers: meta?.headers,
-	  });
-	  
-	  return { data };
+	   // --- MINIMAL CHANGE: Use getBaseUrl and construct URL ---
+	   const baseUrl = getBaseUrl(resource, meta);
+	   const url = `${baseUrl}/${id}`; // DELETE targets specific resource
+	   // --- END MINIMAL CHANGE ---
+
+		// Add Authorization header
+	   const headers = authUtils.getAuthHeaders(meta?.headers);
+
+	   const { data } = await httpClient.delete(url, {
+		 data: variables,
+		 // headers: meta?.headers,
+		 headers: headers,
+	   });
+
+	   return { data };
 	},
-	
+
+	// getMany might need adjustment depending on how your proxy handles /api/capsules-proxy?ids=1,2,3
 	getMany: async ({ resource, ids, meta }) => {
-	  // Use meta.url if provided, otherwise construct URL without /key/ for capsules
-	  const url = meta?.url || 
-		`${apiUrl}/${resource}${resource === "jobs" || resource === "capsules" ? "" : "/key"}`;
-	  
-	  const { data } = await httpClient.get(url, {
-		params: { ids: ids.join(",") },
-		headers: meta?.headers,
-	  });
-	  
-	  return { data };
+	   // --- MINIMAL CHANGE: Use getBaseUrl ---
+	   const baseUrl = getBaseUrl(resource, meta);
+	   const url = baseUrl.includes(`/${resource}`) ? baseUrl : `${baseUrl}`;
+		// --- END MINIMAL CHANGE ---
+
+	   // Add Authorization header
+	   const headers = authUtils.getAuthHeaders(meta?.headers);
+
+	   // Assuming the proxy or backend handles `ids` query param correctly
+	   const { data } = await httpClient.get(url, {
+		 params: { ids: ids.join(",") },
+		 // headers: meta?.headers,
+		 headers: headers,
+	   });
+
+	   return { data };
 	},
-	
-	getApiUrl: () => apiUrl,
-	
+
+	getApiUrl: () => '/api', // Return the proxy base path now
+
+	// Custom method needs careful handling - ensure `url` passed is the proxy URL
 	custom: async ({ url, method, payload, query, headers }) => {
-	  let axiosResponse;
-	  
-	  switch (method) {
-		case "put":
-		case "post":
-		case "patch":
-		  axiosResponse = await httpClient[method](url, payload, { headers });
-		  break;
-		case "delete":
-		  axiosResponse = await httpClient.delete(url, {
-			data: payload,
-			headers: headers,
-		  });
-		  break;
-		default:
-		  axiosResponse = await httpClient.get(url, {
-			params: query,
-			headers,
-		  });
-		  break;
-	  }
-	  
-	  const { data } = axiosResponse;
-	  return { data };
+		// --- MINIMAL CHANGE: Add Auth Header ---
+		const authHeaders = authUtils.getAuthHeaders(headers);
+		// --- END MINIMAL CHANGE ---
+
+		let axiosResponse;
+		const targetUrl = url; // Assume 'url' passed to custom IS the correct proxy url
+
+		console.log(`[DataProvider Custom] Method: ${method}, URL: ${targetUrl}`); // Debug log
+
+		switch (method) {
+			case "put":
+			case "post":
+			case "patch":
+				axiosResponse = await httpClient[method](targetUrl, payload, { headers: authHeaders });
+				break;
+			case "delete":
+				axiosResponse = await httpClient.delete(targetUrl, {
+					data: payload,
+					headers: authHeaders,
+				});
+				break;
+			default: // GET
+				axiosResponse = await httpClient.get(targetUrl, {
+					params: query,
+					headers: authHeaders, // Use authHeaders
+				});
+				break;
+		}
+
+		const { data } = axiosResponse;
+		return { data };
 	}
   };
 };
