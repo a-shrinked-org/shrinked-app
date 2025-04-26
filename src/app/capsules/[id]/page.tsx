@@ -136,36 +136,91 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
       
-      // Updated to use the correct API endpoint for files
-      const response = await fetch(`/api/processing/files?ids=${fileIds.join(',')}`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Extract user ID for API call
+      let userId = '';
+      try {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
+      } catch (e) {
+        console.warn('Could not extract user ID from token');
+      }
       
-      if (!response.ok) {
-        // If the first endpoint fails, try a fallback
-        console.log("[CapsuleView] First endpoint failed, trying fallback...");
-        const fallbackResponse = await fetch(`/api/document/files?ids=${fileIds.join(',')}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!fallbackResponse.ok) {
-          throw new Error(`Failed to fetch file details: ${response.status}`);
-        }
-        
-        const filesData = await fallbackResponse.json();
-        if (filesData && Array.isArray(filesData)) {
-          setLoadedFiles(filesData);
-          console.log("[CapsuleView] File details loaded from fallback:", filesData);
-        }
-      } else {
-        const filesData = await response.json();
-        if (filesData && Array.isArray(filesData)) {
-          setLoadedFiles(filesData);
-          console.log("[CapsuleView] File details loaded:", filesData);
+      // If we couldn't extract the userId, try to get it from the profile
+      if (!userId) {
+        try {
+          const profileResponse = await fetch(`${API_CONFIG.API_URL}/users/profile`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          
+          if (profileResponse.ok) {
+            const profile = await profileResponse.json();
+            userId = profile._id || profile.id || '';
+          }
+        } catch (error) {
+          console.error("Failed to get user profile:", error);
         }
       }
+      
+      if (!userId) {
+        // If we still don't have a userId, try using the userId from the record
+        userId = record?.userId || '';
+      }
+      
+      if (!userId) {
+        throw new Error('Could not determine user ID for file lookup');
+      }
+      
+      // Try fetching documents using the processing endpoint first
+      try {
+        const response = await fetch(`${API_CONFIG.API_URL}/processing/user/${userId}/documents`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        
+        if (response.ok) {
+          const allDocs = await response.json();
+          // Filter to just the files we need
+          if (Array.isArray(allDocs)) {
+            const matchingFiles = allDocs.filter(doc => fileIds.includes(doc._id));
+            if (matchingFiles.length > 0) {
+              setLoadedFiles(matchingFiles);
+              return; // Success - exit early
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[CapsuleView] Error fetching from processing API:", error);
+      }
+      
+      // First approach didn't work - try direct IDs approach
+      try {
+        const idsParam = fileIds.join(',');
+        const response = await fetch(`${API_CONFIG.API_URL}/processing/files?ids=${idsParam}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        
+        if (response.ok) {
+          const filesData = await response.json();
+          if (filesData && Array.isArray(filesData)) {
+            setLoadedFiles(filesData);
+            return; // Success - exit early
+          }
+        }
+      } catch (error) {
+        console.error("[CapsuleView] Error fetching files by ID:", error);
+      }
+      
+      // Last resort - create placeholder files
+      console.log("[CapsuleView] Creating placeholder files for display");
+      const placeholders = fileIds.map(id => ({
+        _id: id,
+        title: `File ${id.substring(id.length - 6)}`,
+        createdAt: new Date().toISOString()
+      }));
+      setLoadedFiles(placeholders);
+      
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
       // Not setting error message to avoid UI disruption
