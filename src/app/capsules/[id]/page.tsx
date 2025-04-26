@@ -2,8 +2,8 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
-import { 
-  Text, 
+import {
+  Text,
   Box,
   Group,
   Button,
@@ -14,10 +14,10 @@ import {
   Flex,
   Stack,
   Title,
-  Divider
+  // Divider // Not used, removed
 } from '@mantine/core';
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   RefreshCw,
   Download,
   Plus,
@@ -28,30 +28,31 @@ import {
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
-import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
+import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper"; // Ensure path is correct
 import { GeistMono } from 'geist/font/mono';
-import FileSelector from '@/components/FileSelector';
+import FileSelector from '@/components/FileSelector'; // Ensure path is correct
 
 interface Identity {
   token?: string;
   email?: string;
   name?: string;
-  id?: string;
+  id?: string; // User ID from identity
 }
 
-interface File {
+interface FileData { // Renamed from File to avoid conflict with Lucide icon
   _id: string;
   title: string;
   createdAt: string;
+  // Add other relevant fields if needed
 }
 
 interface Capsule {
   _id: string;
   name: string;
   slug: string;
-  files: File[];
-  fileIds?: string[]; 
-  userId: string;
+  files: FileData[]; // Use FileData type
+  fileIds?: string[];
+  userId: string; // User ID owning the capsule
   output?: {
     title?: string;
     abstract?: string;
@@ -70,457 +71,302 @@ interface Capsule {
 export default function CapsuleView() {
   const params = useParams();
   const { list } = useNavigation();
+  // Ensure capsuleId is extracted correctly, even if params.id is an array
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
-  
-  const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
-  
-  const { handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
-  
+
+  const { data: identity } = useGetIdentity<Identity>(); // No refetch needed here typically
+
+  const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
+
   const { queryResult } = useShow<Capsule>({
-    resource: "capsules",
-    id: capsuleId,
+    // --- FIX: Let data provider handle URL ---
+    resource: "capsules", // Tell Refine the resource type
+    id: capsuleId,       // Provide the ID
+    // meta: { // Remove meta.url override
+    //   url: `/api/capsule/${capsuleId}` // This was causing the double ID issue
+    // },
+    // --- END FIX ---
     queryOptions: {
-      enabled: !!capsuleId && !!identity?.token,
-      staleTime: 30000,
-      retry: false,
-      refetchInterval: (data) => {
-        return data?.data?.status === 'PROCESSING' ? 5000 : false;
+      enabled: !!capsuleId && !!identity?.token, // Only run if ID and token exist
+      staleTime: 30000, // Cache for 30s
+      retry: 1, // Retry once on error
+      refetchInterval: (query) => {
+          // Check query.state.data instead of the deprecated argument
+          const currentStatus = query?.state?.data?.data?.status;
+          return currentStatus === 'PROCESSING' ? 5000 : false; // Poll every 5s if processing
       },
       onSuccess: (data) => {
-        console.log("[CapsuleView] Capsule data loaded:", data);
+        console.log("[CapsuleView] Capsule data loaded:", data?.data);
         if (data?.data?.status === 'COMPLETED' && isRegenerating) {
-          setIsRegenerating(false);
+          setIsRegenerating(false); // Stop regeneration loading state
         }
-        
-        if (data?.data?.summaryContext && data?.data?.fileIds && 
-            (!data?.data?.files || data?.data?.files.length === 0)) {
-          fetchFileDetails(data.data.fileIds);
+        // Trigger file detail fetching if needed
+        if (data?.data?.fileIds && (!data.data.files || data.data.files.length === 0)) {
+            fetchFileDetails(data.data.fileIds);
         }
       },
       onError: (error) => {
         console.error("[CapsuleView] Error loading capsule:", error);
-        handleAuthError(error);
-        const message = error.status === 404 
-          ? "Capsule not found. Please check the capsule ID or create a new one."
-          : "Failed to load capsule details: " + (error.message || "Unknown error");
+        handleAuthError(error); // Use central error handler
+        const message = error.statusCode === 404
+          ? "Capsule not found. It may have been deleted or the ID is incorrect."
+          : "Failed to load capsule details: " + (error.message || "Please try again.");
         setErrorMessage(message);
       }
     },
-    meta: {
-      headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` },
-      url: `/api/capsule/${capsuleId}`
-    }
   });
-  
-  const { data, isLoading, isError, refetch } = queryResult;
-  const record = data?.data;
-  
+
+  const { data: capsuleData, isLoading, isError, refetch } = queryResult;
+  const record = capsuleData?.data; // Access the actual capsule data
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
-  const [lastFileIds, setLastFileIds] = useState<string[]>([]);
-  const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
-  const [loadedFiles, setLoadedFiles] = useState<File[]>([]);
+  const [addedFileIds, setAddedFileIds] = useState<string[]>([]); // Track recently added files for highlight
+  const [loadedFiles, setLoadedFiles] = useState<FileData[]>([]); // State for fetched file details
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  
-  // Fetch file details if we have fileIds but no files
-  const fetchFileDetails = async (fileIds: string[]) => {
-    if (!fileIds || fileIds.length === 0) return;
-    
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null); // Track which file delete is confirming
+
+  // Fetch file details if only fileIds are present
+  const fetchFileDetails = useCallback(async (fileIds: string[]) => {
+    if (!fileIds || fileIds.length === 0 || !identity?.id) {
+        console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or user ID.", {fileIds: fileIds?.length, userId: identity?.id});
+        return;
+    }
+
+    setIsLoadingFiles(true);
+    console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for user ${identity.id}`);
+
     try {
-      setIsLoadingFiles(true);
-      console.log(`[CapsuleView] Fetching details for ${fileIds.length} files`);
-      
-      const token = await ensureValidToken();
-      if (!token) throw new Error('Authentication failed - unable to get valid token');
-      
-      // Extract user ID for API call
-      let userId = '';
-      try {
-        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-        userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
-      } catch (e) {
-        console.warn('Could not extract user ID from token');
+      // Assuming you have a documents proxy or endpoint
+      // Use fetchWithAuth to handle token automatically
+      // Example endpoint: /api/documents?userId=<userId>&ids=<id1,id2,...>&fields=_id,title,createdAt,output.title
+      const fields = '_id,title,status,createdAt,output.title'; // Define needed fields
+      const idsParam = fileIds.join(',');
+      // Use the proxy for documents if available
+      const response = await fetchWithAuth(`/api/documents-proxy?userId=${identity.id}&ids=${idsParam}&fields=${fields}`);
+
+      if (!response.ok) {
+          throw new Error(`Failed to fetch file details: ${response.status}`);
       }
-      
-      // If we couldn't extract the userId, try to get it from the profile
-      if (!userId) {
-        try {
-          const response = await fetch(`/api/users/profile`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          
-          if (response.ok) {
-            const profile = await response.json();
-            userId = profile._id || profile.id || '';
-          }
-        } catch (error) {
-          console.error("Failed to get user profile:", error);
-        }
+
+      const filesData = await response.json();
+
+      if (filesData && Array.isArray(filesData)) {
+        const processedFiles = filesData.map((file: any) => ({
+          _id: file._id,
+          title: file.output?.title || file.title || `File ${file._id.slice(-6)}`, // Provide fallback title
+          createdAt: file.createdAt || new Date().toISOString(), // Provide fallback date
+        }));
+        setLoadedFiles(processedFiles);
+        console.log("[CapsuleView] Successfully loaded file details:", processedFiles);
+      } else {
+         console.warn("[CapsuleView] File details response was not an array:", filesData);
+         // Create placeholders if fetch fails or returns unexpected data
+         throw new Error("Invalid data format received");
       }
-      
-      if (!userId) {
-        // If we still don't have a userId, try using the userId from the record
-        userId = record?.userId || '';
-      }
-      
-      if (!userId) {
-        throw new Error('Could not determine user ID for file lookup');
-      }
-      
-      // Define the fields we want to retrieve to minimize data transfer
-      const fields = '_id,title,status,createdAt,output.title';
-      
-      // Try fetching documents using the processing endpoint first with field filtering
-      try {
-        const response = await fetch(`/api/processing/user/${userId}/documents?fields=${fields}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        
-        if (response.ok) {
-          const allDocs = await response.json();
-          // Filter to just the files we need
-          if (Array.isArray(allDocs)) {
-            const matchingFiles = allDocs.filter(doc => fileIds.includes(doc._id));
-            if (matchingFiles.length > 0) {
-              // Process files to ensure titles are properly set
-              const processedFiles = matchingFiles.map(file => ({
-                ...file,
-                title: file.output?.title || file.title || `File ${file._id.substring(file._id.length - 6)}`
-              }));
-              setLoadedFiles(processedFiles);
-              return; // Success - exit early
-            }
-          }
-        }
-      } catch (error) {
-        console.error("[CapsuleView] Error fetching from processing API:", error);
-      }
-      
-      // First approach didn't work - try direct IDs approach with field filtering
-      try {
-        const idsParam = fileIds.join(',');
-        const response = await fetch(`/api/processing/files?ids=${idsParam}&fields=${fields}`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        
-        if (response.ok) {
-          const filesData = await response.json();
-          if (filesData && Array.isArray(filesData)) {
-            // Process files to ensure titles are properly set
-            const processedFiles = filesData.map(file => ({
-              ...file,
-              title: file.output?.title || file.title || `File ${file._id.substring(file._id.length - 6)}`
-            }));
-            setLoadedFiles(processedFiles);
-            return; // Success - exit early
-          }
-        }
-      } catch (error) {
-        console.error("[CapsuleView] Error fetching files by ID:", error);
-      }
-      
-      // Last resort - create placeholder files
-      console.log("[CapsuleView] Creating placeholder files for display");
-      const placeholders = fileIds.map(id => ({
-        _id: id,
-        title: `File ${id.substring(id.length - 6)}`,
-        createdAt: new Date().toISOString()
-      }));
-      setLoadedFiles(placeholders);
-      
+
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
-      // Not setting error message to avoid UI disruption
+      // Create placeholders as a fallback
+       console.log("[CapsuleView] Creating placeholder files due to fetch error.");
+       const placeholders = fileIds.map(id => ({
+          _id: id,
+          title: `File ${id.slice(-6)}`,
+          createdAt: new Date().toISOString()
+       }));
+       setLoadedFiles(placeholders);
+      // Optionally set an error message for the user
+      // setErrorMessage("Could not load full file details.");
     } finally {
       setIsLoadingFiles(false);
     }
-  };
-  
-  // Extract only the context summary content, ignoring other sections
-  const extractContextSummary = (summaryContext?: string) => {
-    if (!summaryContext) return null;
-    
-    // Look for content between <summary> tags
-    const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
-    
-    if (summaryMatch && summaryMatch[1]) {
-      // Return the content between summary tags, trimmed
-      return summaryMatch[1].trim();
-    }
-    
-    // If no summary tags found, just return the whole content
-    return summaryContext; 
-  };
-  
-  // Poll for updates if in processing state
+  }, [identity?.id, fetchWithAuth]); // Depend on userId and fetchWithAuth
+
+  // Trigger initial fetch if needed
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-    
-    if (record?.status === 'PROCESSING') {
-      intervalId = setInterval(() => {
-        refetch();
-      }, 5000);
-    }
-    
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [record?.status, refetch]);
-  
+      if (record?.fileIds && (!record.files || record.files.length === 0) && loadedFiles.length === 0) {
+          fetchFileDetails(record.fileIds);
+      }
+  // Only run when record.fileIds changes or initially if loadedFiles is empty
+  }, [record?.fileIds, record?.files, loadedFiles.length, fetchFileDetails]);
+
+
+  // Simplified function to extract summary
+  const extractContextSummary = (summaryContext?: string): string | null => {
+    if (!summaryContext) return null;
+    const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
+    return summaryMatch?.[1]?.trim() ?? summaryContext.trim(); // Return content or trimmed original
+  };
+
+
   const handleRegenerateCapsule = useCallback(async () => {
     if (!capsuleId) return;
-    
+
+    setIsRegenerating(true);
+    setErrorMessage(null);
+
     try {
-      setIsRegenerating(true);
-      setErrorMessage(null);
-      
       console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
-      const token = await ensureValidToken();
-      if (!token) throw new Error('Authentication failed - unable to get valid token');
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-      const response = await fetch(`/api/capsule/${capsuleId}/regenerate`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: controller.signal
+      // Use fetchWithAuth to handle token and call the correct proxy
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { // Use proxy
+        method: 'POST', // Often regeneration is a POST, adjust if backend expects GET
       });
-      clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to regenerate capsule: ${response.status}`);
+        throw new Error(errorData.message || `Failed to trigger regeneration: ${response.status}`);
       }
-      
-      // Refresh data after a short delay to allow processing to start
-      setTimeout(() => refetch(), 1000);
-      console.log("[CapsuleView] Regenerate request sent successfully");
-      
+
+      // Optionally parse response if it contains immediate status update
+      // const result = await response.json();
+      console.log("[CapsuleView] Regenerate request sent successfully.");
+
+      // Refresh data after a short delay to allow processing status to update
+      setTimeout(() => refetch(), 1500);
+
     } catch (error: any) {
       console.error("[CapsuleView] Failed to regenerate capsule:", error);
-      const message = error instanceof Error 
-        ? error.name === 'AbortError' 
-          ? "Request timed out while regenerating capsule. Please try again."
-          : error.message 
-        : String(error);
-      setErrorMessage(message);
-      setIsRegenerating(false);
+      setErrorMessage(error.message || "Failed to start regeneration.");
+      setIsRegenerating(false); // Ensure loading state stops on error
     }
-  }, [capsuleId, ensureValidToken, refetch]);
+     // Note: isRegenerating state will be turned off by onSuccess when status changes from PROCESSING to COMPLETED
+  }, [capsuleId, fetchWithAuth, refetch]);
+
 
   const handleAddFile = useCallback(() => {
     setIsFileSelectorOpen(true);
   }, []);
-  
+
+
   const handleFileSelect = useCallback(async (fileIds: string[]) => {
     if (!capsuleId || fileIds.length === 0) return;
-    
+
+    setIsAddingFiles(true);
+    setErrorMessage(null);
+    setAddedFileIds([]); // Clear previous highlights
+
     try {
-      setIsAddingFiles(true);
-      setErrorMessage(null);
-      setLastFileIds(fileIds);
-      
       console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
-      const token = await ensureValidToken();
-      if (!token) throw new Error('Authentication failed - unable to get valid token');
-      
-      // Track which file IDs were successfully added
-      const successfullyAddedIds: string[] = [];
-      
-      const BATCH_SIZE = 5;
-      const batches = [];
-      for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
-        batches.push(fileIds.slice(i, i + BATCH_SIZE));
+
+      // Use fetchWithAuth to add files via the proxy
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files`, { // Use proxy
+        method: 'POST',
+        body: JSON.stringify({ fileIds }), // fetchWithAuth adds headers
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to add files: ${response.status}`);
       }
-      
-      console.log(`[CapsuleView] Processing ${batches.length} batches of files`);
-      
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        console.log(`[CapsuleView] Sending batch ${i + 1}/${batches.length} with ${batch.length} files: ${JSON.stringify(batch)}`);
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
-        const response = await fetch(`/api/capsule/${capsuleId}/files`, {
-          method: 'POST',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ fileIds: batch }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to add files in batch ${i + 1}: ${response.status}`);
-        }
-        
-        // Add successful file IDs to our tracking array
-        successfullyAddedIds.push(...batch);
-        
-        console.log(`[CapsuleView] Batch ${i + 1}/${batches.length} added successfully`);
-        if (i < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-      
-      // Store the successfully added file IDs
-      setAddedFileIds(successfullyAddedIds);
-      
-      // Refetch to update the file list
-      refetch();
-      
-      // Start regeneration if files were added
-      if (successfullyAddedIds.length > 0) {
-        await handleRegenerateCapsule();
-      }
-      
-      console.log("[CapsuleView] All files added successfully");
-      
+
+      // Success
+      setAddedFileIds(fileIds); // Highlight newly added files
+      console.log("[CapsuleView] Files added successfully via proxy.");
+      refetch(); // Update capsule data (which should include new fileIds)
+
+      // Automatically trigger regeneration after adding files
+      await handleRegenerateCapsule();
+
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
-      const message = error instanceof Error 
-        ? error.name === 'AbortError' 
-          ? "Request timed out while adding files. Try selecting fewer files or retry."
-          : error.message 
-        : String(error);
-      setErrorMessage(message);
+      setErrorMessage(error.message || "An error occurred while adding files.");
     } finally {
       setIsAddingFiles(false);
-      setIsFileSelectorOpen(false);  // Close the file selector
+      setIsFileSelectorOpen(false);
     }
-  }, [capsuleId, ensureValidToken, handleRegenerateCapsule, refetch]);
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule]);
 
-  const handleRetry = useCallback(() => {
-    if (lastFileIds.length > 0) {
-      handleFileSelect(lastFileIds);
-    }
-  }, [lastFileIds, handleFileSelect]);
 
-  const handleRemoveFile = useCallback(async (fileId: string) => {
-  if (!capsuleId || !fileId) return;
-  
-  try {
-    setErrorMessage(null);
+  const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
+    if (!capsuleId || !fileIdToRemove) return;
+
+    // Optimistic UI: Hide confirmation immediately
+    const currentFiles = record?.files || loadedFiles;
+    const optimisticFiles = currentFiles.filter(f => f._id !== fileIdToRemove);
+    // Note: Optimistic UI update for displayFiles list is complex due to two sources (record.files / loadedFiles)
+    // For simplicity, we rely on refetch after successful deletion for now.
+
     setShowDeleteConfirm(null);
-    
-    console.log(`[CapsuleView] Removing file: ${fileId}`);
-    const token = await ensureValidToken();
-    if (!token) throw new Error('Authentication failed - unable to get valid token');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-    
-    // Fixed request headers - only include Authorization
-    const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
-      method: 'DELETE',
-      headers: { 
-        'Authorization': `Bearer ${token}`
-      },
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          // If response is not JSON, try to get text
-          const textError = await response.text().catch(() => null);
-          errorData = { error: textError || `Failed to remove file: ${response.status}` };
-        }
-        
-        console.error(`[CapsuleView] File removal error:`, {
-          status: response.status,
-          statusText: response.statusText,
-          data: errorData
-        });
-        
-        throw new Error(
-          errorData.error || errorData.message || `Failed to remove file: ${response.status}`
-        );
+    setErrorMessage(null);
+
+    try {
+      console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
+      // Use fetchWithAuth for the DELETE request via proxy
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files/${fileIdToRemove}`, { // Use proxy
+        method: 'DELETE',
+      });
+
+      // Check for success (200 OK or 204 No Content)
+      if (!response.ok && response.status !== 204) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
       }
-      
-      // Refresh data to update file list
-      refetch();
-      console.log("[CapsuleView] File removed successfully");
-      
-      // If we have at least one file left, regenerate the capsule
-      if ((record?.files?.length || 0) > 1) {
+
+      console.log("[CapsuleView] File removed successfully via proxy.");
+      refetch(); // Refresh data to update file list
+
+      // Regenerate only if files remain
+      if (optimisticFiles.length > 0) {
+        console.log("[CapsuleView] Files remain, triggering regeneration.");
         await handleRegenerateCapsule();
+      } else {
+         console.log("[CapsuleView] No files remain, skipping regeneration.");
       }
-      
+
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
-      const message = error instanceof Error 
-        ? error.name === 'AbortError' 
-          ? "Request timed out while removing file. Please try again."
-          : error.message 
-        : String(error);
-      setErrorMessage(message);
+      setErrorMessage(error.message || "An error occurred while removing the file.");
+      // Revert optimistic UI if needed (or rely on refetch)
     }
-  }, [capsuleId, ensureValidToken, refetch, record?.files?.length, handleRegenerateCapsule]);
+    // No finally needed as confirmation is hidden at start
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles]);
 
-  const handleDownloadMarkdown = useCallback(async () => {
-    if (!record?.summaryContext) return;
-    
+
+  const handleDownloadMarkdown = useCallback(() => {
+    const summary = extractContextSummary(record?.summaryContext);
+    if (!summary || !record) return;
+
     try {
-      console.log("[CapsuleView] Downloading markdown");
-      let content = "";
-      
-      const contextSummary = extractContextSummary(record.summaryContext);
-      if (contextSummary) {
-        content = contextSummary;
-      } else {
-        throw new Error("No content available to download");
-      }
-      
-      const blob = new Blob([content], { type: 'text/markdown' });
+      console.log("[CapsuleView] Preparing markdown download");
+      const blob = new Blob([summary], { type: 'text/markdown;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${record.name || 'capsule'}.md`;
+      link.download = `${record.slug || record.name || 'capsule'}.md`; // Use slug or name for filename
       document.body.appendChild(link);
       link.click();
-      
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("[CapsuleView] Failed to download markdown:", error);
-      setErrorMessage(error instanceof Error ? error.message : String(error));
+      setErrorMessage("Could not prepare download.");
     }
   }, [record]);
 
   const handleBackToList = useCallback(() => {
-    list("capsules");
+    list("capsules"); // Navigate back to the capsules list view
   }, [list]);
 
-  const formatDate = (dateString: string) => {
+  // Helper to format date strings
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return "N/A";
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
       });
     } catch (e) {
-      return dateString;
+      return dateString; // Return original if parsing fails
     }
   };
 
+  // --- Render Logic ---
+
   if (isLoading) {
     return (
-      <Box p="md">
-        <LoadingOverlay visible={true} />
+      <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
+        <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
       </Box>
     );
   }
@@ -528,391 +374,255 @@ export default function CapsuleView() {
   if (isError || !record) {
     return (
       <Box p="md">
-        <Alert 
-          color="red" 
+        <Alert
+          color="red"
           title="Error Loading Capsule"
           icon={<AlertCircle size={16} />}
+          mb="md"
         >
-          {errorMessage || "Failed to load capsule details. Please try again later."}
+          {errorMessage || "Could not load capsule details. Please check the ID or try again."}
         </Alert>
-        <Button mt="md" onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
-          Back to Capsules
+        <Button onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
+          Back to Capsules List
         </Button>
       </Box>
     );
   }
 
-  // Get files either from record.files or loadedFiles
-  const displayFiles = record.files && record.files.length > 0 
-    ? record.files 
-    : loadedFiles;
-    
-  const hasFiles = displayFiles && displayFiles.length > 0;
-  const isProcessing = record.status === 'PROCESSING';
-  
-  // Extract context summary content
+  // Determine which files to display
+  const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
+  const hasFiles = displayFiles.length > 0;
+  const isProcessing = record.status === 'PROCESSING' || isRegenerating; // Combine processing/regenerating states
+
   const contextSummary = extractContextSummary(record.summaryContext);
   const hasContextSummary = !!contextSummary;
-  
+
   return (
-    <Box style={{ 
-      backgroundColor: '#0a0a0a', 
-      minHeight: '100vh', 
-      padding: '24px'
-    }}>
-      <Group mb="xl" justify="space-between">
-        <Group>
-          <ActionIcon 
-            size="lg" 
-            variant="subtle" 
-            onClick={handleBackToList}
-            style={{ color: '#a0a0a0' }}
-          >
+    // Main container styling
+    <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
+      {/* Header Section */}
+      <Group mb="xl" justify="space-between" align="center">
+        {/* Left Header: Back button, Title, Status */}
+        <Group align="center">
+          <ActionIcon size="lg" variant="subtle" onClick={handleBackToList} style={{ color: '#a0a0a0' }}>
             <ArrowLeft size={20} />
           </ActionIcon>
-          <Text 
-            size="xl" 
-            fw={600}
-            style={{ 
-              fontFamily: GeistMono.style.fontFamily,
-              letterSpacing: '0.5px'
-            }}
-          >
+          <Title order={3} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#ffffff' }}>
             {record.name || "Unnamed Capsule"}
-          </Text>
-          <Badge 
-            color={
-              record.status === 'COMPLETED' || record.status === 'ready' ? 'green' : 
-              record.status === 'PROCESSING' ? 'yellow' : 
-              record.status === 'PENDING' ? 'blue' : 
-              'gray'
-            }
-            variant="filled"
-            style={{ textTransform: 'uppercase' }}
-          >
+          </Title>
+          <Badge
+             variant="filled"
+             color={
+               record.status === 'COMPLETED' ? 'green' :
+               record.status === 'PROCESSING' ? 'yellow' :
+               record.status === 'PENDING' ? 'blue' :
+               record.status === 'FAILED' ? 'red' :
+               'gray'
+             }
+             style={{ textTransform: 'uppercase', marginLeft: '8px' }}
+           >
             {record.status || 'Unknown'}
           </Badge>
         </Group>
-        
+
+        {/* Right Header: Action Buttons */}
         <Group>
-          <Button 
-            variant="default" 
-            leftSection={<Plus size={16} />} 
-            onClick={handleAddFile} 
+          <Button
+            variant="default"
+            leftSection={<Plus size={16} />}
+            onClick={handleAddFile}
             loading={isAddingFiles}
-            disabled={isRegenerating || isProcessing}
-            styles={{
-              root: {
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#2b2b2b',
-                },
-              },
-            }}
+            disabled={isProcessing} // Disable if processing/regenerating
+            styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
             Add Files
           </Button>
-          <Button 
-            variant="default" 
-            leftSection={<RefreshCw size={16} />} 
+          <Button
+            variant="default"
+            leftSection={<RefreshCw size={16} />}
             onClick={handleRegenerateCapsule}
-            loading={isRegenerating || isProcessing}
-            disabled={!hasFiles || isAddingFiles}
-            styles={{
-              root: {
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#2b2b2b',
-                },
-              },
-            }}
+            loading={isProcessing} // Show loading if processing/regenerating
+            disabled={!hasFiles || isAddingFiles} // Disable if no files or adding files
+             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
             {isProcessing ? 'Processing...' : 'Regenerate'}
           </Button>
-          <Button 
+          <Button
             variant="default"
             leftSection={<Download size={16} />}
             onClick={handleDownloadMarkdown}
-            disabled={!hasContextSummary || isProcessing || isRegenerating}
-            styles={{
-              root: {
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#2b2b2b',
-                },
-              },
-            }}
+            disabled={!hasContextSummary || isProcessing} // Disable if no summary or processing
+             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
-            Download
+            Download MD
           </Button>
         </Group>
       </Group>
-      
+
+      {/* General Error Alert */}
       {errorMessage && (
-        <Alert 
-          color="red" 
-          title="Error" 
-          mb="md"
-          icon={<AlertCircle size={16} />}
-        >
+        <Alert color="red" title="Action Required" mb="md" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setErrorMessage(null)}>
           {errorMessage}
-          {errorMessage.includes("timed out") && lastFileIds.length > 0 && (
-            <Button
-              mt="sm"
-              onClick={handleRetry}
-              leftSection={<RefreshCw size={16} />}
-              styles={{
-                root: {
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  '&:hover': { backgroundColor: '#E09612' },
-                },
-              }}
-            >
-              Retry
-            </Button>
-          )}
         </Alert>
       )}
 
+      {/* Main Content Layout */}
       <Flex gap="xl">
-        <Box 
-          w={330} 
-          style={{ 
-            backgroundColor: '#131313', 
-            padding: '16px', 
-            borderRadius: '8px', 
-            border: '1px solid #2b2b2b'
-          }}
+        {/* Left Panel: Source Files */}
+        <Box
+          w={330} // Fixed width for file list
+          style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}
         >
-          <Title 
-            order={4}
-            mb="md"
-            ta="center"
-            style={{ 
-              fontFamily: GeistMono.style.fontFamily,
-              letterSpacing: '0.5px'
-            }}
-          >
+          <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
             SOURCE FILES
           </Title>
-          
+
+          {/* File List or Placeholder */}
           {hasFiles ? (
-            <Stack gap="md" style={{ 
-              maxHeight: 'calc(100vh - 250px)',
-              overflowY: 'auto'
-            }}>
+            <Stack gap="sm" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
               {displayFiles.map((file) => (
                 <Box
                   key={file._id}
                   style={{
                     backgroundColor: '#1a1a1a',
                     borderRadius: '6px',
-                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
-                    overflow: 'hidden'
+                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b', // Highlight recently added
+                    overflow: 'hidden',
+                    transition: 'border-color 0.3s ease'
                   }}
                 >
-                  <Group 
-                    justify="space-between"
-                    p="sm" 
-                    style={{ 
-                      borderBottom: showDeleteConfirm === file._id ? '1px solid #2b2b2b' : 'none'
-                    }}
-                  >
-                    <Group>
-                      <File size={16} style={{ opacity: 0.7 }} />
-                      <Text size="sm" lineClamp={1} style={{ maxWidth: '180px' }}>
-                        {file.title}
-                      </Text>
+                  {/* File Header: Title and Delete Button */}
+                  <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
+                     <Group gap="xs" align="center">
+                        <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
+                        <Text size="sm" lineClamp={1} title={file.title} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
+                            {file.title}
+                        </Text>
                     </Group>
                     {showDeleteConfirm !== file._id && (
-                      <ActionIcon 
-                        color="red" 
+                      <ActionIcon
+                        color="red"
                         variant="subtle"
                         onClick={() => setShowDeleteConfirm(file._id)}
-                        disabled={isRegenerating || isAddingFiles || isProcessing}
+                        disabled={isProcessing}
+                        title="Remove file"
                       >
                         <Trash size={16} />
                       </ActionIcon>
                     )}
                   </Group>
-                  
+
+                  {/* Delete Confirmation */}
                   {showDeleteConfirm === file._id && (
-                    <Group p="xs" justify="space-between" gap="xs" style={{ backgroundColor: '#151515' }}>
-                      <Text size="xs" c="dimmed">Delete this file?</Text>
-                      <Group gap="xs">
-                        <Button 
-                          size="xs" 
-                          variant="outline" 
-                          color="gray"
-                          onClick={() => setShowDeleteConfirm(null)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          size="xs" 
-                          color="red"
-                          onClick={() => handleRemoveFile(file._id)}
-                        >
-                          Delete
-                        </Button>
-                      </Group>
-                    </Group>
+                    <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
+                       <Group justify="space-between" gap="xs">
+                          <Text size="xs" c="dimmed">Delete file?</Text>
+                          <Group gap="xs">
+                            <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
+                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)}>Delete</Button>
+                          </Group>
+                       </Group>
+                    </Box>
                   )}
-                  
-                  <Text 
-                    size="xs" 
-                    c="dimmed" 
-                    p="xs" 
-                    style={{ 
-                      backgroundColor: '#151515',
-                      borderTop: '1px solid #2b2b2b',
-                      display: showDeleteConfirm === file._id ? 'none' : 'block'
-                    }}
-                  >
-                    {formatDate(file.createdAt)}
-                  </Text>
+
+                   {/* File Footer: Date (only show if not confirming delete) */}
+                   {showDeleteConfirm !== file._id && (
+                     <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
+                         <Text size="xs" c="dimmed" ta="right">
+                             {formatDate(file.createdAt)}
+                         </Text>
+                     </Box>
+                   )}
                 </Box>
               ))}
             </Stack>
-          ) : record.fileIds && record.fileIds.length > 0 ? (
-            <Box>
-              {isLoadingFiles ? (
-                <LoadingOverlay visible={true} />
-              ) : (
-                <Alert color="blue" title="Files Available">
-                  {record.fileIds.length} file(s) attached to this capsule.
-                </Alert>
-              )}
-            </Box>
           ) : (
-            <Alert color="blue" title="No Files Added">
-              Add files to your capsule to get started.
+            // Placeholder when no files are added
+            <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16}/>} style={{borderColor: '#2b2b2b'}}>
+              Add source documents to your capsule using the button below.
             </Alert>
           )}
-          
-          <Button 
-            fullWidth 
-            mt="md" 
-            leftSection={<Plus size={16} />} 
+
+          {/* Add Files Button (at bottom of panel) */}
+          <Button
+            fullWidth
+            mt="md"
+            leftSection={<Plus size={16} />}
             onClick={handleAddFile}
-            disabled={isRegenerating || isAddingFiles || isProcessing}
+            disabled={isProcessing}
             loading={isAddingFiles}
-            styles={{
-              root: {
-                backgroundColor: '#F5A623',
-                color: '#000000',
-                '&:hover': {
-                  backgroundColor: '#E09612',
-                },
-              },
-            }}
+            styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
           >
             Add Files
           </Button>
         </Box>
-        
+
+        {/* Right Panel: Context Summary */}
         <Box style={{ flex: 1 }}>
-          <Box style={{ 
-            fontSize: '1.2rem', 
-            fontWeight: 600, 
-            marginBottom: '10px',
-            borderBottom: '1px solid #2b2b2b',
-            paddingBottom: '10px',
-            color: '#F5A623'
-          }}>
-            Context
-          </Box>
-          
-          <Box style={{ 
-            backgroundColor: '#131313', 
-            borderRadius: '0 0 8px 8px', 
-            minHeight: 'calc(100vh - 250px)',
-            maxHeight: 'calc(100vh - 250px)',
-            overflowY: 'auto',
-            border: '1px solid #2b2b2b',
-            padding: '20px'
-          }}>
-            {record.summaryContext ? (
-              <Box>
-                <DocumentMarkdownWrapper 
-                  markdown={contextSummary || record.summaryContext.replace(/<scratchpad>[\s\S]*?<\/scratchpad>/, "")} 
-                />
-                {/* Highlights are temporarily hidden */}
-              </Box>
-            ) : (
-              <Stack align="center" justify="center" style={{ height: '100%', p: '20px' }}>
-                {isProcessing || isRegenerating ? (
-                  <>
-                    <Text mb="md" fw={600}>Generating context summary...</Text>
+          {/* Context Header */}
+           <Box style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '10px', borderBottom: '1px solid #2b2b2b', paddingBottom: '10px', color: '#F5A623' }}>
+              Capsule Context
+           </Box>
+
+          {/* Context Content Area */}
+          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px' }}>
+            {isProcessing ? (
+                 // Loading state while processing/regenerating
+                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0' }}>
+                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Generating context...</Text>
                     <Text ta="center" c="dimmed" mb="md">
-                      We&apos;re processing your files and generating a capsule summary. 
-                      This may take a few minutes.
+                       Analyzing files and creating the capsule summary. This might take a moment.
                     </Text>
-                    <LoadingOverlay visible={true} />
-                  </>
-                ) : hasFiles ? (
-                  <>
-                    <Text mb="md" fw={600}>Ready to generate</Text>
+                 </Stack>
+            ) : hasContextSummary ? (
+                // Display generated context
+                <DocumentMarkdownWrapper markdown={contextSummary} />
+            ) : hasFiles ? (
+                 // State when files are present but no summary yet (needs regeneration)
+                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
-                      You&apos;ve added files to your capsule. Click the &quot;Regenerate&quot; button 
-                      to analyze them and generate a summary.
+                        Click the "Regenerate" button to analyze the added files and create the context summary.
                     </Text>
-                    <Button 
+                    <Button
                       leftSection={<RefreshCw size={16} />}
                       onClick={handleRegenerateCapsule}
-                      styles={{
-                        root: {
-                          backgroundColor: '#F5A623',
-                          color: '#000000',
-                          '&:hover': {
-                            backgroundColor: '#E09612',
-                          },
-                        },
-                      }}
+                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
                     >
                       Generate Summary
                     </Button>
-                  </>
-                ) : (
-                  <>
+                </Stack>
+            ) : (
+                 // State when no files and no summary (needs files added)
+                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                    <Text mb="md" fw={600}>No content yet</Text>
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                     <Text ta="center" c="dimmed" mb="xl">
-                      Add files to your capsule first, then generate a summary to see it here.
+                        Add files to your capsule first, then generate a summary to see the context here.
                     </Text>
-                    <Button 
+                    <Button
                       leftSection={<Plus size={16} />}
                       onClick={handleAddFile}
-                      styles={{
-                        root: {
-                          backgroundColor: '#F5A623',
-                          color: '#000000',
-                          '&:hover': {
-                            backgroundColor: '#E09612',
-                          },
-                        },
-                      }}
+                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
                     >
                       Add Files
                     </Button>
-                  </>
-                )}
-              </Stack>
+                </Stack>
             )}
           </Box>
         </Box>
       </Flex>
-      
-      <FileSelector 
+
+      {/* File Selector Modal */}
+      <FileSelector
         opened={isFileSelectorOpen}
         onClose={() => setIsFileSelectorOpen(false)}
         onSelect={handleFileSelect}
         capsuleId={capsuleId}
-        existingFileIds={record?.files?.map(f => f._id) || record?.fileIds || []}
+        // Pass only the IDs of files already associated with the capsule
+        existingFileIds={record?.fileIds || []}
       />
     </Box>
   );
