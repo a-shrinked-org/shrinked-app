@@ -40,66 +40,58 @@ interface Capsule {
 
 export default function CapsuleDirectPage() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
-  // Destructure handleAuthError here but don't necessarily include in every useCallback dep array
+  // Destructure handleAuthError here
   const { fetchWithAuth, handleAuthError, getAccessToken } = useAuth();
   const router = useRouter();
-  // const { create } = useNavigation(); // Using fetch directly
 
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showCreateUI, setShowCreateUI] = useState(false); // State to control showing create UI
+  const [showCreateUI, setShowCreateUI] = useState(false);
 
   // Fetch user's capsules
   const { data, isLoading, refetch } = useList<Capsule>({
-    resource: "capsules", // Resource name for Refine
+    resource: "capsules",
     queryOptions: {
-      enabled: !!identity?.token, // Only fetch if logged in
-      staleTime: 15000, // Cache for 15 seconds
-      refetchOnWindowFocus: false, // Don't refetch just on focus
+      enabled: !!identity?.token,
+      staleTime: 15000,
+      refetchOnWindowFocus: false,
       onSuccess: (fetchedData) => {
-        console.log("[CapsuleDirectPage] Fetched capsules:", fetchedData.data);
+        // console.log("[CapsuleDirectPage] Fetched capsules:", fetchedData.data);
         if (fetchedData.data.length > 0) {
-          // --- Redirect Logic Restored ---
           const firstCapsule = fetchedData.data[0];
           console.log("[CapsuleDirectPage] Found existing capsule, redirecting to:", firstCapsule._id);
-          // Redirect to the first capsule found
           router.push(`/capsules/${firstCapsule._id}`);
-          // --- END Redirect Logic ---
         } else {
           console.log("[CapsuleDirectPage] No capsules found, showing create UI.");
-          setShowCreateUI(true); // Explicitly set state to show create UI
-          setErrorMessage(null); // Clear any previous errors
+          setShowCreateUI(true);
+          setErrorMessage(null);
         }
       },
       onError: (error) => {
         console.error("[CapsuleDirectPage] Error fetching capsules:", error);
-        handleAuthError(error); // Use central error handler
+        handleAuthError(error);
         setErrorMessage("Failed to load your capsule information. Please try again later.");
-        setShowCreateUI(false); // Don't show create UI if there was an error loading
+        setShowCreateUI(false);
       }
     },
     pagination: {
-      mode: 'off' // We only need to know if *any* exist
+      mode: 'off'
     },
-    // Let the dataProvider handle the URL construction
   });
 
   const handleCreateCapsule = useCallback(async () => {
     setIsCreating(true);
     setErrorMessage(null);
-    setShowCreateUI(false); // Hide create UI while creating
+    setShowCreateUI(false);
 
     try {
       console.log("[CapsuleDirectPage] Creating new capsule via proxy...");
-      const response = await fetchWithAuth('/api/capsules-proxy', { // Use the proxy URL
+      const response = await fetchWithAuth('/api/capsules-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          // Optionally send a default name, or let backend handle it
-          // name: "My New Capsule"
-        })
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -118,31 +110,23 @@ export default function CapsuleDirectPage() {
          throw new Error("Created capsule response did not include an ID.");
       }
       console.log("[CapsuleDirectPage] Created capsule:", result._id);
-
-      // Redirect to the newly created capsule's view page
       router.push(`/capsules/${result._id}`);
 
     } catch (error) {
       console.error("[CapsuleDirectPage] Failed to create capsule:", error);
       const errorMsg = error instanceof Error ? error.message : "Failed to create capsule";
-      setErrorMessage(errorMsg); // Set specific error message
-      handleAuthError(error); // Also pass to central handler if needed
-      setShowCreateUI(true); // Show create UI again on error
+      setErrorMessage(errorMsg);
+      handleAuthError(error); // Also pass to central handler
+      setShowCreateUI(true);
     } finally {
       setIsCreating(false);
     }
-  // --- ESLint FIX: Removed handleAuthError from dependency array ---
-  }, [fetchWithAuth, router]);
+  // --- ESLint FIX: Added handleAuthError back into dependency array ---
+  }, [fetchWithAuth, router, handleAuthError]);
   // --- END ESLint FIX ---
 
 
-  // We only render the "Create" UI if loading is complete and no capsules were found (setShowCreateUI is true)
   const shouldShowCreateCard = !isLoading && !identityLoading && showCreateUI;
-
-  useEffect(() => {
-    // Log state changes for debugging
-    // console.log("[CapsuleDirectPage] State Update:", { identityLoading, isLoading, showCreateUI, hasError: !!errorMessage });
-  }, [identityLoading, isLoading, showCreateUI, errorMessage]);
 
   // Loading State
   if (isLoading || identityLoading) {
@@ -185,7 +169,6 @@ export default function CapsuleDirectPage() {
         CAPSULE
       </Title>
 
-      {/* Show General Error Message if loading failed */}
       {errorMessage && !shouldShowCreateCard && (
          <Alert
           icon={<AlertCircle size={16} />}
@@ -199,7 +182,6 @@ export default function CapsuleDirectPage() {
         </Alert>
       )}
 
-      {/* Show "Create Capsule" Card */}
       {shouldShowCreateCard && (
          <Card p="xl" radius="md" style={{
             backgroundColor: '#131313',
@@ -212,7 +194,6 @@ export default function CapsuleDirectPage() {
               <Text ta="center" c="dimmed" mb="xl">
                 A capsule helps you organize and analyze multiple documents together.
               </Text>
-              {/* Display error specific to creation if it occurred */}
               {errorMessage && (
                  <Alert color="red" title="Creation Failed" mb="md" icon={<AlertCircle size={16}/>}>
                      {errorMessage}
@@ -220,7 +201,7 @@ export default function CapsuleDirectPage() {
               )}
               <Button
                 leftSection={<Plus size={16} />}
-                onClick={handleCreateCapsule} // Directly call create handler
+                onClick={handleCreateCapsule}
                 loading={isCreating}
                 size="md"
                 styles={{
@@ -239,13 +220,11 @@ export default function CapsuleDirectPage() {
           </Card>
       )}
 
-      {/* Fallback text if loading finished but redirect hasn't happened yet (should be brief) */}
       {!isLoading && !identityLoading && !showCreateUI && !errorMessage && (
           <Box style={{ padding: '24px', textAlign: 'center' }}>
             <Text c="dimmed">Loading your capsule...</Text>
           </Box>
       )}
-
     </Box>
   );
 }

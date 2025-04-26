@@ -14,6 +14,7 @@ import {
   Flex,
   Stack,
   Title,
+  // Divider // Not used, removed
 } from '@mantine/core';
 import {
   ArrowLeft,
@@ -92,7 +93,7 @@ export default function CapsuleView() {
           return currentStatus === 'PROCESSING' ? 5000 : false; // Poll every 5s if processing
       },
       onSuccess: (data) => {
-        console.log("[CapsuleView] Capsule data loaded:", data?.data);
+        // console.log("[CapsuleView] Capsule data loaded:", data?.data);
         if (data?.data?.status === 'COMPLETED' && isRegenerating) {
           setIsRegenerating(false); // Stop regeneration loading state
         }
@@ -160,7 +161,7 @@ export default function CapsuleView() {
           createdAt: file.createdAt || new Date().toISOString(), // Provide fallback date
         }));
         setLoadedFiles(processedFiles);
-        console.log("[CapsuleView] Successfully loaded file details:", processedFiles);
+        // console.log("[CapsuleView] Successfully loaded file details:", processedFiles);
       } else {
          console.warn("[CapsuleView] File details response was not an array:", filesData);
          throw new Error("Invalid data format received for file details");
@@ -503,7 +504,7 @@ export default function CapsuleView() {
                         variant="subtle"
                         onClick={() => setShowDeleteConfirm(file._id)}
                         disabled={isProcessing}
-                        // --- ESLint FIX: Replace quotes in title ---
+                        // --- ESLint FIX: Replace quotes in title with " ---
                         title="Remove file"
                         // --- END ESLint FIX ---
                       >
