@@ -406,30 +406,28 @@ export default function CapsuleView() {
   }, [lastFileIds, handleFileSelect]);
 
   const handleRemoveFile = useCallback(async (fileId: string) => {
-    if (!capsuleId || !fileId) return;
+  if (!capsuleId || !fileId) return;
+  
+  try {
+    setErrorMessage(null);
+    setShowDeleteConfirm(null);
     
-    try {
-      setErrorMessage(null);
-      setShowDeleteConfirm(null);
-      
-      console.log(`[CapsuleView] Removing file: ${fileId}`);
-      const token = await ensureValidToken();
-      if (!token) throw new Error('Authentication failed - unable to get valid token');
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-      
-      // The correct URL format to match the API endpoint
-      // Make sure this URL is correct based on how your Next.js API routes are set up
-      const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
-        method: 'DELETE',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+    console.log(`[CapsuleView] Removing file: ${fileId}`);
+    const token = await ensureValidToken();
+    if (!token) throw new Error('Authentication failed - unable to get valid token');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+    
+    // Fixed request headers - only include Authorization
+    const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
+      method: 'DELETE',
+      headers: { 
+        'Authorization': `Bearer ${token}`
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
       
       if (!response.ok) {
         let errorData;
