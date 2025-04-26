@@ -171,9 +171,12 @@ export default function CapsuleView() {
         throw new Error('Could not determine user ID for file lookup');
       }
       
-      // Try fetching documents using the processing endpoint first
+      // Define the fields we want to retrieve to minimize data transfer
+      const fields = '_id,title,status,createdAt,output.title';
+      
+      // Try fetching documents using the processing endpoint first with field filtering
       try {
-        const response = await fetch(`/api/processing/user/${userId}/documents`, {
+        const response = await fetch(`/api/processing/user/${userId}/documents?fields=${fields}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -184,7 +187,12 @@ export default function CapsuleView() {
           if (Array.isArray(allDocs)) {
             const matchingFiles = allDocs.filter(doc => fileIds.includes(doc._id));
             if (matchingFiles.length > 0) {
-              setLoadedFiles(matchingFiles);
+              // Process files to ensure titles are properly set
+              const processedFiles = matchingFiles.map(file => ({
+                ...file,
+                title: file.output?.title || file.title || `File ${file._id.substring(file._id.length - 6)}`
+              }));
+              setLoadedFiles(processedFiles);
               return; // Success - exit early
             }
           }
@@ -193,10 +201,10 @@ export default function CapsuleView() {
         console.error("[CapsuleView] Error fetching from processing API:", error);
       }
       
-      // First approach didn't work - try direct IDs approach
+      // First approach didn't work - try direct IDs approach with field filtering
       try {
         const idsParam = fileIds.join(',');
-        const response = await fetch(`/api/processing/files?ids=${idsParam}`, {
+        const response = await fetch(`/api/processing/files?ids=${idsParam}&fields=${fields}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -204,7 +212,12 @@ export default function CapsuleView() {
         if (response.ok) {
           const filesData = await response.json();
           if (filesData && Array.isArray(filesData)) {
-            setLoadedFiles(filesData);
+            // Process files to ensure titles are properly set
+            const processedFiles = filesData.map(file => ({
+              ...file,
+              title: file.output?.title || file.title || `File ${file._id.substring(file._id.length - 6)}`
+            }));
+            setLoadedFiles(processedFiles);
             return; // Success - exit early
           }
         }
@@ -229,7 +242,7 @@ export default function CapsuleView() {
     }
   };
   
-  // Extract only the context summary content, ignoring scratchpad
+  // Extract only the context summary content, ignoring other sections
   const extractContextSummary = (summaryContext?: string) => {
     if (!summaryContext) return null;
     
@@ -237,12 +250,12 @@ export default function CapsuleView() {
     const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
     
     if (summaryMatch && summaryMatch[1]) {
-      // Look for # Context Buffer Summary section within the summary content
-      const contextContent = summaryMatch[1].trim();
-      return contextContent; 
+      // Return the content between summary tags, trimmed
+      return summaryMatch[1].trim();
     }
     
-    return null;
+    // If no summary tags found, just return the whole content
+    return summaryContext; 
   };
   
   // Poll for updates if in processing state
@@ -808,34 +821,7 @@ export default function CapsuleView() {
                 <DocumentMarkdownWrapper 
                   markdown={contextSummary || record.summaryContext.replace(/<scratchpad>[\s\S]*?<\/scratchpad>/, "")} 
                 />
-                
-                {record.highlights && record.highlights.length > 0 && (
-                  <>
-                    <Divider my="lg" label="Highlights" labelPosition="center" />
-                    <Stack gap="md">
-                      {record.highlights.map((highlight, index) => {
-                        // Simple XML parsing to extract field name and content
-                        const nameMatch = highlight.xml.match(/<field_name>([\s\S]*?)<\/field_name>/);
-                        const contentMatch = highlight.xml.match(/<field_content>([\s\S]*?)<\/field_content>/);
-                        
-                        if (!nameMatch || !contentMatch) return null;
-                        
-                        return (
-                          <Box key={index} p="md" style={{ 
-                            backgroundColor: '#1a1a1a', 
-                            borderRadius: '4px',
-                            border: '1px solid #2b2b2b' 
-                          }}>
-                            <Title order={4} mb="xs">{nameMatch[1]}</Title>
-                            <DocumentMarkdownWrapper 
-                              markdown={contentMatch[1]} 
-                            />
-                          </Box>
-                        );
-                      })}
-                    </Stack>
-                  </>
-                )}
+                {/* Highlights are temporarily hidden */}
               </Box>
             ) : (
               <Stack align="center" justify="center" style={{ height: '100%', p: '20px' }}>
