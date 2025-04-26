@@ -1,5 +1,7 @@
+// In app/api/capsules/[...path]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
+
 /**
  * Universal capsule proxy handler that forwards all requests to the API
  * Uses Next.js catch-all route parameter to handle any path structure
@@ -39,19 +41,30 @@ async function handleRequest(
 		'Content-Type': 'application/json'
 	  },
 	  credentials: 'omit',
-	  keepalive: true // Optimize connection handling
+	  keepalive: true 
 	};
 	
 	if (['POST', 'PUT', 'PATCH'].includes(method)) {
-	  const body = await request.json().catch(err => {
+	  try {
+		const body = await request.json();
+		options.body = JSON.stringify(body);
+	  } catch (err) {
 		console.error("[Capsule Proxy] Error parsing request body:", err);
-		return {};
-	  });
-	  options.body = JSON.stringify(body);
+		// For empty body requests, continue without body
+	  }
 	}
 	
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+	
+	// More detailed logging for DELETE method
+	if (method === 'DELETE') {
+	  console.log(`[Capsule Proxy] DELETE request details:
+		- Full URL: ${apiUrl}
+		- Auth header present: ${!!authHeader}
+		- Path segments: ${JSON.stringify(pathSegments)}
+	  `);
+	}
 	
 	const response = await fetch(apiUrl, {
 	  ...options,
@@ -71,27 +84,40 @@ async function handleRequest(
 	let data;
 	
 	if (contentType.includes('application/json')) {
-	  data = await response.json().catch(error => {
+	  try {
+		data = await response.json();
+	  } catch (error) {
 		console.error(`[Capsule Proxy] Error parsing JSON response:`, error);
-		return { 
+		return NextResponse.json({ 
 		  error: "Failed to parse API response",
 		  status: response.status
-		};
-	  });
+		}, { status: response.status });
+	  }
 	} else {
-	  console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}`);
-	  data = { 
-		error: `Unexpected response format`,
-		message: `Expected JSON but got ${contentType}`,
-		status: response.status 
-	  };
+	  // For non-JSON responses, try to get text
+	  try {
+		const textContent = await response.text();
+		console.warn(`[Capsule Proxy] Non-JSON response: ${contentType}, text preview: ${textContent.substring(0, 100)}`);
+		
+		return NextResponse.json({ 
+		  error: `Unexpected response format`,
+		  message: `Expected JSON but got ${contentType}`,
+		  status: response.status,
+		  textPreview: textContent.substring(0, 200)
+		}, { status: response.status });
+	  } catch (err) {
+		console.error(`[Capsule Proxy] Failed to extract text from response:`, err);
+		return NextResponse.json({ 
+		  error: `Failed to process response`,
+		  status: response.status
+		}, { status: response.status });
+	  }
 	}
 	
 	return NextResponse.json(data, { status: response.status });
   } catch (error: unknown) {
 	console.error(`[Capsule Proxy] Error in ${method} handler:`, error);
 	
-	// Fixed error handling with proper type checking
 	let status = 500;
 	let errorMessage = "Unknown error";
 	

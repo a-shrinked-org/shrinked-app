@@ -418,17 +418,38 @@ export default function CapsuleView() {
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
-      // Fixed URL path to match the API endpoint pattern
-      const response = await fetch(`/api/capsules/${capsuleId}/files/${fileId}`, {
+      
+      // The correct URL format to match the API endpoint
+      // Make sure this URL is correct based on how your Next.js API routes are set up
+      const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         signal: controller.signal
       });
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to remove file: ${response.status}`);
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If response is not JSON, try to get text
+          const textError = await response.text().catch(() => null);
+          errorData = { error: textError || `Failed to remove file: ${response.status}` };
+        }
+        
+        console.error(`[CapsuleView] File removal error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          data: errorData
+        });
+        
+        throw new Error(
+          errorData.error || errorData.message || `Failed to remove file: ${response.status}`
+        );
       }
       
       // Refresh data to update file list
