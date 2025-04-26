@@ -7,16 +7,14 @@ import {
   Box,
   Group,
   Button,
-  Tabs,
   LoadingOverlay,
   ActionIcon,
   Badge,
   Alert,
-  Code,
   Flex,
   Stack,
-  Divider,
-  Title
+  Title,
+  Divider
 } from '@mantine/core';
 import { 
   ArrowLeft, 
@@ -25,7 +23,8 @@ import {
   Plus,
   Trash,
   AlertCircle,
-  FileText
+  FileText,
+  File
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -51,7 +50,7 @@ interface Capsule {
   name: string;
   slug: string;
   files: File[];
-  fileIds?: string[]; // Added fileIds property
+  fileIds?: string[]; 
   userId: string;
   output?: {
     title?: string;
@@ -85,7 +84,6 @@ export default function CapsuleView() {
       staleTime: 30000,
       retry: false,
       refetchInterval: (data) => {
-        // Poll for updates if the capsule is in processing state
         return data?.data?.status === 'PROCESSING' ? 5000 : false;
       },
       onSuccess: (data) => {
@@ -94,7 +92,6 @@ export default function CapsuleView() {
           setIsRegenerating(false);
         }
         
-        // If we have summaryContext but no files loaded yet, fetch file details
         if (data?.data?.summaryContext && data?.data?.fileIds && 
             (!data?.data?.files || data?.data?.files.length === 0)) {
           fetchFileDetails(data.data.fileIds);
@@ -118,7 +115,6 @@ export default function CapsuleView() {
   const { data, isLoading, isError, refetch } = queryResult;
   const record = data?.data;
   
-  const [activeTab, setActiveTab] = useState("context"); // Changed default tab to context
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
@@ -127,6 +123,7 @@ export default function CapsuleView() {
   const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
   const [loadedFiles, setLoadedFiles] = useState<File[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   
   // Fetch file details if we have fileIds but no files
   const fetchFileDetails = async (fileIds: string[]) => {
@@ -162,22 +159,13 @@ export default function CapsuleView() {
     }
   };
   
-  // Extract summary content from summaryContext if available
-  const extractSummaryContent = (summaryContext?: string) => {
+  // Extract only the context summary content, ignoring scratchpad
+  const extractContextSummary = (summaryContext?: string) => {
     if (!summaryContext) return null;
     
-    // Extract content between <summary> tags
-    const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
-    return summaryMatch ? summaryMatch[1].trim() : null;
-  };
-
-  // Extract scratchpad content if available
-  const extractScratchpadContent = (summaryContext?: string) => {
-    if (!summaryContext) return null;
-    
-    // Extract content between <scratchpad> tags
-    const scratchpadMatch = summaryContext.match(/<scratchpad>([\s\S]*?)<\/scratchpad>/);
-    return scratchpadMatch ? scratchpadMatch[1].trim() : null;
+    // Look for # Context Buffer Summary section
+    const contextMatch = summaryContext.match(/<summary>\s*(# Context Buffer Summary[\s\S]*?)(?:<\/summary>|$)/);
+    return contextMatch ? contextMatch[1].trim() : null;
   };
   
   // Poll for updates if in processing state
@@ -332,6 +320,7 @@ export default function CapsuleView() {
     
     try {
       setErrorMessage(null);
+      setShowDeleteConfirm(null);
       
       console.log(`[CapsuleView] Removing file: ${fileId}`);
       const token = await ensureValidToken();
@@ -372,22 +361,16 @@ export default function CapsuleView() {
   }, [capsuleId, ensureValidToken, refetch, record?.files?.length, handleRegenerateCapsule]);
 
   const handleDownloadMarkdown = useCallback(async () => {
-    if (!record?.output?.content && !record?.summaryContext) return;
+    if (!record?.summaryContext) return;
     
     try {
       console.log("[CapsuleView] Downloading markdown");
       let content = "";
       
-      if (record?.output?.content) {
-        content = record.output.content;
-      } else if (record?.summaryContext) {
-        const summaryContent = extractSummaryContent(record.summaryContext);
-        if (summaryContent) {
-          content = summaryContent;
-        }
-      }
-      
-      if (!content) {
+      const contextSummary = extractContextSummary(record.summaryContext);
+      if (contextSummary) {
+        content = contextSummary;
+      } else {
         throw new Error("No content available to download");
       }
       
@@ -410,6 +393,19 @@ export default function CapsuleView() {
   const handleBackToList = useCallback(() => {
     list("capsules");
   }, [list]);
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -442,13 +438,11 @@ export default function CapsuleView() {
     : loadedFiles;
     
   const hasFiles = displayFiles && displayFiles.length > 0;
-  const hasOutput = record.output && record.output.content;
   const isProcessing = record.status === 'PROCESSING';
   
-  // Extract summary and scratchpad content
-  const summaryContent = extractSummaryContent(record.summaryContext);
-  const scratchpadContent = extractScratchpadContent(record.summaryContext);
-  const hasSummary = !!summaryContent;
+  // Extract context summary content
+  const contextSummary = extractContextSummary(record.summaryContext);
+  const hasContextSummary = !!contextSummary;
   
   return (
     <Box style={{ 
@@ -531,7 +525,7 @@ export default function CapsuleView() {
             variant="default"
             leftSection={<Download size={16} />}
             onClick={handleDownloadMarkdown}
-            disabled={(!hasOutput && !hasSummary) || isProcessing || isRegenerating}
+            disabled={!hasContextSummary || isProcessing || isRegenerating}
             styles={{
               root: {
                 borderColor: '#2b2b2b',
@@ -576,7 +570,7 @@ export default function CapsuleView() {
 
       <Flex gap="xl">
         <Box 
-          w={300} 
+          w={330} 
           style={{ 
             backgroundColor: '#131313', 
             padding: '16px', 
@@ -584,8 +578,8 @@ export default function CapsuleView() {
             border: '1px solid #2b2b2b'
           }}
         >
-          <Text 
-            fw={600} 
+          <Title 
+            order={4}
             mb="md"
             ta="center"
             style={{ 
@@ -594,32 +588,84 @@ export default function CapsuleView() {
             }}
           >
             SOURCE FILES
-          </Text>
+          </Title>
           
           {hasFiles ? (
-            <Stack gap="sm" style={{ 
+            <Stack gap="md" style={{ 
               maxHeight: 'calc(100vh - 250px)',
               overflowY: 'auto'
             }}>
               {displayFiles.map((file) => (
-                <Group key={file._id} justify="space-between" style={{ 
-                  padding: '8px 12px', 
-                  borderRadius: '4px', 
-                  backgroundColor: '#1a1a1a',
-                  // Highlight newly added files
-                  border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid transparent'
-                }}>
-                  <Text size="sm" lineClamp={1} style={{ flex: 1 }}>
-                    {file.title}
-                  </Text>
-                  <ActionIcon 
-                    color="red" 
-                    onClick={() => handleRemoveFile(file._id)}
-                    disabled={isRegenerating || isAddingFiles || isProcessing}
+                <Box
+                  key={file._id}
+                  style={{
+                    backgroundColor: '#1a1a1a',
+                    borderRadius: '6px',
+                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <Group 
+                    position="apart" 
+                    p="sm" 
+                    style={{ 
+                      borderBottom: showDeleteConfirm === file._id ? '1px solid #2b2b2b' : 'none'
+                    }}
                   >
-                    <Trash size={16} />
-                  </ActionIcon>
-                </Group>
+                    <Group>
+                      <File size={16} style={{ opacity: 0.7 }} />
+                      <Text size="sm" lineClamp={1} style={{ maxWidth: '180px' }}>
+                        {file.title}
+                      </Text>
+                    </Group>
+                    {showDeleteConfirm !== file._id && (
+                      <ActionIcon 
+                        color="red" 
+                        variant="subtle"
+                        onClick={() => setShowDeleteConfirm(file._id)}
+                        disabled={isRegenerating || isAddingFiles || isProcessing}
+                      >
+                        <Trash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+                  
+                  {showDeleteConfirm === file._id && (
+                    <Group p="xs" position="apart" spacing="xs" style={{ backgroundColor: '#151515' }}>
+                      <Text size="xs" c="dimmed">Delete this file?</Text>
+                      <Group spacing="xs">
+                        <Button 
+                          size="xs" 
+                          variant="outline" 
+                          color="gray"
+                          onClick={() => setShowDeleteConfirm(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          size="xs" 
+                          color="red"
+                          onClick={() => handleRemoveFile(file._id)}
+                        >
+                          Delete
+                        </Button>
+                      </Group>
+                    </Group>
+                  )}
+                  
+                  <Text 
+                    size="xs" 
+                    c="dimmed" 
+                    p="xs" 
+                    style={{ 
+                      backgroundColor: '#151515',
+                      borderTop: '1px solid #2b2b2b',
+                      display: showDeleteConfirm === file._id ? 'none' : 'block'
+                    }}
+                  >
+                    {formatDate(file.createdAt)}
+                  </Text>
+                </Box>
               ))}
             </Stack>
           ) : record.fileIds && record.fileIds.length > 0 ? (
@@ -660,264 +706,121 @@ export default function CapsuleView() {
         </Box>
         
         <Box style={{ flex: 1 }}>
-          <Tabs 
-            value={activeTab} 
-            onChange={(value) => setActiveTab(value as string)}
-            styles={{
-              list: {
-                borderBottom: '1px solid #2b2b2b',
-              },
-              tab: {
-                color: '#a0a0a0',
-                '&[data-active]': {
-                  color: '#F5A623',
-                },
-              },
-            }}
-          >
-            <Tabs.List>
-              <Tabs.Tab value="context">Context</Tabs.Tab>
-              <Tabs.Tab value="thinking" disabled={!scratchpadContent}>Thinking</Tabs.Tab>
-              <Tabs.Tab value="source">Source</Tabs.Tab>
-            </Tabs.List>
-            
-            <Tabs.Panel value="context">
-              <Box p="md" style={{ 
-                backgroundColor: '#131313', 
-                borderRadius: '0 0 8px 8px', 
-                minHeight: 'calc(100vh - 250px)',
-                maxHeight: 'calc(100vh - 250px)',
-                overflowY: 'auto',
-                border: '1px solid #2b2b2b',
-                borderTop: 'none'
-              }}>
-                {hasSummary ? (
-                  <Box>
-                    <DocumentMarkdownWrapper 
-                      markdown={summaryContent as string} 
-                    />
-                    
-                    {record.highlights && record.highlights.length > 0 && (
-                      <>
-                        <Divider my="lg" label="Highlights" labelPosition="center" />
-                        <Stack gap="md">
-                          {record.highlights.map((highlight, index) => {
-                            // Simple XML parsing to extract field name and content
-                            const nameMatch = highlight.xml.match(/<field_name>([\s\S]*?)<\/field_name>/);
-                            const contentMatch = highlight.xml.match(/<field_content>([\s\S]*?)<\/field_content>/);
-                            
-                            if (!nameMatch || !contentMatch) return null;
-                            
-                            return (
-                              <Box key={index} p="md" style={{ 
-                                backgroundColor: '#1a1a1a', 
-                                borderRadius: '4px',
-                                border: '1px solid #2b2b2b' 
-                              }}>
-                                <Title order={4} mb="xs">{nameMatch[1]}</Title>
-                                <DocumentMarkdownWrapper 
-                                  markdown={contentMatch[1]} 
-                                />
-                              </Box>
-                            );
-                          })}
-                        </Stack>
-                      </>
-                    )}
-                  </Box>
-                ) : hasOutput ? (
-                  <Box>
-                    {record.output?.title && (
-                      <Text size="xl" fw={700} mb="md">{record.output.title}</Text>
-                    )}
-                    
-                    {record.output?.abstract && (
-                      <Box mb="md" p="md" style={{ 
-                        backgroundColor: '#1a1a1a', 
-                        borderRadius: '4px',
-                        border: '1px solid #2b2b2b' 
-                      }}>
-                        <Text fw={600} mb="xs">Abstract</Text>
-                        <Text fz="sm">{record.output.abstract}</Text>
-                      </Box>
-                    )}
-                    
-                    {record.output?.content && (
-                      <DocumentMarkdownWrapper 
-                        markdown={record.output.content} 
-                      />
-                    )}
-                    
-                    {record.output?.references && record.output.references.length > 0 && (
-                      <Box mt="xl" p="md" style={{ 
-                        backgroundColor: '#1a1a1a', 
-                        borderRadius: '4px',
-                        border: '1px solid #2b2b2b' 
-                      }}>
-                        <Text fw={600} mb="md">References</Text>
-                        <Stack gap="sm">
-                          {record.output.references.map((ref, index) => (
-                            <Text key={index} size="sm">{ref.item}</Text>
-                          ))}
-                        </Stack>
-                      </Box>
-                    )}
-                  </Box>
-                ) : (
-                  <Stack align="center" justify="center" style={{ height: '100%', p: '20px' }}>
-                    {isProcessing || isRegenerating ? (
-                      <>
-                        <Text mb="md" fw={600}>Generating content...</Text>
-                        <Text ta="center" c="dimmed" mb="md">
-                          We&apos;re processing your files and generating capsule content. 
-                          This may take a few minutes.
-                        </Text>
-                        <LoadingOverlay visible={true} />
-                      </>
-                    ) : hasFiles ? (
-                      <>
-                        <Text mb="md" fw={600}>Ready to generate</Text>
-                        <Text ta="center" c="dimmed" mb="xl">
-                          You&apos;ve added files to your capsule. Click the &quot;Regenerate&quot; button 
-                          to analyze them and generate content.
-                        </Text>
-                        <Button 
-                          leftSection={<RefreshCw size={16} />}
-                          onClick={handleRegenerateCapsule}
-                          styles={{
-                            root: {
-                              backgroundColor: '#F5A623',
-                              color: '#000000',
-                              '&:hover': {
-                                backgroundColor: '#E09612',
-                              },
-                            },
-                          }}
-                        >
-                          Generate Capsule
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Text mb="md" fw={600}>No content yet</Text>
-                        <Text ta="center" c="dimmed" mb="xl">
-                          Add files to your capsule first, then generate content to see it here.
-                        </Text>
-                        <Button 
-                          leftSection={<Plus size={16} />}
-                          onClick={handleAddFile}
-                          styles={{
-                            root: {
-                              backgroundColor: '#F5A623',
-                              color: '#000000',
-                              '&:hover': {
-                                backgroundColor: '#E09612',
-                              },
-                            },
-                          }}
-                        >
-                          Add Files
-                        </Button>
-                      </>
-                    )}
-                  </Stack>
+          <Box style={{ 
+            fontSize: '1.2rem', 
+            fontWeight: 600, 
+            marginBottom: '10px',
+            borderBottom: '1px solid #2b2b2b',
+            paddingBottom: '10px',
+            color: '#F5A623'
+          }}>
+            Context
+          </Box>
+          
+          <Box style={{ 
+            backgroundColor: '#131313', 
+            borderRadius: '0 0 8px 8px', 
+            minHeight: 'calc(100vh - 250px)',
+            maxHeight: 'calc(100vh - 250px)',
+            overflowY: 'auto',
+            border: '1px solid #2b2b2b',
+            padding: '20px'
+          }}>
+            {hasContextSummary ? (
+              <Box>
+                <DocumentMarkdownWrapper 
+                  markdown={contextSummary as string} 
+                />
+                
+                {record.highlights && record.highlights.length > 0 && (
+                  <>
+                    <Divider my="lg" label="Highlights" labelPosition="center" />
+                    <Stack gap="md">
+                      {record.highlights.map((highlight, index) => {
+                        // Simple XML parsing to extract field name and content
+                        const nameMatch = highlight.xml.match(/<field_name>([\s\S]*?)<\/field_name>/);
+                        const contentMatch = highlight.xml.match(/<field_content>([\s\S]*?)<\/field_content>/);
+                        
+                        if (!nameMatch || !contentMatch) return null;
+                        
+                        return (
+                          <Box key={index} p="md" style={{ 
+                            backgroundColor: '#1a1a1a', 
+                            borderRadius: '4px',
+                            border: '1px solid #2b2b2b' 
+                          }}>
+                            <Title order={4} mb="xs">{nameMatch[1]}</Title>
+                            <DocumentMarkdownWrapper 
+                              markdown={contentMatch[1]} 
+                            />
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </>
                 )}
               </Box>
-            </Tabs.Panel>
-            
-            <Tabs.Panel value="thinking">
-              <Box p="md" style={{ 
-                backgroundColor: '#131313', 
-                borderRadius: '0 0 8px 8px', 
-                minHeight: 'calc(100vh - 250px)',
-                maxHeight: 'calc(100vh - 250px)',
-                overflowY: 'auto',
-                border: '1px solid #2b2b2b',
-                borderTop: 'none'
-              }}>
-                {scratchpadContent ? (
-                  <Box>
-                    <Group mb="md" align="center">
-                      <FileText size={20} />
-                      <Title order={3}>Thinking Process</Title>
-                    </Group>
-                    
-                    <Code 
-                      block 
-                      style={{ 
-                        backgroundColor: '#0a0a0a',
-                        color: '#a0a0a0',
-                        fontFamily: GeistMono.style.fontFamily,
-                        fontSize: '14px',
-                        whiteSpace: 'pre-wrap',
-                        lineHeight: 1.6
+            ) : (
+              <Stack align="center" justify="center" style={{ height: '100%', p: '20px' }}>
+                {isProcessing || isRegenerating ? (
+                  <>
+                    <Text mb="md" fw={600}>Generating context summary...</Text>
+                    <Text ta="center" c="dimmed" mb="md">
+                      We&apos;re processing your files and generating a capsule summary. 
+                      This may take a few minutes.
+                    </Text>
+                    <LoadingOverlay visible={true} />
+                  </>
+                ) : hasFiles ? (
+                  <>
+                    <Text mb="md" fw={600}>Ready to generate</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
+                      You&apos;ve added files to your capsule. Click the &quot;Regenerate&quot; button 
+                      to analyze them and generate a summary.
+                    </Text>
+                    <Button 
+                      leftSection={<RefreshCw size={16} />}
+                      onClick={handleRegenerateCapsule}
+                      styles={{
+                        root: {
+                          backgroundColor: '#F5A623',
+                          color: '#000000',
+                          '&:hover': {
+                            backgroundColor: '#E09612',
+                          },
+                        },
                       }}
                     >
-                      {scratchpadContent}
-                    </Code>
-                  </Box>
+                      Generate Summary
+                    </Button>
+                  </>
                 ) : (
-                  <Text ta="center" c="dimmed">
-                    No thinking process content available.
-                  </Text>
+                  <>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600}>No content yet</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
+                      Add files to your capsule first, then generate a summary to see it here.
+                    </Text>
+                    <Button 
+                      leftSection={<Plus size={16} />}
+                      onClick={handleAddFile}
+                      styles={{
+                        root: {
+                          backgroundColor: '#F5A623',
+                          color: '#000000',
+                          '&:hover': {
+                            backgroundColor: '#E09612',
+                          },
+                        },
+                      }}
+                    >
+                      Add Files
+                    </Button>
+                  </>
                 )}
-              </Box>
-            </Tabs.Panel>
-            
-            <Tabs.Panel value="source">
-              <Box p="md" style={{ 
-                backgroundColor: '#131313', 
-                borderRadius: '0 0 8px 8px', 
-                minHeight: 'calc(100vh - 250px)',
-                maxHeight: 'calc(100vh - 250px)',
-                overflowY: 'auto',
-                border: '1px solid #2b2b2b',
-                borderTop: 'none'
-              }}>
-                {hasOutput && record.output?.content ? (
-                  <Code 
-                    block 
-                    style={{ 
-                      backgroundColor: '#0a0a0a',
-                      border: '1px solid #2b2b2b',
-                      color: '#d4d4d4',
-                      minHeight: '500px',
-                      fontFamily: GeistMono.style.fontFamily,
-                      fontSize: '14px',
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap',
-                      overflowWrap: 'break-word'
-                    }}
-                  >
-                    {record.output.content}
-                  </Code>
-                ) : record.summaryContext ? (
-                  <Code 
-                    block 
-                    style={{ 
-                      backgroundColor: '#0a0a0a',
-                      border: '1px solid #2b2b2b',
-                      color: '#d4d4d4',
-                      minHeight: '500px',
-                      fontFamily: GeistMono.style.fontFamily,
-                      fontSize: '14px',
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap',
-                      overflowWrap: 'break-word'
-                    }}
-                  >
-                    {record.summaryContext}
-                  </Code>
-                ) : (
-                  <Text ta="center" c="dimmed">
-                    {isProcessing || isRegenerating ? 
-                      "Content is being generated..." : 
-                      "No content available yet. Generate content first to see the source."}
-                  </Text>
-                )}
-              </Box>
-            </Tabs.Panel>
-          </Tabs>
+              </Stack>
+            )}
+          </Box>
         </Box>
       </Flex>
       
