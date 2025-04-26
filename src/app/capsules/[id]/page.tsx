@@ -504,9 +504,7 @@ export default function CapsuleView() {
                         variant="subtle"
                         onClick={() => setShowDeleteConfirm(file._id)}
                         disabled={isProcessing}
-                        // --- ESLint FIX: Replace quotes in title with " ---
-                        title="Remove file"
-                        // --- END ESLint FIX ---
+                        title={'Remove file'}
                       >
                         <Trash size={16} />
                       </ActionIcon>
