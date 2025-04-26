@@ -14,7 +14,6 @@ import {
   Flex,
   Stack,
   Title,
-  // Divider // Not used, removed
 } from '@mantine/core';
 import {
   ArrowLeft,
@@ -79,13 +78,10 @@ export default function CapsuleView() {
   const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
 
   const { queryResult } = useShow<Capsule>({
-    // --- FIX: Let data provider handle URL ---
+    // Let data provider handle URL construction
     resource: "capsules", // Tell Refine the resource type
     id: capsuleId,       // Provide the ID
-    // meta: { // Remove meta.url override
-    //   url: `/api/capsule/${capsuleId}` // This was causing the double ID issue
-    // },
-    // --- END FIX ---
+    // meta: { ... } // No meta override needed here anymore
     queryOptions: {
       enabled: !!capsuleId && !!identity?.token, // Only run if ID and token exist
       staleTime: 30000, // Cache for 30s
@@ -102,7 +98,10 @@ export default function CapsuleView() {
         }
         // Trigger file detail fetching if needed
         if (data?.data?.fileIds && (!data.data.files || data.data.files.length === 0)) {
-            fetchFileDetails(data.data.fileIds);
+            // Check if details aren't already being loaded or haven't loaded yet
+            if (!isLoadingFiles && loadedFiles.length === 0) {
+                fetchFileDetails(data.data.fileIds);
+            }
         }
       },
       onError: (error) => {
@@ -130,25 +129,26 @@ export default function CapsuleView() {
 
   // Fetch file details if only fileIds are present
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
-    if (!fileIds || fileIds.length === 0 || !identity?.id) {
-        console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or user ID.", {fileIds: fileIds?.length, userId: identity?.id});
+    // Ensure user ID is available from identity before fetching
+    const userId = identity?.id;
+    if (!fileIds || fileIds.length === 0 || !userId) {
+        console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or user ID.", {fileIdsCount: fileIds?.length, userId});
         return;
     }
 
     setIsLoadingFiles(true);
-    console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for user ${identity.id}`);
+    console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for user ${userId}`);
 
     try {
-      // Assuming you have a documents proxy or endpoint
-      // Use fetchWithAuth to handle token automatically
-      // Example endpoint: /api/documents?userId=<userId>&ids=<id1,id2,...>&fields=_id,title,createdAt,output.title
+      // Assuming you have a proxy at /api/documents-proxy
       const fields = '_id,title,status,createdAt,output.title'; // Define needed fields
       const idsParam = fileIds.join(',');
-      // Use the proxy for documents if available
-      const response = await fetchWithAuth(`/api/documents-proxy?userId=${identity.id}&ids=${idsParam}&fields=${fields}`);
+      // Use fetchWithAuth which handles the token
+      const response = await fetchWithAuth(`/api/documents-proxy?userId=${userId}&ids=${idsParam}&fields=${fields}`);
 
       if (!response.ok) {
-          throw new Error(`Failed to fetch file details: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch file details: ${response.status} - ${errorText}`);
       }
 
       const filesData = await response.json();
@@ -163,13 +163,12 @@ export default function CapsuleView() {
         console.log("[CapsuleView] Successfully loaded file details:", processedFiles);
       } else {
          console.warn("[CapsuleView] File details response was not an array:", filesData);
-         // Create placeholders if fetch fails or returns unexpected data
-         throw new Error("Invalid data format received");
+         throw new Error("Invalid data format received for file details");
       }
 
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
-      // Create placeholders as a fallback
+      // Create placeholders as a fallback on any error during fetch
        console.log("[CapsuleView] Creating placeholder files due to fetch error.");
        const placeholders = fileIds.map(id => ({
           _id: id,
@@ -177,20 +176,20 @@ export default function CapsuleView() {
           createdAt: new Date().toISOString()
        }));
        setLoadedFiles(placeholders);
-      // Optionally set an error message for the user
-      // setErrorMessage("Could not load full file details.");
+       // setErrorMessage("Could not load full file details."); // Optionally inform user
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [identity?.id, fetchWithAuth]); // Depend on userId and fetchWithAuth
+  }, [identity?.id, fetchWithAuth]); // Depend only on identity.id and fetchWithAuth
 
-  // Trigger initial fetch if needed
+  // Trigger initial fetch if needed (corrected dependency array)
   useEffect(() => {
-      if (record?.fileIds && (!record.files || record.files.length === 0) && loadedFiles.length === 0) {
+      // Only fetch if we have fileIds, don't have embedded files, and haven't loaded files yet
+      if (record?.fileIds && (!record.files || record.files.length === 0) && loadedFiles.length === 0 && !isLoadingFiles) {
           fetchFileDetails(record.fileIds);
       }
-  // Only run when record.fileIds changes or initially if loadedFiles is empty
-  }, [record?.fileIds, record?.files, loadedFiles.length, fetchFileDetails]);
+  // Rerun when record.fileIds changes, or if loading finishes and files are still needed
+  }, [record?.fileIds, record?.files, loadedFiles.length, isLoadingFiles, fetchFileDetails]);
 
 
   // Simplified function to extract summary
@@ -215,14 +214,11 @@ export default function CapsuleView() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
         throw new Error(errorData.message || `Failed to trigger regeneration: ${response.status}`);
       }
 
-      // Optionally parse response if it contains immediate status update
-      // const result = await response.json();
       console.log("[CapsuleView] Regenerate request sent successfully.");
-
       // Refresh data after a short delay to allow processing status to update
       setTimeout(() => refetch(), 1500);
 
@@ -257,7 +253,7 @@ export default function CapsuleView() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
         throw new Error(errorData.message || `Failed to add files: ${response.status}`);
       }
 
@@ -272,23 +268,22 @@ export default function CapsuleView() {
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
       setErrorMessage(error.message || "An error occurred while adding files.");
+      handleAuthError(error); // Pass to central handler too
     } finally {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule]);
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError]); // Added handleAuthError
 
 
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
     if (!capsuleId || !fileIdToRemove) return;
 
-    // Optimistic UI: Hide confirmation immediately
+    // Determine current files for optimistic update check later
     const currentFiles = record?.files || loadedFiles;
-    const optimisticFiles = currentFiles.filter(f => f._id !== fileIdToRemove);
-    // Note: Optimistic UI update for displayFiles list is complex due to two sources (record.files / loadedFiles)
-    // For simplicity, we rely on refetch after successful deletion for now.
+    const remainingFileCount = currentFiles.filter(f => f._id !== fileIdToRemove).length;
 
-    setShowDeleteConfirm(null);
+    setShowDeleteConfirm(null); // Hide confirmation immediately
     setErrorMessage(null);
 
     try {
@@ -300,28 +295,31 @@ export default function CapsuleView() {
 
       // Check for success (200 OK or 204 No Content)
       if (!response.ok && response.status !== 204) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
         throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
       }
 
       console.log("[CapsuleView] File removed successfully via proxy.");
-      refetch(); // Refresh data to update file list
+      // Clear locally loaded files state if the deleted file was in there
+      setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
+      refetch(); // Refresh data to update capsule's fileIds list
 
       // Regenerate only if files remain
-      if (optimisticFiles.length > 0) {
+      if (remainingFileCount > 0) {
         console.log("[CapsuleView] Files remain, triggering regeneration.");
         await handleRegenerateCapsule();
       } else {
          console.log("[CapsuleView] No files remain, skipping regeneration.");
+         // Potentially clear the summary context if last file removed?
+         // Depends on desired behavior.
       }
 
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
       setErrorMessage(error.message || "An error occurred while removing the file.");
-      // Revert optimistic UI if needed (or rely on refetch)
+      handleAuthError(error); // Pass to central handler
     }
-    // No finally needed as confirmation is hidden at start
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles]);
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError]); // Added handleAuthError
 
 
   const handleDownloadMarkdown = useCallback(() => {
@@ -389,7 +387,7 @@ export default function CapsuleView() {
     );
   }
 
-  // Determine which files to display
+  // Determine which files to display (prefer record.files if available)
   const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status === 'PROCESSING' || isRegenerating; // Combine processing/regenerating states
@@ -505,7 +503,9 @@ export default function CapsuleView() {
                         variant="subtle"
                         onClick={() => setShowDeleteConfirm(file._id)}
                         disabled={isProcessing}
+                        // --- ESLint FIX: Replace quotes in title ---
                         title="Remove file"
+                        // --- END ESLint FIX ---
                       >
                         <Trash size={16} />
                       </ActionIcon>
@@ -519,7 +519,7 @@ export default function CapsuleView() {
                           <Text size="xs" c="dimmed">Delete file?</Text>
                           <Group gap="xs">
                             <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
-                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)}>Delete</Button>
+                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button> { /* Add loading state */}
                           </Group>
                        </Group>
                     </Box>
@@ -536,6 +536,12 @@ export default function CapsuleView() {
                 </Box>
               ))}
             </Stack>
+          ) : isLoadingFiles ? (
+             // Show loading specifically for files if they are being fetched
+             <Box style={{ padding: '20px', textAlign: 'center' }}>
+                 <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{size: 'sm'}} />
+                 <Text size="sm" c="dimmed">Loading file details...</Text>
+             </Box>
           ) : (
             // Placeholder when no files are added
             <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16}/>} style={{borderColor: '#2b2b2b'}}>
@@ -565,13 +571,13 @@ export default function CapsuleView() {
            </Box>
 
           {/* Context Content Area */}
-          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px' }}>
+          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' /* Needed for LoadingOverlay */ }}>
             {isProcessing ? (
                  // Loading state while processing/regenerating
-                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0' }}>
+                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' /* Ensure stack has height */ }}>
                     <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Generating context...</Text>
-                    <Text ta="center" c="dimmed" mb="md">
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 /* Ensure text is above overlay */ }}>Generating context...</Text>
+                    <Text ta="center" c="dimmed" mb="md" style={{zIndex: 1}}>
                        Analyzing files and creating the capsule summary. This might take a moment.
                     </Text>
                  </Stack>
@@ -580,7 +586,7 @@ export default function CapsuleView() {
                 <DocumentMarkdownWrapper markdown={contextSummary} />
             ) : hasFiles ? (
                  // State when files are present but no summary yet (needs regeneration)
-                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px' }}>
+                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -590,13 +596,14 @@ export default function CapsuleView() {
                       leftSection={<RefreshCw size={16} />}
                       onClick={handleRegenerateCapsule}
                       styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                      loading={isProcessing} // Show loading state here too
                     >
                       Generate Summary
                     </Button>
                 </Stack>
             ) : (
                  // State when no files and no summary (needs files added)
-                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px' }}>
+                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -606,6 +613,7 @@ export default function CapsuleView() {
                       leftSection={<Plus size={16} />}
                       onClick={handleAddFile}
                       styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                      disabled={isProcessing}
                     >
                       Add Files
                     </Button>

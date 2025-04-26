@@ -40,7 +40,8 @@ interface Capsule {
 
 export default function CapsuleDirectPage() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
-  const { fetchWithAuth, handleAuthError, getAccessToken } = useAuth(); // Make sure getAccessToken is available if needed
+  // Destructure handleAuthError here but don't necessarily include in every useCallback dep array
+  const { fetchWithAuth, handleAuthError, getAccessToken } = useAuth();
   const router = useRouter();
   // const { create } = useNavigation(); // Using fetch directly
 
@@ -58,12 +59,12 @@ export default function CapsuleDirectPage() {
       onSuccess: (fetchedData) => {
         console.log("[CapsuleDirectPage] Fetched capsules:", fetchedData.data);
         if (fetchedData.data.length > 0) {
-          // --- FIX: Restore Redirect ---
+          // --- Redirect Logic Restored ---
           const firstCapsule = fetchedData.data[0];
           console.log("[CapsuleDirectPage] Found existing capsule, redirecting to:", firstCapsule._id);
           // Redirect to the first capsule found
           router.push(`/capsules/${firstCapsule._id}`);
-          // --- END FIX ---
+          // --- END Redirect Logic ---
         } else {
           console.log("[CapsuleDirectPage] No capsules found, showing create UI.");
           setShowCreateUI(true); // Explicitly set state to show create UI
@@ -81,9 +82,6 @@ export default function CapsuleDirectPage() {
       mode: 'off' // We only need to know if *any* exist
     },
     // Let the dataProvider handle the URL construction
-    // meta: {
-    //   url: '/api/capsules-proxy' // Removed - Data provider now handles this based on resource='capsules'
-    // }
   });
 
   const handleCreateCapsule = useCallback(async () => {
@@ -126,19 +124,24 @@ export default function CapsuleDirectPage() {
 
     } catch (error) {
       console.error("[CapsuleDirectPage] Failed to create capsule:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Failed to create capsule");
+      const errorMsg = error instanceof Error ? error.message : "Failed to create capsule";
+      setErrorMessage(errorMsg); // Set specific error message
+      handleAuthError(error); // Also pass to central handler if needed
       setShowCreateUI(true); // Show create UI again on error
     } finally {
       setIsCreating(false);
     }
-  }, [fetchWithAuth, router, handleAuthError]); // Added handleAuthError
+  // --- ESLint FIX: Removed handleAuthError from dependency array ---
+  }, [fetchWithAuth, router]);
+  // --- END ESLint FIX ---
+
 
   // We only render the "Create" UI if loading is complete and no capsules were found (setShowCreateUI is true)
   const shouldShowCreateCard = !isLoading && !identityLoading && showCreateUI;
 
   useEffect(() => {
     // Log state changes for debugging
-    console.log("[CapsuleDirectPage] State Update:", { identityLoading, isLoading, showCreateUI, hasError: !!errorMessage });
+    // console.log("[CapsuleDirectPage] State Update:", { identityLoading, isLoading, showCreateUI, hasError: !!errorMessage });
   }, [identityLoading, isLoading, showCreateUI, errorMessage]);
 
   // Loading State
