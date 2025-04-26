@@ -148,13 +148,13 @@ export default function CapsuleView() {
       // If we couldn't extract the userId, try to get it from the profile
       if (!userId) {
         try {
-          const profileResponse = await fetch(`${API_CONFIG.API_URL}/users/profile`, {
+          const response = await fetch(`/api/users/profile`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` },
           });
           
-          if (profileResponse.ok) {
-            const profile = await profileResponse.json();
+          if (response.ok) {
+            const profile = await response.json();
             userId = profile._id || profile.id || '';
           }
         } catch (error) {
@@ -173,7 +173,7 @@ export default function CapsuleView() {
       
       // Try fetching documents using the processing endpoint first
       try {
-        const response = await fetch(`${API_CONFIG.API_URL}/processing/user/${userId}/documents`, {
+        const response = await fetch(`/api/processing/user/${userId}/documents`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -196,7 +196,7 @@ export default function CapsuleView() {
       // First approach didn't work - try direct IDs approach
       try {
         const idsParam = fileIds.join(',');
-        const response = await fetch(`${API_CONFIG.API_URL}/processing/files?ids=${idsParam}`, {
+        const response = await fetch(`/api/processing/files?ids=${idsParam}`, {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -483,22 +483,6 @@ export default function CapsuleView() {
       return dateString;
     }
   };
-  
-  // Debug function to examine the summary context
-  const debugSummaryContext = () => {
-    if (!record?.summaryContext) return "";
-    
-    // Extract content between summary tags
-    const summaryMatch = record.summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
-    
-    if (summaryMatch && summaryMatch[1]) {
-      console.log("Summary content found:", summaryMatch[1]);
-      return summaryMatch[1].trim();
-    } else {
-      console.log("No summary content found in:", record.summaryContext);
-      return "";
-    }
-  };
 
   if (isLoading) {
     return (
@@ -536,13 +520,6 @@ export default function CapsuleView() {
   // Extract context summary content
   const contextSummary = extractContextSummary(record.summaryContext);
   const hasContextSummary = !!contextSummary;
-  
-  // For debugging
-  if (record.summaryContext) {
-    console.log("summaryContext exists:", record.summaryContext?.substring(0, 100) + "...");
-    const summaryResult = debugSummaryContext();
-    console.log("Debug Result:", summaryResult?.substring(0, 100) + "...");
-  }
   
   return (
     <Box style={{ 
@@ -728,20 +705,6 @@ export default function CapsuleView() {
                         <Trash size={16} />
                       </ActionIcon>
                     )}
-          </Box>
-        </Box>
-      </Flex>
-      
-      <FileSelector 
-        opened={isFileSelectorOpen}
-        onClose={() => setIsFileSelectorOpen(false)}
-        onSelect={handleFileSelect}
-        capsuleId={capsuleId}
-        existingFileIds={record?.files?.map(f => f._id) || record?.fileIds || []}
-      />
-    </Box>
-  );
-}
                   </Group>
                   
                   {showDeleteConfirm === file._id && (
@@ -934,3 +897,17 @@ export default function CapsuleView() {
                 )}
               </Stack>
             )}
+          </Box>
+        </Box>
+      </Flex>
+      
+      <FileSelector 
+        opened={isFileSelectorOpen}
+        onClose={() => setIsFileSelectorOpen(false)}
+        onSelect={handleFileSelect}
+        capsuleId={capsuleId}
+        existingFileIds={record?.files?.map(f => f._id) || record?.fileIds || []}
+      />
+    </Box>
+  );
+}
