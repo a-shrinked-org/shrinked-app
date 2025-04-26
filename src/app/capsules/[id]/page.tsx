@@ -418,7 +418,8 @@ export default function CapsuleView() {
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
-      const response = await fetch(`/api/capsule/${capsuleId}/files/${fileId}`, {
+      // Fixed URL path to match the API endpoint pattern
+      const response = await fetch(`/api/capsules/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
         signal: controller.signal
