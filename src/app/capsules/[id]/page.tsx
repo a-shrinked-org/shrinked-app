@@ -631,9 +631,9 @@ export default function CapsuleView() {
                   </Group>
                   
                   {showDeleteConfirm === file._id && (
-                    <Group p="xs" justify="space-between" spacing="xs" style={{ backgroundColor: '#151515' }}>
+                    <Group p="xs" justify="space-between" gap="xs" style={{ backgroundColor: '#151515' }}>
                       <Text size="xs" c="dimmed">Delete this file?</Text>
-                      <Group spacing="xs">
+                      <Group gap="xs">
                         <Button 
                           size="xs" 
                           variant="outline" 
