@@ -5,94 +5,168 @@ import {
 	CrudFilters,
 	CrudSorting,
 	HttpError,
-	Pagination, // Import Pagination type
-	BaseRecord // Import BaseRecord
+	Pagination, // Added for explicit type
+	BaseRecord, // Added for explicit type
 } from "@refinedev/core";
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosHeaders, RawAxiosHeaders } from "axios"; // Import Axios types
-import { authUtils } from "@/utils/authUtils"; // Removed API_CONFIG import
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios"; // Added AxiosRequestConfig
+import { authUtils } from "@/utils/authUtils"; // Removed API_CONFIG import as it wasn't used here
 
-// Define a more specific type for the data expected in responses
-// Adjust based on your actual API structure
-interface ListResponse<TData extends BaseRecord = BaseRecord> {
-	data: TData[];
-	total: number;
-	page?: number;
-	limit?: number;
-}
-
-// Create axios instance
+// Create axios instance (no changes)
 const axiosInstance = axios.create();
 
-// Add response interceptor with proper typing
+// Add response interceptor (no changes)
 axiosInstance.interceptors.response.use(
   (response) => {
-	// console.log("Axios Response Interceptor:", response); // Optional: Debug successful responses
 	return response;
   },
   (error) => {
-	console.error("Axios Error Interceptor:", error); // Log the raw error
-
-	// Create properly typed HttpError object with guaranteed properties
 	const customError: HttpError = {
-	  message: error.message || "An unexpected error occurred", // Start with Axios error message
-	  statusCode: error.response?.status || 500, // Get status code from response if available
+	  message: "An unexpected error occurred",
+	  statusCode: 500,
 	};
-
-	// Only add response data properties if they exist
-	if (error.response?.data && typeof error.response.data === 'object') {
-	  // Use message from response data if more specific
-	  if ('message' in error.response.data && error.response.data.message) {
-		customError.message = error.response.data.message;
+	if (error.response) {
+	  customError.statusCode = error.response.status;
+	  if (error.response.data && typeof error.response.data === 'object') {
+		if ('message' in error.response.data && error.response.data.message) { // Check message exists
+		  customError.message = error.response.data.message;
+		}
+		if ('errors' in error.response.data) {
+		  customError.errors = error.response.data.errors;
+		}
 	  }
-	  // Add errors property if it exists (e.g., for validation errors)
-	  if ('errors' in error.response.data) {
-		customError.errors = error.response.data.errors;
-	  }
-	   // Add raw response data for debugging if needed
-	  // customError.response = error.response.data;
+	} else if (error.message) { // Handle cases where there's no response (network error)
+		customError.message = error.message;
 	}
 
-	// Add original error details if needed for deeper debugging
+	// Add original error for potential debugging downstream if needed
 	// customError.originalError = error;
 
-	console.error("Processed HttpError:", customError); // Log the processed error
+	console.error("Axios Error Interceptor Processed:", customError); // Log processed error
 	return Promise.reject(customError);
   }
 );
 
-// Helper function for processing filters (no changes needed)
+
+// Helper function for processing filters (no changes)
 const generateFilters = (filters?: CrudFilters) => {
-	const queryFilters: { [key: string]: any } = {};
-	filters?.forEach((filter) => {
-		if ("field" in filter) {
-			const { field, operator, value } = filter;
-			// Extend operators if needed (e.g., 'contains', 'gte', etc.)
-			if (operator === "eq") {
-				queryFilters[field] = value;
-			}
-			// Example: else if (operator === 'contains') { queryFilters[`${field}_like`] = value; }
-		}
-	});
-	return queryFilters;
-};
-
-// Helper function for processing sort orders (no changes needed)
-const generateSort = (sorters?: CrudSorting) => {
-	if (sorters && sorters.length > 0) {
-		const sort = sorters[0].field;
-		const order = sorters[0].order;
-		// Adjust formatting based on backend expectation (e.g., 'field:asc', 'sort=field&order=asc')
-		return { _sort: sort, _order: order }; // Example using _sort/_order params
+  const queryFilters: { [key: string]: any } = {};
+  filters?.forEach((filter) => {
+	if ("field" in filter) {
+	  const { field, operator, value } = filter;
+	  if (operator === "eq") {
+		queryFilters[field] = value;
+	  }
+	  // Add other operators if needed
 	}
-	return {};
+  });
+  return queryFilters;
 };
 
-// Placeholder for document operations - keep as is for now
-// ... (documentOperations code remains the same) ...
+// Helper function for processing sort orders (no changes)
+const generateSort = (sorters?: CrudSorting) => {
+  if (sorters && sorters.length > 0) {
+	const sort = sorters[0].field;
+	const order = sorters[0].order;
+	// Adjust param names if backend expects something different (e.g., sort=field:asc)
+	return { _sort: sort, _order: order };
+  }
+  return {};
+};
+
+// Document operations helper functions (Interface remains)
+export interface ProcessedDocument extends BaseRecord { // Ensure it extends BaseRecord
+  _id: string;
+  jobId?: string;
+  title?: string;
+  fileName?: string;
+  createdAt: string;
+  status?: string;
+  output?: {
+	title?: string;
+  }
+}
+
+// Document-specific operations (Logic remains, ensure export is present)
+export const documentOperations = {
+  fetchJobIdsForDocs: async (documents: ProcessedDocument[], apiUrl: string): Promise<Record<string, string>> => {
+	console.log("[DocOps] fetchJobIdsForDocs called with documents:", documents.map(d => d._id));
+	const mapping: Record<string, string> = {};
+	const headers = authUtils.getAuthHeaders(); // Get headers once
+
+	for (const doc of documents) {
+	  if (!doc._id) {
+		console.warn("[DocOps] Document without _id found");
+		continue;
+	  }
+	  try {
+		// Assuming fetch is okay here, needs direct API URL or another proxy
+		// WARNING: If called client-side, this needs a proxy or direct API CORS enabled
+		const targetUrl = `${apiUrl}/jobs/by-result/${doc._id}`;
+		// console.log(`[DocOps] Fetching job from: ${targetUrl}`);
+		const response = await fetch(targetUrl, {
+		  headers: headers as HeadersInit, // Cast required for fetch
+		});
+		if (!response.ok) {
+		  console.error(`[DocOps] Error fetching job ID for doc ${doc._id}: HTTP ${response.status}`);
+		  continue;
+		}
+		const jobData = await response.json();
+		if (jobData?._id) {
+		  mapping[doc._id] = jobData._id;
+		} else {
+		  console.warn(`[DocOps] Job data missing _id for doc ${doc._id}:`, jobData);
+		}
+	  } catch (error) {
+		console.error(`[DocOps] Network/fetch error for job ID (doc ${doc._id}):`, error);
+	  }
+	}
+	console.log("[DocOps] Final job ID mapping:", mapping);
+	return mapping;
+  },
+
+  // Other functions... (Assuming they use fetchWithAuth or similar for proxy/auth)
+  sendDocumentEmail: async (docId: string, proxyBaseUrl: string, email?: string): Promise<{ success: boolean; data?: any; error?: HttpError }> => {
+	 const targetUrl = `${proxyBaseUrl}/documents/${docId}/email`; // Use proxy
+	 try {
+	   const response = await authUtils.fetchWithAuth(targetUrl, {
+		 method: 'POST',
+		 body: JSON.stringify({ email }),
+	   });
+	   if (!response.ok) {
+		 const errorData = await response.json().catch(() => ({}));
+		 throw { statusCode: response.status, message: errorData.message || `HTTP ${response.status}` };
+	   }
+	   const data = await response.json();
+	   return { success: true, data };
+	 } catch (error: any) {
+	   console.error("[DocOps] Error sending document email:", error);
+	   return { success: false, error: { message: error.message, statusCode: error.statusCode || 500 } };
+	 }
+  },
+
+  deleteDocument: async (docId: string, proxyBaseUrl: string): Promise<{ success: boolean; data?: any; error?: HttpError }> => {
+	 const targetUrl = `${proxyBaseUrl}/documents/${docId}`; // Use proxy
+	 try {
+	   const response = await authUtils.fetchWithAuth(targetUrl, { method: 'DELETE' });
+		if (!response.ok && response.status !== 204) {
+		 const errorData = await response.json().catch(() => ({}));
+		 throw { statusCode: response.status, message: errorData.message || `HTTP ${response.status}` };
+	   }
+		let data = {};
+	   if (response.status !== 204) {
+			try { data = await response.json(); } catch(e) {/* ignore empty body */}
+	   }
+	   return { success: true, data };
+	 } catch (error: any) {
+	   console.error("[DocOps] Error deleting document:", error);
+	   return { success: false, error: { message: error.message, statusCode: error.statusCode || 500 } };
+	 }
+  }
+};
 
 
 /**
- * Enhanced Shrinked Data Provider (Corrected for Build)
+ * Enhanced Shrinked Data Provider
  */
 export const shrinkedDataProvider = (
   // Base API URL (e.g., https://api.shrinked.ai) - used ONLY if a resource doesn't have a specific proxy
@@ -100,168 +174,149 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
 
-  // --- Helper to get the correct PROXY URL for a resource ---
+  // --- MINIMAL CHANGE: Helper to get correct PROXY URL ---
   const getProxyUrl = (resource: string, meta?: any): string => {
-	// 1. Always prioritize explicit URL from meta
 	if (meta?.url) {
-	  // Ensure meta.url is relative if it's meant for the proxy
-	  return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
+		// Assume meta.url is already the correct relative proxy path if provided
+		return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
 	}
-
-	// 2. Define specific proxy routes for known resources
-	switch (resource) {
-	  case 'capsules':
-		return '/api/capsules-proxy'; // Use the dedicated capsules proxy
-	  case 'users': // Example: If you add a user proxy
-		// return '/api/users-proxy';
-		 break;
-	  case 'jobs': // Example: If you add a jobs proxy
-		 // return '/api/jobs-proxy';
-		 break;
-		// Add cases for other resources that have proxy routes
+	if (resource === 'capsules') {
+		// Force capsules resource to use the proxy route
+		return '/api/capsules-proxy';
 	}
-
-	// 3. Fallback for resources WITHOUT a specific proxy route defined above
-	// WARNING: This will likely cause CORS errors if called from the browser
-	console.warn(`[DataProvider] No specific proxy route defined for resource "${resource}". Falling back to direct API URL (CORS likely).`);
-	// Construct the direct URL (less safe) - adjust path construction as needed
-	// This part might need refinement based on how non-proxied resources are structured
-	return `${apiUrl}/${resource}`;
+	 // --- Fallback for other resources ---
+	 // WARNING: This uses the direct apiUrl and will likely cause CORS errors from browser.
+	 // You would need to add more cases here or ensure these resources are only accessed server-side.
+	console.warn(`[DataProvider] No specific proxy route for "${resource}". Using direct API URL: ${apiUrl}/${resource}`);
+	// Original logic for non-capsule resources (potentially problematic)
+	// return `${apiUrl}/${resource}${resource === "jobs" ? "" : "/key"}`;
+	 return `${apiUrl}/${resource}`; // Simplified fallback - adjust if /key is needed for non-proxied resources
 
   };
-  // --- End Helper ---
+  // --- END MINIMAL CHANGE ---
 
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {
-	  const targetUrl = getProxyUrl(resource, meta); // Get the correct proxy URL or fallback
-
+	  const targetUrl = getProxyUrl(resource, meta); // Use helper
 	  const { current = 1, pageSize = 10 }: Pagination = pagination ?? {};
 
-	  // Prepare Axios request config
+	  // --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
 	  const axiosConfig: AxiosRequestConfig = {
-		headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>), // Get headers as object
+		headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
 		params: {
-		  // Adjust param names based on backend expectation (e.g., _page, _limit)
-		  _page: current,
-		  _limit: pageSize,
+		  _page: current, // Adjust if backend uses 'page'
+		  _limit: pageSize, // Adjust if backend uses 'limit'
 		  ...generateFilters(filters),
 		  ...generateSort(sorters),
 		},
 	  };
+	  // --- END MINIMAL CHANGE ---
 
-	  console.log(`[DataProvider:getList] ${resource} -> GET ${targetUrl}`, axiosConfig.params);
+	  console.log(`[DataProvider:getList] ${resource} -> GET ${targetUrl}`);
+	  const { data } = await httpClient.get(targetUrl, axiosConfig);
 
-	  const { data } = await httpClient.get<ListResponse>(targetUrl, axiosConfig); // Specify expected response type
-
-	  // Ensure data and total are returned correctly based on ListResponse structure
+	  // Adapt response structure if necessary (e.g., if backend returns { items: [], count: 0 })
 	  return {
-		data: data.data ?? [], // Default to empty array if data.data is missing
-		total: data.total ?? 0, // Default to 0 if data.total is missing
+		data: data.data ?? data ?? [], // More robust data access
+		total: data.total ?? (Array.isArray(data?.data ?? data) ? (data?.data ?? data).length : 0), // More robust total calculation
 	  };
 	},
 
 	getOne: async ({ resource, id, meta }) => {
-	   const baseUrl = getProxyUrl(resource, meta);
-	   // Ensure ID is appended correctly, avoiding double slashes
-	   const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
+	   const baseUrl = getProxyUrl(resource, meta); // Use helper
+	   const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`; // Append ID safely
 
+	   // --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
 	   const axiosConfig: AxiosRequestConfig = {
 		   headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
 	   };
+	   // --- END MINIMAL CHANGE ---
 
 	   console.log(`[DataProvider:getOne] ${resource} -> GET ${targetUrl}`);
-
-	   // Assuming the response is the single record directly
-	   const { data } = await httpClient.get<BaseRecord>(targetUrl, axiosConfig);
-
+	   const { data } = await httpClient.get(targetUrl, axiosConfig);
 	   return { data };
 	},
 
 	create: async ({ resource, variables, meta }) => {
-	   const targetUrl = getProxyUrl(resource, meta); // Usually the base resource URL
+	   const targetUrl = getProxyUrl(resource, meta); // Use helper
 
+	   // --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
 	   const axiosConfig: AxiosRequestConfig = {
 		   headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
 	   };
+	   // --- END MINIMAL CHANGE ---
 
 	   console.log(`[DataProvider:create] ${resource} -> POST ${targetUrl}`);
-
-	   const { data } = await httpClient.post<BaseRecord>(targetUrl, variables, axiosConfig);
-
+	   const { data } = await httpClient.post(targetUrl, variables, axiosConfig);
 	   return { data };
 	},
 
 	update: async ({ resource, id, variables, meta }) => {
-	   const baseUrl = getProxyUrl(resource, meta);
-	   const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
+	   const baseUrl = getProxyUrl(resource, meta); // Use helper
+	   const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`; // Append ID safely
 
+	   // --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
 	   const axiosConfig: AxiosRequestConfig = {
 		   headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
 	   };
+	   // --- END MINIMAL CHANGE ---
 
 	   console.log(`[DataProvider:update] ${resource} -> PATCH ${targetUrl}`);
-
-	   const { data } = await httpClient.patch<BaseRecord>(targetUrl, variables, axiosConfig);
-
+	   const { data } = await httpClient.patch(targetUrl, variables, axiosConfig);
 	   return { data };
 	},
 
 	deleteOne: async ({ resource, id, variables, meta }) => {
-	   const baseUrl = getProxyUrl(resource, meta);
-	   const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
+	   const baseUrl = getProxyUrl(resource, meta); // Use helper
+	   const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`; // Append ID safely
 
+	   // --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
 	   const axiosConfig: AxiosRequestConfig = {
 		 headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
-		 // Axios uses 'data' for DELETE request body
-		 data: variables,
+		 data: variables, // Body for DELETE
 	   };
+		// --- END MINIMAL CHANGE ---
 
 	   console.log(`[DataProvider:deleteOne] ${resource} -> DELETE ${targetUrl}`);
-
-	   // Assuming response might be empty or contain success message
-	   const { data } = await httpClient.delete<{ data?: any }>(targetUrl, axiosConfig);
-
-	   return { data: data?.data ?? {} }; // Return empty object if no specific data
+	   const { data } = await httpClient.delete(targetUrl, axiosConfig);
+	   // Adapt response if backend returns specific structure on delete
+	   return { data: data?.data ?? {} };
 	},
 
 	getMany: async ({ resource, ids, meta }) => {
-	  // This often requires a specific backend endpoint or query param format
-	  const targetUrl = getProxyUrl(resource, meta);
+	   const targetUrl = getProxyUrl(resource, meta); // Use helper
 
-	  const axiosConfig: AxiosRequestConfig = {
+		// --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
+	   const axiosConfig: AxiosRequestConfig = {
 		 headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
-		 // Common ways to pass multiple IDs:
-		 // 1. Comma-separated string: params: { ids: ids.join(",") }
-		 // 2. Repeated query param: params: { id: ids } (needs backend/qs support)
-		 // 3. JSON body in a GET (less common): data: { ids }
-		 params: { ids: ids.join(",") } // Adjust based on your API
+		 params: { ids: ids.join(",") } // Adjust if backend expects different format
 	   };
+	   // --- END MINIMAL CHANGE ---
 
 	   console.log(`[DataProvider:getMany] ${resource} -> GET ${targetUrl}`, axiosConfig.params);
-
-	   const { data } = await httpClient.get<BaseRecord[]>(targetUrl, axiosConfig); // Expect an array
-
+	   const { data } = await httpClient.get(targetUrl, axiosConfig);
 	   return { data };
 	},
 
-	getApiUrl: () => '/api', // Represents the base path for proxy routes
+	getApiUrl: () => '/api', // Reflect proxy base path
 
 	custom: async ({ url, method, payload, query, headers }) => {
-		// Assume 'url' passed IS the correct relative proxy URL
-		if (!url.startsWith('/')) {
-			 console.warn(`[DataProvider:custom] URL "${url}" might not be a relative proxy path.`);
+		// Assume 'url' is the intended relative proxy path
+		if (!url.startsWith('/api/')) { // Basic check
+			 console.warn(`[DataProvider:custom] URL "${url}" might need prefix '/api'.`);
 		}
+		const targetUrl = url;
 
+		// --- MINIMAL CHANGE: Ensure headers are Record<string, string> ---
 		const axiosConfig: AxiosRequestConfig = {
 			 headers: authUtils.getAuthHeaders(headers as Record<string, string>),
 		};
+		// --- END MINIMAL CHANGE ---
 
 		let responseData;
-		const targetUrl = url; // Use the provided URL directly
-
 		console.log(`[DataProvider:custom] ${method.toUpperCase()} ${targetUrl}`);
 
-		switch (method.toLowerCase()) { // Use lowercase for comparison
+		switch (method.toLowerCase()) {
 			case "put":
 				({ data: responseData } = await httpClient.put(targetUrl, payload, axiosConfig));
 				break;
@@ -272,16 +327,22 @@ export const shrinkedDataProvider = (
 				 ({ data: responseData } = await httpClient.patch(targetUrl, payload, axiosConfig));
 				break;
 			case "delete":
-				 axiosConfig.data = payload; // Add payload to config for delete
+				 axiosConfig.data = payload; // Add payload to config
 				 ({ data: responseData } = await httpClient.delete(targetUrl, axiosConfig));
 				break;
 			default: // GET
-				axiosConfig.params = query; // Add query params for GET
+				axiosConfig.params = query; // Add query params
 				 ({ data: responseData } = await httpClient.get(targetUrl, axiosConfig));
 				break;
 		}
-
 		return { data: responseData };
 	}
   };
 };
+
+// Export types for document operations (Keep this export)
+export interface DocumentOperations {
+  fetchJobIdsForDocs: (documents: ProcessedDocument[], apiUrl: string) => Promise<Record<string, string>>;
+  sendDocumentEmail: (docId: string, apiUrl: string, email?: string) => Promise<{ success: boolean; data?: any; error?: HttpError }>;
+  deleteDocument: (docId: string, apiUrl: string) => Promise<{ success: boolean; data?: any; error?: HttpError }>;
+}
