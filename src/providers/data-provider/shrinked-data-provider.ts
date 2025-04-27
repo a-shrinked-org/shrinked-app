@@ -194,42 +194,52 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
 
-  // Improved proxy URL helper
+  // Improved proxy URL helper with enhanced debugging
   const getProxyUrl = (resource: string, meta?: any): string => {
+	// Add explicit debug logging
+	if (IS_DEV) {
+	  console.log(`[getProxyUrl:DEBUG] Resource: ${resource}`);
+	  console.log(`[getProxyUrl:DEBUG] Meta:`, meta);
+	}
+
 	// Case 1: Direct URL override in meta - use it as is
 	if (meta?.url) {
-	  return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
+	  const result = meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using explicit URL: ${result}`);
+	  return result;
 	}
 	
-	// Case 2: Resource-specific proxy mappings
+	// Case 2: Special handling for capsules resource with ID
+	if (resource === 'capsules' && meta?.hasId) {
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using dynamic route: /api/capsules`);
+	  return '/api/capsules';
+	}
+	
+	// Case 3: Special handling for capsules resource without ID
+	if (resource === 'capsules') {
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule without ID, using non-dynamic route: /api/capsules-proxy`);
+	  return '/api/capsules-proxy';
+	}
+	
+	// Case 4: Resource-specific proxy mappings
 	const proxyMappings: Record<string, string> = {
 	  'documents': '/api/documents-proxy',
 	  'users': '/api/users-proxy',
 	  'auth': '/api/auth-proxy'
 	};
 	
-	// Special handling for capsules resource
-	if (resource === 'capsules') {
-	  // If we're in a method handling a specific ID, use the dynamic route
-	  if (meta?.hasId) {
-		return '/api/capsules';
-	  } else {
-		// For list and other operations not targeting a specific ID, use non-dynamic route
-		return '/api/capsules-proxy';
-	  }
-	}
-	
 	if (proxyMappings[resource]) {
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
 	  return proxyMappings[resource];
 	}
 	
-	// Case 3: Generic fallback with proxy pattern
+	// Case 5: Generic fallback
+	const fallbackUrl = `/api/${resource}-proxy`;
 	if (IS_DEV) {
-	  console.log(`[DataProvider] No specific proxy for "${resource}". Using generic proxy: /api/${resource}-proxy`);
+	  console.log(`[getProxyUrl:DEBUG] No specific mapping for "${resource}". Using generic proxy: ${fallbackUrl}`);
 	}
 	
-	// Use consistent naming pattern for all proxies
-	return `/api/${resource}-proxy`;
+	return fallbackUrl;
   };
 
   return {
@@ -245,6 +255,8 @@ export const shrinkedDataProvider = (
 		  ...generateFilters(filters),
 		  ...generateSort(sorters),
 		  ...(meta?.params || {}), // Add any additional params from meta
+		  // Add cache-busting param
+		  _t: Date.now()
 		},
 	  };
 
@@ -261,11 +273,33 @@ export const shrinkedDataProvider = (
 	  // Add a flag to indicate this is an ID-based operation
 	  const routingMeta = { ...meta, hasId: true };
 	  const baseUrl = getProxyUrl(resource, routingMeta);
+	  
+	  // Add very explicit logging to debug the routing
+	  if (IS_DEV) {
+		console.log(`[DataProvider:getOne:DEBUG] Resource: ${resource}, ID: ${id}`);
+		console.log(`[DataProvider:getOne:DEBUG] Using proxy route: ${baseUrl}`);
+	  }
+	  
 	  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
 
+	  // More logging
+	  if (IS_DEV) {
+		console.log(`[DataProvider:getOne:DEBUG] Final URL: ${targetUrl}`);
+	  }
+
 	  const axiosConfig: AxiosRequestConfig = {
-		headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
-		params: meta?.params || {},
+		headers: {
+		  ...authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
+		  // Add cache-busting headers
+		  'Cache-Control': 'no-cache, no-store, must-revalidate',
+		  'Pragma': 'no-cache',
+		  'Expires': '0'
+		},
+		params: {
+		  ...(meta?.params || {}),
+		  // Add cache-busting param
+		  _t: Date.now()
+		},
 	  };
 
 	  if (IS_DEV) console.log(`[DataProvider:getOne] ${resource} -> GET ${targetUrl}`);
@@ -290,6 +324,13 @@ export const shrinkedDataProvider = (
 	  // Add a flag to indicate this is an ID-based operation
 	  const routingMeta = { ...meta, hasId: true };
 	  const baseUrl = getProxyUrl(resource, routingMeta);
+	  
+	  // Add explicit logging
+	  if (IS_DEV) {
+		console.log(`[DataProvider:update:DEBUG] Resource: ${resource}, ID: ${id}`);
+		console.log(`[DataProvider:update:DEBUG] Using proxy route: ${baseUrl}`);
+	  }
+	  
 	  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
 
 	  const axiosConfig: AxiosRequestConfig = {
@@ -306,6 +347,13 @@ export const shrinkedDataProvider = (
 	  // Add a flag to indicate this is an ID-based operation
 	  const routingMeta = { ...meta, hasId: true };
 	  const baseUrl = getProxyUrl(resource, routingMeta);
+	  
+	  // Add explicit logging
+	  if (IS_DEV) {
+		console.log(`[DataProvider:deleteOne:DEBUG] Resource: ${resource}, ID: ${id}`);
+		console.log(`[DataProvider:deleteOne:DEBUG] Using proxy route: ${baseUrl}`);
+	  }
+	  
 	  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
 
 	  const axiosConfig: AxiosRequestConfig = {
@@ -329,7 +377,9 @@ export const shrinkedDataProvider = (
 		headers: authUtils.getAuthHeaders(meta?.headers as Record<string, string>),
 		params: { 
 		  ids: ids.join(","),
-		  ...(meta?.params || {})
+		  ...(meta?.params || {}),
+		  // Add cache-busting param
+		  _t: Date.now()
 		}
 	  };
 
@@ -346,7 +396,11 @@ export const shrinkedDataProvider = (
 
 	  const axiosConfig: AxiosRequestConfig = {
 		headers: authUtils.getAuthHeaders(headers as Record<string, string>),
-		params: query,
+		params: {
+		  ...query,
+		  // Add cache-busting param for GET requests
+		  ...(method.toLowerCase() === 'get' ? { _t: Date.now() } : {})
+		},
 	  };
 
 	  let responseData;
