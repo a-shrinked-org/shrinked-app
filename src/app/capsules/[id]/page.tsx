@@ -14,7 +14,6 @@ import {
   Flex,
   Stack,
   Title,
-  // Divider // Not used, removed
 } from '@mantine/core';
 import {
   ArrowLeft,
@@ -28,9 +27,27 @@ import {
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
-import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper"; // Ensure path is correct
+import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
-import FileSelector from '@/components/FileSelector'; // Ensure path is correct
+import FileSelector from '@/components/FileSelector';
+
+// Consistent error handling helper
+const formatErrorMessage = (error: any): string => {
+  if (!error) return "An unknown error occurred";
+  
+  const status = error?.status ?? error?.statusCode ?? error?.response?.status;
+  let message = error?.message || "An unexpected error occurred";
+  
+  if (status === 401 || status === 403) {
+    return "Your session has expired. Please log in again.";
+  } else if (status === 404) {
+    return "The requested resource was not found.";
+  } else if (status >= 500) {
+    return "The server encountered an error. Please try again later.";
+  }
+  
+  return message;
+};
 
 interface Identity {
   token?: string;
@@ -39,7 +56,7 @@ interface Identity {
   id?: string; // User ID from identity
 }
 
-interface FileData { // Renamed from File to avoid conflict with Lucide icon
+interface FileData {
   _id: string;
   title: string;
   createdAt: string;
@@ -50,9 +67,9 @@ interface Capsule {
   _id: string;
   name: string;
   slug: string;
-  files: FileData[]; // Use FileData type
+  files: FileData[];
   fileIds?: string[];
-  userId: string; // User ID owning the capsule
+  userId: string;
   output?: {
     title?: string;
     abstract?: string;
@@ -68,150 +85,183 @@ interface Capsule {
   }>;
 }
 
+// Constants
+const REFRESH_INTERVAL_MS = 5000;
+const FILE_BATCH_SIZE = 5;
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export default function CapsuleView() {
   const params = useParams();
   const { list } = useNavigation();
   // Ensure capsuleId is extracted correctly, even if params.id is an array
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
 
-  const { data: identity } = useGetIdentity<Identity>(); // No refetch needed here typically
+  const { data: identity } = useGetIdentity<Identity>();
 
   const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
 
   const { queryResult } = useShow<Capsule>({
-    // Let data provider handle URL construction
-    resource: "capsules", // Tell Refine the resource type
-    id: capsuleId,       // Provide the ID
-    // meta: { ... } // No meta override needed here anymore
+    resource: "capsules",
+    id: capsuleId,
     queryOptions: {
-      enabled: !!capsuleId && !!identity?.token, // Only run if ID and token exist
-      staleTime: 30000, // Cache for 30s
-      retry: 1, // Retry once on error
+      enabled: !!capsuleId && !!identity?.token,
+      staleTime: 30000,
+      retry: 1,
       refetchInterval: (query) => {
-          // Check query.state.data instead of the deprecated argument
-          const currentStatus = query?.state?.data?.data?.status;
-          return currentStatus === 'PROCESSING' ? 5000 : false; // Poll every 5s if processing
+        const currentStatus = query?.state?.data?.data?.status;
+        return currentStatus === 'PROCESSING' ? REFRESH_INTERVAL_MS : false;
       },
       onSuccess: (data) => {
-        // console.log("[CapsuleView] Capsule data loaded:", data?.data);
+        if (IS_DEV) console.log("[CapsuleView] Capsule data loaded successfully");
         if (data?.data?.status === 'COMPLETED' && isRegenerating) {
-          setIsRegenerating(false); // Stop regeneration loading state
+          setIsRegenerating(false);
         }
+        
         // Trigger file detail fetching if needed
         if (data?.data?.fileIds && (!data.data.files || data.data.files.length === 0)) {
-            // Check if details aren't already being loaded or haven't loaded yet
-            if (!isLoadingFiles && loadedFiles.length === 0) {
-                fetchFileDetails(data.data.fileIds);
-            }
+          if (!isLoadingFiles && loadedFiles.length === 0) {
+            fetchFileDetails(data.data.fileIds);
+          }
         }
       },
       onError: (error) => {
         console.error("[CapsuleView] Error loading capsule:", error);
-        handleAuthError(error); // Use central error handler
-        const message = error.statusCode === 404
-          ? "Capsule not found. It may have been deleted or the ID is incorrect."
-          : "Failed to load capsule details: " + (error.message || "Please try again.");
-        setErrorMessage(message);
+        handleAuthError(error);
+        setErrorMessage(formatErrorMessage(error));
       }
     },
   });
 
   const { data: capsuleData, isLoading, isError, refetch } = queryResult;
-  const record = capsuleData?.data; // Access the actual capsule data
+  const record = capsuleData?.data;
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [isAddingFiles, setIsAddingFiles] = useState(false);
-  const [addedFileIds, setAddedFileIds] = useState<string[]>([]); // Track recently added files for highlight
-  const [loadedFiles, setLoadedFiles] = useState<FileData[]>([]); // State for fetched file details
+  const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
+  const [loadedFiles, setLoadedFiles] = useState<FileData[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null); // Track which file delete is confirming
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [retryParams, setRetryParams] = useState<{operation: string, params: any} | null>(null);
 
-  // Fetch file details if only fileIds are present
+  // Fetch file details with batching for better performance
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
-    // Ensure user ID is available from identity before fetching
-    const userId = identity?.id;
-    if (!fileIds || fileIds.length === 0 || !userId) {
-        console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or user ID.", {fileIdsCount: fileIds?.length, userId});
-        return;
+    if (!fileIds || fileIds.length === 0 || !identity?.id) {
+      if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or user ID", 
+        {fileIdsCount: fileIds?.length, userId: identity?.id});
+      return;
     }
 
     setIsLoadingFiles(true);
-    console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for user ${userId}`);
+    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for user ${identity.id}`);
 
     try {
-      // Assuming you have a proxy at /api/documents-proxy
-      const fields = '_id,title,status,createdAt,output.title'; // Define needed fields
-      const idsParam = fileIds.join(',');
-      // Use fetchWithAuth which handles the token
-      const response = await fetchWithAuth(`/api/documents-proxy?userId=${userId}&ids=${idsParam}&fields=${fields}`);
-
-      if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch file details: ${response.status} - ${errorText}`);
+      // Batch processing to prevent overwhelming the API
+      const batches = [];
+      for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
+        batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
       }
+      
+      const allResults: FileData[] = [];
+      
+      for (const batch of batches) {
+        try {
+          const fields = '_id,title,status,createdAt,output.title';
+          const idsParam = batch.join(',');
+          const response = await fetchWithAuth(`/api/documents-proxy?userId=${identity.id}&ids=${idsParam}&fields=${fields}`);
 
-      const filesData = await response.json();
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch file details: ${response.status} - ${errorText}`);
+          }
 
-      if (filesData && Array.isArray(filesData)) {
-        const processedFiles = filesData.map((file: any) => ({
-          _id: file._id,
-          title: file.output?.title || file.title || `File ${file._id.slice(-6)}`, // Provide fallback title
-          createdAt: file.createdAt || new Date().toISOString(), // Provide fallback date
-        }));
-        setLoadedFiles(processedFiles);
-        // console.log("[CapsuleView] Successfully loaded file details:", processedFiles);
+          const batchData = await response.json();
+          
+          if (Array.isArray(batchData)) {
+            const processedFiles = batchData.map((file: any) => ({
+              _id: file._id,
+              title: file.output?.title || file.title || `File ${file._id.slice(-6)}`,
+              createdAt: file.createdAt || new Date().toISOString(),
+            }));
+            allResults.push(...processedFiles);
+          }
+        } catch (error) {
+          console.error("[CapsuleView] Error fetching batch of files:", error);
+          // Continue with other batches despite errors in one batch
+        }
+        
+        // Add a small delay between batches to prevent rate limiting
+        if (batches.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+      
+      // Set all successfully loaded files
+      if (allResults.length > 0) {
+        setLoadedFiles(allResults);
+        if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", allResults.length);
       } else {
-         console.warn("[CapsuleView] File details response was not an array:", filesData);
-         throw new Error("Invalid data format received for file details");
+        throw new Error("No file data could be loaded");
       }
 
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
-      // Create placeholders as a fallback on any error during fetch
-       console.log("[CapsuleView] Creating placeholder files due to fetch error.");
-       const placeholders = fileIds.map(id => ({
-          _id: id,
-          title: `File ${id.slice(-6)}`,
-          createdAt: new Date().toISOString()
-       }));
-       setLoadedFiles(placeholders);
-       // setErrorMessage("Could not load full file details."); // Optionally inform user
+      // Create placeholders as a fallback on error
+      const placeholders = fileIds.map(id => ({
+        _id: id,
+        title: `File ${id.slice(-6)}`,
+        createdAt: new Date().toISOString()
+      }));
+      setLoadedFiles(placeholders);
+      
+      // Don't show error to user since we have a fallback
+      if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [identity?.id, fetchWithAuth]); // Depend only on identity.id and fetchWithAuth
+  }, [identity?.id, fetchWithAuth]);
 
-  // Trigger initial fetch if needed (corrected dependency array)
+  // Trigger initial fetch if needed
   useEffect(() => {
-      // Only fetch if we have fileIds, don't have embedded files, and haven't loaded files yet
-      if (record?.fileIds && (!record.files || record.files.length === 0) && loadedFiles.length === 0 && !isLoadingFiles) {
-          fetchFileDetails(record.fileIds);
-      }
-  // Rerun when record.fileIds changes, or if loading finishes and files are still needed
+    // Only fetch if we have fileIds, don't have embedded files, and haven't loaded files yet
+    if (
+      record?.fileIds && 
+      (!record.files || record.files.length === 0) && 
+      loadedFiles.length === 0 && 
+      !isLoadingFiles
+    ) {
+      fetchFileDetails(record.fileIds);
+    }
   }, [record?.fileIds, record?.files, loadedFiles.length, isLoadingFiles, fetchFileDetails]);
 
-
-  // Simplified function to extract summary
+  // Helper function to extract summary
   const extractContextSummary = (summaryContext?: string): string | null => {
     if (!summaryContext) return null;
     const summaryMatch = summaryContext.match(/<summary>([\s\S]*?)<\/summary>/);
-    return summaryMatch?.[1]?.trim() ?? summaryContext.trim(); // Return content or trimmed original
+    return summaryMatch?.[1]?.trim() ?? summaryContext.trim();
   };
 
-
-  const handleRegenerateCapsule = useCallback(async () => {
+  // Handle regeneration of capsule with retry logic
+  const handleRegenerateCapsule = useCallback(async (isRetry = false) => {
     if (!capsuleId) return;
 
     setIsRegenerating(true);
     setErrorMessage(null);
+    
+    if (!isRetry) {
+      // Store parameters for potential retry
+      setRetryParams({
+        operation: 'regenerate',
+        params: {}
+      });
+    }
 
     try {
-      console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
-      // Use fetchWithAuth to handle token and call the correct proxy
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { // Use proxy
-        method: 'POST', // Often regeneration is a POST, adjust if backend expects GET
+      if (IS_DEV) console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
+      
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+        method: 'POST',
       });
 
       if (!response.ok) {
@@ -219,78 +269,124 @@ export default function CapsuleView() {
         throw new Error(errorData.message || `Failed to trigger regeneration: ${response.status}`);
       }
 
-      console.log("[CapsuleView] Regenerate request sent successfully.");
+      if (IS_DEV) console.log("[CapsuleView] Regenerate request sent successfully");
       // Refresh data after a short delay to allow processing status to update
       setTimeout(() => refetch(), 1500);
 
     } catch (error: any) {
       console.error("[CapsuleView] Failed to regenerate capsule:", error);
-      setErrorMessage(error.message || "Failed to start regeneration.");
-      setIsRegenerating(false); // Ensure loading state stops on error
+      setErrorMessage(formatErrorMessage(error));
+      setIsRegenerating(false);
+      handleAuthError(error);
     }
-     // Note: isRegenerating state will be turned off by onSuccess when status changes from PROCESSING to COMPLETED
-  }, [capsuleId, fetchWithAuth, refetch]);
+  }, [capsuleId, fetchWithAuth, refetch, handleAuthError]);
 
-
+  // Open file selector dialog
   const handleAddFile = useCallback(() => {
     setIsFileSelectorOpen(true);
   }, []);
 
-
-  const handleFileSelect = useCallback(async (fileIds: string[]) => {
+  // Handle file selection with improved error handling and batching
+  const handleFileSelect = useCallback(async (fileIds: string[], isRetry = false) => {
     if (!capsuleId || fileIds.length === 0) return;
 
     setIsAddingFiles(true);
     setErrorMessage(null);
-    setAddedFileIds([]); // Clear previous highlights
+    setAddedFileIds([]);
+    
+    if (!isRetry) {
+      // Store parameters for potential retry
+      setRetryParams({
+        operation: 'addFiles',
+        params: { fileIds }
+      });
+    }
 
     try {
-      console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
+      if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
 
-      // Use fetchWithAuth to add files via the proxy
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files`, { // Use proxy
-        method: 'POST',
-        body: JSON.stringify({ fileIds }), // fetchWithAuth adds headers
-      });
+      // Process in batches for better reliability
+      const batches = [];
+      for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
+        batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
+      }
+      
+      const successfullyAddedIds: string[] = [];
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
+        
+        try {
+          const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files`, {
+            method: 'POST',
+            body: JSON.stringify({ fileIds: batch }),
+          });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-        throw new Error(errorData.message || `Failed to add files: ${response.status}`);
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+            throw new Error(errorData.message || `Failed to add files in batch ${i+1}: ${response.status}`);
+          }
+          
+          // Add successful file IDs
+          successfullyAddedIds.push(...batch);
+          if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} added successfully`);
+          
+          // Small delay between batches to prevent overwhelming the API
+          if (i < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          // Continue with other batches despite errors in one batch
+          console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
+        }
       }
 
-      // Success
-      setAddedFileIds(fileIds); // Highlight newly added files
-      console.log("[CapsuleView] Files added successfully via proxy.");
-      refetch(); // Update capsule data (which should include new fileIds)
-
-      // Automatically trigger regeneration after adding files
-      await handleRegenerateCapsule();
+      if (successfullyAddedIds.length > 0) {
+        // Highlight newly added files
+        setAddedFileIds(successfullyAddedIds);
+        if (IS_DEV) console.log("[CapsuleView] Files added successfully:", successfullyAddedIds.length);
+        
+        // Refresh to update file list
+        refetch();
+        
+        // Automatically trigger regeneration after adding files
+        await handleRegenerateCapsule();
+      } else {
+        throw new Error("Failed to add any files. Please try again.");
+      }
 
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
-      setErrorMessage(error.message || "An error occurred while adding files.");
-      handleAuthError(error); // Pass to central handler too
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
     } finally {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError]); // Added handleAuthError
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError]);
 
-
+  // Handle file removal with improved confirmation flow
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
     if (!capsuleId || !fileIdToRemove) return;
 
-    // Determine current files for optimistic update check later
+    // Determine current files for optimistic update
     const currentFiles = record?.files || loadedFiles;
     const remainingFileCount = currentFiles.filter(f => f._id !== fileIdToRemove).length;
 
     setShowDeleteConfirm(null); // Hide confirmation immediately
     setErrorMessage(null);
+    
+    // Store parameters for potential retry
+    setRetryParams({
+      operation: 'removeFile',
+      params: { fileId: fileIdToRemove }
+    });
 
     try {
-      console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
-      // Use fetchWithAuth for the DELETE request via proxy
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files/${fileIdToRemove}`, { // Use proxy
+      if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
+      
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files/${fileIdToRemove}`, {
         method: 'DELETE',
       });
 
@@ -300,40 +396,39 @@ export default function CapsuleView() {
         throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
       }
 
-      console.log("[CapsuleView] File removed successfully via proxy.");
+      if (IS_DEV) console.log("[CapsuleView] File removed successfully");
+      
       // Clear locally loaded files state if the deleted file was in there
       setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
-      refetch(); // Refresh data to update capsule's fileIds list
+      refetch();
 
       // Regenerate only if files remain
       if (remainingFileCount > 0) {
-        console.log("[CapsuleView] Files remain, triggering regeneration.");
+        if (IS_DEV) console.log("[CapsuleView] Files remain, triggering regeneration");
         await handleRegenerateCapsule();
       } else {
-         console.log("[CapsuleView] No files remain, skipping regeneration.");
-         // Potentially clear the summary context if last file removed?
-         // Depends on desired behavior.
+        if (IS_DEV) console.log("[CapsuleView] No files remain, skipping regeneration");
       }
 
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
-      setErrorMessage(error.message || "An error occurred while removing the file.");
-      handleAuthError(error); // Pass to central handler
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError]); // Added handleAuthError
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError]);
 
-
+  // Download markdown summary
   const handleDownloadMarkdown = useCallback(() => {
     const summary = extractContextSummary(record?.summaryContext);
     if (!summary || !record) return;
 
     try {
-      console.log("[CapsuleView] Preparing markdown download");
+      if (IS_DEV) console.log("[CapsuleView] Preparing markdown download");
       const blob = new Blob([summary], { type: 'text/markdown;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${record.slug || record.name || 'capsule'}.md`; // Use slug or name for filename
+      link.download = `${record.slug || record.name || 'capsule'}.md`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -344,9 +439,31 @@ export default function CapsuleView() {
     }
   }, [record]);
 
+  // Navigation back to list
   const handleBackToList = useCallback(() => {
-    list("capsules"); // Navigate back to the capsules list view
+    list("capsules");
   }, [list]);
+  
+  // Handle retry operation
+  const handleRetry = useCallback(() => {
+    if (!retryParams) return;
+    
+    setErrorMessage(null);
+    
+    switch (retryParams.operation) {
+      case 'regenerate':
+        handleRegenerateCapsule(true);
+        break;
+      case 'addFiles':
+        handleFileSelect(retryParams.params.fileIds, true);
+        break;
+      case 'removeFile':
+        handleRemoveFile(retryParams.params.fileId);
+        break;
+      default:
+        if (IS_DEV) console.warn("[CapsuleView] Unknown retry operation:", retryParams.operation);
+    }
+  }, [retryParams, handleRegenerateCapsule, handleFileSelect, handleRemoveFile]);
 
   // Helper to format date strings
   const formatDate = (dateString?: string): string => {
@@ -356,7 +473,7 @@ export default function CapsuleView() {
         year: 'numeric', month: 'short', day: 'numeric'
       });
     } catch (e) {
-      return dateString; // Return original if parsing fails
+      return dateString;
     }
   };
 
@@ -391,7 +508,7 @@ export default function CapsuleView() {
   // Determine which files to display (prefer record.files if available)
   const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
-  const isProcessing = record.status === 'PROCESSING' || isRegenerating; // Combine processing/regenerating states
+  const isProcessing = record.status === 'PROCESSING' || isRegenerating;
 
   const contextSummary = extractContextSummary(record.summaryContext);
   const hasContextSummary = !!contextSummary;
@@ -431,7 +548,7 @@ export default function CapsuleView() {
             leftSection={<Plus size={16} />}
             onClick={handleAddFile}
             loading={isAddingFiles}
-            disabled={isProcessing} // Disable if processing/regenerating
+            disabled={isProcessing}
             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
             Add Files
@@ -439,9 +556,9 @@ export default function CapsuleView() {
           <Button
             variant="default"
             leftSection={<RefreshCw size={16} />}
-            onClick={handleRegenerateCapsule}
-            loading={isProcessing} // Show loading if processing/regenerating
-            disabled={!hasFiles || isAddingFiles} // Disable if no files or adding files
+            onClick={() => handleRegenerateCapsule()}
+            loading={isProcessing}
+            disabled={!hasFiles || isAddingFiles}
              styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
             {isProcessing ? 'Processing...' : 'Regenerate'}
@@ -450,7 +567,7 @@ export default function CapsuleView() {
             variant="default"
             leftSection={<Download size={16} />}
             onClick={handleDownloadMarkdown}
-            disabled={!hasContextSummary || isProcessing} // Disable if no summary or processing
+            disabled={!hasContextSummary || isProcessing}
              styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
             Download MD
@@ -460,8 +577,25 @@ export default function CapsuleView() {
 
       {/* General Error Alert */}
       {errorMessage && (
-        <Alert color="red" title="Action Required" mb="md" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setErrorMessage(null)}>
+        <Alert 
+          color="red" 
+          title="Action Required" 
+          mb="md" 
+          icon={<AlertCircle size={16} />} 
+          withCloseButton 
+          onClose={() => setErrorMessage(null)}
+        >
           {errorMessage}
+          {retryParams && (
+            <Button
+              mt="sm"
+              size="xs"
+              leftSection={<RefreshCw size={14} />}
+              onClick={handleRetry}
+            >
+              Retry Last Action
+            </Button>
+          )}
         </Alert>
       )}
 
@@ -469,7 +603,7 @@ export default function CapsuleView() {
       <Flex gap="xl">
         {/* Left Panel: Source Files */}
         <Box
-          w={330} // Fixed width for file list
+          w={330}
           style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}
         >
           <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
@@ -485,7 +619,7 @@ export default function CapsuleView() {
                   style={{
                     backgroundColor: '#1a1a1a',
                     borderRadius: '6px',
-                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b', // Highlight recently added
+                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
                     overflow: 'hidden',
                     transition: 'border-color 0.3s ease'
                   }}
@@ -504,7 +638,7 @@ export default function CapsuleView() {
                         variant="subtle"
                         onClick={() => setShowDeleteConfirm(file._id)}
                         disabled={isProcessing}
-                        title={'Remove file'}
+                        title="Remove file"
                       >
                         <Trash size={16} />
                       </ActionIcon>
@@ -518,7 +652,7 @@ export default function CapsuleView() {
                           <Text size="xs" c="dimmed">Delete file?</Text>
                           <Group gap="xs">
                             <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
-                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button> { /* Add loading state */}
+                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
                           </Group>
                        </Group>
                     </Box>
@@ -570,12 +704,12 @@ export default function CapsuleView() {
            </Box>
 
           {/* Context Content Area */}
-          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' /* Needed for LoadingOverlay */ }}>
+          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
             {isProcessing ? (
                  // Loading state while processing/regenerating
-                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' /* Ensure stack has height */ }}>
+                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
                     <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 /* Ensure text is above overlay */ }}>Generating context...</Text>
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
                     <Text ta="center" c="dimmed" mb="md" style={{zIndex: 1}}>
                        Analyzing files and creating the capsule summary. This might take a moment.
                     </Text>
@@ -589,13 +723,13 @@ export default function CapsuleView() {
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
-                        Click the "Regenerate" button to analyze the added files and create the context summary.
+                        Click the &quot;Regenerate&quot; button to analyze the added files and create the context summary.
                     </Text>
                     <Button
                       leftSection={<RefreshCw size={16} />}
-                      onClick={handleRegenerateCapsule}
+                      onClick={() => handleRegenerateCapsule()}
                       styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                      loading={isProcessing} // Show loading state here too
+                      loading={isProcessing}
                     >
                       Generate Summary
                     </Button>

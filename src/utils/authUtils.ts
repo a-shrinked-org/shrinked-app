@@ -20,22 +20,31 @@ interface TokenMetadata {
 
 // Debug helper function
 const authDebug = {
-  enabled: process.env.NODE_ENV !== 'production', // Disable in production automatically
+  enabled: process.env.NODE_ENV === 'development' || process.env.DEBUG_AUTH === 'true',
   log: (area: string, message: string, data?: any) => {
 	if (authDebug.enabled) {
-	  console.log(`[AUTH:${area}] ${message}`, data ?? ""); // Use ?? for cleaner logs
+	  console.log(`[AUTH:${area}] ${message}`, data ?? "");
 	}
   },
+  // Always log errors regardless of environment
   error: (area: string, message: string, error?: any) => {
-	// Always log errors
 	console.error(`[AUTH:${area}] ERROR: ${message}`, error || "");
-  },
-  warn: (area: string, message: string, data?: any) => {
-	if (authDebug.enabled) {
-	  console.warn(`[AUTH:${area}] WARNING: ${message}`, data ?? "");
-	}
-  },
+  }
 };
+
+// Improved token refresh logic
+if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
+  authDebug.log("refreshToken", `Skipping refresh (cooldown: ${Math.round((REFRESH_COOLDOWN - (now - lastSuccessfulRefreshTime)) / 1000)}s remaining)`);
+  return Promise.resolve(true); // Return existing token validity state
+}
+
+// Better error response detection
+const isAuthError = response.status === 401 || response.status === 403;
+if (isAuthError) {
+  authUtils.clearAuthStorage();
+  authUtils.setAuthenticatedState(false);
+  return false;
+}
 
 // Configuration constants
 export const API_CONFIG = {
