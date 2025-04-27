@@ -209,10 +209,10 @@ export const shrinkedDataProvider = (
 	  return result;
 	}
 	
-	// Case 2: Special handling for capsules resource with ID
+	// Case 2: Special handling for capsules resource with ID - use direct approach
 	if (resource === 'capsules' && meta?.hasId) {
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using dynamic route: /api/capsules`);
-	  return '/api/capsules';
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using direct route: /api/capsules-direct`);
+	  return '/api/capsules-direct';
 	}
 	
 	// Case 3: Special handling for capsules resource without ID
