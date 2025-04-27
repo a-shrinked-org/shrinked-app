@@ -194,43 +194,43 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
 
-// In shrinked-data-provider.ts
-const getProxyUrl = (resource: string, meta?: any): string => {
-  // Case 1: Direct URL override in meta - use it as is
-  if (meta?.url) {
-	return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
-  }
-  
-  // Case 2: Special handling for capsules resource
-  if (resource === 'capsules') {
-	// If an ID is provided, use the dynamic route for ID-specific operations
-	if (meta?.id) {
-	  return '/api/capsules';
-	} else {
-	  // For list and other operations not targeting a specific ID, use non-dynamic route
-	  return '/api/capsules-proxy';
+  // Improved proxy URL helper
+  const getProxyUrl = (resource: string, meta?: any): string => {
+	// Case 1: Direct URL override in meta - use it as is
+	if (meta?.url) {
+	  return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
 	}
-  }
-  
-  // Case 3: Resource-specific proxy mappings for other resources
-  const proxyMappings: Record<string, string> = {
-	'documents': '/api/documents-proxy',
-	'users': '/api/users-proxy',
-	'auth': '/api/auth-proxy'
+	
+	// Case 2: Resource-specific proxy mappings
+	const proxyMappings: Record<string, string> = {
+	  'documents': '/api/documents-proxy',
+	  'users': '/api/users-proxy',
+	  'auth': '/api/auth-proxy'
+	};
+	
+	// Special handling for capsules resource
+	if (resource === 'capsules') {
+	  // If we're in a method handling a specific ID, use the dynamic route
+	  if (meta?.hasId) {
+		return '/api/capsules';
+	  } else {
+		// For list and other operations not targeting a specific ID, use non-dynamic route
+		return '/api/capsules-proxy';
+	  }
+	}
+	
+	if (proxyMappings[resource]) {
+	  return proxyMappings[resource];
+	}
+	
+	// Case 3: Generic fallback with proxy pattern
+	if (IS_DEV) {
+	  console.log(`[DataProvider] No specific proxy for "${resource}". Using generic proxy: /api/${resource}-proxy`);
+	}
+	
+	// Use consistent naming pattern for all proxies
+	return `/api/${resource}-proxy`;
   };
-  
-  if (proxyMappings[resource]) {
-	return proxyMappings[resource];
-  }
-  
-  // Case 4: Generic fallback with proxy pattern
-  if (IS_DEV) {
-	console.log(`[DataProvider] No specific proxy for "${resource}". Using generic proxy: /api/${resource}-proxy`);
-  }
-  
-  // Use consistent naming pattern for all proxies
-  return `/api/${resource}-proxy`;
-};
 
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {
@@ -258,7 +258,9 @@ const getProxyUrl = (resource: string, meta?: any): string => {
 	},
 
 	getOne: async ({ resource, id, meta }) => {
-	  const baseUrl = getProxyUrl(resource, meta);
+	  // Add a flag to indicate this is an ID-based operation
+	  const routingMeta = { ...meta, hasId: true };
+	  const baseUrl = getProxyUrl(resource, routingMeta);
 	  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
 
 	  const axiosConfig: AxiosRequestConfig = {
@@ -285,7 +287,9 @@ const getProxyUrl = (resource: string, meta?: any): string => {
 	},
 
 	update: async ({ resource, id, variables, meta }) => {
-	  const baseUrl = getProxyUrl(resource, meta);
+	  // Add a flag to indicate this is an ID-based operation
+	  const routingMeta = { ...meta, hasId: true };
+	  const baseUrl = getProxyUrl(resource, routingMeta);
 	  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
 
 	  const axiosConfig: AxiosRequestConfig = {
@@ -299,7 +303,9 @@ const getProxyUrl = (resource: string, meta?: any): string => {
 	},
 
 	deleteOne: async ({ resource, id, variables, meta }) => {
-	  const baseUrl = getProxyUrl(resource, meta);
+	  // Add a flag to indicate this is an ID-based operation
+	  const routingMeta = { ...meta, hasId: true };
+	  const baseUrl = getProxyUrl(resource, routingMeta);
 	  const targetUrl = `${baseUrl.replace(/\/$/, '')}/${id}`;
 
 	  const axiosConfig: AxiosRequestConfig = {
@@ -315,6 +321,8 @@ const getProxyUrl = (resource: string, meta?: any): string => {
 	},
 
 	getMany: async ({ resource, ids, meta }) => {
+	  // This is tricky - getMany could be routed either way
+	  // We'll assume it's not ID-specific since it's getting multiple resources
 	  const targetUrl = getProxyUrl(resource, meta);
 
 	  const axiosConfig: AxiosRequestConfig = {
