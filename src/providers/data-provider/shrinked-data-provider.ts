@@ -194,33 +194,43 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
 
-  // Improved proxy URL helper
-  const getProxyUrl = (resource: string, meta?: any): string => {
-	// Case 1: Direct URL override in meta - use it as is
-	if (meta?.url) {
-	  return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
+// In shrinked-data-provider.ts
+const getProxyUrl = (resource: string, meta?: any): string => {
+  // Case 1: Direct URL override in meta - use it as is
+  if (meta?.url) {
+	return meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
+  }
+  
+  // Case 2: Special handling for capsules resource
+  if (resource === 'capsules') {
+	// If an ID is provided, use the dynamic route for ID-specific operations
+	if (meta?.id) {
+	  return '/api/capsules';
+	} else {
+	  // For list and other operations not targeting a specific ID, use non-dynamic route
+	  return '/api/capsules-proxy';
 	}
-	
-	// Case 2: Resource-specific proxy mappings
-	const proxyMappings: Record<string, string> = {
-	  'capsules': '/api/capsules-proxy',
-	  'documents': '/api/documents-proxy',
-	  'users': '/api/users-proxy',
-	  'auth': '/api/auth-proxy'
-	};
-	
-	if (proxyMappings[resource]) {
-	  return proxyMappings[resource];
-	}
-	
-	// Case 3: Generic fallback with proxy pattern
-	if (IS_DEV) {
-	  console.log(`[DataProvider] No specific proxy for "${resource}". Using generic proxy: /api/${resource}-proxy`);
-	}
-	
-	// Use consistent naming pattern for all proxies
-	return `/api/${resource}-proxy`;
+  }
+  
+  // Case 3: Resource-specific proxy mappings for other resources
+  const proxyMappings: Record<string, string> = {
+	'documents': '/api/documents-proxy',
+	'users': '/api/users-proxy',
+	'auth': '/api/auth-proxy'
   };
+  
+  if (proxyMappings[resource]) {
+	return proxyMappings[resource];
+  }
+  
+  // Case 4: Generic fallback with proxy pattern
+  if (IS_DEV) {
+	console.log(`[DataProvider] No specific proxy for "${resource}". Using generic proxy: /api/${resource}-proxy`);
+  }
+  
+  // Use consistent naming pattern for all proxies
+  return `/api/${resource}-proxy`;
+};
 
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {
