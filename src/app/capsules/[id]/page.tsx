@@ -108,7 +108,8 @@ export default function CapsuleView() {
       staleTime: 30000,
       retry: 1,
       refetchInterval: (query) => {
-        const currentStatus = query?.state?.data?.data?.status;
+        // Fix: Access data directly without going through state
+        const currentStatus = query?.data?.status;
         return currentStatus === 'PROCESSING' ? REFRESH_INTERVAL_MS : false;
       },
       onSuccess: (data) => {
