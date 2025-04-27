@@ -109,7 +109,7 @@ export default function CapsuleView() {
       retry: 1,
       refetchInterval: (query) => {
         // Fix: Access data directly without going through state
-        const currentStatus = query?.data?.status;
+        const currentStatus = query?.data?.data?.status;
         return currentStatus === 'PROCESSING' ? REFRESH_INTERVAL_MS : false;
       },
       onSuccess: (data) => {
@@ -262,7 +262,7 @@ export default function CapsuleView() {
       if (IS_DEV) console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
       
       const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
-        method: 'POST',
+        method: 'GET',
       });
 
       if (!response.ok) {
