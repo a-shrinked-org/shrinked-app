@@ -108,20 +108,20 @@ export default function CapsuleView() {
       staleTime: 30000,
       retry: 1,
       refetchInterval: (query) => {
-        // Fix: Access data directly without going through state
-        const currentStatus = query?.data?.data?.status;
+        const currentStatus = (query?.data as any)?.data?.status;
         return currentStatus === 'PROCESSING' ? REFRESH_INTERVAL_MS : false;
       },
       onSuccess: (data) => {
         if (IS_DEV) console.log("[CapsuleView] Capsule data loaded successfully");
-        if (data?.data?.status === 'COMPLETED' && isRegenerating) {
+        const capsuleData = data as any;
+        if (capsuleData?.data?.status === 'COMPLETED' && isRegenerating) {
           setIsRegenerating(false);
         }
         
         // Trigger file detail fetching if needed
-        if (data?.data?.fileIds && (!data.data.files || data.data.files.length === 0)) {
+        if (capsuleData?.data?.fileIds && (!capsuleData.data.files || capsuleData.data.files.length === 0)) {
           if (!isLoadingFiles && loadedFiles.length === 0) {
-            fetchFileDetails(data.data.fileIds);
+            fetchFileDetails(capsuleData.data.fileIds);
           }
         }
       },
