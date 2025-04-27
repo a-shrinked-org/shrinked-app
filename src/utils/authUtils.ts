@@ -18,33 +18,25 @@ interface TokenMetadata {
   lastRefresh: number; // timestamp of last refresh
 }
 
-// Debug helper function
+// Debug helper function - CHANGED: Only enable in development
+const IS_DEV = process.env.NODE_ENV === 'development';
 const authDebug = {
-  enabled: process.env.NODE_ENV === 'development' || process.env.DEBUG_AUTH === 'true',
+  enabled: IS_DEV, // Only enable in development environment
   log: (area: string, message: string, data?: any) => {
 	if (authDebug.enabled) {
-	  console.log(`[AUTH:${area}] ${message}`, data ?? "");
+	  console.log(`[AUTH:${area}] ${message}`, data ?? ""); // Changed || to ?? for cleaner logs
 	}
   },
-  // Always log errors regardless of environment
   error: (area: string, message: string, error?: any) => {
-	console.error(`[AUTH:${area}] ERROR: ${message}`, error || "");
-  }
+	// Always log errors, but with less detail in production
+	console.error(`[AUTH:${area}] ERROR: ${message}`, IS_DEV ? (error || "") : "");
+  },
+  warn: (area: string, message: string, data?: any) => {
+	if (authDebug.enabled) {
+	  console.warn(`[AUTH:${area}] WARNING: ${message}`, data ?? ""); // Changed || to ?? for cleaner logs
+	}
+  },
 };
-
-// Improved token refresh logic
-if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
-  authDebug.log("refreshToken", `Skipping refresh (cooldown: ${Math.round((REFRESH_COOLDOWN - (now - lastSuccessfulRefreshTime)) / 1000)}s remaining)`);
-  return Promise.resolve(true); // Return existing token validity state
-}
-
-// Better error response detection
-const isAuthError = response.status === 401 || response.status === 403;
-if (isAuthError) {
-  authUtils.clearAuthStorage();
-  authUtils.setAuthenticatedState(false);
-  return false;
-}
 
 // Configuration constants
 export const API_CONFIG = {
@@ -88,8 +80,8 @@ if (typeof window !== "undefined") {
   };
 }
 
-// Function to decode JWT and extract expiration
-const parseJwt = (token: string): { exp?: number; [key: string]: any } => { // Added index signature
+// Function to decode JWT and extract expiration - CHANGED: Added index signature
+const parseJwt = (token: string): { exp?: number; [key: string]: any } => {
   try {
 	const base64Url = token.split(".")[1];
 	if (!base64Url) return {}; // Handle cases with invalid token format
@@ -115,7 +107,7 @@ export const authUtils = {
 	try {
 	  if (typeof window === 'undefined') return null; // Prevent server-side localStorage access
 	  const token = localStorage.getItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
-	  // authDebug.log("getAccessToken", token ? "Token retrieved" : "No token found"); // Can be noisy
+	  // Removed noisy log
 	  return token;
 	} catch (e) {
 	  authDebug.error("getAccessToken", "Error accessing localStorage:", e);
@@ -125,9 +117,9 @@ export const authUtils = {
 
   getRefreshToken: (): string | null => {
 	try {
-	  if (typeof window === 'undefined') return null;
+	  if (typeof window === 'undefined') return null; // Prevent server-side localStorage access
 	  const token = localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
-	  // authDebug.log("getRefreshToken", token ? "Token retrieved" : "No token found"); // Can be noisy
+	  // Removed noisy log
 	  return token;
 	} catch (e) {
 	  authDebug.error("getRefreshToken", "Error accessing localStorage:", e);
@@ -138,7 +130,7 @@ export const authUtils = {
   saveTokens: (accessToken: string, refreshToken: string): void => {
 	try {
 	  if (typeof window === 'undefined') {
-		  throw new Error("Cannot save tokens on server-side");
+		throw new Error("Cannot save tokens on server-side");
 	  }
 	  if (!accessToken || !refreshToken) {
 		throw new Error("Missing tokens to save");
@@ -152,7 +144,6 @@ export const authUtils = {
 	  const storedRefresh = localStorage.getItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
 	  if (storedAccess !== accessToken || storedRefresh !== refreshToken) {
 		console.error("Local storage check failed after saving tokens!");
-		// Potentially throw error or notify user if critical
 	  }
 
 	  // Store metadata
@@ -175,7 +166,7 @@ export const authUtils = {
 
   clearAuthStorage: (): void => {
 	try {
-	   if (typeof window === 'undefined') return;
+	  if (typeof window === 'undefined') return;
 	  authDebug.log("clearAuthStorage", "Clearing auth storage");
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.ACCESS_TOKEN);
 	  localStorage.removeItem(API_CONFIG.STORAGE_KEYS.REFRESH_TOKEN);
@@ -196,7 +187,7 @@ export const authUtils = {
 	const accessToken = authUtils.getAccessToken();
 	const refreshToken = authUtils.getRefreshToken();
 	const hasTokens = !!accessToken && !!refreshToken;
-	// authDebug.log("isAuthenticated", `Check: ${hasTokens}`); // Can be noisy
+	// Removed noisy log
 	return hasTokens;
   },
 
@@ -226,22 +217,20 @@ export const authUtils = {
 		}
 
 		authDebug.log("refreshToken", "Attempting token refresh via proxy");
-		// Ensure this proxy route exists and works
 		const response = await fetch(`/api/auth-proxy/refresh`, {
 		  method: "POST",
 		  headers: { "Content-Type": "application/json" },
 		  body: JSON.stringify({ refreshToken: currentRefreshToken }),
-		  // credentials: "include", // Usually not needed when calling own API route
 		});
 
 		if (!response.ok) {
-			// Handle specific errors from refresh endpoint
-			const errorData = await response.json().catch(() => ({ message: `Refresh failed with status ${response.status}` }));
-			authDebug.error("refreshToken", `Refresh failed (${response.status}):`, errorData.message || errorData);
-			 // Clear storage on explicit failure (like invalid refresh token)
-			 authUtils.clearAuthStorage();
-			 authUtils.setAuthenticatedState(false);
-			return false;
+		  // Handle specific errors from refresh endpoint
+		  const errorData = await response.json().catch(() => ({ message: `Refresh failed with status ${response.status}` }));
+		  authDebug.error("refreshToken", `Refresh failed (${response.status}):`, errorData.message || errorData);
+		  // Clear storage on explicit failure (like invalid refresh token)
+		  authUtils.clearAuthStorage();
+		  authUtils.setAuthenticatedState(false);
+		  return false;
 		}
 
 		const data = await response.json();
@@ -258,9 +247,7 @@ export const authUtils = {
 		}
 	  } catch (e) {
 		authDebug.error("refreshToken", "Network or unexpected error during refresh:", e);
-		// Consider if clearing storage is appropriate for network errors vs invalid token errors
-		// authUtils.clearAuthStorage(); // Maybe only clear on 401/403 type errors from backend
-		 authUtils.setAuthenticatedState(false); // Reflect potential logged-out state
+		authUtils.setAuthenticatedState(false); // Reflect potential logged-out state
 		success = false;
 	  } finally {
 		refreshPromise = null; // Clear promise regardless of outcome
@@ -274,44 +261,42 @@ export const authUtils = {
   ensureValidToken: async (): Promise<string | null> => {
 	const accessToken = authUtils.getAccessToken();
 	if (!accessToken) {
-		authDebug.log("ensureValidToken", "No access token found, trying refresh...");
-		const refreshed = await authUtils.refreshToken();
-		return refreshed ? authUtils.getAccessToken() : null;
+	  authDebug.log("ensureValidToken", "No access token found, trying refresh...");
+	  const refreshed = await authUtils.refreshToken();
+	  return refreshed ? authUtils.getAccessToken() : null;
 	}
 
 	const metadataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
 	let needsRefresh = false;
 	if (metadataStr) {
-		try {
-			const metadata: TokenMetadata = JSON.parse(metadataStr);
-			// Refresh if token expires within the next 60 seconds
-			if (metadata.accessExpiry < Date.now() + 60000) {
-				authDebug.log("ensureValidToken", "Token expiring soon, refreshing");
-				needsRefresh = true;
-			}
-		} catch (e) {
-			authDebug.error("ensureValidToken", "Error parsing metadata, forcing refresh", e);
-			needsRefresh = true; // Force refresh if metadata is corrupt
+	  try {
+		const metadata: TokenMetadata = JSON.parse(metadataStr);
+		// Refresh if token expires within the next 60 seconds
+		if (metadata.accessExpiry < Date.now() + 60000) {
+		  authDebug.log("ensureValidToken", "Token expiring soon, refreshing");
+		  needsRefresh = true;
 		}
+	  } catch (e) {
+		authDebug.error("ensureValidToken", "Error parsing metadata, forcing refresh", e);
+		needsRefresh = true; // Force refresh if metadata is corrupt
+	  }
 	} else {
-		authDebug.log("ensureValidToken", "No metadata found, forcing refresh");
-		needsRefresh = true; // Force refresh if no metadata
+	  authDebug.log("ensureValidToken", "No metadata found, forcing refresh");
+	  needsRefresh = true; // Force refresh if no metadata
 	}
 
 	if (needsRefresh) {
-		const refreshed = await authUtils.refreshToken();
-		return refreshed ? authUtils.getAccessToken() : null;
+	  const refreshed = await authUtils.refreshToken();
+	  return refreshed ? authUtils.getAccessToken() : null;
 	}
 
-	// authDebug.log("ensureValidToken", "Token is valid"); // Can be noisy
 	return accessToken;
   },
 
   setupRefreshTimer: (): void => {
 	if (typeof window === "undefined") return;
 	if (window._refreshTimerId) {
-		// authDebug.log("setupRefreshTimer", "Clearing existing timer");
-		clearTimeout(window._refreshTimerId);
+	  clearTimeout(window._refreshTimerId);
 	}
 
 	const metadataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
@@ -321,42 +306,36 @@ export const authUtils = {
 	}
 
 	try {
-		const metadata: TokenMetadata = JSON.parse(metadataStr);
-		// Schedule refresh 3 minutes before actual expiry, minimum 1 second delay
-		const refreshBuffer = 180000; // 3 minutes in ms
-		const timeUntilRefresh = Math.max(metadata.accessExpiry - Date.now() - refreshBuffer, 1000);
+	  const metadata: TokenMetadata = JSON.parse(metadataStr);
+	  // Schedule refresh 3 minutes before actual expiry, minimum 1 second delay
+	  const refreshBuffer = 180000; // 3 minutes in ms
+	  const timeUntilRefresh = Math.max(metadata.accessExpiry - Date.now() - refreshBuffer, 1000);
 
-		// Don't schedule if refresh token itself might be expired (optional check)
-		if (metadata.refreshExpiry && metadata.refreshExpiry < Date.now()) {
-			authDebug.warn("setupRefreshTimer", "Refresh token likely expired, not scheduling refresh.");
-			// Optionally clear storage here if refresh token is definitely expired
-			// authUtils.clearAuthStorage();
-			// authUtils.setAuthenticatedState(false);
-			return;
+	  // Don't schedule if refresh token itself might be expired (optional check)
+	  if (metadata.refreshExpiry && metadata.refreshExpiry < Date.now()) {
+		authDebug.warn("setupRefreshTimer", "Refresh token likely expired, not scheduling refresh.");
+		return;
+	  }
+
+	  window._refreshTimerId = setTimeout(async () => {
+		authDebug.log("setupRefreshTimer", "Timer triggered, attempting refresh");
+		const success = await authUtils.refreshToken();
+		// Only reschedule if refresh was successful
+		if (success) {
+		  authUtils.setupRefreshTimer();
+		} else {
+		  authDebug.warn("setupRefreshTimer", "Refresh failed after timer, not rescheduling.");
 		}
+	  }, timeUntilRefresh);
 
-		window._refreshTimerId = setTimeout(async () => {
-			authDebug.log("setupRefreshTimer", "Timer triggered, attempting refresh");
-			const success = await authUtils.refreshToken();
-			// Only reschedule if refresh was successful
-			if (success) {
-				 authUtils.setupRefreshTimer();
-			} else {
-				 authDebug.warn("setupRefreshTimer", "Refresh failed after timer, not rescheduling.");
-				 // Optionally trigger logout flow here
-			}
-		}, timeUntilRefresh);
-
-		authDebug.log("setupRefreshTimer", `Scheduled refresh in ~${Math.round(timeUntilRefresh / 60000)} minutes`);
+	  authDebug.log("setupRefreshTimer", `Scheduled refresh in ~${Math.round(timeUntilRefresh / 60000)} minutes`);
 
 	} catch (e) {
-		 authDebug.error("setupRefreshTimer", "Error parsing metadata for scheduling:", e);
+	  authDebug.error("setupRefreshTimer", "Error parsing metadata for scheduling:", e);
 	}
   },
 
   // --- fetchWithAuth ---
-  // Uses ensureValidToken to get a valid token, then makes the fetch call
-  // Automatically adds Authorization header. Assumes JSON content type.
   fetchWithAuth: async (url: string, options: RequestInit = {}): Promise<Response> => {
 	const token = await authUtils.ensureValidToken();
 	if (!token) {
@@ -368,13 +347,12 @@ export const authUtils = {
 
 	authDebug.log("fetchWithAuth", `Fetching ${url} with token`);
 	const defaultHeaders: Record<string, string> = {
-		'Authorization': `Bearer ${token}`,
+	  'Authorization': `Bearer ${token}`,
 	};
 	// Only add Content-Type if there's a body and it wasn't explicitly set otherwise
 	if (options.body && !(options.headers && 'Content-Type' in options.headers)) {
-		 defaultHeaders['Content-Type'] = 'application/json';
+	  defaultHeaders['Content-Type'] = 'application/json';
 	}
-
 
 	return fetch(url, {
 	  ...options,
@@ -382,24 +360,21 @@ export const authUtils = {
 		...defaultHeaders, // Add auth and default content-type
 		...options.headers, // Allow overriding defaults
 	  },
-	  // credentials: "include", // Usually not needed when calling own API routes
 	});
   },
 
-  // --- getAuthHeaders (Corrected for Axios) ---
-  // Returns a plain object suitable for Axios headers config
+  // --- getAuthHeaders ---
   getAuthHeaders: (extraHeaders: Record<string, string> = {}): Record<string, string> => {
 	const token = authUtils.getAccessToken();
 	const baseHeaders: Record<string, string> = {
-		// Set default Content-Type that Axios expects, can be overridden by extraHeaders
-		'Content-Type': 'application/json',
-		...extraHeaders, // Spread extra headers first to allow override
+	  // Set default Content-Type that Axios expects, can be overridden by extraHeaders
+	  'Content-Type': 'application/json',
+	  ...extraHeaders, // Spread extra headers first to allow override
 	};
 	if (token) {
-		// Add/overwrite Authorization header
-		baseHeaders['Authorization'] = `Bearer ${token}`;
+	  // Add/overwrite Authorization header
+	  baseHeaders['Authorization'] = `Bearer ${token}`;
 	}
-	// authDebug.log("getAuthHeaders", "Generated headers", baseHeaders); // Can be noisy
 	return baseHeaders;
   },
 
@@ -413,34 +388,33 @@ export const authUtils = {
 
 	if (status === 401 || status === 403) {
 	  toast.error("Session expired or unauthorized. Please log in again.", {toastId: 'authError'});
-	  // Attempt refresh - NOTE: This might cause loops if refresh itself fails with 401
-	  // Consider adding logic to prevent infinite refresh loops
-	   authUtils.refreshToken().then(success => {
-		  if (!success) {
-			  // If refresh fails immediately, redirect to login
-			  authUtils.clearAuthStorage();
-			  authUtils.setAuthenticatedState(false);
-			  // Avoid redirecting if already on login page
-			  if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-				window.location.href = '/login'; // Force reload redirect
-			  }
+	  // Attempt refresh
+	  authUtils.refreshToken().then(success => {
+		if (!success) {
+		  // If refresh fails immediately, redirect to login
+		  authUtils.clearAuthStorage();
+		  authUtils.setAuthenticatedState(false);
+		  // Avoid redirecting if already on login page
+		  if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+			window.location.href = '/login'; // Force reload redirect
 		  }
-	   });
+		}
+	  });
 	} else if (status >= 500) {
 	  toast.error("A server error occurred. Please try again later.", {toastId: 'serverError'});
 	} else if (typeof navigator !== 'undefined' && !navigator.onLine) {
 	  toast.warn("You appear to be offline. Some actions may fail.", {toastId: 'offlineError'});
 	} else if (status === 400) {
-		 toast.error(`Bad request: ${message}`, {toastId: 'badRequestError'});
+	  toast.error(`Bad request: ${message}`, {toastId: 'badRequestError'});
 	} else if (status === 404) {
-		 toast.warn(`Resource not found: ${message}`, {toastId: 'notFoundError'});
+	  toast.warn(`Resource not found: ${message}`, {toastId: 'notFoundError'});
 	}
-	 // Don't toast generic network errors if offline message was already shown
+	// Don't toast generic network errors if offline message was already shown
 	else if (message !== "Network Error" || (typeof navigator !== 'undefined' && navigator.onLine)) {
-	   // Avoid double-toasting common errors
-	   if (!String(message).includes("token") && !String(message).includes("Authentication")) {
-		  toast.error(`An error occurred: ${message}`, {toastId: 'genericError'});
-	   }
+	  // Avoid double-toasting common errors
+	  if (!String(message).includes("token") && !String(message).includes("Authentication")) {
+		toast.error(`An error occurred: ${message}`, {toastId: 'genericError'});
+	  }
 	}
   },
 
@@ -458,7 +432,7 @@ export const authUtils = {
 
   updateUserData: (data: any): boolean => {
 	try {
-		if (typeof window === 'undefined') return false;
+	  if (typeof window === 'undefined') return false;
 	  const currentData = authUtils.getUserData() || {}; // Get current or empty object
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.USER_DATA, JSON.stringify({ ...currentData, ...data }));
 	  return true;
@@ -472,7 +446,6 @@ export const authUtils = {
 	// Try cache first
 	const cachedUserData = authUtils.getUserData();
 	if (cachedUserData?.email) { // Check for a key property like email
-	  // authDebug.log("ensureUserProfile", "Using cached profile");
 	  return cachedUserData;
 	}
 
@@ -495,8 +468,8 @@ export const authUtils = {
 		const errorData = await response.json().catch(() => ({ message: `Profile fetch failed: ${response.status}` }));
 		authDebug.error("ensureUserProfile", `Fetch failed (${response.status}):`, errorData.message || errorData);
 		if (response.status === 401 || response.status === 403) {
-			// If profile fetch fails with auth error, trigger logout/refresh mechanism
-			authUtils.handleAuthError({ status: response.status });
+		  // If profile fetch fails with auth error, trigger logout/refresh mechanism
+		  authUtils.handleAuthError({ status: response.status });
 		}
 		return null; // Return null on failure
 	  }
@@ -513,26 +486,22 @@ export const authUtils = {
   },
 
   setAuthenticatedState: (isAuthenticated: boolean): void => {
-	// This function seems redundant if isAuthenticated() relies on token presence.
-	// Keeping it for potential explicit state tracking if needed.
 	try {
-	   if (typeof window === 'undefined') return;
+	  if (typeof window === 'undefined') return;
 	  if (isAuthenticated) {
 		localStorage.setItem(
 		  API_CONFIG.STORAGE_KEYS.AUTH_STATE,
 		  JSON.stringify({ authenticated: true, lastUpdated: Date.now() })
 		);
-		// authDebug.log("setAuthenticatedState", "Set to authenticated");
 	  } else {
 		localStorage.removeItem(API_CONFIG.STORAGE_KEYS.AUTH_STATE);
-		// authDebug.log("setAuthenticatedState", "Set to unauthenticated");
 	  }
 	} catch (e) {
 	  authDebug.error("setAuthenticatedState", "Error setting state:", e);
 	}
   },
 
-   // --- Network Status ---
+  // --- Network Status ---
   checkNetworkStatus: (): boolean => {
 	if (typeof navigator !== "undefined" && !navigator.onLine) {
 	  authDebug.log("checkNetworkStatus", "Offline");
@@ -544,13 +513,12 @@ export const authUtils = {
   queueOfflineOperation: (operation: () => Promise<void>): void => {
 	authDebug.log("queueOfflineOperation", "Queuing operation for later");
 	authUtils._pendingOperations.push(operation);
-	// Consider persisting pending operations to localStorage for resilience
   },
 
   processPendingOperations: async (): Promise<void> => {
 	if (!authUtils.checkNetworkStatus()) {
-		authDebug.log("processPendingOperations", "Still offline, skipping processing");
-		return;
+	  authDebug.log("processPendingOperations", "Still offline, skipping processing");
+	  return;
 	}
 	if (authUtils._pendingOperations.length === 0) return;
 
@@ -563,11 +531,9 @@ export const authUtils = {
 		await op(); // Attempt the operation
 	  } catch (e) {
 		authDebug.error("processPendingOperations", "Error executing queued operation:", e);
-		// Decide if the failed operation should be re-queued or dropped
-		// authUtils._pendingOperations.unshift(op); // Example: Re-queue at the beginning
 	  }
 	}
-	 authDebug.log("processPendingOperations", `Finished processing operations`);
+	authDebug.log("processPendingOperations", `Finished processing operations`);
   },
 
   setupNetworkListeners: (onlineCallback?: () => void, offlineCallback?: () => void): () => void => {
@@ -595,19 +561,17 @@ export const authUtils = {
 	  window.removeEventListener("offline", handleOffline);
 	};
   },
-
 };
 
 // --- useAuth Hook ---
-// Provides authentication state and functions to components
 export const useAuth = () => {
   const router = useRouter();
   // Initialize state from localStorage synchronously if possible
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-	  if (typeof window !== 'undefined') {
-		  return authUtils.isAuthenticated();
-	  }
-	  return false;
+	if (typeof window !== 'undefined') {
+	  return authUtils.isAuthenticated();
+	}
+	return false;
   });
   const [isLoading, setIsLoading] = useState(true); // Start loading until initial check is done
   const [isOffline, setIsOffline] = useState(() => typeof navigator !== "undefined" ? !navigator.onLine : false);
@@ -618,7 +582,7 @@ export const useAuth = () => {
 	const initializeAuth = async () => {
 	  // Ensure initial state syncs with storage after hydration
 	  const authenticated = authUtils.isAuthenticated();
-	   if (isMounted) setIsAuthenticated(authenticated);
+	  if (isMounted) setIsAuthenticated(authenticated);
 
 	  if (authenticated) {
 		// Setup timer and fetch profile only if authenticated
@@ -639,7 +603,7 @@ export const useAuth = () => {
 	return () => {
 	  isMounted = false;
 	  if (typeof window !== "undefined" && window._refreshTimerId) {
-		 clearTimeout(window._refreshTimerId); // Clear timer on unmount
+		clearTimeout(window._refreshTimerId); // Clear timer on unmount
 	  }
 	  cleanupListeners(); // Remove network listeners
 	};
@@ -668,36 +632,34 @@ export const useAuth = () => {
   }, [router]);
 
   const ensureValidToken = useCallback(async () => {
-	  // No need to set loading here as ensureValidToken might be called frequently
-	  const token = await authUtils.ensureValidToken();
-	  if (!token && isAuthenticated) { // If token became invalid while supposedly authenticated
-		  setIsAuthenticated(false); // Update local state
-	  }
-	  return token;
+	// No need to set loading here as ensureValidToken might be called frequently
+	const token = await authUtils.ensureValidToken();
+	if (!token && isAuthenticated) { // If token became invalid while supposedly authenticated
+	  setIsAuthenticated(false); // Update local state
+	}
+	return token;
   },[isAuthenticated]);
-
 
   const handleAuthError = useCallback((error: any) => {
 	authUtils.handleAuthError(error); // Delegate to central handler
 	// Additional hook-specific logic if needed, e.g., updating local state
 	const status = error?.status ?? error?.statusCode ?? error?.response?.status;
 	if (status === 401 || status === 403) {
-		setIsAuthenticated(false); // Reflect likely logged-out state
+	  setIsAuthenticated(false); // Reflect likely logged-out state
 	}
   }, []);
 
   // fetchWithAuth wrapper using the hook's context
   const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
 	try {
-	   // ensureValidToken already handles refresh internally
+	  // ensureValidToken already handles refresh internally
 	  return await authUtils.fetchWithAuth(url, options);
 	} catch (e: any) {
-		// Catch errors (like the simulated 401 from fetchWithAuth if token is missing)
-		handleAuthError(e);
-		throw e; // Re-throw the error so calling code knows it failed
+	  // Catch errors (like the simulated 401 from fetchWithAuth if token is missing)
+	  handleAuthError(e);
+	  throw e; // Re-throw the error so calling code knows it failed
 	}
   }, [handleAuthError]); // ensureValidToken dependency removed as it's called internally
-
 
   // Login function
   const login = useCallback(async (email: string, password: string) => {
@@ -732,7 +694,7 @@ export const useAuth = () => {
 	  } else {
 		authDebug.error("useAuth.login", "Login response missing tokens");
 		toast.error("Login failed: Invalid server response.");
-		 setIsLoading(false);
+		setIsLoading(false);
 		return { success: false, error: { message: "Invalid server response" } };
 	  }
 	} catch (e) {
@@ -791,15 +753,14 @@ export const useAuth = () => {
   };
 };
 
-
 // --- Initial Setup ---
 // Attempt to setup timer or process queue on initial load if authenticated
 if (typeof window !== "undefined") {
-	if (authUtils.isAuthenticated()) {
-		authUtils.setupRefreshTimer();
-	}
-	// Process any operations queued from previous sessions (if offline persistence was added)
-	authUtils.processPendingOperations();
-	// Setup network listeners globally once
-	authUtils.setupNetworkListeners();
+  if (authUtils.isAuthenticated()) {
+	authUtils.setupRefreshTimer();
+  }
+  // Process any operations queued from previous sessions (if offline persistence was added)
+  authUtils.processPendingOperations();
+  // Setup network listeners globally once
+  authUtils.setupNetworkListeners();
 }
