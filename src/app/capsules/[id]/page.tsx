@@ -189,34 +189,6 @@ export default function CapsuleView() {
     }, 120000);
   }, [refetch]);
 
-  // Monitor capsule status and fetch files
-  useEffect(() => {
-    if (capsuleData?.data) {
-      const { status, fileIds, files } = capsuleData.data;
-      if (status === 'PROCESSING' && !statusMonitorActive) {
-        if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING, starting monitoring");
-        startStatusMonitoring();
-      }
-      if (status === 'COMPLETED' && isRegenerating) {
-        if (IS_DEV) console.log("[CapsuleView] Detected COMPLETED, stopping regeneration");
-        setIsRegenerating(false);
-      }
-      if (fileIds && (!files || files.length === 0) && !isLoadingFiles && loadedFiles.length === 0) {
-        fetchFileDetails(fileIds);
-      }
-    }
-  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, fetchFileDetails]);
-
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (statusCheckIntervalRef.current) {
-        clearInterval(statusCheckIntervalRef.current);
-        statusCheckIntervalRef.current = null;
-      }
-    };
-  }, []);
-
   // Fetch file details
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
     if (!fileIds?.length || !capsuleId) {
@@ -265,6 +237,34 @@ export default function CapsuleView() {
       setIsLoadingFiles(false);
     }
   }, [capsuleId, fetchWithAuth]);
+
+  // Monitor capsule status and fetch files
+  useEffect(() => {
+    if (capsuleData?.data) {
+      const { status, fileIds, files } = capsuleData.data;
+      if (status === 'PROCESSING' && !statusMonitorActive) {
+        if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING, starting monitoring");
+        startStatusMonitoring();
+      }
+      if (status === 'COMPLETED' && isRegenerating) {
+        if (IS_DEV) console.log("[CapsuleView] Detected COMPLETED, stopping regeneration");
+        setIsRegenerating(false);
+      }
+      if (fileIds && (!files || files.length === 0) && !isLoadingFiles && loadedFiles.length === 0) {
+        fetchFileDetails(fileIds);
+      }
+    }
+  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, fetchFileDetails]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (statusCheckIntervalRef.current) {
+        clearInterval(statusCheckIntervalRef.current);
+        statusCheckIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Trigger initial file fetch
   useEffect(() => {
