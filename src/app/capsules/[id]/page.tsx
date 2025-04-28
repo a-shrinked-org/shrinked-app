@@ -155,7 +155,7 @@ export default function CapsuleView() {
         const capsuleData = refreshResult?.data?.data;
 
         if (!capsuleData || !capsuleData.status) {
-          console.warn("[CapsuleView] Invalid status in refresh");
+          console.warn "[CapsuleView] Invalid status in refresh");
           return;
         }
 
@@ -203,7 +203,7 @@ export default function CapsuleView() {
         fetchFileDetails(fileIds);
       }
     }
-  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring]);
+  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, fetchFileDetails]);
 
   // Cleanup
   useEffect(() => {
@@ -727,7 +727,7 @@ export default function CapsuleView() {
                 <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                 <Text ta="center" c="dimmed" mb="xl">
-                  Click "Regenerate" to create the context summary.
+                  Click {"Regenerate"} to create the context summary.
                 </Text>
                 <Button
                   leftSection={<RefreshCw size={16} />}
