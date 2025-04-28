@@ -152,8 +152,7 @@ export default function CapsuleView() {
   // Fetch file details with batching for better performance
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
     if (!fileIds || fileIds.length === 0 || !capsuleId) {
-      if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or capsule ID", 
-        {fileIdsCount: fileIds?.length, capsuleId});
+      if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or capsule ID");
       return;
     }
   
@@ -161,32 +160,68 @@ export default function CapsuleView() {
     if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
   
     try {
-      // Use capsule direct endpoint to get files that are already part of the capsule
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`);
+      // Fetch the entire capsule to get file details
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
   
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Failed to fetch file details: ${response.status} - ${errorText}`);
+        throw new Error(`Failed to fetch capsule details: ${response.status} - ${errorText}`);
       }
   
-      const capsuleFiles = await response.json();
+      const capsuleData = await response.json();
       
-      if (Array.isArray(capsuleFiles)) {
-        // Process files and extract just what we need - title and date
-        const processedFiles = capsuleFiles
-          .filter(file => fileIds.includes(file._id)) // Only keep files that match our fileIds
-          .map((file: any) => ({
+      if (capsuleData?.files && Array.isArray(capsuleData.files)) {
+        // Process files from the capsule response
+        const processedFiles = capsuleData.files
+          .filter(file => fileIds.includes(file._id))
+          .map(file => ({
             _id: file._id,
-            title: file.output?.title || file.title || `File ${file._id.slice(-6)}`,
+            title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
             createdAt: file.createdAt || new Date().toISOString(),
+            fileName: file.fileName,
+            output: file.output
           }));
         
         setLoadedFiles(processedFiles);
         if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
       } else {
-        throw new Error("Unexpected response format from files endpoint");
+        // If no files found in capsule response, try user's documents as a fallback
+        if (IS_DEV) console.log("[CapsuleView] No files found in capsule, trying user documents endpoint");
+        
+        // Get the user ID
+        const token = await ensureValidToken();
+        let userId = '';
+        
+        try {
+          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
+        } catch (e) {
+          console.warn("[CapsuleView] Could not extract user ID from token");
+        }
+        
+        if (userId) {
+          const userDocsResponse = await fetchWithAuth(`/api/documents-proxy?userId=${userId}&ids=${fileIds.join(',')}`);
+          
+          if (userDocsResponse.ok) {
+            const userDocs = await userDocsResponse.json();
+            
+            if (Array.isArray(userDocs)) {
+              const processedFiles = userDocs
+                .filter(file => fileIds.includes(file._id))
+                .map(file => ({
+                  _id: file._id,
+                  title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
+                  createdAt: file.createdAt || new Date().toISOString(),
+                  fileName: file.fileName,
+                  output: file.output
+                }));
+              
+              setLoadedFiles(processedFiles);
+              if (IS_DEV) console.log("[CapsuleView] Loaded file details from user documents:", processedFiles.length);
+            }
+          }
+        }
       }
-  
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
       // Create placeholders as a fallback on error
@@ -197,12 +232,11 @@ export default function CapsuleView() {
       }));
       setLoadedFiles(placeholders);
       
-      // Don't show error to user since we have a fallback
       if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [capsuleId, fetchWithAuth]);
+  }, [capsuleId, fetchWithAuth, ensureValidToken]);
 
   // Trigger initial fetch if needed
   useEffect(() => {
@@ -418,7 +452,7 @@ export default function CapsuleView() {
     try {
       if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
       
-      // Changed to use capsules-direct instead of capsules-proxy
+      // Use the capsules-direct endpoint with specific file ID
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileIdToRemove}`, {
         method: 'DELETE',
       });
@@ -431,24 +465,18 @@ export default function CapsuleView() {
       
       if (IS_DEV) console.log("[CapsuleView] File removed successfully");
       
-      // Clear locally loaded files state if the deleted file was in there
+      // Immediately update local state to reflect the change
       setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
       
-      // Refresh to update file list and check status
-      const updatedCapsule = await refetch();
-      
-      // Check if file was removed successfully by comparing fileIds length
-      const previousFileCount = record?.fileIds?.length || 0;
-      const newFileCount = updatedCapsule?.data?.data?.fileIds?.length || 0;
-      const fileRemoved = newFileCount < previousFileCount;
-      
-      // Check if status changed to processing
-      const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
-      
-      if (fileRemoved) {
-        if (IS_DEV) console.log(`[CapsuleView] File successfully removed from capsule. Previous: ${previousFileCount}, New: ${newFileCount}`);
+      // Refresh to get updated capsule data
+      try {
+        const updatedCapsule = await refetch();
         
-        // If status changed to processing, set the regenerating flag
+        if (IS_DEV) console.log(`[CapsuleView] Capsule data refreshed after file removal`);
+        
+        // Check if status changed to processing
+        const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
+        
         if (statusChanged) {
           setIsRegenerating(true);
           if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
@@ -487,17 +515,16 @@ export default function CapsuleView() {
         } else {
           if (IS_DEV) console.log("[CapsuleView] No files remain, skipping regeneration");
         }
-      } else {
-        if (IS_DEV) console.warn("[CapsuleView] File appears to be removed but capsule fileIds did not update");
-        // Refresh UI anyway
-        refetch();
+      } catch (refreshError) {
+        console.error("[CapsuleView] Error refreshing capsule data:", refreshError);
+        // Don't show error to user since deletion was successful
       }
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, record?.fileIds?.length, loadedFiles, handleAuthError, isRegenerating]);
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError, isRegenerating]);
 
   // Download markdown summary
   const handleDownloadMarkdown = useCallback(() => {
