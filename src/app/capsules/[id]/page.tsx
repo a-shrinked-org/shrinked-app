@@ -155,7 +155,7 @@ export default function CapsuleView() {
         const capsuleData = refreshResult?.data?.data;
 
         if (!capsuleData || !capsuleData.status) {
-          console.warn "[CapsuleView] Invalid status in refresh");
+          console.warn("[CapsuleView] Invalid status in refresh");
           return;
         }
 
