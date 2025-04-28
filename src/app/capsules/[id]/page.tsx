@@ -336,11 +336,11 @@ export default function CapsuleView() {
         
         // Check if files were added successfully by comparing fileIds length
         const previousFileCount = record?.fileIds?.length || 0;
-        const newFileCount = updatedCapsule?.data?.fileIds?.length || 0;
+        const newFileCount = updatedCapsule?.data?.data?.fileIds?.length || 0;
         const filesAdded = newFileCount > previousFileCount;
         
         // Check if status changed to processing
-        statusChanged = updatedCapsule?.data?.status === 'PROCESSING';
+        statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
         
         if (filesAdded) {
           if (IS_DEV) console.log(`[CapsuleView] Files successfully added to capsule. Previous: ${previousFileCount}, New: ${newFileCount}`);
@@ -439,11 +439,11 @@ export default function CapsuleView() {
       
       // Check if file was removed successfully by comparing fileIds length
       const previousFileCount = record?.fileIds?.length || 0;
-      const newFileCount = updatedCapsule?.data?.fileIds?.length || 0;
+      const newFileCount = updatedCapsule?.data?.data?.fileIds?.length || 0;
       const fileRemoved = newFileCount < previousFileCount;
       
       // Check if status changed to processing
-      const statusChanged = updatedCapsule?.data?.status === 'PROCESSING';
+      const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
       
       if (fileRemoved) {
         if (IS_DEV) console.log(`[CapsuleView] File successfully removed from capsule. Previous: ${previousFileCount}, New: ${newFileCount}`);
