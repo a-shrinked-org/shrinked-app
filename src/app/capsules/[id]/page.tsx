@@ -440,7 +440,7 @@ export default function CapsuleView() {
       
       // Most important part: Check if files were actually added regardless of API response
       // Wait a bit longer for backend processing since this can be slow
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 3000));
             
       // Refresh to check actual state
       const updatedCapsule = await refetch();
@@ -557,6 +557,15 @@ export default function CapsuleView() {
       } else {
         throw new Error("Failed to add any files. Please try again.");
       }
+    } catch (error: any) {
+      console.error("[CapsuleView] Failed to add files:", error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsAddingFiles(false);
+      setIsFileSelectorOpen(false);
+    }
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError, isRegenerating]);
 
   // Handle file removal with improved confirmation flow
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
@@ -624,6 +633,7 @@ export default function CapsuleView() {
       
       if (statusChanged) {
         setIsRegenerating(true);
+        if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
         
         // Setup interval to check status until complete
         const statusCheckInterval = setInterval(async () => {
@@ -631,9 +641,12 @@ export default function CapsuleView() {
             const refreshResult = await refetch();
             const refreshedStatus = refreshResult?.data?.data?.status;
             
+            if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
+            
             if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
               clearInterval(statusCheckInterval);
               setIsRegenerating(false);
+              if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
             }
           } catch (error) {
             console.error("[CapsuleView] Error during status check:", error);
@@ -645,15 +658,18 @@ export default function CapsuleView() {
           clearInterval(statusCheckInterval);
           if (isRegenerating) {
             setIsRegenerating(false);
+            if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
           }
         }, 120000);
       } else if (remainingFileCount > 0) {
         // If status didn't change but files remain, trigger manual regeneration
+        if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
+        setIsRegenerating(true); // Set this first to show loading state
         try {
           await handleRegenerateCapsule();
         } catch (regenerateError) {
           console.error("[CapsuleView] Regeneration error after file removal:", regenerateError);
-          // Not critical since file was successfully removed
+          setIsRegenerating(false); // Make sure we reset this if regeneration fails
         }
       }
     } catch (error: any) {
@@ -722,307 +738,307 @@ export default function CapsuleView() {
         if (IS_DEV) console.warn("[CapsuleView] Unknown retry operation:", retryParams.operation);
     }
   }, [retryParams, handleRegenerateCapsule, handleFileSelect, handleRemoveFile]);
-
-  // Helper to format date strings
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return "N/A";
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric'
-      });
-    } catch (e) {
-      return dateString;
+  
+    // Helper to format date strings
+    const formatDate = (dateString?: string): string => {
+      if (!dateString) return "N/A";
+      try {
+        return new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric', month: 'short', day: 'numeric'
+        });
+      } catch (e) {
+        return dateString;
+      }
+    };
+  
+    // --- Render Logic ---
+  
+    if (isLoading) {
+      return (
+        <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
+          <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+        </Box>
+      );
     }
-  };
-
-  // --- Render Logic ---
-
-  if (isLoading) {
+  
+    if (isError || !record) {
+      return (
+        <Box p="md">
+          <Alert
+            color="red"
+            title="Error Loading Capsule"
+            icon={<AlertCircle size={16} />}
+            mb="md"
+          >
+            {errorMessage || "Could not load capsule details. Please check the ID or try again."}
+          </Alert>
+          <Button onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
+            Back to Capsules List
+          </Button>
+        </Box>
+      );
+    }
+  
+    // Determine which files to display (prefer record.files if available)
+    const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
+    const hasFiles = displayFiles.length > 0;
+    const isProcessing = record.status === 'PROCESSING' || isRegenerating;
+  
+    const contextSummary = extractContextSummary(record.summaryContext);
+    const hasContextSummary = !!contextSummary;
+  
     return (
-      <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
-        <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
-      </Box>
-    );
-  }
-
-  if (isError || !record) {
-    return (
-      <Box p="md">
-        <Alert
-          color="red"
-          title="Error Loading Capsule"
-          icon={<AlertCircle size={16} />}
-          mb="md"
-        >
-          {errorMessage || "Could not load capsule details. Please check the ID or try again."}
-        </Alert>
-        <Button onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
-          Back to Capsules List
-        </Button>
-      </Box>
-    );
-  }
-
-  // Determine which files to display (prefer record.files if available)
-  const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
-  const hasFiles = displayFiles.length > 0;
-  const isProcessing = record.status === 'PROCESSING' || isRegenerating;
-
-  const contextSummary = extractContextSummary(record.summaryContext);
-  const hasContextSummary = !!contextSummary;
-
-  return (
-    // Main container styling
-    <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
-      {/* Header Section */}
-      <Group mb="xl" justify="space-between" align="center">
-        {/* Left Header: Back button, Title, Status */}
-        <Group align="center">
-          <ActionIcon size="lg" variant="subtle" onClick={handleBackToList} style={{ color: '#a0a0a0' }}>
-            <ArrowLeft size={20} />
-          </ActionIcon>
-          <Title order={3} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#ffffff' }}>
-            {record.name || "Unnamed Capsule"}
-          </Title>
-          <Badge
-             variant="filled"
-             color={
-               record.status === 'COMPLETED' ? 'green' :
-               record.status === 'PROCESSING' ? 'yellow' :
-               record.status === 'PENDING' ? 'blue' :
-               record.status === 'FAILED' ? 'red' :
-               'gray'
-             }
-             style={{ textTransform: 'uppercase', marginLeft: '8px' }}
-           >
-            {record.status || 'Unknown'}
-          </Badge>
-        </Group>
-
-        {/* Right Header: Action Buttons */}
-        <Group>
-          <Button
-            variant="default"
-            leftSection={<Plus size={16} />}
-            onClick={handleAddFile}
-            loading={isAddingFiles}
-            disabled={isProcessing}
-            styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-          >
-            Add Files
-          </Button>
-          <Button
-            variant="default"
-            leftSection={<RefreshCw size={16} />}
-            onClick={() => handleRegenerateCapsule()}
-            loading={isProcessing}
-            disabled={!hasFiles || isAddingFiles}
-             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-          >
-            {isProcessing ? 'Processing...' : 'Regenerate'}
-          </Button>
-          <Button
-            variant="default"
-            leftSection={<Download size={16} />}
-            onClick={handleDownloadMarkdown}
-            disabled={!hasContextSummary || isProcessing}
-             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-          >
-            Download MD
-          </Button>
-        </Group>
-      </Group>
-
-      {/* General Error Alert */}
-      {errorMessage && (
-        <Alert 
-          color="red" 
-          title="Action Required" 
-          mb="md" 
-          icon={<AlertCircle size={16} />} 
-          withCloseButton 
-          onClose={() => setErrorMessage(null)}
-        >
-          {errorMessage}
-          {retryParams && (
+      // Main container styling
+      <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
+        {/* Header Section */}
+        <Group mb="xl" justify="space-between" align="center">
+          {/* Left Header: Back button, Title, Status */}
+          <Group align="center">
+            <ActionIcon size="lg" variant="subtle" onClick={handleBackToList} style={{ color: '#a0a0a0' }}>
+              <ArrowLeft size={20} />
+            </ActionIcon>
+            <Title order={3} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#ffffff' }}>
+              {record.name || "Unnamed Capsule"}
+            </Title>
+            <Badge
+               variant="filled"
+               color={
+                 record.status === 'COMPLETED' ? 'green' :
+                 record.status === 'PROCESSING' ? 'yellow' :
+                 record.status === 'PENDING' ? 'blue' :
+                 record.status === 'FAILED' ? 'red' :
+                 'gray'
+               }
+               style={{ textTransform: 'uppercase', marginLeft: '8px' }}
+             >
+              {record.status || 'Unknown'}
+            </Badge>
+          </Group>
+  
+          {/* Right Header: Action Buttons */}
+          <Group>
             <Button
-              mt="sm"
-              size="xs"
-              leftSection={<RefreshCw size={14} />}
-              onClick={handleRetry}
+              variant="default"
+              leftSection={<Plus size={16} />}
+              onClick={handleAddFile}
+              loading={isAddingFiles}
+              disabled={isProcessing}
+              styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
             >
-              Retry Last Action
+              Add Files
             </Button>
-          )}
-        </Alert>
-      )}
-
-      {/* Main Content Layout */}
-      <Flex gap="xl">
-        {/* Left Panel: Source Files */}
-        <Box
-          w={330}
-          style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}
-        >
-          <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
-            SOURCE FILES
-          </Title>
-
-          {/* File List or Placeholder */}
-          {hasFiles ? (
-            <Stack gap="sm" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
-              {displayFiles.map((file) => (
-                <Box
-                  key={file._id}
-                  style={{
-                    backgroundColor: '#1a1a1a',
-                    borderRadius: '6px',
-                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
-                    overflow: 'hidden',
-                    transition: 'border-color 0.3s ease'
-                  }}
-                >
-                  {/* File Header: Title and Delete Button */}
-                  <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
-                     <Group gap="xs" align="center">
-                        <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
-                        <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
-                            {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
-                        </Text>
-                    </Group>
-                    {showDeleteConfirm !== file._id && (
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => setShowDeleteConfirm(file._id)}
-                        disabled={isProcessing}
-                        title="Remove file"
-                      >
-                        <Trash size={16} />
-                      </ActionIcon>
-                    )}
-                  </Group>
-          
-                  {/* Delete Confirmation */}
-                  {showDeleteConfirm === file._id && (
-                    <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
-                       <Group justify="space-between" gap="xs">
-                          <Text size="xs" c="dimmed">Delete file?</Text>
-                          <Group gap="xs">
-                            <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
-                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
-                          </Group>
-                       </Group>
-                    </Box>
-                  )}
-          
-                   {/* File Footer: Date (only show if not confirming delete) */}
-                   {showDeleteConfirm !== file._id && (
-                     <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
-                         <Text size="xs" c="dimmed" ta="right">
-                             {formatDate(file.createdAt)}
-                         </Text>
-                     </Box>
-                   )}
-                </Box>
-              ))}
-            </Stack>
-          ) : isLoadingFiles ? (
-             // Show loading specifically for files if they are being fetched
-             <Box style={{ padding: '20px', textAlign: 'center' }}>
-                 <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{size: 'sm'}} />
-                 <Text size="sm" c="dimmed">Loading file details...</Text>
-             </Box>
-          ) : (
-            // Placeholder when no files are added
-            <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16}/>} style={{borderColor: '#2b2b2b'}}>
-              Add source documents to your capsule using the button below.
-            </Alert>
-          )}
-
-          {/* Add Files Button (at bottom of panel) */}
-          <Button
-            fullWidth
-            mt="md"
-            leftSection={<Plus size={16} />}
-            onClick={handleAddFile}
-            disabled={isProcessing}
-            loading={isAddingFiles}
-            styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+            <Button
+              variant="default"
+              leftSection={<RefreshCw size={16} />}
+              onClick={() => handleRegenerateCapsule()}
+              loading={isProcessing}
+              disabled={!hasFiles || isAddingFiles}
+               styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+            >
+              {isProcessing ? 'Processing...' : 'Regenerate'}
+            </Button>
+            <Button
+              variant="default"
+              leftSection={<Download size={16} />}
+              onClick={handleDownloadMarkdown}
+              disabled={!hasContextSummary || isProcessing}
+               styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+            >
+              Download MD
+            </Button>
+          </Group>
+        </Group>
+  
+        {/* General Error Alert */}
+        {errorMessage && (
+          <Alert 
+            color="red" 
+            title="Action Required" 
+            mb="md" 
+            icon={<AlertCircle size={16} />} 
+            withCloseButton 
+            onClose={() => setErrorMessage(null)}
           >
-            Add Files
-          </Button>
-        </Box>
-
-        {/* Right Panel: Context Summary */}
-        <Box style={{ flex: 1 }}>
-          {/* Context Header */}
-           <Box style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '10px', borderBottom: '1px solid #2b2b2b', paddingBottom: '10px', color: '#F5A623' }}>
-              Capsule Context
-           </Box>
-
-          {/* Context Content Area */}
-          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
-            {isProcessing ? (
-                 // Loading state while processing/regenerating
-                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                    <Text ta="center" c="dimmed" mb="md" style={{zIndex: 1}}>
-                       Analyzing files and creating the capsule summary. This might take a moment.
-                    </Text>
-                 </Stack>
-            ) : hasContextSummary ? (
-                // Display generated context
-                <DocumentMarkdownWrapper markdown={contextSummary} />
-            ) : hasFiles ? (
-                 // State when files are present but no summary yet (needs regeneration)
-                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                    <Text ta="center" c="dimmed" mb="xl">
-                        Click the &quot;Regenerate&quot; button to analyze the added files and create the context summary.
-                    </Text>
-                    <Button
-                      leftSection={<RefreshCw size={16} />}
-                      onClick={() => handleRegenerateCapsule()}
-                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                      loading={isProcessing}
-                    >
-                      Generate Summary
-                    </Button>
-                </Stack>
-            ) : (
-                 // State when no files and no summary (needs files added)
-                 <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
-                    <Text ta="center" c="dimmed" mb="xl">
-                        Add files to your capsule first, then generate a summary to see the context here.
-                    </Text>
-                    <Button
-                      leftSection={<Plus size={16} />}
-                      onClick={handleAddFile}
-                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                      disabled={isProcessing}
-                    >
-                      Add Files
-                    </Button>
-                </Stack>
+            {errorMessage}
+            {retryParams && (
+              <Button
+                mt="sm"
+                size="xs"
+                leftSection={<RefreshCw size={14} />}
+                onClick={handleRetry}
+              >
+                Retry Last Action
+              </Button>
             )}
+          </Alert>
+        )}
+  
+        {/* Main Content Layout */}
+        <Flex gap="xl">
+          {/* Left Panel: Source Files */}
+          <Box
+            w={330}
+            style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}
+          >
+            <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
+              SOURCE FILES
+            </Title>
+  
+            {/* File List or Placeholder */}
+            {hasFiles ? (
+              <Stack gap="sm" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
+                {displayFiles.map((file) => (
+                  <Box
+                    key={file._id}
+                    style={{
+                      backgroundColor: '#1a1a1a',
+                      borderRadius: '6px',
+                      border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
+                      overflow: 'hidden',
+                      transition: 'border-color 0.3s ease'
+                    }}
+                  >
+                    {/* File Header: Title and Delete Button */}
+                    <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
+                       <Group gap="xs" align="center">
+                          <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
+                          <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
+                              {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
+                          </Text>
+                      </Group>
+                      {showDeleteConfirm !== file._id && (
+                        <ActionIcon
+                          color="red"
+                          variant="subtle"
+                          onClick={() => setShowDeleteConfirm(file._id)}
+                          disabled={isProcessing}
+                          title="Remove file"
+                        >
+                          <Trash size={16} />
+                        </ActionIcon>
+                      )}
+                    </Group>
+            
+                    {/* Delete Confirmation */}
+                    {showDeleteConfirm === file._id && (
+                      <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
+                         <Group justify="space-between" gap="xs">
+                            <Text size="xs" c="dimmed">Delete file?</Text>
+                            <Group gap="xs">
+                              <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
+                              <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
+                            </Group>
+                         </Group>
+                      </Box>
+                    )}
+            
+                     {/* File Footer: Date (only show if not confirming delete) */}
+                     {showDeleteConfirm !== file._id && (
+                       <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
+                           <Text size="xs" c="dimmed" ta="right">
+                               {formatDate(file.createdAt)}
+                           </Text>
+                       </Box>
+                     )}
+                  </Box>
+                ))}
+              </Stack>
+            ) : isLoadingFiles ? (
+               // Show loading specifically for files if they are being fetched
+               <Box style={{ padding: '20px', textAlign: 'center' }}>
+                   <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{size: 'sm'}} />
+                   <Text size="sm" c="dimmed">Loading file details...</Text>
+               </Box>
+            ) : (
+              // Placeholder when no files are added
+              <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16}/>} style={{borderColor: '#2b2b2b'}}>
+                Add source documents to your capsule using the button below.
+              </Alert>
+            )}
+  
+            {/* Add Files Button (at bottom of panel) */}
+            <Button
+              fullWidth
+              mt="md"
+              leftSection={<Plus size={16} />}
+              onClick={handleAddFile}
+              disabled={isProcessing}
+              loading={isAddingFiles}
+              styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+            >
+              Add Files
+            </Button>
           </Box>
-        </Box>
-      </Flex>
-
-      {/* File Selector Modal */}
-      <FileSelector
-        opened={isFileSelectorOpen}
-        onClose={() => setIsFileSelectorOpen(false)}
-        onSelect={handleFileSelect}
-        capsuleId={capsuleId}
-        // Pass only the IDs of files already associated with the capsule
-        existingFileIds={record?.fileIds || []}
-      />
-    </Box>
-  );
-}
+  
+          {/* Right Panel: Context Summary */}
+          <Box style={{ flex: 1 }}>
+            {/* Context Header */}
+             <Box style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '10px', borderBottom: '1px solid #2b2b2b', paddingBottom: '10px', color: '#F5A623' }}>
+                Capsule Context
+             </Box>
+  
+            {/* Context Content Area */}
+            <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
+              {isProcessing ? (
+                   // Loading state while processing/regenerating
+                   <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+                      <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+                      <Text ta="center" c="dimmed" mb="md" style={{zIndex: 1}}>
+                         Analyzing files and creating the capsule summary. This might take a moment.
+                      </Text>
+                   </Stack>
+              ) : hasContextSummary ? (
+                  // Display generated context
+                  <DocumentMarkdownWrapper markdown={contextSummary} />
+              ) : hasFiles ? (
+                   // State when files are present but no summary yet (needs regeneration)
+                  <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+                      <Text ta="center" c="dimmed" mb="xl">
+                          Click the &quot;Regenerate&quot; button to analyze the added files and create the context summary.
+                      </Text>
+                      <Button
+                        leftSection={<RefreshCw size={16} />}
+                        onClick={() => handleRegenerateCapsule()}
+                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                        loading={isProcessing}
+                      >
+                        Generate Summary
+                      </Button>
+                  </Stack>
+              ) : (
+                   // State when no files and no summary (needs files added)
+                   <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
+                      <Text ta="center" c="dimmed" mb="xl">
+                          Add files to your capsule first, then generate a summary to see the context here.
+                      </Text>
+                      <Button
+                        leftSection={<Plus size={16} />}
+                        onClick={handleAddFile}
+                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                        disabled={isProcessing}
+                      >
+                        Add Files
+                      </Button>
+                  </Stack>
+              )}
+            </Box>
+          </Box>
+        </Flex>
+  
+        {/* File Selector Modal */}
+        <FileSelector
+          opened={isFileSelectorOpen}
+          onClose={() => setIsFileSelectorOpen(false)}
+          onSelect={handleFileSelect}
+          capsuleId={capsuleId}
+          // Pass only the IDs of files already associated with the capsule
+          existingFileIds={record?.fileIds || []}
+        />
+      </Box>
+    );
+  }
