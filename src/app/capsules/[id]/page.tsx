@@ -60,7 +60,10 @@ interface FileData {
   _id: string;
   title: string;
   createdAt: string;
-  // Add other relevant fields if needed
+  fileName?: string;
+  output?: {
+    title?: string;
+  };
 }
 
 interface Capsule {
