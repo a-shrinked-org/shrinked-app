@@ -148,67 +148,45 @@ export default function CapsuleView() {
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [retryParams, setRetryParams] = useState<{operation: string, params: any} | null>(null);
-
+  
   // Fetch file details with batching for better performance
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
-    if (!fileIds || fileIds.length === 0 || !identity?.id) {
-      if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or user ID", 
-        {fileIdsCount: fileIds?.length, userId: identity?.id});
+    if (!fileIds || fileIds.length === 0 || !capsuleId) {
+      if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or capsule ID", 
+        {fileIdsCount: fileIds?.length, capsuleId});
       return;
     }
-
+  
     setIsLoadingFiles(true);
-    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for user ${identity.id}`);
-
+    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
+  
     try {
-      // Batch processing to prevent overwhelming the API
-      const batches = [];
-      for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
-        batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
+      // Use capsule direct endpoint to get files that are already part of the capsule
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`);
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch file details: ${response.status} - ${errorText}`);
       }
+  
+      const capsuleFiles = await response.json();
       
-      const allResults: FileData[] = [];
-      
-      for (const batch of batches) {
-        try {
-          const fields = '_id,title,status,createdAt,output.title';
-          const idsParam = batch.join(',');
-          const response = await fetchWithAuth(`/api/documents-proxy?userId=${identity.id}&ids=${idsParam}&fields=${fields}`);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to fetch file details: ${response.status} - ${errorText}`);
-          }
-
-          const batchData = await response.json();
-          
-          if (Array.isArray(batchData)) {
-            const processedFiles = batchData.map((file: any) => ({
-              _id: file._id,
-              title: file.output?.title || file.title || `File ${file._id.slice(-6)}`,
-              createdAt: file.createdAt || new Date().toISOString(),
-            }));
-            allResults.push(...processedFiles);
-          }
-        } catch (error) {
-          console.error("[CapsuleView] Error fetching batch of files:", error);
-          // Continue with other batches despite errors in one batch
-        }
+      if (Array.isArray(capsuleFiles)) {
+        // Process files and extract just what we need - title and date
+        const processedFiles = capsuleFiles
+          .filter(file => fileIds.includes(file._id)) // Only keep files that match our fileIds
+          .map((file: any) => ({
+            _id: file._id,
+            title: file.output?.title || file.title || `File ${file._id.slice(-6)}`,
+            createdAt: file.createdAt || new Date().toISOString(),
+          }));
         
-        // Add a small delay between batches to prevent rate limiting
-        if (batches.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-      }
-      
-      // Set all successfully loaded files
-      if (allResults.length > 0) {
-        setLoadedFiles(allResults);
-        if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", allResults.length);
+        setLoadedFiles(processedFiles);
+        if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
       } else {
-        throw new Error("No file data could be loaded");
+        throw new Error("Unexpected response format from files endpoint");
       }
-
+  
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
       // Create placeholders as a fallback on error
@@ -224,7 +202,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [identity?.id, fetchWithAuth]);
+  }, [capsuleId, fetchWithAuth]);
 
   // Trigger initial fetch if needed
   useEffect(() => {
