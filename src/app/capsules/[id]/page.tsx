@@ -192,6 +192,15 @@ export default function CapsuleView() {
       const token = await ensureValidToken();
       let userId = '';
       
+      if (token) { // null check
+        try {
+          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+          userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
+        } catch (e) {
+          console.warn("[CapsuleView] Could not extract user ID from token");
+        }
+      }
+      
       try {
         const tokenPayload = JSON.parse(atob(token.split('.')[1]));
         userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
