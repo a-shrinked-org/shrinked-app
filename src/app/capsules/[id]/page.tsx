@@ -160,33 +160,80 @@ export default function CapsuleView() {
     if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
   
     try {
-      // Fetch the entire capsule to get file details
+      // First try from the main capsule data which already has files
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
   
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch capsule details: ${response.status} - ${errorText}`);
+        throw new Error(`Failed to fetch capsule details: ${response.status}`);
       }
   
       const capsuleData = await response.json();
+      const data = capsuleData?.data || capsuleData; // Handle both possible response structures
       
-      if (capsuleData?.files && Array.isArray(capsuleData.files)) {
-        // Process files from the capsule response - adding type annotation here
-        const processedFiles = capsuleData.files
+      if (data?.files && Array.isArray(data.files)) {
+        // Process files from the capsule response
+        const processedFiles = data.files
           .filter((file: any) => fileIds.includes(file._id))
           .map((file: any) => ({
             _id: file._id,
             title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
             createdAt: file.createdAt || new Date().toISOString(),
-            fileName: file.fileName,
-            output: file.output
+            fileName: file.fileName || "",
+            output: file.output || {}
           }));
         
         setLoadedFiles(processedFiles);
         if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
-      } else {
-        throw new Error("No files found in capsule data");
+        return;
       }
+  
+      // If we don't have files in capsule data, try a direct fetch from user's documents
+      if (IS_DEV) console.log("[CapsuleView] No files found in capsule data, trying user documents");
+      const token = await ensureValidToken();
+      let userId = '';
+      
+      try {
+        const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+        userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
+      } catch (e) {
+        console.warn("[CapsuleView] Could not extract user ID from token");
+      }
+      
+      if (!userId) {
+        const profileResponse = await fetchWithAuth('/api/users-proxy/profile');
+        if (profileResponse.ok) {
+          const profile = await profileResponse.json();
+          userId = profile._id || profile.id || '';
+        }
+      }
+      
+      if (userId) {
+        const filesResponse = await fetchWithAuth(`/api/processing-proxy/user/${userId}/documents`);
+        
+        if (filesResponse.ok) {
+          const allUserFiles = await filesResponse.json();
+          
+          if (Array.isArray(allUserFiles)) {
+            const filteredFiles = allUserFiles
+              .filter((file: any) => fileIds.includes(file._id))
+              .map((file: any) => ({
+                _id: file._id,
+                title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
+                createdAt: file.createdAt || new Date().toISOString(),
+                fileName: file.fileName || "",
+                output: file.output || {}
+              }));
+            
+            setLoadedFiles(filteredFiles);
+            if (IS_DEV) console.log("[CapsuleView] Loaded file details from user documents:", filteredFiles.length);
+            return;
+          }
+        }
+      }
+      
+      // If we still don't have files, use placeholders
+      throw new Error("No files found in capsule data or user documents");
+      
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
       // Create placeholders as a fallback on error
@@ -201,7 +248,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [capsuleId, fetchWithAuth]);
+  }, [capsuleId, fetchWithAuth, ensureValidToken]);
 
   // Trigger initial fetch if needed
   useEffect(() => {
@@ -276,12 +323,15 @@ export default function CapsuleView() {
     setAddedFileIds([]);
     
     if (!isRetry) {
-      // Store parameters for potential retry
       setRetryParams({
         operation: 'addFiles',
         params: { fileIds }
       });
     }
+    
+    // Capture initial state before making any changes
+    const initialCapsuleState = await refetch();
+    const initialFileIds = initialCapsuleState?.data?.data?.fileIds || [];
     
     try {
       if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
@@ -293,20 +343,26 @@ export default function CapsuleView() {
       }
       
       const successfullyAddedIds: string[] = [];
-      let statusChanged = false;
       
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
         if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
         
         try {
-          // Changed to use capsules-direct instead of capsules-proxy
+          const timeoutMs = 30000; // 30 seconds timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          
           const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
             method: 'POST',
             body: JSON.stringify({ fileIds: batch }),
+            signal: controller.signal
           });
+          
+          clearTimeout(timeoutId);
     
           if (!response.ok) {
+            // Try to get error details
             const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
             throw new Error(errorData.message || `Failed to add files in batch ${i+1}: ${response.status}`);
           }
@@ -315,133 +371,45 @@ export default function CapsuleView() {
           successfullyAddedIds.push(...batch);
           if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} added successfully`);
           
-          // Small delay between batches to prevent overwhelming the API
+          // Small delay between batches
           if (i < batches.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
-        } catch (error) {
-          // Continue with other batches despite errors in one batch
-          console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
-        }
-      }
-  
-      if (successfullyAddedIds.length > 0) {
-        // Highlight newly added files
-        setAddedFileIds(successfullyAddedIds);
-        if (IS_DEV) console.log("[CapsuleView] Files added successfully:", successfullyAddedIds.length);
-        
-        // Refresh to update file list and check status
-        const updatedCapsule = await refetch();
-        
-        // Check if files were added successfully by comparing fileIds length
-        const previousFileCount = record?.fileIds?.length || 0;
-        const newFileCount = updatedCapsule?.data?.data?.fileIds?.length || 0;
-        const filesAdded = newFileCount > previousFileCount;
-        
-        // Check if status changed to processing
-        statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
-        
-        if (filesAdded) {
-          if (IS_DEV) console.log(`[CapsuleView] Files successfully added to capsule. Previous: ${previousFileCount}, New: ${newFileCount}`);
-          
-          // If status changed to processing, set the regenerating flag
-          if (statusChanged) {
-            setIsRegenerating(true);
-            if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
-            
-            // Setup interval to check status until complete
-            const statusCheckInterval = setInterval(async () => {
-              try {
-                const refreshResult = await refetch();
-                const refreshedStatus = refreshResult?.data?.data?.status;
-                
-                if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
-                
-                if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
-                  clearInterval(statusCheckInterval);
-                  setIsRegenerating(false);
-                  if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
-                }
-              } catch (error) {
-                console.error("[CapsuleView] Error during status check:", error);
-                // Don't clear interval on error, keep trying
-              }
-            }, REFRESH_INTERVAL_MS);
-            
-            // Safety cleanup after reasonable timeout (2 minutes)
-            setTimeout(() => {
-              clearInterval(statusCheckInterval);
-              if (isRegenerating) {
-                setIsRegenerating(false);
-                if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
-              }
-            }, 120000);
+        } catch (error: any) {
+          // Special handling for timeout errors
+          if (error.name === 'AbortError') {
+            console.warn(`[CapsuleView] Batch ${i+1} timed out, but may still have been processed`);
+            // We'll check separately if files were added
           } else {
-            // If status didn't change automatically, trigger manual regeneration
-            if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
-            await handleRegenerateCapsule();
+            console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
           }
-        } else {
-          throw new Error("Files appear to be added but capsule fileIds did not update. Please refresh and check.");
         }
-      } else {
-        throw new Error("Failed to add any files. Please try again.");
-      }
-    } catch (error: any) {
-      console.error("[CapsuleView] Failed to add files:", error);
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-    } finally {
-      setIsAddingFiles(false);
-      setIsFileSelectorOpen(false);
-    }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError, record?.fileIds?.length, isRegenerating]);
-
-  // Handle file removal with improved confirmation flow
-  const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
-    if (!capsuleId || !fileIdToRemove) return;
-    
-    // Determine current files for optimistic update
-    const currentFiles = record?.files || loadedFiles;
-    const remainingFileCount = currentFiles.filter(f => f._id !== fileIdToRemove).length;
-    
-    setShowDeleteConfirm(null); // Hide confirmation immediately
-    setErrorMessage(null);
-    
-    // Store parameters for potential retry
-    setRetryParams({
-      operation: 'removeFile',
-      params: { fileId: fileIdToRemove }
-    });
-  
-    try {
-      if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
-      
-      // Use the capsules-direct endpoint with specific file ID
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileIdToRemove}`, {
-        method: 'DELETE',
-      });
-      
-      // Check for success (200 OK or 204 No Content)
-      if (!response.ok && response.status !== 204) {
-        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-        throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
       }
       
-      if (IS_DEV) console.log("[CapsuleView] File removed successfully");
+      // Most important part: Check if files were actually added regardless of API response
+      // Wait a bit for backend processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Immediately update local state to reflect the change
-      setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
+      // Refresh to check actual state
+      const updatedCapsule = await refetch();
+      const updatedFileIds = updatedCapsule?.data?.data?.fileIds || [];
       
-      // Refresh to get updated capsule data
-      try {
-        const updatedCapsule = await refetch();
+      // Check if file count increased OR any file IDs changed
+      const fileCountIncreased = updatedFileIds.length > initialFileIds.length;
+      const anyNewIdsAdded = fileIds.some(id => updatedFileIds.includes(id) && !initialFileIds.includes(id));
+      const filesAdded = fileCountIncreased || anyNewIdsAdded;
+      
+      // Check if status changed to processing
+      const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
+      
+      if (filesAdded) {
+        // Get the exact IDs that were added 
+        const newlyAddedIds = updatedFileIds.filter(id => !initialFileIds.includes(id));
+        setAddedFileIds(newlyAddedIds);
         
-        if (IS_DEV) console.log(`[CapsuleView] Capsule data refreshed after file removal`);
+        if (IS_DEV) console.log(`[CapsuleView] Files successfully added: ${newlyAddedIds.length} new files`);
         
-        // Check if status changed to processing
-        const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
-        
+        // If status changed to processing, set the regenerating flag
         if (statusChanged) {
           setIsRegenerating(true);
           if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
@@ -461,31 +429,154 @@ export default function CapsuleView() {
               }
             } catch (error) {
               console.error("[CapsuleView] Error during status check:", error);
-              // Don't clear interval on error, keep trying
             }
           }, REFRESH_INTERVAL_MS);
           
-          // Safety cleanup after reasonable timeout (2 minutes)
+          // Safety cleanup
           setTimeout(() => {
             clearInterval(statusCheckInterval);
             if (isRegenerating) {
               setIsRegenerating(false);
-              if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
             }
           }, 120000);
-        } else if (remainingFileCount > 0) {
-          // If status didn't change automatically but files remain, trigger manual regeneration
-          if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
-          await handleRegenerateCapsule();
         } else {
-          if (IS_DEV) console.log("[CapsuleView] No files remain, skipping regeneration");
+          // If status didn't change automatically, trigger manual regeneration
+          if (IS_DEV) console.log("[CapsuleView] Status not changed to PROCESSING, triggering manual regeneration");
+          try {
+            await handleRegenerateCapsule();
+          } catch (regenerateError) {
+            console.error("[CapsuleView] Regeneration error:", regenerateError);
+            // Files were added, so this is not a critical error
+          }
         }
-      } catch (refreshError) {
-        console.error("[CapsuleView] Error refreshing capsule data:", refreshError);
-        // Don't show error to user since deletion was successful
+      } else if (successfullyAddedIds.length > 0) {
+        // API seemed to succeed but files not actually added
+        throw new Error("API reported success but files were not added. Please refresh and try again.");
+      } else {
+        throw new Error("Failed to add any files. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("[CapsuleView] Failed to add files:", error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsAddingFiles(false);
+      setIsFileSelectorOpen(false);
+    }
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError, isRegenerating]);
+
+  // Handle file removal with improved confirmation flow
+  const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
+    if (!capsuleId || !fileIdToRemove) return;
+    
+    // Determine current files for optimistic update
+    const currentFiles = record?.files || loadedFiles;
+    const remainingFileCount = currentFiles.filter(f => f._id !== fileIdToRemove).length;
+    
+    setShowDeleteConfirm(null); // Hide confirmation immediately
+    setErrorMessage(null);
+    
+    setRetryParams({
+      operation: 'removeFile',
+      params: { fileId: fileIdToRemove }
+    });
+  
+    try {
+      if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
+      
+      // Immediately update local state for optimistic UI
+      setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
+      
+      // Capture state before deletion
+      const initialCapsule = await refetch();
+      const initialFileIds = initialCapsule?.data?.data?.fileIds || [];
+      
+      // Use timeout with AbortController to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileIdToRemove}`, {
+        method: 'DELETE',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      // If deletion seems to have failed, check if the file was actually deleted
+      if (!response.ok && response.status !== 204) {
+        // Wait a bit before checking
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check actual state to see if deletion happened despite error
+        const checkCapsule = await refetch();
+        const currentFileIds = checkCapsule?.data?.data?.fileIds || [];
+        
+        // If file still exists, it's a real error
+        if (currentFileIds.includes(fileIdToRemove)) {
+          const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+          throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
+        }
+        
+        // Otherwise, deletion succeeded despite the error response
+        if (IS_DEV) console.log("[CapsuleView] File removed successfully despite error response");
+      } else {
+        if (IS_DEV) console.log("[CapsuleView] File removed successfully");
+      }
+      
+      // Refresh to get updated status
+      const updatedCapsule = await refetch();
+      
+      // Check if status changed to processing
+      const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
+      
+      if (statusChanged) {
+        setIsRegenerating(true);
+        
+        // Setup interval to check status until complete
+        const statusCheckInterval = setInterval(async () => {
+          try {
+            const refreshResult = await refetch();
+            const refreshedStatus = refreshResult?.data?.data?.status;
+            
+            if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
+              clearInterval(statusCheckInterval);
+              setIsRegenerating(false);
+            }
+          } catch (error) {
+            console.error("[CapsuleView] Error during status check:", error);
+          }
+        }, REFRESH_INTERVAL_MS);
+        
+        // Safety cleanup
+        setTimeout(() => {
+          clearInterval(statusCheckInterval);
+          if (isRegenerating) {
+            setIsRegenerating(false);
+          }
+        }, 120000);
+      } else if (remainingFileCount > 0) {
+        // If status didn't change but files remain, trigger manual regeneration
+        try {
+          await handleRegenerateCapsule();
+        } catch (regenerateError) {
+          console.error("[CapsuleView] Regeneration error after file removal:", regenerateError);
+          // Not critical since file was successfully removed
+        }
       }
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
+      
+      // Restore local state if file removal failed
+      setLoadedFiles(prev => {
+        const fileStillExists = prev.some(file => file._id === fileIdToRemove);
+        if (!fileStillExists) {
+          const fileToRestore = record?.files?.find(f => f._id === fileIdToRemove) || 
+                               {_id: fileIdToRemove, title: `File ${fileIdToRemove.slice(-6)}`, createdAt: new Date().toISOString()};
+          return [...prev, fileToRestore];
+        }
+        return prev;
+      });
+      
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
     }

@@ -17,8 +17,7 @@ export async function DELETE(
 	if (!id || !fileId) {
 	  if (IS_DEV) console.error(`[Capsules File Delete] Missing capsule ID or file ID`);
 	  return NextResponse.json({ 
-		error: "Missing required parameters", 
-		details: `Capsule ID: ${!!id}, File ID: ${!!fileId}` 
+		error: "Missing required parameters"
 	  }, { status: 400 });
 	}
 	
@@ -54,10 +53,8 @@ export async function DELETE(
 	if (contentType && contentType.includes('application/json')) {
 	  try {
 		const data = await response.json();
-		if (IS_DEV) console.log(`[Capsules File Delete] Received JSON response: status=${response.status}`);
 		return NextResponse.json(data, { status: response.status });
 	  } catch (error) {
-		if (IS_DEV) console.error(`[Capsules File Delete] Error parsing JSON response:`, error);
 		const text = await response.text();
 		return NextResponse.json({ 
 		  error: "Failed to parse API response as JSON",
@@ -67,15 +64,13 @@ export async function DELETE(
 	} else {
 	  // Handle non-JSON responses
 	  const text = await response.text();
-	  if (IS_DEV) console.warn(`[Capsules File Delete] Non-JSON response: ${contentType}`);
 	  
 	  // If successful status but not JSON, still return success
 	  if (response.status >= 200 && response.status < 300) {
 		return NextResponse.json({ success: true }, { status: response.status });
 	  } else {
 		return NextResponse.json({ 
-		  error: "Unexpected response format", 
-		  details: text.substring(0, 200) 
+		  error: "Unexpected response format"
 		}, { status: response.status });
 	  }
 	}
