@@ -166,7 +166,9 @@ export default function CapsuleView() {
           if (IS_DEV) console.log("[CapsuleView] Processing complete, stopping monitoring");
           setIsRegenerating(false);
           setStatusMonitorActive(false);
-          clearInterval(statusCheckIntervalRef.current);
+          if (statusCheckIntervalRef.current) {
+            clearInterval(statusCheckIntervalRef.current);
+          }
           statusCheckIntervalRef.current = null;
           setTimeout(() => refetch(), 1000);
         }
@@ -740,7 +742,7 @@ export default function CapsuleView() {
               </Stack>
             ) : (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                <FileText size={48} style={{ opacity: '0.3', marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Capsule Empty</Text>
                 <Text ta="center" c="dimmed" mb="xl">
                   This capsule has no files or context. Add files to start generating a summary.
