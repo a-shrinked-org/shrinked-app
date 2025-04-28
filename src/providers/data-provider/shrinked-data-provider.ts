@@ -194,6 +194,11 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
 
+  // Define proxy mappings
+  const proxyMappings: Record<string, string> = {
+	// Add specific resource mappings here if needed
+  };
+
   // Improved proxy URL helper with enhanced debugging
   const getProxyUrl = (resource: string, meta?: any): string => {
 	// Add explicit debug logging
