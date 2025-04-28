@@ -171,10 +171,10 @@ export default function CapsuleView() {
       const capsuleData = await response.json();
       
       if (capsuleData?.files && Array.isArray(capsuleData.files)) {
-        // Process files from the capsule response
+        // Process files from the capsule response - adding type annotation here
         const processedFiles = capsuleData.files
-          .filter(file => fileIds.includes(file._id))
-          .map(file => ({
+          .filter((file: any) => fileIds.includes(file._id))
+          .map((file: any) => ({
             _id: file._id,
             title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
             createdAt: file.createdAt || new Date().toISOString(),
@@ -185,42 +185,7 @@ export default function CapsuleView() {
         setLoadedFiles(processedFiles);
         if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
       } else {
-        // If no files found in capsule response, try user's documents as a fallback
-        if (IS_DEV) console.log("[CapsuleView] No files found in capsule, trying user documents endpoint");
-        
-        // Get the user ID
-        const token = await ensureValidToken();
-        let userId = '';
-        
-        try {
-          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-          userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
-        } catch (e) {
-          console.warn("[CapsuleView] Could not extract user ID from token");
-        }
-        
-        if (userId) {
-          const userDocsResponse = await fetchWithAuth(`/api/documents-proxy?userId=${userId}&ids=${fileIds.join(',')}`);
-          
-          if (userDocsResponse.ok) {
-            const userDocs = await userDocsResponse.json();
-            
-            if (Array.isArray(userDocs)) {
-              const processedFiles = userDocs
-                .filter(file => fileIds.includes(file._id))
-                .map(file => ({
-                  _id: file._id,
-                  title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
-                  createdAt: file.createdAt || new Date().toISOString(),
-                  fileName: file.fileName,
-                  output: file.output
-                }));
-              
-              setLoadedFiles(processedFiles);
-              if (IS_DEV) console.log("[CapsuleView] Loaded file details from user documents:", processedFiles.length);
-            }
-          }
-        }
+        throw new Error("No files found in capsule data");
       }
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
@@ -236,7 +201,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [capsuleId, fetchWithAuth, ensureValidToken]);
+  }, [capsuleId, fetchWithAuth]);
 
   // Trigger initial fetch if needed
   useEffect(() => {
