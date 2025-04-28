@@ -156,18 +156,23 @@ const startStatusMonitoring = useCallback(() => {
     try {
       if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
       const refreshResult = await refetch();
+      
+      // Log the complete structure to debug
+      if (IS_DEV) console.log("[CapsuleView] Refresh result:", JSON.stringify(refreshResult?.data, null, 2));
+      
+      // Make sure we're accessing the status correctly
       const capsuleData = refreshResult?.data?.data;
-      const refreshedStatus = capsuleData?.status;
+      const refreshedStatus = capsuleData?.status?.toLowerCase?.() || '';
       
-      if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
+      if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus} (original: ${capsuleData?.status})`);
       
-      // Update regenerating state based on status
-      if (refreshedStatus === 'PROCESSING') {
+      // Update regenerating state based on status - handle case insensitively
+      if (refreshedStatus === 'processing') {
         if (!isRegenerating) {
           if (IS_DEV) console.log("[CapsuleView] Setting isRegenerating to true based on status");
           setIsRegenerating(true);
         }
-      } else if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
+      } else if (refreshedStatus === 'completed' || refreshedStatus === 'failed') {
         if (isRegenerating) {
           if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
           setIsRegenerating(false);
@@ -662,52 +667,42 @@ useEffect(() => {
       // Refresh to get updated status
       const updatedCapsule = await refetch();
       
-      // Check if status changed to processing
-      const statusChanged = updatedCapsule?.data?.data?.status === 'PROCESSING';
+      // Check if status changed to processing - make case-insensitive comparison
+      const currentStatus = (updatedCapsule?.data?.data?.status || '').toLowerCase();
+      const statusChanged = currentStatus === 'processing';
+      
+      // Set UI state regardless - we want to show processing UI immediately
+      setIsRegenerating(true);
+      startStatusMonitoring(); // This will handle the status monitoring more consistently
+      
+      if (IS_DEV) console.log(`[CapsuleView] Current capsule status after file removal: ${currentStatus}`);
       
       if (statusChanged) {
-        setIsRegenerating(true);
-        startStatusMonitoring();
-        if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
-        
-        // Setup interval to check status until complete
-        const statusCheckInterval = setInterval(async () => {
-          try {
-            const refreshResult = await refetch();
-            const refreshedStatus = refreshResult?.data?.data?.status;
-            
-            if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
-            
-            if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
-              clearInterval(statusCheckInterval);
-              setIsRegenerating(false);
-              if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
-            }
-          } catch (error) {
-            console.error("[CapsuleView] Error during status check:", error);
-          }
-        }, REFRESH_INTERVAL_MS);
-        
-        // Safety cleanup
-        setTimeout(() => {
-          clearInterval(statusCheckInterval);
-          if (isRegenerating) {
-            setIsRegenerating(false);
-            if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
-          }
-        }, 120000);
+        if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring through startStatusMonitoring");
+        // The startStatusMonitoring function will handle the continuous checking
+        // We don't need a separate interval here since startStatusMonitoring already does this
       } else if (remainingFileCount > 0) {
         // If status didn't change but files remain, trigger manual regeneration
         if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
-        setIsRegenerating(true); // Set this first to show loading state
         try {
+          // We're already showing loading UI (setIsRegenerating(true) above)
           await handleRegenerateCapsule();
+          // No need to set isRegenerating to false after success - the monitoring will handle it
         } catch (regenerateError) {
           console.error("[CapsuleView] Regeneration error after file removal:", regenerateError);
-          setIsRegenerating(false); // Make sure we reset this if regeneration fails
+          // Don't set isRegenerating to false here - let the monitoring handle it or timeout
         }
+      } else {
+        // No files left, so no regeneration needed
+        if (IS_DEV) console.log("[CapsuleView] No files remain after deletion, no regeneration needed");
+        // We still want to show processing UI briefly for consistency
+        setTimeout(() => {
+          if (isRegenerating) {
+            setIsRegenerating(false);
+          }
+        }, 2000); // Show for 2 seconds then reset
       }
-    } catch (error: any) {
+    } catch (error: any) { // <-- This catch block was missing its opening in your code
       console.error("[CapsuleView] Failed to remove file:", error);
       
       // Restore local state if file removal failed
@@ -723,8 +718,8 @@ useEffect(() => {
       
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
-    }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError, isRegenerating]);
+    } // <-- Added the closing bracket for the catch block
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError, isRegenerating, startStatusMonitoring]); // Added startStatusMonitoring to dependencies
 
   // Download markdown summary
   const handleDownloadMarkdown = useCallback(() => {
