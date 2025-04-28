@@ -631,8 +631,8 @@ export default function CapsuleView() {
                   <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
                      <Group gap="xs" align="center">
                         <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
-                        <Text size="sm" lineClamp={1} title={file.title} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
-                            {file.title}
+                        <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
+                            {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
                         </Text>
                     </Group>
                     {showDeleteConfirm !== file._id && (
@@ -647,7 +647,7 @@ export default function CapsuleView() {
                       </ActionIcon>
                     )}
                   </Group>
-
+          
                   {/* Delete Confirmation */}
                   {showDeleteConfirm === file._id && (
                     <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
@@ -660,7 +660,7 @@ export default function CapsuleView() {
                        </Group>
                     </Box>
                   )}
-
+          
                    {/* File Footer: Date (only show if not confirming delete) */}
                    {showDeleteConfirm !== file._id && (
                      <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
