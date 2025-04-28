@@ -146,10 +146,12 @@ const startStatusMonitoring = useCallback(() => {
   // Clear any existing interval first
   if (statusCheckIntervalRef.current) {
     clearInterval(statusCheckIntervalRef.current);
+    statusCheckIntervalRef.current = null;
   }
   
   if (IS_DEV) console.log("[CapsuleView] Starting status monitoring...");
   setStatusMonitorActive(true);
+  setIsRegenerating(true); // Ensure UI shows processing state
   
   // Set up the interval
   statusCheckIntervalRef.current = setInterval(async () => {
@@ -157,14 +159,17 @@ const startStatusMonitoring = useCallback(() => {
       if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
       const refreshResult = await refetch();
       
-      // Log the complete structure to debug
-      if (IS_DEV) console.log("[CapsuleView] Refresh result:", JSON.stringify(refreshResult?.data, null, 2));
-      
       // Make sure we're accessing the status correctly
       const capsuleData = refreshResult?.data?.data;
-      const refreshedStatus = capsuleData?.status?.toLowerCase?.() || '';
+      // Handle case where status might be undefined
+      if (!capsuleData || !capsuleData.status) {
+        console.warn("[CapsuleView] Received empty or invalid status in refresh");
+        return; // Skip this check
+      }
       
-      if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus} (original: ${capsuleData?.status})`);
+      const refreshedStatus = capsuleData.status.toLowerCase();
+      
+      if (IS_DEV) console.log(`[CapsuleView] Status check: "${refreshedStatus}" (original: "${capsuleData.status}")`);
       
       // Update regenerating state based on status - handle case insensitively
       if (refreshedStatus === 'processing') {
@@ -173,19 +178,18 @@ const startStatusMonitoring = useCallback(() => {
           setIsRegenerating(true);
         }
       } else if (refreshedStatus === 'completed' || refreshedStatus === 'failed') {
-        if (isRegenerating) {
-          if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
-          setIsRegenerating(false);
-        }
+        if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
+        setIsRegenerating(false);
+        
+        // Force one more refresh to ensure we get the latest data
+        setTimeout(() => refetch(), 1000);
         
         // Stop monitoring if we're done
         if (statusMonitorActive) {
           if (IS_DEV) console.log("[CapsuleView] Stopping status monitoring - process complete");
           setStatusMonitorActive(false);
-          if (statusCheckIntervalRef.current) {
-            clearInterval(statusCheckIntervalRef.current);
-            statusCheckIntervalRef.current = null;
-          }
+          clearInterval(statusCheckIntervalRef.current);
+          statusCheckIntervalRef.current = null;
         }
       }
     } catch (error) {
@@ -206,6 +210,9 @@ const startStatusMonitoring = useCallback(() => {
     if (isRegenerating) {
       if (IS_DEV) console.log("[CapsuleView] Force resetting isRegenerating after timeout");
       setIsRegenerating(false);
+      
+      // Force one final refresh at timeout
+      refetch();
     }
   }, 120000);
 }, [refetch, isRegenerating, statusMonitorActive]);
@@ -472,6 +479,9 @@ useEffect(() => {
     setErrorMessage(null);
     setAddedFileIds(fileIds); // Set this immediately for UI feedback
     
+    // Always show regenerating state immediately
+    setIsRegenerating(true);
+    
     if (!isRetry) {
       setRetryParams({
         operation: 'addFiles',
@@ -479,16 +489,10 @@ useEffect(() => {
       });
     }
     
-    // Capture initial state before making any changes
-    const initialCapsuleState = await refetch();
-    const initialFileIds = initialCapsuleState?.data?.data?.fileIds || [];
-    
     try {
       if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
       
-      // IMPORTANT: Set regenerating state FIRST regardless of server response
-      // This ensures UI shows loading state immediately - like in the delete function
-      setIsRegenerating(true);
+      // Start monitoring
       startStatusMonitoring();
       
       // Create optimistic update for files being added
@@ -507,104 +511,59 @@ useEffect(() => {
       });
       
       // Process in batches for better reliability
-      const batches = [];
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
-        batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
+        const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
+        try {
+          if (IS_DEV) console.log(`[CapsuleView] Processing batch ${Math.floor(i/FILE_BATCH_SIZE)+1} with ${batch.length} files`);
+          
+          const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fileIds: batch }),
+          });
+          
+          if (!response.ok) {
+            console.warn(`[CapsuleView] Batch ${Math.floor(i/FILE_BATCH_SIZE)+1} response not OK:`, response.status);
+          } else {
+            if (IS_DEV) console.log(`[CapsuleView] Batch ${Math.floor(i/FILE_BATCH_SIZE)+1} processed successfully`);
+          }
+        } catch (batchError) {
+          console.warn(`[CapsuleView] Error processing batch ${Math.floor(i/FILE_BATCH_SIZE)+1}:`, batchError);
+          // Continue with next batch despite errors
+        }
+        
+        // Add a small delay between batches to reduce server load
+        if (i + FILE_BATCH_SIZE < fileIds.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       
-      // Launch all batch requests in parallel but don't wait for responses
-      const batchPromises = batches.map(async (batch, i) => {
-        if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
+      // Trigger regeneration
+      try {
+        const regenerateResponse = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
+          method: 'GET',
+        });
         
-        try {
-          const timeoutMs = 10000; // Shorter timeout since we're handling UI separately
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-          
-          return fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
-            method: 'POST',
-            body: JSON.stringify({ fileIds: batch }),
-            signal: controller.signal
-          }).then(() => {
-            clearTimeout(timeoutId);
-            if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} request sent`);
-          }).catch(error => {
-            if (error.name === 'AbortError') {
-              // This is expected, we'll continue anyway
-              if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1} request timed out, continuing anyway`);
-            } else {
-              // Log but don't throw, we're handling UI separately
-              console.warn(`[CapsuleView] Batch ${i+1} error:`, error);
-            }
-          });
-        } catch (error) {
-          // Log but continue, focus on UI updates not server responses
-          console.warn(`[CapsuleView] Error sending batch ${i+1}:`, error);
-        }
-      });
+        if (IS_DEV) console.log("[CapsuleView] Regenerate request sent, status:", regenerateResponse.status);
+      } catch (regenerateError) {
+        console.error("[CapsuleView] Regeneration request error:", regenerateError);
+        // Continue anyway - the UI is already showing processing
+      }
       
-      // Fire and forget - don't await these promises
-      Promise.all(batchPromises).catch(e => console.warn("Batch processing had errors:", e));
-      
-      // Start monitoring regeneration immediately, regardless of API response
-      // Setup interval to check status until complete
-      const statusCheckInterval = setInterval(async () => {
-        try {
-          const refreshResult = await refetch();
-          const refreshedStatus = refreshResult?.data?.data?.status;
-          
-          if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
-          
-          if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
-            clearInterval(statusCheckInterval);
-            setIsRegenerating(false);
-            if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
-          }
-        } catch (error) {
-          console.error("[CapsuleView] Error during status check:", error);
-        }
-      }, REFRESH_INTERVAL_MS);
-      
-      // Safety cleanup
-      setTimeout(() => {
-        clearInterval(statusCheckInterval);
-        if (isRegenerating) {
-          setIsRegenerating(false);
-          if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
-        }
-      }, 120000);
-      
-      // After a delay, check if files were added by comparing with initial state
-      setTimeout(async () => {
-        try {
-          const updatedCapsule = await refetch();
-          const updatedFileIds = updatedCapsule?.data?.data?.fileIds || [];
-          
-          // Check what files were actually added
-          const newlyAddedIds = updatedFileIds.filter(id => !initialFileIds.includes(id));
-          
-          if (IS_DEV) console.log(`[CapsuleView] After delay, ${newlyAddedIds.length} files were confirmed added`);
-          
-          // If no files were added, we might want to show a warning
-          if (newlyAddedIds.length === 0) {
-            console.warn("[CapsuleView] No files appear to have been added to the server");
-            // But don't disrupt the user experience, let the regeneration complete
-          }
-        } catch (error) {
-          console.error("[CapsuleView] Error checking final state:", error);
-        }
-      }, 10000);
+      // Final refresh
+      setTimeout(() => refetch(), 1500);
       
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
-      // Even on errors, don't reset isRegenerating - let the timeout handle it
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
     } finally {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleAuthError, isRegenerating]);
+  }, [capsuleId, fetchWithAuth, refetch, handleAuthError, startStatusMonitoring]);
   
   // Handle file removal with improved confirmation flow
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
@@ -617,6 +576,9 @@ useEffect(() => {
     setShowDeleteConfirm(null); // Hide confirmation immediately
     setErrorMessage(null);
     
+    // Always set processing state immediately for better UX
+    setIsRegenerating(true);
+    
     setRetryParams({
       operation: 'removeFile',
       params: { fileId: fileIdToRemove }
@@ -627,10 +589,6 @@ useEffect(() => {
       
       // Immediately update local state for optimistic UI
       setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
-      
-      // Capture state before deletion
-      const initialCapsule = await refetch();
-      const initialFileIds = initialCapsule?.data?.data?.fileIds || [];
       
       // Use timeout with AbortController to prevent hanging
       const controller = new AbortController();
@@ -643,66 +601,35 @@ useEffect(() => {
       
       clearTimeout(timeoutId);
       
-      // If deletion seems to have failed, check if the file was actually deleted
-      if (!response.ok && response.status !== 204) {
-        // Wait a bit before checking
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      if (IS_DEV) console.log(`[CapsuleView] Delete response status: ${response.status}`);
+      
+      if (remainingFileCount > 0) {
+        // Always start monitoring if files remain
+        startStatusMonitoring();
         
-        // Check actual state to see if deletion happened despite error
-        const checkCapsule = await refetch();
-        const currentFileIds = checkCapsule?.data?.data?.fileIds || [];
-        
-        // If file still exists, it's a real error
-        if (currentFileIds.includes(fileIdToRemove)) {
-          const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-          throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
-        }
-        
-        // Otherwise, deletion succeeded despite the error response
-        if (IS_DEV) console.log("[CapsuleView] File removed successfully despite error response");
-      } else {
-        if (IS_DEV) console.log("[CapsuleView] File removed successfully");
-      }
-      
-      // Refresh to get updated status
-      const updatedCapsule = await refetch();
-      
-      // Check if status changed to processing - make case-insensitive comparison
-      const currentStatus = (updatedCapsule?.data?.data?.status || '').toLowerCase();
-      const statusChanged = currentStatus === 'processing';
-      
-      // Set UI state regardless - we want to show processing UI immediately
-      setIsRegenerating(true);
-      startStatusMonitoring(); // This will handle the status monitoring more consistently
-      
-      if (IS_DEV) console.log(`[CapsuleView] Current capsule status after file removal: ${currentStatus}`);
-      
-      if (statusChanged) {
-        if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring through startStatusMonitoring");
-        // The startStatusMonitoring function will handle the continuous checking
-        // We don't need a separate interval here since startStatusMonitoring already does this
-      } else if (remainingFileCount > 0) {
-        // If status didn't change but files remain, trigger manual regeneration
-        if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
+        // If files remain, always trigger regeneration
+        if (IS_DEV) console.log("[CapsuleView] Files remain, triggering regeneration");
         try {
-          // We're already showing loading UI (setIsRegenerating(true) above)
-          await handleRegenerateCapsule();
-          // No need to set isRegenerating to false after success - the monitoring will handle it
+          await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
+            method: 'GET',
+          });
+          // Don't wait for the response - just fire the request
         } catch (regenerateError) {
-          console.error("[CapsuleView] Regeneration error after file removal:", regenerateError);
-          // Don't set isRegenerating to false here - let the monitoring handle it or timeout
+          console.error("[CapsuleView] Regeneration request error:", regenerateError);
+          // Continue anyway - the UI is already showing processing
         }
       } else {
-        // No files left, so no regeneration needed
-        if (IS_DEV) console.log("[CapsuleView] No files remain after deletion, no regeneration needed");
-        // We still want to show processing UI briefly for consistency
+        // No files left, so reset after a brief delay
+        if (IS_DEV) console.log("[CapsuleView] No files remain, resetting UI state after brief delay");
         setTimeout(() => {
-          if (isRegenerating) {
-            setIsRegenerating(false);
-          }
-        }, 2000); // Show for 2 seconds then reset
+          setIsRegenerating(false);
+        }, 2000);
       }
-    } catch (error: any) { // <-- This catch block was missing its opening in your code
+      
+      // Do one final refresh regardless
+      setTimeout(() => refetch(), 1500);
+      
+    } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
       
       // Restore local state if file removal failed
@@ -718,8 +645,9 @@ useEffect(() => {
       
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
-    } // <-- Added the closing bracket for the catch block
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError, isRegenerating, startStatusMonitoring]); // Added startStatusMonitoring to dependencies
+      setIsRegenerating(false); // Reset UI state on error
+    }
+  }, [capsuleId, fetchWithAuth, refetch, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
 
   // Download markdown summary
   const handleDownloadMarkdown = useCallback(() => {
