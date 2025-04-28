@@ -93,6 +93,84 @@ const REFRESH_INTERVAL_MS = 5000;
 const FILE_BATCH_SIZE = 5;
 const IS_DEV = process.env.NODE_ENV === 'development';
 
+// Add this near the top of your component with other state variables
+const [statusMonitorActive, setStatusMonitorActive] = useState(false);
+const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+// Add this function to centralize status monitoring
+const startStatusMonitoring = useCallback(() => {
+  // Clear any existing interval first
+  if (statusCheckIntervalRef.current) {
+    clearInterval(statusCheckIntervalRef.current);
+  }
+  
+  if (IS_DEV) console.log("[CapsuleView] Starting status monitoring...");
+  setStatusMonitorActive(true);
+  
+  // Set up the interval
+  statusCheckIntervalRef.current = setInterval(async () => {
+    try {
+      if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
+      const refreshResult = await refetch();
+      const capsuleData = refreshResult?.data?.data;
+      const refreshedStatus = capsuleData?.status;
+      
+      if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
+      
+      // Update regenerating state based on status
+      if (refreshedStatus === 'PROCESSING') {
+        if (!isRegenerating) {
+          if (IS_DEV) console.log("[CapsuleView] Setting isRegenerating to true based on status");
+          setIsRegenerating(true);
+        }
+      } else if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
+        if (isRegenerating) {
+          if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
+          setIsRegenerating(false);
+        }
+        
+        // Stop monitoring if we're done
+        if (statusMonitorActive) {
+          if (IS_DEV) console.log("[CapsuleView] Stopping status monitoring - process complete");
+          setStatusMonitorActive(false);
+          if (statusCheckIntervalRef.current) {
+            clearInterval(statusCheckIntervalRef.current);
+            statusCheckIntervalRef.current = null;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[CapsuleView] Error during status check:", error);
+    }
+  }, 3000); // Check more frequently (every 3 seconds)
+  
+  // Safety cleanup
+  setTimeout(() => {
+    if (statusCheckIntervalRef.current) {
+      clearInterval(statusCheckIntervalRef.current);
+      statusCheckIntervalRef.current = null;
+    }
+    if (statusMonitorActive) {
+      if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
+      setStatusMonitorActive(false);
+    }
+    if (isRegenerating) {
+      if (IS_DEV) console.log("[CapsuleView] Force resetting isRegenerating after timeout");
+      setIsRegenerating(false);
+    }
+  }, 120000);
+}, [refetch, isRegenerating]);
+
+// Make sure to clean up on unmount
+useEffect(() => {
+  return () => {
+    if (statusCheckIntervalRef.current) {
+      clearInterval(statusCheckIntervalRef.current);
+      statusCheckIntervalRef.current = null;
+    }
+  };
+}, []);
+
 export default function CapsuleView() {
   const params = useParams();
   const { list } = useNavigation();
@@ -117,7 +195,17 @@ export default function CapsuleView() {
       onSuccess: (data) => {
         if (IS_DEV) console.log("[CapsuleView] Capsule data loaded successfully");
         const capsuleData = data as any;
+        
+        // Start monitoring if capsule is processing but we're not monitoring yet
+        if (capsuleData?.data?.status === 'PROCESSING' && !statusMonitorActive) {
+          if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
+          setIsRegenerating(true);
+          startStatusMonitoring();
+        }
+        
+        // Stop regenerating if capsule is completed
         if (capsuleData?.data?.status === 'COMPLETED' && isRegenerating) {
+          if (IS_DEV) console.log("[CapsuleView] Detected COMPLETED status, stopping regeneration");
           setIsRegenerating(false);
         }
         
@@ -327,6 +415,7 @@ export default function CapsuleView() {
     if (!capsuleId) return;
 
     setIsRegenerating(true);
+    startStatusMonitoring();
     setErrorMessage(null);
     
     if (!isRetry) {
@@ -391,6 +480,7 @@ export default function CapsuleView() {
       // IMPORTANT: Set regenerating state FIRST regardless of server response
       // This ensures UI shows loading state immediately - like in the delete function
       setIsRegenerating(true);
+      startStatusMonitoring();
       
       // Create optimistic update for files being added
       const optimisticNewFiles = fileIds.map(id => ({
@@ -573,6 +663,7 @@ export default function CapsuleView() {
       
       if (statusChanged) {
         setIsRegenerating(true);
+        startStatusMonitoring();
         if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
         
         // Setup interval to check status until complete
@@ -741,17 +832,18 @@ export default function CapsuleView() {
               {record.name || "Unnamed Capsule"}
             </Title>
             <Badge
-               variant="filled"
-               color={
-                 record.status === 'COMPLETED' ? 'green' :
-                 record.status === 'PROCESSING' ? 'yellow' :
-                 record.status === 'PENDING' ? 'blue' :
-                 record.status === 'FAILED' ? 'red' :
-                 'gray'
-               }
-               style={{ textTransform: 'uppercase', marginLeft: '8px' }}
-             >
-              {record.status || 'Unknown'}
+              variant="filled"
+              color={
+                isRegenerating ? 'yellow' :
+                record.status === 'COMPLETED' ? 'green' :
+                record.status === 'PROCESSING' ? 'yellow' :
+                record.status === 'PENDING' ? 'blue' :
+                record.status === 'FAILED' ? 'red' :
+                'gray'
+              }
+              style={{ textTransform: 'uppercase', marginLeft: '8px' }}
+            >
+              {isRegenerating ? 'PROCESSING' : record.status || 'Unknown'}
             </Badge>
           </Group>
   
