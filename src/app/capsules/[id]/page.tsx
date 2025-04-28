@@ -96,13 +96,12 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 export default function CapsuleView() {
 const params = useParams();
 const { list } = useNavigation();
-// Ensure capsuleId is extracted correctly, even if params.id is an array
 const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
 
 const { data: identity } = useGetIdentity<Identity>();
 const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
 
-// State declarations - define these only once
+// State declarations
 const [errorMessage, setErrorMessage] = useState<string | null>(null);
 const [isRegenerating, setIsRegenerating] = useState(false);
 const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
@@ -112,11 +111,37 @@ const [loadedFiles, setLoadedFiles] = useState<FileData[]>([]);
 const [isLoadingFiles, setIsLoadingFiles] = useState(false);
 const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 const [retryParams, setRetryParams] = useState<{operation: string, params: any} | null>(null);
-// Status monitoring state
 const [statusMonitorActive, setStatusMonitorActive] = useState(false);
 const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-// Status monitoring function
+// First get queryResult and refetch
+const { queryResult } = useShow<Capsule>({
+  resource: "capsules",
+  id: capsuleId,
+  queryOptions: {
+    enabled: !!capsuleId && !!identity?.token,
+    staleTime: 30000,
+    retry: 1,
+    refetchInterval: (query) => {
+      const currentStatus = (query?.data as any)?.data?.status;
+      return currentStatus === 'PROCESSING' ? REFRESH_INTERVAL_MS : false;
+    },
+    onSuccess: (data) => {
+      // This will be implemented later once startStatusMonitoring is defined
+      // The implementation will be moved after startStatusMonitoring is defined
+    },
+    onError: (error) => {
+      console.error("[CapsuleView] Error loading capsule:", error);
+      handleAuthError(error);
+      setErrorMessage(formatErrorMessage(error));
+    }
+  },
+});
+
+const { data: capsuleData, isLoading, isError, refetch } = queryResult;
+const record = capsuleData?.data;
+
+// Now define startStatusMonitoring using refetch
 const startStatusMonitoring = useCallback(() => {
   // Clear any existing interval first
   if (statusCheckIntervalRef.current) {
@@ -180,6 +205,32 @@ const startStatusMonitoring = useCallback(() => {
   }, 120000);
 }, [refetch, isRegenerating, statusMonitorActive]);
 
+// Now implement the onSuccess callback with startStatusMonitoring
+useEffect(() => {
+  if (capsuleData?.data) {
+    const data = capsuleData;
+    // Start monitoring if capsule is processing but we're not monitoring yet
+    if (data.data.status === 'PROCESSING' && !statusMonitorActive) {
+      if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
+      setIsRegenerating(true);
+      startStatusMonitoring();
+    }
+    
+    // Stop regenerating if capsule is completed
+    if (data.data.status === 'COMPLETED' && isRegenerating) {
+      if (IS_DEV) console.log("[CapsuleView] Detected COMPLETED status, stopping regeneration");
+      setIsRegenerating(false);
+    }
+    
+    // Trigger file detail fetching if needed
+    if (data.data.fileIds && (!data.data.files || data.data.files.length === 0)) {
+      if (!isLoadingFiles && loadedFiles.length === 0) {
+        fetchFileDetails(data.data.fileIds);
+      }
+    }
+  }
+}, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring]);
+
 // Cleanup effect
 useEffect(() => {
   return () => {
@@ -189,52 +240,6 @@ useEffect(() => {
     }
   };
 }, []);
-
-const { queryResult } = useShow<Capsule>({
-  resource: "capsules",
-  id: capsuleId,
-  queryOptions: {
-    enabled: !!capsuleId && !!identity?.token,
-    staleTime: 30000,
-    retry: 1,
-    refetchInterval: (query) => {
-      const currentStatus = (query?.data as any)?.data?.status;
-      return currentStatus === 'PROCESSING' ? REFRESH_INTERVAL_MS : false;
-    },
-    onSuccess: (data) => {
-      if (IS_DEV) console.log("[CapsuleView] Capsule data loaded successfully");
-      const capsuleData = data as any;
-      
-      // Start monitoring if capsule is processing but we're not monitoring yet
-      if (capsuleData?.data?.status === 'PROCESSING' && !statusMonitorActive) {
-        if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
-        setIsRegenerating(true);
-        startStatusMonitoring();
-      }
-      
-      // Stop regenerating if capsule is completed
-      if (capsuleData?.data?.status === 'COMPLETED' && isRegenerating) {
-        if (IS_DEV) console.log("[CapsuleView] Detected COMPLETED status, stopping regeneration");
-        setIsRegenerating(false);
-      }
-      
-      // Trigger file detail fetching if needed
-      if (capsuleData?.data?.fileIds && (!capsuleData.data.files || capsuleData.data.files.length === 0)) {
-        if (!isLoadingFiles && loadedFiles.length === 0) {
-          fetchFileDetails(capsuleData.data.fileIds);
-        }
-      }
-    },
-    onError: (error) => {
-      console.error("[CapsuleView] Error loading capsule:", error);
-      handleAuthError(error);
-      setErrorMessage(formatErrorMessage(error));
-    }
-  },
-});
-
-const { data: capsuleData, isLoading, isError, refetch } = queryResult;
-const record = capsuleData?.data;
   
   // Fetch file details with batching for better performance
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
