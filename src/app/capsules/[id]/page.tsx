@@ -261,7 +261,7 @@ export default function CapsuleView() {
     try {
       if (IS_DEV) console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
       
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
         method: 'GET',
       });
 
@@ -289,59 +289,60 @@ export default function CapsuleView() {
 
   // Handle file selection with improved error handling and batching
   const handleFileSelect = useCallback(async (fileIds: string[], isRetry = false) => {
-    if (!capsuleId || fileIds.length === 0) return;
-
-    setIsAddingFiles(true);
-    setErrorMessage(null);
-    setAddedFileIds([]);
-    
-    if (!isRetry) {
-      // Store parameters for potential retry
-      setRetryParams({
-        operation: 'addFiles',
-        params: { fileIds }
-      });
+  if (!capsuleId || fileIds.length === 0) return;
+  
+  setIsAddingFiles(true);
+  setErrorMessage(null);
+  setAddedFileIds([]);
+  
+  if (!isRetry) {
+    // Store parameters for potential retry
+    setRetryParams({
+      operation: 'addFiles',
+      params: { fileIds }
+    });
+  }
+  
+  try {
+    if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
+  
+    // Process in batches for better reliability
+    const batches = [];
+    for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
+      batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
     }
-
-    try {
-      if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
-
-      // Process in batches for better reliability
-      const batches = [];
-      for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
-        batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
-      }
+    
+    const successfullyAddedIds: string[] = [];
+    
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
       
-      const successfullyAddedIds: string[] = [];
-      
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
-        
-        try {
-          const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files`, {
-            method: 'POST',
-            body: JSON.stringify({ fileIds: batch }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-            throw new Error(errorData.message || `Failed to add files in batch ${i+1}: ${response.status}`);
-          }
-          
-          // Add successful file IDs
-          successfullyAddedIds.push(...batch);
-          if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} added successfully`);
-          
-          // Small delay between batches to prevent overwhelming the API
-          if (i < batches.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        } catch (error) {
-          // Continue with other batches despite errors in one batch
-          console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
+      try {
+        // Changed to use capsules-direct instead of capsules-proxy
+        const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
+          method: 'POST',
+          body: JSON.stringify({ fileIds: batch }),
+        });
+  
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+          throw new Error(errorData.message || `Failed to add files in batch ${i+1}: ${response.status}`);
         }
+        
+        // Add successful file IDs
+        successfullyAddedIds.push(...batch);
+        if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} added successfully`);
+        
+        // Small delay between batches to prevent overwhelming the API
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        // Continue with other batches despite errors in one batch
+        console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
       }
+    }
 
       if (successfullyAddedIds.length > 0) {
         // Highlight newly added files
@@ -370,11 +371,11 @@ export default function CapsuleView() {
   // Handle file removal with improved confirmation flow
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
     if (!capsuleId || !fileIdToRemove) return;
-
+    
     // Determine current files for optimistic update
     const currentFiles = record?.files || loadedFiles;
     const remainingFileCount = currentFiles.filter(f => f._id !== fileIdToRemove).length;
-
+    
     setShowDeleteConfirm(null); // Hide confirmation immediately
     setErrorMessage(null);
     
@@ -387,16 +388,17 @@ export default function CapsuleView() {
     try {
       if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
       
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files/${fileIdToRemove}`, {
+      // Changed to use capsules-direct instead of capsules-proxy
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileIdToRemove}`, {
         method: 'DELETE',
       });
-
+      
       // Check for success (200 OK or 204 No Content)
       if (!response.ok && response.status !== 204) {
         const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
         throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
       }
-
+      
       if (IS_DEV) console.log("[CapsuleView] File removed successfully");
       
       // Clear locally loaded files state if the deleted file was in there

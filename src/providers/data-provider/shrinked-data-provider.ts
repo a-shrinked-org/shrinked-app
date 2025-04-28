@@ -201,7 +201,7 @@ export const shrinkedDataProvider = (
 	  console.log(`[getProxyUrl:DEBUG] Resource: ${resource}`);
 	  console.log(`[getProxyUrl:DEBUG] Meta:`, meta);
 	}
-
+  
 	// Case 1: Direct URL override in meta - use it as is
 	if (meta?.url) {
 	  const result = meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
@@ -209,7 +209,7 @@ export const shrinkedDataProvider = (
 	  return result;
 	}
 	
-	// Case 2: Special handling for capsules resource with ID - use direct approach
+	// Case 2: Special handling for capsules resource with ID
 	if (resource === 'capsules' && meta?.hasId) {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using direct route: /api/capsules-direct`);
 	  return '/api/capsules-direct';
@@ -221,12 +221,11 @@ export const shrinkedDataProvider = (
 	  return '/api/capsules-proxy';
 	}
 	
-	// Case 4: Resource-specific proxy mappings
-	const proxyMappings: Record<string, string> = {
-	  'documents': '/api/documents-proxy',
-	  'users': '/api/users-proxy',
-	  'auth': '/api/auth-proxy'
-	};
+	// Case 4: Special handling for documents resource
+	if (resource === 'documents') {
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using documents proxy: /api/documents-proxy`);
+	  return '/api/documents-proxy';
+	}
 	
 	if (proxyMappings[resource]) {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
