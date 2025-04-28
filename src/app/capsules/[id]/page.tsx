@@ -102,6 +102,7 @@ const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params
 const { data: identity } = useGetIdentity<Identity>();
 const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
 
+// State declarations - define these only once
 const [errorMessage, setErrorMessage] = useState<string | null>(null);
 const [isRegenerating, setIsRegenerating] = useState(false);
 const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
@@ -111,11 +112,11 @@ const [loadedFiles, setLoadedFiles] = useState<FileData[]>([]);
 const [isLoadingFiles, setIsLoadingFiles] = useState(false);
 const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 const [retryParams, setRetryParams] = useState<{operation: string, params: any} | null>(null);
-// Add the status monitoring state inside the component
+// Status monitoring state
 const [statusMonitorActive, setStatusMonitorActive] = useState(false);
 const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-// Add the status monitoring function inside the component
+// Status monitoring function
 const startStatusMonitoring = useCallback(() => {
   // Clear any existing interval first
   if (statusCheckIntervalRef.current) {
@@ -179,7 +180,7 @@ const startStatusMonitoring = useCallback(() => {
   }, 120000);
 }, [refetch, isRegenerating, statusMonitorActive]);
 
-// Put the cleanup effect inside the component
+// Cleanup effect
 useEffect(() => {
   return () => {
     if (statusCheckIntervalRef.current) {
@@ -232,18 +233,8 @@ const { queryResult } = useShow<Capsule>({
   },
 });
 
-  const { data: capsuleData, isLoading, isError, refetch } = queryResult;
-  const record = capsuleData?.data;
-
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
-  const [isAddingFiles, setIsAddingFiles] = useState(false);
-  const [addedFileIds, setAddedFileIds] = useState<string[]>([]);
-  const [loadedFiles, setLoadedFiles] = useState<FileData[]>([]);
-  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [retryParams, setRetryParams] = useState<{operation: string, params: any} | null>(null);
+const { data: capsuleData, isLoading, isError, refetch } = queryResult;
+const record = capsuleData?.data;
   
   // Fetch file details with batching for better performance
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
