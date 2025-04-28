@@ -270,75 +270,124 @@ export default function CapsuleView() {
 
   // Handle file selection with improved error handling and batching
   const handleFileSelect = useCallback(async (fileIds: string[], isRetry = false) => {
-  if (!capsuleId || fileIds.length === 0) return;
-  
-  setIsAddingFiles(true);
-  setErrorMessage(null);
-  setAddedFileIds([]);
-  
-  if (!isRetry) {
-    // Store parameters for potential retry
-    setRetryParams({
-      operation: 'addFiles',
-      params: { fileIds }
-    });
-  }
-  
-  try {
-    if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
-  
-    // Process in batches for better reliability
-    const batches = [];
-    for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
-      batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
+    if (!capsuleId || fileIds.length === 0) return;
+    
+    setIsAddingFiles(true);
+    setErrorMessage(null);
+    setAddedFileIds([]);
+    
+    if (!isRetry) {
+      // Store parameters for potential retry
+      setRetryParams({
+        operation: 'addFiles',
+        params: { fileIds }
+      });
     }
     
-    const successfullyAddedIds: string[] = [];
+    try {
+      if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
     
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
-      
-      try {
-        // Changed to use capsules-direct instead of capsules-proxy
-        const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
-          method: 'POST',
-          body: JSON.stringify({ fileIds: batch }),
-        });
-  
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
-          throw new Error(errorData.message || `Failed to add files in batch ${i+1}: ${response.status}`);
-        }
-        
-        // Add successful file IDs
-        successfullyAddedIds.push(...batch);
-        if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} added successfully`);
-        
-        // Small delay between batches to prevent overwhelming the API
-        if (i < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      } catch (error) {
-        // Continue with other batches despite errors in one batch
-        console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
+      // Process in batches for better reliability
+      const batches = [];
+      for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
+        batches.push(fileIds.slice(i, i + FILE_BATCH_SIZE));
       }
-    }
-
+      
+      const successfullyAddedIds: string[] = [];
+      let statusChanged = false;
+      
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        if (IS_DEV) console.log(`[CapsuleView] Processing batch ${i+1}/${batches.length} with ${batch.length} files`);
+        
+        try {
+          // Changed to use capsules-direct instead of capsules-proxy
+          const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
+            method: 'POST',
+            body: JSON.stringify({ fileIds: batch }),
+          });
+    
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+            throw new Error(errorData.message || `Failed to add files in batch ${i+1}: ${response.status}`);
+          }
+          
+          // Add successful file IDs
+          successfullyAddedIds.push(...batch);
+          if (IS_DEV) console.log(`[CapsuleView] Batch ${i+1}/${batches.length} added successfully`);
+          
+          // Small delay between batches to prevent overwhelming the API
+          if (i < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          // Continue with other batches despite errors in one batch
+          console.error(`[CapsuleView] Error processing batch ${i+1}:`, error);
+        }
+      }
+  
       if (successfullyAddedIds.length > 0) {
         // Highlight newly added files
         setAddedFileIds(successfullyAddedIds);
         if (IS_DEV) console.log("[CapsuleView] Files added successfully:", successfullyAddedIds.length);
         
-        // Refresh to update file list
-        refetch();
+        // Refresh to update file list and check status
+        const updatedCapsule = await refetch();
         
-        // Automatically trigger regeneration after adding files
-        await handleRegenerateCapsule();
+        // Check if files were added successfully by comparing fileIds length
+        const previousFileCount = record?.fileIds?.length || 0;
+        const newFileCount = updatedCapsule?.data?.fileIds?.length || 0;
+        const filesAdded = newFileCount > previousFileCount;
+        
+        // Check if status changed to processing
+        statusChanged = updatedCapsule?.data?.status === 'PROCESSING';
+        
+        if (filesAdded) {
+          if (IS_DEV) console.log(`[CapsuleView] Files successfully added to capsule. Previous: ${previousFileCount}, New: ${newFileCount}`);
+          
+          // If status changed to processing, set the regenerating flag
+          if (statusChanged) {
+            setIsRegenerating(true);
+            if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
+            
+            // Setup interval to check status until complete
+            const statusCheckInterval = setInterval(async () => {
+              try {
+                const refreshResult = await refetch();
+                const refreshedStatus = refreshResult?.data?.status;
+                
+                if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
+                
+                if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
+                  clearInterval(statusCheckInterval);
+                  setIsRegenerating(false);
+                  if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
+                }
+              } catch (error) {
+                console.error("[CapsuleView] Error during status check:", error);
+                // Don't clear interval on error, keep trying
+              }
+            }, REFRESH_INTERVAL_MS);
+            
+            // Safety cleanup after reasonable timeout (2 minutes)
+            setTimeout(() => {
+              clearInterval(statusCheckInterval);
+              if (isRegenerating) {
+                setIsRegenerating(false);
+                if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
+              }
+            }, 120000);
+          } else {
+            // If status didn't change automatically, trigger manual regeneration
+            if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
+            await handleRegenerateCapsule();
+          }
+        } else {
+          throw new Error("Files appear to be added but capsule fileIds did not update. Please refresh and check.");
+        }
       } else {
         throw new Error("Failed to add any files. Please try again.");
       }
-
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
       setErrorMessage(formatErrorMessage(error));
@@ -347,7 +396,7 @@ export default function CapsuleView() {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError]);
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, handleAuthError, record?.fileIds?.length, isRegenerating]);
 
   // Handle file removal with improved confirmation flow
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
@@ -365,7 +414,7 @@ export default function CapsuleView() {
       operation: 'removeFile',
       params: { fileId: fileIdToRemove }
     });
-
+  
     try {
       if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
       
@@ -384,22 +433,71 @@ export default function CapsuleView() {
       
       // Clear locally loaded files state if the deleted file was in there
       setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
-      refetch();
-
-      // Regenerate only if files remain
-      if (remainingFileCount > 0) {
-        if (IS_DEV) console.log("[CapsuleView] Files remain, triggering regeneration");
-        await handleRegenerateCapsule();
+      
+      // Refresh to update file list and check status
+      const updatedCapsule = await refetch();
+      
+      // Check if file was removed successfully by comparing fileIds length
+      const previousFileCount = record?.fileIds?.length || 0;
+      const newFileCount = updatedCapsule?.data?.fileIds?.length || 0;
+      const fileRemoved = newFileCount < previousFileCount;
+      
+      // Check if status changed to processing
+      const statusChanged = updatedCapsule?.data?.status === 'PROCESSING';
+      
+      if (fileRemoved) {
+        if (IS_DEV) console.log(`[CapsuleView] File successfully removed from capsule. Previous: ${previousFileCount}, New: ${newFileCount}`);
+        
+        // If status changed to processing, set the regenerating flag
+        if (statusChanged) {
+          setIsRegenerating(true);
+          if (IS_DEV) console.log("[CapsuleView] Capsule status changed to PROCESSING, monitoring...");
+          
+          // Setup interval to check status until complete
+          const statusCheckInterval = setInterval(async () => {
+            try {
+              const refreshResult = await refetch();
+              const refreshedStatus = refreshResult?.data?.status;
+              
+              if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
+              
+              if (refreshedStatus === 'COMPLETED' || refreshedStatus === 'FAILED') {
+                clearInterval(statusCheckInterval);
+                setIsRegenerating(false);
+                if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
+              }
+            } catch (error) {
+              console.error("[CapsuleView] Error during status check:", error);
+              // Don't clear interval on error, keep trying
+            }
+          }, REFRESH_INTERVAL_MS);
+          
+          // Safety cleanup after reasonable timeout (2 minutes)
+          setTimeout(() => {
+            clearInterval(statusCheckInterval);
+            if (isRegenerating) {
+              setIsRegenerating(false);
+              if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
+            }
+          }, 120000);
+        } else if (remainingFileCount > 0) {
+          // If status didn't change automatically but files remain, trigger manual regeneration
+          if (IS_DEV) console.log("[CapsuleView] Status did not change to PROCESSING, triggering manual regeneration");
+          await handleRegenerateCapsule();
+        } else {
+          if (IS_DEV) console.log("[CapsuleView] No files remain, skipping regeneration");
+        }
       } else {
-        if (IS_DEV) console.log("[CapsuleView] No files remain, skipping regeneration");
+        if (IS_DEV) console.warn("[CapsuleView] File appears to be removed but capsule fileIds did not update");
+        // Refresh UI anyway
+        refetch();
       }
-
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, loadedFiles, handleAuthError]);
+  }, [capsuleId, fetchWithAuth, refetch, handleRegenerateCapsule, record?.files, record?.fileIds?.length, loadedFiles, handleAuthError, isRegenerating]);
 
   // Download markdown summary
   const handleDownloadMarkdown = useCallback(() => {
