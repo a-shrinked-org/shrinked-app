@@ -354,7 +354,7 @@ export default function CapsuleView() {
             const statusCheckInterval = setInterval(async () => {
               try {
                 const refreshResult = await refetch();
-                const refreshedStatus = refreshResult?.data?.status;
+                const refreshedStatus = refreshResult?.data?.data?.status;
                 
                 if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
                 
@@ -457,7 +457,7 @@ export default function CapsuleView() {
           const statusCheckInterval = setInterval(async () => {
             try {
               const refreshResult = await refetch();
-              const refreshedStatus = refreshResult?.data?.status;
+              const refreshedStatus = refreshResult?.data?.data?.status;
               
               if (IS_DEV) console.log(`[CapsuleView] Status check: ${refreshedStatus}`);
               
