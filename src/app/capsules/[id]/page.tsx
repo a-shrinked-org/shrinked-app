@@ -178,6 +178,9 @@ export default function CapsuleView() {
             if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
             setIsRegenerating(false);
             
+            // Reset the isAddingFiles state to ensure Add Files button resets - FIX FOR ISSUE 3
+            setIsAddingFiles(false);
+            
             // Show notification on completion
             notifications.show({
               title: 'Processing Complete',
@@ -217,6 +220,8 @@ export default function CapsuleView() {
       if (isRegenerating) {
         if (IS_DEV) console.log("[CapsuleView] Force resetting isRegenerating after timeout");
         setIsRegenerating(false);
+        // Also reset isAddingFiles state in timeout handler - ADDITIONAL FIX FOR ISSUE 3
+        setIsAddingFiles(false);
         // Force one final refresh
         refetch();
       }
@@ -240,6 +245,8 @@ export default function CapsuleView() {
       if ((currentStatus === 'completed' || currentStatus === 'ready') && isRegenerating) {
         if (IS_DEV) console.log(`[CapsuleView] Detected ${currentStatus.toUpperCase()} status, stopping regeneration`);
         setIsRegenerating(false);
+        // Also reset isAddingFiles state when detecting completion - ADDITIONAL FIX FOR ISSUE 3
+        setIsAddingFiles(false);
       }
       
       // Trigger file detail fetching if needed
@@ -249,7 +256,7 @@ export default function CapsuleView() {
         }
       }
     }
-  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring]);
+  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, isAddingFiles]);
 
   // Cleanup effect
   useEffect(() => {
@@ -656,7 +663,8 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] File deleted successfully");
       }
       
-      // Always start status monitoring to check for completion
+      // FIX FOR ISSUE 4: Always start status monitoring after file deletion
+      // This ensures the UI properly shows processing state
       startStatusMonitoring();
       
       // If files remain, always trigger regeneration
