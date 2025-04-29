@@ -146,13 +146,47 @@ export default function CapsuleView() {
       statusCheckIntervalRef.current = null;
     }
     
+    // Make sure we're not starting monitoring when we're already in a completed state
+    const currentStatus = (record?.status || '').toLowerCase();
+    const completedStatuses = ['completed', 'ready', 'failed'];
+    
+    if (completedStatuses.includes(currentStatus) && !isRegenerating) {
+      if (IS_DEV) console.log(`[CapsuleView] Not starting monitoring for already completed status: ${currentStatus}`);
+      return; // Don't start monitoring for already completed statuses
+    }
+    
     if (IS_DEV) console.log("[CapsuleView] Starting status monitoring...");
     setStatusMonitorActive(true);
     setIsRegenerating(true); // Always ensure UI is showing loading state
     
-    // Set up the interval
+    // Perform an immediate refresh to get status faster (reducing initial waiting time)
+    refetch().then((refreshResult) => {
+      // Check if we're already done
+      const refreshedData = refreshResult?.data?.data;
+      if (refreshedData && completedStatuses.includes(refreshedData.status?.toLowerCase())) {
+        if (IS_DEV) console.log(`[CapsuleView] Initial check shows completed status: ${refreshedData.status}`);
+        // Already completed, no need for monitoring
+        setIsRegenerating(false);
+        setIsAddingFiles(false);
+        setStatusMonitorActive(false);
+        return;
+      }
+    }).catch(err => {
+      console.error("[CapsuleView] Error in initial status check:", err);
+    });
+    
+    // Set up the interval - reduced from 3000ms to 1500ms for more responsive feedback
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
+        // Skip check if we've already detected completion
+        if (!statusMonitorActive) {
+          if (statusCheckIntervalRef.current) {
+            clearInterval(statusCheckIntervalRef.current);
+            statusCheckIntervalRef.current = null;
+          }
+          return;
+        }
+        
         if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
         const refreshResult = await refetch();
         
@@ -174,59 +208,53 @@ export default function CapsuleView() {
             setIsRegenerating(true);
           }
         } else if (refreshedStatus === 'completed' || refreshedStatus === 'ready' || refreshedStatus === 'failed') {
-          if (isRegenerating) {
-            if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
-            setIsRegenerating(false);
-            
-            // Reset the isAddingFiles state to ensure Add Files button resets - FIX FOR ISSUE 3
-            setIsAddingFiles(false);
-            
-            // Show notification on completion
-            notifications.show({
-              title: 'Processing Complete',
-              message: 'Capsule generation is complete.',
-              color: 'green',
-            });
-            
-            // Do one final refresh to ensure we have latest data
-            setTimeout(() => refetch(), 1000);
+          if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
+          setIsRegenerating(false);
+          
+          // Reset the isAddingFiles state to ensure Add Files button resets
+          setIsAddingFiles(false);
+          
+          // Show notification on completion
+          notifications.show({
+            title: 'Processing Complete',
+            message: 'Capsule generation is complete.',
+            color: 'green',
+          });
+          
+          // Stop monitoring immediately when we detect completion
+          setStatusMonitorActive(false);
+          if (statusCheckIntervalRef.current) {
+            clearInterval(statusCheckIntervalRef.current);
+            statusCheckIntervalRef.current = null;
           }
           
-          // Stop monitoring if we're done
-          if (statusMonitorActive) {
-            if (IS_DEV) console.log("[CapsuleView] Stopping status monitoring - process complete");
-            setStatusMonitorActive(false);
-            if (statusCheckIntervalRef.current) {
-              clearInterval(statusCheckIntervalRef.current);
-              statusCheckIntervalRef.current = null;
-            }
-          }
+          // Do one final refresh to ensure we have latest data
+          setTimeout(() => refetch(), 500);
         }
       } catch (error) {
         console.error("[CapsuleView] Error during status check:", error);
       }
-    }, 3000); // Check more frequently (every 3 seconds)
+    }, 1500); // Faster check interval (was 3000ms)
     
-    // Safety cleanup
+    // Safety cleanup - reduced from 120000ms to 90000ms
     setTimeout(() => {
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
         statusCheckIntervalRef.current = null;
       }
       if (statusMonitorActive) {
-        if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
+        if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 90 seconds");
         setStatusMonitorActive(false);
       }
       if (isRegenerating) {
         if (IS_DEV) console.log("[CapsuleView] Force resetting isRegenerating after timeout");
         setIsRegenerating(false);
-        // Also reset isAddingFiles state in timeout handler - ADDITIONAL FIX FOR ISSUE 3
         setIsAddingFiles(false);
         // Force one final refresh
         refetch();
       }
-    }, 120000);
-  }, [refetch, isRegenerating, statusMonitorActive]);
+    }, 90000); // 1.5 minutes timeout (reduced from 2 minutes)
+  }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
 
   // Now implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
@@ -245,8 +273,16 @@ export default function CapsuleView() {
       if ((currentStatus === 'completed' || currentStatus === 'ready') && isRegenerating) {
         if (IS_DEV) console.log(`[CapsuleView] Detected ${currentStatus.toUpperCase()} status, stopping regeneration`);
         setIsRegenerating(false);
-        // Also reset isAddingFiles state when detecting completion - ADDITIONAL FIX FOR ISSUE 3
         setIsAddingFiles(false);
+        
+        // Also make sure monitoring is stopped
+        if (statusMonitorActive) {
+          setStatusMonitorActive(false);
+          if (statusCheckIntervalRef.current) {
+            clearInterval(statusCheckIntervalRef.current);
+            statusCheckIntervalRef.current = null;
+          }
+        }
       }
       
       // Trigger file detail fetching if needed
@@ -537,7 +573,7 @@ export default function CapsuleView() {
       setIsRegenerating(true);
       startStatusMonitoring();
       
-      // Create optimistic update for files being added, using the actual file data if available
+      // Create optimistic update for files being added
       const optimisticNewFiles = fileIds.map(id => {
         // Look up this file in the provided fileData
         const fileInfo = fileData.find(f => f._id === id);
@@ -595,7 +631,7 @@ export default function CapsuleView() {
         
         // Add a small delay between batches to reduce server load
         if (i + FILE_BATCH_SIZE < fileIds.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 250)); // Reduced from 500ms to 250ms
         }
       }
       
@@ -610,8 +646,8 @@ export default function CapsuleView() {
         // Continue anyway - the UI is already showing processing
       }
       
-      // Do a final refresh to make sure we have updated data
-      setTimeout(() => refetch(), 1500);
+      // Do a final refresh sooner to make sure we have updated data
+      setTimeout(() => refetch(), 750); // Reduced from 1500ms to 750ms
       
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
@@ -690,7 +726,8 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] Files remain, triggering regeneration");
         try {
           // Add a slight delay to ensure the deletion is processed before regeneration
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // but reduce it from 500ms to 250ms for faster response
+          await new Promise(resolve => setTimeout(resolve, 250));
           
           await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
             method: 'GET',
@@ -705,11 +742,11 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] No files remain, will reset UI soon");
         setTimeout(() => {
           setIsRegenerating(false);
-        }, 2000);
+        }, 1000); // Reduced from 2000ms to 1000ms
       }
       
       // Do a final refresh to make sure we have updated data
-      setTimeout(() => refetch(), 1500);
+      setTimeout(() => refetch(), 750); // Reduced from 1500ms to 750ms
       
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
@@ -892,16 +929,6 @@ export default function CapsuleView() {
               <Group>
                 <Button
                   variant="default"
-                  leftSection={<Plus size={16} />}
-                  onClick={handleAddFile}
-                  loading={isAddingFiles}
-                  disabled={isProcessing}
-                  styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-                >
-                  Add Files
-                </Button>
-                <Button
-                  variant="default"
                   leftSection={<RefreshCw size={16} />}
                   onClick={() => handleRegenerateCapsule()}
                   loading={isProcessing}
@@ -909,15 +936,6 @@ export default function CapsuleView() {
                   styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
                 >
                   {isProcessing ? 'Processing...' : 'Regenerate'}
-                </Button>
-                <Button
-                  variant="default"
-                  leftSection={<RefreshCw size={16} />}
-                  onClick={handleRefreshFiles}
-                  disabled={isLoadingFiles || isProcessing}
-                  styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-                >
-                  Refresh Files
                 </Button>
                 <Button
                   variant="default"
