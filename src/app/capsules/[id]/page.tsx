@@ -1008,13 +1008,6 @@ export default function CapsuleView() {
         const contextSummary = extractContextSummary(record.summaryContext);
         const hasContextSummary = !!contextSummary;
         
-        // Load prompts when the settings modal opens
-        useEffect(() => {
-          if (isSettingsModalOpen) {
-            fetchCapsulePrompts();
-          }
-        }, [isSettingsModalOpen, fetchCapsulePrompts]);
-        
         return (
           // Main container styling
           <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
