@@ -14,8 +14,6 @@ import {
   Flex,
   Stack,
   Title,
-  Modal,
-  TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -35,6 +33,7 @@ import { useAuth } from "@/utils/authUtils";
 import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
+import CapsuleSettingsModal from '@/components/CapsuleSettingsModal';
 
 // Consistent error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -128,6 +127,104 @@ export default function CapsuleView() {
   });
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [promptSaveStatus, setPromptSaveStatus] = useState('');
+  
+  // Add these functions after your other useCallback functions
+  const fetchCapsulePrompts = useCallback(async () => {
+    if (!capsuleId) return;
+    
+    try {
+      setIsLoadingPrompts(true);
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch prompts: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setPromptsData({
+        summary: data.summary || '',
+        extraction: data.extraction || '',
+        classification: data.classification || ''
+      });
+    } catch (error) {
+      console.error('[CapsuleView] Failed to fetch prompts:', error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError]);
+  
+  const saveCapsulePrompts = useCallback(async () => {
+    if (!capsuleId) return;
+    
+    try {
+      setIsLoadingPrompts(true);
+      setPromptSaveStatus('Saving...');
+      
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(promptsData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save prompts: ${response.status}`);
+      }
+      
+      setPromptSaveStatus('Saved successfully');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setPromptSaveStatus('');
+      }, 3000);
+      
+      // After saving successfully, trigger regeneration
+      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+        method: 'GET',
+      });
+      
+      if (!regenerateResponse.ok) {
+        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
+      } else {
+        // Start monitoring for the regeneration process
+        setIsRegenerating(true);
+        startStatusMonitoring();
+        
+        // Notify user
+        notifications.show({
+          title: 'Regenerating Capsule',
+          message: 'Capsule is being regenerated with new prompts.',
+          color: 'yellow',
+        });
+      }
+      
+    } catch (error) {
+      console.error('[CapsuleView] Failed to save prompts:', error);
+      setPromptSaveStatus('Failed to save');
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
+  
+  // Add this useEffect with other useEffects
+  useEffect(() => {
+    if (isSettingsModalOpen) {
+      fetchCapsulePrompts();
+    }
+  }, [isSettingsModalOpen, fetchCapsulePrompts]);
+  
+  // Add a handler for prompt changes
+  const handlePromptChange = useCallback((key: string, value: string) => {
+    setPromptsData(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, []);
 
   // First get queryResult and refetch
   const { queryResult } = useShow<Capsule>({
@@ -982,169 +1079,6 @@ export default function CapsuleView() {
           }
         }, [isSettingsModalOpen, fetchCapsulePrompts]);
         
-        // Now add the CapsuleSettingsModal component at the end of the file
-        const CapsuleSettingsModal = () => {
-          return (
-            <Modal
-              opened={isSettingsModalOpen}
-              onClose={() => setIsSettingsModalOpen(false)}
-              withCloseButton={false}
-              title={null}
-              centered
-              styles={{
-                body: { 
-                  backgroundColor: '#000000', 
-                  color: '#ffffff',
-                  padding: '22px 30px',
-                },
-                inner: {
-                  padding: 0,
-                },
-                content: {
-                  maxWidth: '600px',
-                  borderRadius: '10px',
-                  border: '0.5px solid #2B2B2B',
-                  overflow: 'hidden',
-                },
-              }}
-            >
-              <Box>
-                {/* Custom header with title and close button */}
-                <Flex justify="space-between" align="center" mb="16px">
-                  <Text fw={500} size="md">
-                    Capsule Settings
-                  </Text>
-                  <ActionIcon 
-                    onClick={() => setIsSettingsModalOpen(false)} 
-                    variant="transparent" 
-                    color="#ffffff" 
-                    style={{ marginRight: '-10px', marginTop: '-10px' }}
-                  >
-                    <X size={18} />
-                  </ActionIcon>
-                </Flex>
-                
-                {/* Loading overlay */}
-                <Box style={{ position: 'relative', minHeight: '300px' }}>
-                  <LoadingOverlay visible={isLoadingPrompts} overlayProps={{ blur: 2 }} />
-                  
-                  {/* Summary prompt */}
-                  <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
-                    Summary Prompt
-                  </Text>
-                  <TextInput
-                    placeholder="Enter summary prompt"
-                    value={promptsData.summary}
-                    onChange={(e) => setPromptsData(prev => ({ ...prev, summary: e.target.value }))}
-                    mb="lg"
-                    styles={{
-                      input: {
-                        backgroundColor: '#0d0d0d',
-                        borderColor: '#2b2b2b',
-                        color: '#ffffff',
-                        padding: '12px 16px',
-                        minHeight: '100px',
-                        '&:focus': {
-                          borderColor: '#F5A623',
-                        },
-                      }
-                    }}
-                  />
-                  
-                  {/* Extraction prompt */}
-                  <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
-                    Extraction Prompt
-                  </Text>
-                  <TextInput
-                    placeholder="Enter extraction prompt"
-                    value={promptsData.extraction}
-                    onChange={(e) => setPromptsData(prev => ({ ...prev, extraction: e.target.value }))}
-                    mb="lg"
-                    styles={{
-                      input: {
-                        backgroundColor: '#0d0d0d',
-                        borderColor: '#2b2b2b',
-                        color: '#ffffff',
-                        padding: '12px 16px',
-                        minHeight: '100px',
-                        '&:focus': {
-                          borderColor: '#F5A623',
-                        },
-                      }
-                    }}
-                  />
-                  
-                  {/* Classification prompt */}
-                  <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
-                    Classification Prompt
-                  </Text>
-                  <TextInput
-                    placeholder="Enter classification prompt"
-                    value={promptsData.classification}
-                    onChange={(e) => setPromptsData(prev => ({ ...prev, classification: e.target.value }))}
-                    mb="lg"
-                    styles={{
-                      input: {
-                        backgroundColor: '#0d0d0d',
-                        borderColor: '#2b2b2b',
-                        color: '#ffffff',
-                        padding: '12px 16px',
-                        minHeight: '100px',
-                        '&:focus': {
-                          borderColor: '#F5A623',
-                        },
-                      }
-                    }}
-                  />
-                  
-                  {/* Save status message */}
-                  {promptSaveStatus && (
-                    <Text 
-                      size="sm" 
-                      c={promptSaveStatus === 'Saved successfully' ? 'green' : 
-                         promptSaveStatus === 'Saving...' ? 'orange' : 'red'} 
-                      mb="md"
-                    >
-                      {promptSaveStatus}
-                    </Text>
-                  )}
-                  
-                  {/* Save and Cancel Buttons */}
-                  <Group position="right" mt="xl">
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsSettingsModalOpen(false)}
-                      styles={{
-                        root: {
-                          borderColor: '#2b2b2b',
-                          color: '#ffffff',
-                        }
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={saveCapsulePrompts}
-                      loading={isLoadingPrompts && promptSaveStatus === 'Saving...'}
-                      styles={{
-                        root: {
-                          backgroundColor: '#F5A623',
-                          color: '#000000',
-                          '&:hover': {
-                            backgroundColor: '#E09612',
-                          },
-                        },
-                      }}
-                    >
-                      Save
-                    </Button>
-                  </Group>
-                </Box>
-              </Box>
-            </Modal>
-          );
-        };
-        
         return (
           // Main container styling
           <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
@@ -1398,7 +1332,15 @@ export default function CapsuleView() {
               capsuleId={capsuleId}
               existingFileIds={record?.fileIds || []}
             />
-            <CapsuleSettingsModal />
+            <CapsuleSettingsModal
+              isOpen={isSettingsModalOpen}
+              onClose={() => setIsSettingsModalOpen(false)}
+              isLoading={isLoadingPrompts}
+              promptData={promptsData}
+              onPromptChange={handlePromptChange}
+              onSave={saveCapsulePrompts}
+              saveStatus={promptSaveStatus}
+            />
           </Box>
         );
       }

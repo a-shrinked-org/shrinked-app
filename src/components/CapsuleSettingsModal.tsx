@@ -1,7 +1,4 @@
-// Let's enhance the modal with TextArea inputs instead of TextInput for better multi-line editing
-// and improve the styling to match the Logic component's modal more closely
-
-// First, import the Textarea component
+import React from 'react';
 import {
   Text,
   Box,
@@ -9,24 +6,42 @@ import {
   Button,
   LoadingOverlay,
   ActionIcon,
-  Badge,
-  Alert,
   Flex,
-  Stack,
-  Title,
-  Textarea, // Add Textarea component
+  Textarea,
   Modal,
 } from '@mantine/core';
+import { X } from 'lucide-react';
 
-// For the state variables and functions, keep them the same as in the previous code
+interface CapsuleSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  isLoading: boolean;
+  promptData: {
+    summary: string;
+    extraction: string;
+    classification: string;
+  };
+  onPromptChange: (key: string, value: string) => void;
+  onSave: () => void;
+  saveStatus: string;
+}
 
-// Then replace the CapsuleSettingsModal component with this improved version:
-
-const CapsuleSettingsModal = () => {
+/**
+ * Modal component for editing capsule prompts with Textarea inputs
+ */
+const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
+  isOpen,
+  onClose,
+  isLoading,
+  promptData,
+  onPromptChange,
+  onSave,
+  saveStatus
+}) => {
   return (
     <Modal
-      opened={isSettingsModalOpen}
-      onClose={() => setIsSettingsModalOpen(false)}
+      opened={isOpen}
+      onClose={onClose}
       withCloseButton={false}
       title={null}
       centered
@@ -54,7 +69,7 @@ const CapsuleSettingsModal = () => {
             Capsule Settings
           </Text>
           <ActionIcon 
-            onClick={() => setIsSettingsModalOpen(false)} 
+            onClick={onClose} 
             variant="transparent" 
             color="#ffffff" 
             style={{ marginRight: '-10px', marginTop: '-10px' }}
@@ -69,12 +84,12 @@ const CapsuleSettingsModal = () => {
           fontSize: '14px',
           fontFamily: 'inherit'
         }}>
-          Edit the prompts used for this capsule's content generation
+          Edit the prompts used for this capsule&apos;s content generation
         </Text>
         
         {/* Loading overlay */}
         <Box style={{ position: 'relative', minHeight: '300px' }}>
-          <LoadingOverlay visible={isLoadingPrompts} overlayProps={{ blur: 2 }} />
+          <LoadingOverlay visible={isLoading} overlayProps={{ blur: 2 }} />
           
           {/* Summary prompt */}
           <Text fw={500} size="sm" mb="xs" c="#a1a1a1">
@@ -82,8 +97,8 @@ const CapsuleSettingsModal = () => {
           </Text>
           <Textarea
             placeholder="Enter prompt for summary generation"
-            value={promptsData.summary}
-            onChange={(e) => setPromptsData(prev => ({ ...prev, summary: e.target.value }))}
+            value={promptData.summary}
+            onChange={(e) => onPromptChange('summary', e.target.value)}
             mb="lg"
             minRows={4}
             autosize
@@ -122,8 +137,8 @@ const CapsuleSettingsModal = () => {
           </Text>
           <Textarea
             placeholder="Enter prompt for data extraction"
-            value={promptsData.extraction}
-            onChange={(e) => setPromptsData(prev => ({ ...prev, extraction: e.target.value }))}
+            value={promptData.extraction}
+            onChange={(e) => onPromptChange('extraction', e.target.value)}
             mb="lg"
             minRows={4}
             autosize
@@ -162,8 +177,8 @@ const CapsuleSettingsModal = () => {
           </Text>
           <Textarea
             placeholder="Enter prompt for classification"
-            value={promptsData.classification}
-            onChange={(e) => setPromptsData(prev => ({ ...prev, classification: e.target.value }))}
+            value={promptData.classification}
+            onChange={(e) => onPromptChange('classification', e.target.value)}
             mb="lg"
             minRows={4}
             autosize
@@ -197,14 +212,14 @@ const CapsuleSettingsModal = () => {
           />
           
           {/* Save status message */}
-          {promptSaveStatus && (
+          {saveStatus && (
             <Text 
               size="sm" 
-              c={promptSaveStatus === 'Saved successfully' ? 'green' : 
-                 promptSaveStatus === 'Saving...' ? 'orange' : 'red'} 
+              c={saveStatus === 'Saved successfully' ? 'green' : 
+                 saveStatus === 'Saving...' ? 'orange' : 'red'} 
               mb="md"
             >
-              {promptSaveStatus}
+              {saveStatus}
             </Text>
           )}
           
@@ -212,7 +227,7 @@ const CapsuleSettingsModal = () => {
           <Group position="right" mt="xl">
             <Button
               variant="default"
-              onClick={() => setIsSettingsModalOpen(false)}
+              onClick={onClose}
               styles={{
                 root: {
                   borderColor: '#2b2b2b',
@@ -227,8 +242,8 @@ const CapsuleSettingsModal = () => {
               Cancel
             </Button>
             <Button
-              onClick={saveCapsulePrompts}
-              loading={isLoadingPrompts && promptSaveStatus === 'Saving...'}
+              onClick={onSave}
+              loading={isLoading && saveStatus === 'Saving...'}
               styles={{
                 root: {
                   backgroundColor: '#F5A623',
@@ -249,89 +264,4 @@ const CapsuleSettingsModal = () => {
   );
 };
 
-// Additionally, let's modify the API calls to use capsules-proxy instead of capsules-direct
-// Update the fetchCapsulePrompts function:
-
-const fetchCapsulePrompts = useCallback(async () => {
-  if (!capsuleId) return;
-  
-  try {
-    setIsLoadingPrompts(true);
-    const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch prompts: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    setPromptsData({
-      summary: data.summary || '',
-      extraction: data.extraction || '',
-      classification: data.classification || ''
-    });
-  } catch (error) {
-    console.error('[CapsuleView] Failed to fetch prompts:', error);
-    setErrorMessage(formatErrorMessage(error));
-    handleAuthError(error);
-  } finally {
-    setIsLoadingPrompts(false);
-  }
-}, [capsuleId, fetchWithAuth, handleAuthError]);
-
-// And update the saveCapsulePrompts function:
-
-const saveCapsulePrompts = useCallback(async () => {
-  if (!capsuleId) return;
-  
-  try {
-    setIsLoadingPrompts(true);
-    setPromptSaveStatus('Saving...');
-    
-    const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(promptsData)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to save prompts: ${response.status}`);
-    }
-    
-    setPromptSaveStatus('Saved successfully');
-    
-    // Clear success message after 3 seconds
-    setTimeout(() => {
-      setPromptSaveStatus('');
-    }, 3000);
-    
-    // After saving successfully, trigger regeneration
-    const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
-      method: 'GET',
-    });
-    
-    if (!regenerateResponse.ok) {
-      console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
-    } else {
-      // Start monitoring for the regeneration process
-      setIsRegenerating(true);
-      startStatusMonitoring();
-      
-      // Notify user
-      notifications.show({
-        title: 'Regenerating Capsule',
-        message: 'Capsule is being regenerated with new prompts.',
-        color: 'yellow',
-      });
-    }
-    
-  } catch (error) {
-    console.error('[CapsuleView] Failed to save prompts:', error);
-    setPromptSaveStatus('Failed to save');
-    setErrorMessage(formatErrorMessage(error));
-    handleAuthError(error);
-  } finally {
-    setIsLoadingPrompts(false);
-  }
-}, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
+export default CapsuleSettingsModal;
