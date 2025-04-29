@@ -1123,7 +1123,7 @@ export default function CapsuleView() {
                 <FileText size={48} style={{ opacity: '0.3', marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                 <Text ta="center" c="dimmed" mb="xl">
-                  Click the "Regenerate" button to analyze the added files and create the context summary.
+                  Click the {"Regenerate"} button to analyze the added files and create the context summary.
                 </Text>
                 <Button
                   leftSection={<RefreshCw size={16} />}
