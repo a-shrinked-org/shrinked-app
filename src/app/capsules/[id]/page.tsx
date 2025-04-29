@@ -134,7 +134,6 @@ export default function CapsuleView() {
   const [promptSaveStatus, setPromptSaveStatus] = useState('');
 
   // Fetch admin prompts
-  // Fetch admin prompts
   const fetchAdminPrompts = useCallback(async () => {
     try {
       setIsLoadingPrompts(true);
@@ -147,8 +146,9 @@ export default function CapsuleView() {
       const data = await response.json();
       
       // Filter to only include capsule-related prompts (starting with "capsule.")
+      // And safely handle null/undefined section values
       const filteredPrompts = Array.isArray(data) 
-        ? data.filter(prompt => prompt.section.startsWith('capsule.'))
+        ? data.filter(prompt => prompt.section && prompt.section.startsWith('capsule.'))
         : [];
         
       setPromptsData(filteredPrompts);
