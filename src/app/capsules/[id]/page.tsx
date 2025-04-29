@@ -95,6 +95,12 @@ interface Capsule {
   }>;
 }
 
+interface Prompt {
+  section: string;
+  prompt: string;
+  prefill?: string;
+}
+
 // Constants
 const REFRESH_INTERVAL_MS = 5000;
 const FILE_BATCH_SIZE = 5;
@@ -123,55 +129,99 @@ export default function CapsuleView() {
     
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   
-  const [promptsData, setPromptsData] = useState({
-    summary: '',
-    extraction: '',
-    classification: ''
-  });
+  const [promptsData, setPromptsData] = useState<Prompt[]>([]);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [promptSaveStatus, setPromptSaveStatus] = useState('');
-  
-  // Add these functions after your other useCallback functions
-  const fetchCapsulePrompts = useCallback(async () => {
-    if (!capsuleId) return;
-    
+
+  // Fetch admin prompts
+  const fetchAdminPrompts = useCallback(async () => {
     try {
       setIsLoadingPrompts(true);
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/prompts`);
+      const response = await fetchWithAuth(`/api/admin/prompts`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch prompts: ${response.status}`);
       }
       
       const data = await response.json();
-      setPromptsData({
-        summary: data.summary || '',
-        extraction: data.extraction || '',
-        classification: data.classification || ''
-      });
+      setPromptsData(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('[CapsuleView] Failed to fetch prompts:', error);
+      console.error('[CapsuleView] Failed to fetch admin prompts:', error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
     } finally {
       setIsLoadingPrompts(false);
     }
-  }, [capsuleId, fetchWithAuth, handleAuthError]);
-  
-  // Add this useEffect with other useEffects
+  }, [fetchWithAuth, handleAuthError]);
+
+  // Update prompts when modal opens
   useEffect(() => {
     if (isSettingsModalOpen) {
-      fetchCapsulePrompts();
+      fetchAdminPrompts();
     }
-  }, [isSettingsModalOpen, fetchCapsulePrompts]);
-  
-  // Add a handler for prompt changes
-  const handlePromptChange = useCallback((key: string, value: string) => {
-    setPromptsData(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  }, [isSettingsModalOpen, fetchAdminPrompts]);
+
+  // Handle prompt changes
+  const handlePromptChange = useCallback((section: string, value: string) => {
+    setPromptsData(prev => prev.map(p => 
+      p.section === section ? { ...p, prompt: value } : p
+    ));
   }, []);
+
+  // Save admin prompts
+  const saveAdminPrompts = useCallback(async () => {
+    if (!promptsData.length) return;
+    
+    try {
+      setIsLoadingPrompts(true);
+      setPromptSaveStatus('Saving...');
+      
+      const response = await fetchWithAuth(`/api/admin/prompts/upsert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(promptsData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save prompts: ${response.status}`);
+      }
+      
+      setPromptSaveStatus('Saved successfully');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setPromptSaveStatus('');
+      }, 3000);
+      
+      // Trigger regeneration
+      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+        method: 'GET',
+      });
+      
+      if (!regenerateResponse.ok) {
+        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
+      } else {
+        setIsRegenerating(true);
+        startStatusMonitoring();
+        
+        notifications.show({
+          title: 'Regenerating Capsule',
+          message: 'Capsule is being regenerated with new prompts.',
+          color: 'yellow',
+        });
+      }
+      
+    } catch (error) {
+      console.error('[CapsuleView] Failed to save prompts:', error);
+      setPromptSaveStatus('Failed to save');
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
 
   // First get queryResult and refetch
   const { queryResult } = useShow<Capsule>({
@@ -196,34 +246,29 @@ export default function CapsuleView() {
   const { data: capsuleData, isLoading, isError, refetch } = queryResult;
   const record = capsuleData?.data;
 
-  // Now define startStatusMonitoring using refetch
+  // Define startStatusMonitoring
   const startStatusMonitoring = useCallback(() => {
-    // Clear any existing interval first
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
       statusCheckIntervalRef.current = null;
     }
     
-    // Make sure we're not starting monitoring when we're already in a completed state
     const currentStatus = (record?.status || '').toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
     
     if (completedStatuses.includes(currentStatus) && !isRegenerating) {
       if (IS_DEV) console.log(`[CapsuleView] Not starting monitoring for already completed status: ${currentStatus}`);
-      return; // Don't start monitoring for already completed statuses
+      return;
     }
     
     if (IS_DEV) console.log("[CapsuleView] Starting status monitoring...");
     setStatusMonitorActive(true);
-    setIsRegenerating(true); // Always ensure UI is showing loading state
+    setIsRegenerating(true);
     
-    // Perform an immediate refresh to get status faster (reducing initial waiting time)
     refetch().then((refreshResult) => {
-      // Check if we're already done
       const refreshedData = refreshResult?.data?.data;
       if (refreshedData && completedStatuses.includes(refreshedData.status?.toLowerCase())) {
         if (IS_DEV) console.log(`[CapsuleView] Initial check shows completed status: ${refreshedData.status}`);
-        // Already completed, no need for monitoring
         setIsRegenerating(false);
         setIsAddingFiles(false);
         setStatusMonitorActive(false);
@@ -233,10 +278,8 @@ export default function CapsuleView() {
       console.error("[CapsuleView] Error in initial status check:", err);
     });
     
-    // Set up the interval - reduced from 3000ms to 1500ms for more responsive feedback
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
-        // Skip check if we've already detected completion
         if (!statusMonitorActive) {
           if (statusCheckIntervalRef.current) {
             clearInterval(statusCheckIntervalRef.current);
@@ -248,7 +291,6 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
         const refreshResult = await refetch();
         
-        // Make sure we're accessing the status correctly
         const capsuleData = refreshResult?.data?.data;
         if (!capsuleData || typeof capsuleData.status !== 'string') {
           console.warn("[CapsuleView] Invalid status in refresh result");
@@ -259,7 +301,6 @@ export default function CapsuleView() {
         
         if (IS_DEV) console.log(`[CapsuleView] Status check: "${refreshedStatus}" (original: "${capsuleData.status}")`);
         
-        // Update regenerating state based on status - using lowercase comparison
         if (refreshedStatus === 'processing') {
           if (!isRegenerating) {
             if (IS_DEV) console.log("[CapsuleView] Setting isRegenerating to true based on status");
@@ -269,32 +310,27 @@ export default function CapsuleView() {
           if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
           setIsRegenerating(false);
           
-          // Reset the isAddingFiles state to ensure Add Files button resets
           setIsAddingFiles(false);
           
-          // Show notification on completion
           notifications.show({
             title: 'Processing Complete',
             message: 'Capsule generation is complete.',
             color: 'green',
           });
           
-          // Stop monitoring immediately when we detect completion
           setStatusMonitorActive(false);
           if (statusCheckIntervalRef.current) {
             clearInterval(statusCheckIntervalRef.current);
             statusCheckIntervalRef.current = null;
           }
           
-          // Do one final refresh to ensure we have latest data
           setTimeout(() => refetch(), 500);
         }
       } catch (error) {
         console.error("[CapsuleView] Error during status check:", error);
       }
-    }, 1500); // Faster check interval (was 3000ms)
+    }, 1500);
     
-    // Safety cleanup - reduced from 120000ms to 90000ms
     setTimeout(() => {
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
@@ -308,88 +344,28 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] Force resetting isRegenerating after timeout");
         setIsRegenerating(false);
         setIsAddingFiles(false);
-        // Force one final refresh
         refetch();
       }
-    }, 90000); // 1.5 minutes timeout (reduced from 2 minutes)
+    }, 90000);
   }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
-  
-  const saveCapsulePrompts = useCallback(async () => {
-    if (!capsuleId) return;
-    
-    try {
-      setIsLoadingPrompts(true);
-      setPromptSaveStatus('Saving...');
-      
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(promptsData)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to save prompts: ${response.status}`);
-      }
-      
-      setPromptSaveStatus('Saved successfully');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setPromptSaveStatus('');
-      }, 3000);
-      
-      // After saving successfully, trigger regeneration
-      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
-        method: 'GET',
-      });
-      
-      if (!regenerateResponse.ok) {
-        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
-      } else {
-        // Start monitoring for the regeneration process
-        setIsRegenerating(true);
-        startStatusMonitoring();
-        
-        // Notify user
-        notifications.show({
-          title: 'Regenerating Capsule',
-          message: 'Capsule is being regenerated with new prompts.',
-          color: 'yellow',
-        });
-      }
-      
-    } catch (error) {
-      console.error('[CapsuleView] Failed to save prompts:', error);
-      setPromptSaveStatus('Failed to save');
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
 
-  // Now implement the onSuccess callback with startStatusMonitoring
+  // Implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
     if (capsuleData?.data) {
       const data = capsuleData;
       const currentStatus = (data.data.status || '').toLowerCase();
       
-      // Start monitoring if capsule is processing but we're not monitoring yet
       if (currentStatus === 'processing' && !statusMonitorActive) {
         if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
         setIsRegenerating(true);
         startStatusMonitoring();
       }
       
-      // Stop regenerating if capsule is completed
       if ((currentStatus === 'completed' || currentStatus === 'ready') && isRegenerating) {
         if (IS_DEV) console.log(`[CapsuleView] Detected ${currentStatus.toUpperCase()} status, stopping regeneration`);
         setIsRegenerating(false);
         setIsAddingFiles(false);
         
-        // Also make sure monitoring is stopped
         if (statusMonitorActive) {
           setStatusMonitorActive(false);
           if (statusCheckIntervalRef.current) {
@@ -399,7 +375,6 @@ export default function CapsuleView() {
         }
       }
       
-      // Trigger file detail fetching if needed
       if (data.data.fileIds && (!data.data.files || data.data.files.length === 0)) {
         if (!isLoadingFiles && loadedFiles.length === 0) {
           fetchFileDetails(data.data.fileIds);
@@ -417,30 +392,28 @@ export default function CapsuleView() {
       }
     };
   }, []);
-  
+
   // Fetch file details with batching for better performance
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
     if (!fileIds || fileIds.length === 0 || !capsuleId) {
       if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or capsule ID");
       return;
     }
-  
+
     setIsLoadingFiles(true);
     if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
-  
+
     try {
-      // First try from the main capsule data
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
-  
+
       if (!response.ok) {
         throw new Error(`Failed to fetch capsule details: ${response.status}`);
       }
-  
+
       const capsuleData = await response.json();
-      const data = capsuleData?.data || capsuleData; // Handle both possible response structures
-      
+      const data = capsuleData?.data || capsuleData;
+
       if (data?.files && Array.isArray(data.files) && data.files.length > 0) {
-        // Process files from the capsule response
         const processedFiles = data.files
           .filter((file: any) => fileIds.includes(file._id))
           .map((file: any) => ({
@@ -462,10 +435,7 @@ export default function CapsuleView() {
       } else {
         if (IS_DEV) console.log("[CapsuleView] No files found in capsule data or invalid structure");
       }
-  
-      // If we get here, we need to try alternative approaches
-      
-      // Try direct file endpoint as a second option
+
       try {
         const filesResponse = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`);
         
@@ -493,10 +463,8 @@ export default function CapsuleView() {
         }
       } catch (filesError) {
         console.warn("[CapsuleView] Error fetching from direct files endpoint:", filesError);
-        // Continue to next approach
       }
       
-      // Try from user's documents as a third option
       const token = await ensureValidToken();
       let userId = '';
       
@@ -552,12 +520,10 @@ export default function CapsuleView() {
         }
       }
       
-      // If we get here, we've exhausted all options and need to use placeholders
       throw new Error("Unable to fetch file details from any source");
       
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
-      // Create placeholders as a fallback on error
       const placeholders = fileIds.map(id => ({
         _id: id,
         title: `File ${id.slice(-6)}`,
@@ -567,7 +533,6 @@ export default function CapsuleView() {
       
       if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
       
-      // Show notification for fetch error
       notifications.show({
         title: 'Error Loading Files',
         message: 'Could not load complete file details. Using placeholders instead.',
@@ -580,7 +545,6 @@ export default function CapsuleView() {
 
   // Trigger initial fetch if needed
   useEffect(() => {
-    // Only fetch if we have fileIds, don't have embedded files, and haven't loaded files yet
     if (
       record?.fileIds && 
       (!record.files || record.files.length === 0) && 
@@ -606,7 +570,6 @@ export default function CapsuleView() {
     startStatusMonitoring();
     setErrorMessage(null);
     
-    // Show notification
     notifications.show({
       title: 'Processing Started',
       message: 'Capsule regeneration in progress.',
@@ -614,7 +577,6 @@ export default function CapsuleView() {
     });
     
     if (!isRetry) {
-      // Store parameters for potential retry
       setRetryParams({
         operation: 'regenerate',
         params: {}
@@ -634,7 +596,6 @@ export default function CapsuleView() {
       }
 
       if (IS_DEV) console.log("[CapsuleView] Regenerate request sent successfully");
-      // Refresh data after a short delay to allow processing status to update
       setTimeout(() => refetch(), 1500);
 
     } catch (error: any) {
@@ -643,7 +604,6 @@ export default function CapsuleView() {
       setIsRegenerating(false);
       handleAuthError(error);
       
-      // Show error notification
       notifications.show({
         title: 'Regeneration Failed',
         message: formatErrorMessage(error),
@@ -663,7 +623,7 @@ export default function CapsuleView() {
     
     setIsAddingFiles(true);
     setErrorMessage(null);
-    setAddedFileIds(fileIds); // Set this immediately for UI feedback
+    setAddedFileIds(fileIds);
     
     if (!isRetry) {
       setRetryParams({
@@ -672,7 +632,6 @@ export default function CapsuleView() {
       });
     }
     
-    // Show notification
     notifications.show({
       title: 'Adding Files',
       message: 'Adding files and regenerating capsule.',
@@ -682,17 +641,12 @@ export default function CapsuleView() {
     try {
       if (IS_DEV) console.log(`[CapsuleView] Adding ${fileIds.length} files to capsule ${capsuleId}`);
       
-      // IMPORTANT: Set regenerating state FIRST regardless of server response
-      // This ensures UI shows loading state immediately
       setIsRegenerating(true);
       startStatusMonitoring();
       
-      // Create optimistic update for files being added
       const optimisticNewFiles = fileIds.map(id => {
-        // Look up this file in the provided fileData
         const fileInfo = fileData.find(f => f._id === id);
         
-        // If we have file data, use it; otherwise create placeholder
         if (fileInfo) {
           return {
             _id: id,
@@ -702,7 +656,6 @@ export default function CapsuleView() {
             output: fileInfo.output || {}
           };
         } else {
-          // Fallback to placeholder if no data is available
           return {
             _id: id,
             title: `File ${id.slice(-6)}`,
@@ -711,15 +664,12 @@ export default function CapsuleView() {
         }
       });
       
-      // Update local state immediately for better UX
       setLoadedFiles(prev => {
-        // Only add files that aren't already in the list
         const existingIds = prev.map(file => file._id);
         const filesToAdd = optimisticNewFiles.filter(file => !existingIds.includes(file._id));
         return [...prev, ...filesToAdd];
       });
       
-      // Process in batches for better reliability - sequential for more reliability
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
         const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
         try {
@@ -740,16 +690,13 @@ export default function CapsuleView() {
           }
         } catch (batchError) {
           console.warn(`[CapsuleView] Error processing batch ${Math.floor(i/FILE_BATCH_SIZE)+1}:`, batchError);
-          // Continue with next batch despite errors
         }
         
-        // Add a small delay between batches to reduce server load
         if (i + FILE_BATCH_SIZE < fileIds.length) {
-          await new Promise(resolve => setTimeout(resolve, 250)); // Reduced from 500ms to 250ms
+          await new Promise(resolve => setTimeout(resolve, 250));
         }
       }
       
-      // Explicitly trigger regeneration after all files added
       try {
         await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
           method: 'GET',
@@ -757,19 +704,15 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] Regenerate request sent after adding files");
       } catch (regenerateError) {
         console.error("[CapsuleView] Regeneration error after adding files:", regenerateError);
-        // Continue anyway - the UI is already showing processing
       }
       
-      // Do a final refresh sooner to make sure we have updated data
-      setTimeout(() => refetch(), 750); // Reduced from 1500ms to 750ms
+      setTimeout(() => refetch(), 750);
       
     } catch (error: any) {
       console.error("[CapsuleView] Failed to add files:", error);
-      // Even on errors, don't reset isRegenerating - let the timeout handle it
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
       
-      // Show error notification
       notifications.show({
         title: 'Error Adding Files',
         message: formatErrorMessage(error),
@@ -780,48 +723,39 @@ export default function CapsuleView() {
       setIsFileSelectorOpen(false);
     }
   }, [capsuleId, fetchWithAuth, refetch, handleAuthError, startStatusMonitoring]);
-  
+
   // Handle file removal with improved state management
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
     if (!capsuleId || !fileIdToRemove) return;
     
-    // Determine current files for optimistic update
     const currentFiles = record?.files || loadedFiles;
     const remainingFileCount = currentFiles.filter(f => f._id !== fileIdToRemove).length;
     
-    setShowDeleteConfirm(null); // Hide confirmation immediately
+    setShowDeleteConfirm(null);
     setErrorMessage(null);
     
-    // Show notification first
     notifications.show({
       title: 'Removing File',
       message: 'Removing file and updating capsule.',
       color: 'yellow',
     });
     
-    // Store retry parameters
     setRetryParams({
       operation: 'removeFile',
       params: { fileId: fileIdToRemove }
     });
-  
+
     try {
       if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
       
-      // IMPORTANT: Start status monitoring BEFORE making the API call
-      // This ensures the UI immediately shows the loading state
-      // and the monitoring will properly catch the state transitions
       setIsRegenerating(true);
       startStatusMonitoring();
       
-      // Immediately update local state for optimistic UI
       setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
       
-      // Use timeout with AbortController to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      // Make the API call to delete the file
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileIdToRemove}`, {
         method: 'DELETE',
         signal: controller.signal
@@ -835,12 +769,9 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] File deleted successfully");
       }
       
-      // If files remain, always trigger regeneration
       if (remainingFileCount > 0) {
         if (IS_DEV) console.log("[CapsuleView] Files remain, triggering regeneration");
         try {
-          // Add a slight delay to ensure the deletion is processed before regeneration
-          // but reduce it from 500ms to 250ms for faster response
           await new Promise(resolve => setTimeout(resolve, 250));
           
           await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
@@ -849,23 +780,19 @@ export default function CapsuleView() {
           if (IS_DEV) console.log("[CapsuleView] Regenerate request sent after file removal");
         } catch (regenerateError) {
           console.error("[CapsuleView] Regeneration error after file removal:", regenerateError);
-          // Continue anyway - the UI is already showing processing
         }
       } else {
-        // No files remain, so reset after a brief delay
         if (IS_DEV) console.log("[CapsuleView] No files remain, will reset UI soon");
         setTimeout(() => {
           setIsRegenerating(false);
-        }, 1000); // Reduced from 2000ms to 1000ms
+        }, 1000);
       }
       
-      // Do a final refresh to make sure we have updated data
-      setTimeout(() => refetch(), 750); // Reduced from 1500ms to 750ms
+      setTimeout(() => refetch(), 750);
       
     } catch (error: any) {
       console.error("[CapsuleView] Failed to remove file:", error);
       
-      // Restore local state if file removal failed
       setLoadedFiles(prev => {
         const fileStillExists = prev.some(file => file._id === fileIdToRemove);
         if (!fileStillExists) {
@@ -880,7 +807,6 @@ export default function CapsuleView() {
       handleAuthError(error);
       setIsRegenerating(false);
       
-      // Show error notification
       notifications.show({
         title: 'Error Removing File',
         message: formatErrorMessage(error),
@@ -906,7 +832,6 @@ export default function CapsuleView() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      // Show notification
       notifications.show({
         title: 'Download Started',
         message: 'Downloading markdown summary.',
@@ -928,7 +853,7 @@ export default function CapsuleView() {
   const handleBackToList = useCallback(() => {
     list("capsules");
   }, [list]);
-  
+
   // Handle retry operation
   const handleRetry = useCallback(() => {
     if (!retryParams) return;
@@ -949,7 +874,7 @@ export default function CapsuleView() {
         if (IS_DEV) console.warn("[CapsuleView] Unknown retry operation:", retryParams.operation);
     }
   }, [retryParams, handleRegenerateCapsule, handleFileSelect, handleRemoveFile]);
-  
+
   // Refresh files manually
   const handleRefreshFiles = useCallback(() => {
     if (record?.fileIds && record.fileIds.length > 0) {
@@ -962,7 +887,7 @@ export default function CapsuleView() {
       });
     }
   }, [record?.fileIds, fetchFileDetails]);
-  
+
   // Helper to format date strings
   const formatDate = (dateString?: string): string => {
     if (!dateString) return "N/A";
@@ -972,307 +897,282 @@ export default function CapsuleView() {
       });
     } catch (e) {
       return dateString;
-          }
-        };
-        
-        // --- Render Logic ---
-        
-        if (isLoading) {
-          return (
-            <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
-              <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
-            </Box>
-          );
-        }
-        
-        if (isError || !record) {
-          return (
-            <Box p="md">
-              <Alert
-                color="red"
-                title="Error Loading Capsule"
-                icon={<AlertCircle size={16} />}
-                mb="md"
-              >
-                {errorMessage || "Could not load capsule details. Please check the ID or try again."}
-              </Alert>
-              <Button onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
-                Back to Capsules List
-              </Button>
-            </Box>
-          );
-        }
-        
-        // Determine which files to display (prefer record.files if available)
-        const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
-        const hasFiles = displayFiles.length > 0;
-        const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
-        
-        const contextSummary = extractContextSummary(record.summaryContext);
-        const hasContextSummary = !!contextSummary;
-        
-        return (
-          // Main container styling
-          <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
-            {/* Header Section */}
-            <Group mb="xl" justify="space-between" align="center">
-              {/* Left Header: Back button, Title, Status */}
-              <Group align="center">
-                <ActionIcon size="lg" variant="subtle" onClick={handleBackToList} style={{ color: '#a0a0a0' }}>
-                  <ArrowLeft size={20} />
-                </ActionIcon>
-                <Title order={3} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#ffffff' }}>
-                  {record.name || "Unnamed Capsule"}
-                </Title>
-                <Badge
-                  variant="filled"
-                  color={
-                    isRegenerating ? 'yellow' :
-                    record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? 'green' :
-                    record.status?.toLowerCase() === 'processing' ? 'yellow' :
-                    record.status?.toLowerCase() === 'pending' ? 'blue' :
-                    record.status?.toLowerCase() === 'failed' ? 'red' : 'gray'
-                  }
-                  style={{ textTransform: 'uppercase', marginLeft: '8px' }}
+    }
+  };
+
+  // Render Logic
+  if (isLoading) {
+    return (
+      <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
+        <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+      </Box>
+    );
+  }
+
+  if (isError || !record) {
+    return (
+      <Box p="md">
+        <Alert
+          color="red"
+          title="Error Loading Capsule"
+          icon={<AlertCircle size={16} />}
+          mb="md"
+        >
+          {errorMessage || "Could not load capsule details. Please check the ID or try again."}
+        </Alert>
+        <Button onClick={handleBackToList} leftSection={<ArrowLeft size={16} />}>
+          Back to Capsules List
+        </Button>
+      </Box>
+    );
+  }
+
+  const displayFiles = record.files && record.files.length > 0 ? record.files : loadedFiles;
+  const hasFiles = displayFiles.length > 0;
+  const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
+
+  const contextSummary = extractContextSummary(record.summaryContext);
+  const hasContextSummary = !!contextSummary;
+
+  return (
+    <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
+      <Group mb="xl" justify="space-between" align="center">
+        <Group align="center">
+          <ActionIcon size="lg" variant="subtle" onClick={handleBackToList} style={{ color: '#a0a0a0' }}>
+            <ArrowLeft size={20} />
+          </ActionIcon>
+          <Title order={3} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#ffffff' }}>
+            {record.name || "Unnamed Capsule"}
+          </Title>
+          <Badge
+            variant="filled"
+            color={
+              isRegenerating ? 'yellow' :
+              record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? 'green' :
+              record.status?.toLowerCase() === 'processing' ? 'yellow' :
+              record.status?.toLowerCase() === 'pending' ? 'blue' :
+              record.status?.toLowerCase() === 'failed' ? 'red' : 'gray'
+            }
+            style={{ textTransform: 'uppercase', marginLeft: '8px' }}
+          >
+            {isRegenerating ? 'PROCESSING' : record.status || 'Unknown'}
+          </Badge>
+        </Group>
+
+        <Group>
+          <Button
+            variant="default"
+            leftSection={<RefreshCw size={16} />}
+            onClick={() => handleRegenerateCapsule()}
+            loading={isProcessing}
+            disabled={!hasFiles || isAddingFiles}
+            styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+          >
+            {isProcessing ? 'Processing...' : 'Regenerate'}
+          </Button>
+          <Button
+            variant="default"
+            leftSection={<Download size={16} />}
+            onClick={handleDownloadMarkdown}
+            disabled={!hasContextSummary || isProcessing}
+            styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+          >
+            Download MD
+          </Button>
+          {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
+            <Button
+              variant="default"
+              leftSection={<Settings size={16} />}
+              onClick={() => setIsSettingsModalOpen(true)}
+              disabled={isProcessing}
+              styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+            >
+              Settings
+            </Button>
+          )}
+        </Group>
+      </Group>
+
+      {errorMessage && (
+        <Alert 
+          color="red" 
+          title="Action Required" 
+          mb="md" 
+          icon={<AlertCircle size={16} />} 
+          withCloseButton 
+          onClose={() => setErrorMessage(null)}
+        >
+          {errorMessage}
+          {retryParams && (
+            <Button
+              mt="sm"
+              size="xs"
+              leftSection={<RefreshCw size={14} />}
+              onClick={handleRetry}
+            >
+              Retry Last Action
+            </Button>
+          )}
+        </Alert>
+      )}
+
+      <Flex gap="xl">
+        <Box
+          w={330}
+          style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}
+        >
+          <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
+            SOURCE FILES
+          </Title>
+
+          {hasFiles ? (
+            <Stack gap="sm" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
+              {displayFiles.map((file) => (
+                <Box
+                  key={file._id}
+                  style={{
+                    backgroundColor: '#1a1a1a',
+                    borderRadius: '6px',
+                    border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
+                    overflow: 'hidden',
+                    transition: 'border-color 0.3s ease'
+                  }}
                 >
-                  {isRegenerating ? 'PROCESSING' : record.status || 'Unknown'}
-                </Badge>
-              </Group>
-        
-              {/* Right Header: Action Buttons */}
-              <Group>
+                  <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
+                    <Group gap="xs" align="center">
+                      <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
+                      <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
+                        {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
+                      </Text>
+                    </Group>
+                    {showDeleteConfirm !== file._id && (
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        onClick={() => setShowDeleteConfirm(file._id)}
+                        disabled={isProcessing}
+                        title="Remove file"
+                      >
+                        <Trash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+
+                  {showDeleteConfirm === file._id && (
+                    <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
+                      <Group justify="space-between" gap="xs">
+                        <Text size="xs" c="dimmed">Delete file?</Text>
+                        <Group gap="xs">
+                          <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
+                          <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
+                        </Group>
+                      </Group>
+                    </Box>
+                  )}
+
+                  {showDeleteConfirm !== file._id && (
+                    <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
+                      <Text size="xs" c="dimmed" ta="right">
+                        {formatDate(file.createdAt)}
+                      </Text>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          ) : isLoadingFiles ? (
+            <Box style={{ padding: '20px', textAlign: 'center' }}>
+              <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{size: 'sm'}} />
+              <Text size="sm" c="dimmed">Loading file details...</Text>
+            </Box>
+          ) : (
+            <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16}/>} style={{borderColor: '#2b2b2b'}}>
+              Add source documents to your capsule using the button below.
+            </Alert>
+          )}
+
+          <Button
+            fullWidth
+            mt="md"
+            leftSection={<Plus size={16} />}
+            onClick={handleAddFile}
+            disabled={isProcessing}
+            loading={isAddingFiles}
+            styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+          >
+            Add Files
+          </Button>
+        </Box>
+
+        <Box style={{ flex: 1 }}>
+          <Box style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '10px', borderBottom: '1px solid #2b2b2b', paddingBottom: '10px', color: '#F5A623' }}>
+            Capsule Context
+          </Box>
+
+          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
+            {isProcessing ? (
+              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+                <Text ta="center" c="dimmed" mb="md" style={{zIndex: 1}}>
+                  Analyzing files and creating the capsule summary. This might take a moment.
+                </Text>
+              </Stack>
+            ) : hasContextSummary ? (
+              <DocumentMarkdownWrapper markdown={contextSummary} />
+            ) : hasFiles ? (
+              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+                <Text ta="center" c="dimmed" mb="xl">
+                  Click the &quot;Regenerate&quot; button to analyze the added files and create the context summary.
+                </Text>
                 <Button
-                  variant="default"
                   leftSection={<RefreshCw size={16} />}
                   onClick={() => handleRegenerateCapsule()}
+                  styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
                   loading={isProcessing}
-                  disabled={!hasFiles || isAddingFiles}
-                  styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
                 >
-                  {isProcessing ? 'Processing...' : 'Regenerate'}
+                  Generate Summary
                 </Button>
+              </Stack>
+            ) : (
+              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
+                <Text ta="center" c="dimmed" mb="xl">
+                  Add files to your capsule first, then generate a summary to see the context here.
+                </Text>
                 <Button
-                  variant="default"
-                  leftSection={<Download size={16} />}
-                  onClick={handleDownloadMarkdown}
-                  disabled={!hasContextSummary || isProcessing}
-                  styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-                >
-                  Download MD
-                </Button>
-                {/* Settings button only visible for ADMIN plan users */}
-                {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-                  <Button
-                    variant="default"
-                    leftSection={<Settings size={16} />}
-                    onClick={() => setIsSettingsModalOpen(true)}
-                    disabled={isProcessing}
-                    styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-                  >
-                    Settings
-                  </Button>
-                )}
-              </Group>
-            </Group>
-        
-            {/* General Error Alert */}
-            {errorMessage && (
-              <Alert 
-                color="red" 
-                title="Action Required" 
-                mb="md" 
-                icon={<AlertCircle size={16} />} 
-                withCloseButton 
-                onClose={() => setErrorMessage(null)}
-              >
-                {errorMessage}
-                {retryParams && (
-                  <Button
-                    mt="sm"
-                    size="xs"
-                    leftSection={<RefreshCw size={14} />}
-                    onClick={handleRetry}
-                  >
-                    Retry Last Action
-                  </Button>
-                )}
-              </Alert>
-            )}
-        
-            {/* Main Content Layout */}
-            <Flex gap="xl">
-              {/* Left Panel: Source Files */}
-              <Box
-                w={330}
-                style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}
-              >
-                <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
-                  SOURCE FILES
-                </Title>
-        
-                {/* File List or Placeholder */}
-                {hasFiles ? (
-                  <Stack gap="sm" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
-                    {displayFiles.map((file) => (
-                      <Box
-                        key={file._id}
-                        style={{
-                          backgroundColor: '#1a1a1a',
-                          borderRadius: '6px',
-                          border: addedFileIds.includes(file._id) ? '1px solid #F5A623' : '1px solid #2b2b2b',
-                          overflow: 'hidden',
-                          transition: 'border-color 0.3s ease'
-                        }}
-                      >
-                        {/* File Header: Title and Delete Button */}
-                        <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
-                           <Group gap="xs" align="center">
-                              <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
-                              <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
-                                  {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
-                              </Text>
-                          </Group>
-                          {showDeleteConfirm !== file._id && (
-                            <ActionIcon
-                              color="red"
-                              variant="subtle"
-                              onClick={() => setShowDeleteConfirm(file._id)}
-                              disabled={isProcessing}
-                              title="Remove file"
-                            >
-                              <Trash size={16} />
-                            </ActionIcon>
-                          )}
-                        </Group>
-                
-                        {/* Delete Confirmation */}
-                        {showDeleteConfirm === file._id && (
-                          <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
-                             <Group justify="space-between" gap="xs">
-                                <Text size="xs" c="dimmed">Delete file?</Text>
-                                <Group gap="xs">
-                                  <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
-                                  <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
-                                </Group>
-                             </Group>
-                          </Box>
-                        )}
-                
-                         {/* File Footer: Date (only show if not confirming delete) */}
-                         {showDeleteConfirm !== file._id && (
-                           <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
-                               <Text size="xs" c="dimmed" ta="right">
-                                   {formatDate(file.createdAt)}
-                               </Text>
-                           </Box>
-                         )}
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : isLoadingFiles ? (
-                   // Show loading specifically for files if they are being fetched
-                   <Box style={{ padding: '20px', textAlign: 'center' }}>
-                       <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{size: 'sm'}} />
-                       <Text size="sm" c="dimmed">Loading file details...</Text>
-                   </Box>
-                ) : (
-                  // Placeholder when no files are added
-                  <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16}/>} style={{borderColor: '#2b2b2b'}}>
-                    Add source documents to your capsule using the button below.
-                  </Alert>
-                )}
-        
-                {/* Add Files Button (at bottom of panel) */}
-                <Button
-                  fullWidth
-                  mt="md"
                   leftSection={<Plus size={16} />}
                   onClick={handleAddFile}
-                  disabled={isProcessing}
-                  loading={isAddingFiles}
                   styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                  disabled={isProcessing}
                 >
                   Add Files
                 </Button>
-              </Box>
-        
-              {/* Right Panel: Context Summary */}
-              <Box style={{ flex: 1 }}>
-                {/* Context Header */}
-                 <Box style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '10px', borderBottom: '1px solid #2b2b2b', paddingBottom: '10px', color: '#F5A623' }}>
-                    Capsule Context
-                 </Box>
-        
-                {/* Context Content Area */}
-                <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
-                  {isProcessing ? (
-                       // Loading state while processing/regenerating
-                       <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                          <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                          <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                          <Text ta="center" c="dimmed" mb="md" style={{zIndex: 1}}>
-                             Analyzing files and creating the capsule summary. This might take a moment.
-                          </Text>
-                       </Stack>
-                  ) : hasContextSummary ? (
-                      // Display generated context
-                      <DocumentMarkdownWrapper markdown={contextSummary} />
-                  ) : hasFiles ? (
-                       // State when files are present but no summary yet (needs regeneration)
-                      <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                          <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                          <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                          <Text ta="center" c="dimmed" mb="xl">
-                              Click the &quot;Regenerate&quot; button to analyze the added files and create the context summary.
-                          </Text>
-                          <Button
-                            leftSection={<RefreshCw size={16} />}
-                            onClick={() => handleRegenerateCapsule()}
-                            styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                            loading={isProcessing}
-                          >
-                            Generate Summary
-                          </Button>
-                      </Stack>
-                  ) : (
-                       // State when no files and no summary (needs files added)
-                       <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                          <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                          <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
-                          <Text ta="center" c="dimmed" mb="xl">
-                              Add files to your capsule first, then generate a summary to see the context here.
-                          </Text>
-                          <Button
-                            leftSection={<Plus size={16} />}
-                            onClick={handleAddFile}
-                            styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                            disabled={isProcessing}
-                          >
-                            Add Files
-                          </Button>
-                      </Stack>
-                  )}
-                </Box>
-              </Box>
-            </Flex>
-        
-            {/* File Selector Modal */}
-            <FileSelector
-              opened={isFileSelectorOpen}
-              onClose={() => setIsFileSelectorOpen(false)}
-              onSelect={(fileIds, fileData) => handleFileSelect(fileIds, fileData)}
-              capsuleId={capsuleId}
-              existingFileIds={record?.fileIds || []}
-            />
-            <CapsuleSettingsModal
-              isOpen={isSettingsModalOpen}
-              onClose={() => setIsSettingsModalOpen(false)}
-              isLoading={isLoadingPrompts}
-              promptData={promptsData}
-              onPromptChange={handlePromptChange}
-              onSave={saveCapsulePrompts}
-              saveStatus={promptSaveStatus}
-            />
+              </Stack>
+            )}
           </Box>
-        );
-      }
+        </Box>
+      </Flex>
+
+      <FileSelector
+        opened={isFileSelectorOpen}
+        onClose={() => setIsFileSelectorOpen(false)}
+        onSelect={(fileIds, fileData) => handleFileSelect(fileIds, fileData)}
+        capsuleId={capsuleId}
+        existingFileIds={record?.fileIds || []}
+      />
+      <CapsuleSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        isLoading={isLoadingPrompts}
+        prompts={promptsData}
+        onPromptChange={handlePromptChange}
+        onSave={saveAdminPrompts}
+        saveStatus={promptSaveStatus}
+      />
+    </Box>
+  );
+}
