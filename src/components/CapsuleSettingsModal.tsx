@@ -224,7 +224,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
           )}
           
           {/* Save and Cancel Buttons */}
-          <Group position="right" mt="xl">
+          <Group justify="flex-end" mt="xl">
             <Button
               variant="default"
               onClick={onClose}
