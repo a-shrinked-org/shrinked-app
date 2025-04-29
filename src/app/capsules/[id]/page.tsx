@@ -134,6 +134,7 @@ export default function CapsuleView() {
   const [promptSaveStatus, setPromptSaveStatus] = useState('');
 
   // Fetch admin prompts
+  // Fetch admin prompts
   const fetchAdminPrompts = useCallback(async () => {
     try {
       setIsLoadingPrompts(true);
@@ -144,7 +145,13 @@ export default function CapsuleView() {
       }
       
       const data = await response.json();
-      setPromptsData(Array.isArray(data) ? data : []);
+      
+      // Filter to only include capsule-related prompts (starting with "capsule.")
+      const filteredPrompts = Array.isArray(data) 
+        ? data.filter(prompt => prompt.section.startsWith('capsule.'))
+        : [];
+        
+      setPromptsData(filteredPrompts);
     } catch (error) {
       console.error('[CapsuleView] Failed to fetch admin prompts:', error);
       setErrorMessage(formatErrorMessage(error));
