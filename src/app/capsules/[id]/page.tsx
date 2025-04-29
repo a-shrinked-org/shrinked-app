@@ -508,7 +508,7 @@ export default function CapsuleView() {
   }, []);
 
   // Handle file selection with improved error handling and batching
-  const handleFileSelect = useCallback(async (fileIds: string[], isRetry = false) => {
+  const handleFileSelect = useCallback(async (fileIds: string[], fileData: FileData[] = [], isRetry = false) => {
     if (!capsuleId || fileIds.length === 0) return;
     
     setIsAddingFiles(true);
@@ -518,7 +518,7 @@ export default function CapsuleView() {
     if (!isRetry) {
       setRetryParams({
         operation: 'addFiles',
-        params: { fileIds }
+        params: { fileIds, fileData }
       });
     }
     
@@ -537,12 +537,29 @@ export default function CapsuleView() {
       setIsRegenerating(true);
       startStatusMonitoring();
       
-      // Create optimistic update for files being added
-      const optimisticNewFiles = fileIds.map(id => ({
-        _id: id,
-        title: `File ${id.slice(-6)}`, // Temporary title
-        createdAt: new Date().toISOString()
-      }));
+      // Create optimistic update for files being added, using the actual file data if available
+      const optimisticNewFiles = fileIds.map(id => {
+        // Look up this file in the provided fileData
+        const fileInfo = fileData.find(f => f._id === id);
+        
+        // If we have file data, use it; otherwise create placeholder
+        if (fileInfo) {
+          return {
+            _id: id,
+            title: fileInfo.title || fileInfo.output?.title || fileInfo.fileName || `File ${id.slice(-6)}`,
+            createdAt: fileInfo.createdAt || new Date().toISOString(),
+            fileName: fileInfo.fileName || "",
+            output: fileInfo.output || {}
+          };
+        } else {
+          // Fallback to placeholder if no data is available
+          return {
+            _id: id,
+            title: `File ${id.slice(-6)}`,
+            createdAt: new Date().toISOString()
+          };
+        }
+      });
       
       // Update local state immediately for better UX
       setLoadedFiles(prev => {
@@ -614,7 +631,7 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, refetch, handleAuthError, startStatusMonitoring]);
   
-  // Handle file removal with improved confirmation flow
+  // Handle file removal with improved state management
   const handleRemoveFile = useCallback(async (fileIdToRemove: string) => {
     if (!capsuleId || !fileIdToRemove) return;
     
@@ -625,16 +642,14 @@ export default function CapsuleView() {
     setShowDeleteConfirm(null); // Hide confirmation immediately
     setErrorMessage(null);
     
-    // Set UI state immediately
-    setIsRegenerating(true);
-    
-    // Show notification
+    // Show notification first
     notifications.show({
       title: 'Removing File',
       message: 'Removing file and updating capsule.',
       color: 'yellow',
     });
     
+    // Store retry parameters
     setRetryParams({
       operation: 'removeFile',
       params: { fileId: fileIdToRemove }
@@ -643,6 +658,12 @@ export default function CapsuleView() {
     try {
       if (IS_DEV) console.log(`[CapsuleView] Removing file ${fileIdToRemove} from capsule ${capsuleId}`);
       
+      // IMPORTANT: Start status monitoring BEFORE making the API call
+      // This ensures the UI immediately shows the loading state
+      // and the monitoring will properly catch the state transitions
+      setIsRegenerating(true);
+      startStatusMonitoring();
+      
       // Immediately update local state for optimistic UI
       setLoadedFiles(prev => prev.filter(f => f._id !== fileIdToRemove));
       
@@ -650,6 +671,7 @@ export default function CapsuleView() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
       
+      // Make the API call to delete the file
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileIdToRemove}`, {
         method: 'DELETE',
         signal: controller.signal
@@ -663,14 +685,13 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] File deleted successfully");
       }
       
-      // FIX FOR ISSUE 4: Always start status monitoring after file deletion
-      // This ensures the UI properly shows processing state
-      startStatusMonitoring();
-      
       // If files remain, always trigger regeneration
       if (remainingFileCount > 0) {
         if (IS_DEV) console.log("[CapsuleView] Files remain, triggering regeneration");
         try {
+          // Add a slight delay to ensure the deletion is processed before regeneration
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
             method: 'GET',
           });
@@ -768,7 +789,7 @@ export default function CapsuleView() {
         handleRegenerateCapsule(true);
         break;
       case 'addFiles':
-        handleFileSelect(retryParams.params.fileIds, true);
+        handleFileSelect(retryParams.params.fileIds, retryParams.params.fileData || [], true);
         break;
       case 'removeFile':
         handleRemoveFile(retryParams.params.fileId);
@@ -1095,9 +1116,8 @@ export default function CapsuleView() {
             <FileSelector
               opened={isFileSelectorOpen}
               onClose={() => setIsFileSelectorOpen(false)}
-              onSelect={handleFileSelect}
+              onSelect={(fileIds, fileData) => handleFileSelect(fileIds, fileData)}
               capsuleId={capsuleId}
-              // Pass only the IDs of files already associated with the capsule
               existingFileIds={record?.fileIds || []}
             />
           </Box>

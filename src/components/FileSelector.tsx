@@ -31,7 +31,8 @@ interface File {
 interface FileSelectorProps {
   opened: boolean;
   onClose: () => void;
-  onSelect: (fileIds: string[]) => void;
+  // Update this line to pass full file objects
+  onSelect: (fileIds: string[], fileData: File[]) => void;
   capsuleId: string;
   existingFileIds: string[];
 }
@@ -149,7 +150,10 @@ const FileSelector: React.FC<FileSelectorProps> = ({
   };
   
   const handleConfirm = () => {
-    onSelect(selectedFileIds);
+    // Get the full file objects for the selected IDs
+    const selectedFiles = files.filter(file => selectedFileIds.includes(file._id));
+    // Pass both the IDs and the full file data
+    onSelect(selectedFileIds, selectedFiles);
     onClose();
   };
   
