@@ -137,7 +137,7 @@ export default function CapsuleView() {
     
     try {
       setIsLoadingPrompts(true);
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`);
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/prompts`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch prompts: ${response.status}`);
