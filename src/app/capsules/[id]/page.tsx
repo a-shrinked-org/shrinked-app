@@ -155,62 +155,6 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, handleAuthError]);
   
-  const saveCapsulePrompts = useCallback(async () => {
-    if (!capsuleId) return;
-    
-    try {
-      setIsLoadingPrompts(true);
-      setPromptSaveStatus('Saving...');
-      
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(promptsData)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to save prompts: ${response.status}`);
-      }
-      
-      setPromptSaveStatus('Saved successfully');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setPromptSaveStatus('');
-      }, 3000);
-      
-      // After saving successfully, trigger regeneration
-      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
-        method: 'GET',
-      });
-      
-      if (!regenerateResponse.ok) {
-        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
-      } else {
-        // Start monitoring for the regeneration process
-        setIsRegenerating(true);
-        startStatusMonitoring();
-        
-        // Notify user
-        notifications.show({
-          title: 'Regenerating Capsule',
-          message: 'Capsule is being regenerated with new prompts.',
-          color: 'yellow',
-        });
-      }
-      
-    } catch (error) {
-      console.error('[CapsuleView] Failed to save prompts:', error);
-      setPromptSaveStatus('Failed to save');
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
-  
   // Add this useEffect with other useEffects
   useEffect(() => {
     if (isSettingsModalOpen) {
@@ -366,6 +310,62 @@ export default function CapsuleView() {
       }
     }, 90000); // 1.5 minutes timeout (reduced from 2 minutes)
   }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
+  
+  const saveCapsulePrompts = useCallback(async () => {
+    if (!capsuleId) return;
+    
+    try {
+      setIsLoadingPrompts(true);
+      setPromptSaveStatus('Saving...');
+      
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/prompts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(promptsData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save prompts: ${response.status}`);
+      }
+      
+      setPromptSaveStatus('Saved successfully');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setPromptSaveStatus('');
+      }, 3000);
+      
+      // After saving successfully, trigger regeneration
+      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+        method: 'GET',
+      });
+      
+      if (!regenerateResponse.ok) {
+        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
+      } else {
+        // Start monitoring for the regeneration process
+        setIsRegenerating(true);
+        startStatusMonitoring();
+        
+        // Notify user
+        notifications.show({
+          title: 'Regenerating Capsule',
+          message: 'Capsule is being regenerated with new prompts.',
+          color: 'yellow',
+        });
+      }
+      
+    } catch (error) {
+      console.error('[CapsuleView] Failed to save prompts:', error);
+      setPromptSaveStatus('Failed to save');
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
 
   // Now implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
