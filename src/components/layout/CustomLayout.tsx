@@ -282,7 +282,11 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             borderRadius: '4px',
           }}
         >
-          <Text size="xs" mb="xs">BASE PLAN</Text>
+          <Text size="xs" mb="xs">
+            {identity?.subscriptionPlan?.name ? 
+              `${identity.subscriptionPlan.name.toUpperCase()} PLAN` : 
+              'BASE PLAN'}
+          </Text>
           
           {identityLoading ? (
             <>
