@@ -168,61 +168,6 @@ export default function CapsuleView() {
     ));
   }, []);
 
-  // Save admin prompts
-  const saveAdminPrompts = useCallback(async () => {
-    if (!promptsData.length) return;
-    
-    try {
-      setIsLoadingPrompts(true);
-      setPromptSaveStatus('Saving...');
-      
-      const response = await fetchWithAuth(`/api/admin/prompts/upsert`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(promptsData)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to save prompts: ${response.status}`);
-      }
-      
-      setPromptSaveStatus('Saved successfully');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setPromptSaveStatus('');
-      }, 3000);
-      
-      // Trigger regeneration
-      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
-        method: 'GET',
-      });
-      
-      if (!regenerateResponse.ok) {
-        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
-      } else {
-        setIsRegenerating(true);
-        startStatusMonitoring();
-        
-        notifications.show({
-          title: 'Regenerating Capsule',
-          message: 'Capsule is being regenerated with new prompts.',
-          color: 'yellow',
-        });
-      }
-      
-    } catch (error) {
-      console.error('[CapsuleView] Failed to save prompts:', error);
-      setPromptSaveStatus('Failed to save');
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
-
   // First get queryResult and refetch
   const { queryResult } = useShow<Capsule>({
     resource: "capsules",
@@ -348,6 +293,59 @@ export default function CapsuleView() {
       }
     }, 90000);
   }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
+
+  // Save admin prompts
+  const saveAdminPrompts = useCallback(async () => {
+    if (!promptsData.length) return;
+    
+    try {
+      setIsLoadingPrompts(true);
+      setPromptSaveStatus('Saving...');
+      
+      const response = await fetchWithAuth(`/api/admin/prompts/upsert`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(promptsData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save prompts: ${response.status}`);
+      }
+      
+      setPromptSaveStatus('Saved successfully');
+      
+      setTimeout(() => {
+        setPromptSaveStatus('');
+      }, 3000);
+      
+      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+        method: 'GET',
+      });
+      
+      if (!regenerateResponse.ok) {
+        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
+      } else {
+        setIsRegenerating(true);
+        startStatusMonitoring();
+        
+        notifications.show({
+          title: 'Regenerating Capsule',
+          message: 'Capsule is being regenerated with new prompts.',
+          color: 'yellow',
+        });
+      }
+      
+    } catch (error) {
+      console.error('[CapsuleView] Failed to save prompts:', error);
+      setPromptSaveStatus('Failed to save');
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
 
   // Implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
@@ -1122,10 +1120,10 @@ export default function CapsuleView() {
               <DocumentMarkdownWrapper markdown={contextSummary} />
             ) : hasFiles ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                <FileText size={48} style={{ opacity: '0.3', marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                 <Text ta="center" c="dimmed" mb="xl">
-                  Click the &quot;Regenerate&quot; button to analyze the added files and create the context summary.
+                  Click the "Regenerate" button to analyze the added files and create the context summary.
                 </Text>
                 <Button
                   leftSection={<RefreshCw size={16} />}
@@ -1138,7 +1136,7 @@ export default function CapsuleView() {
               </Stack>
             ) : (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                <FileText size={48} style={{ opacity: '0.3', marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                 <Text ta="center" c="dimmed" mb="xl">
                   Add files to your capsule first, then generate a summary to see the context here.
