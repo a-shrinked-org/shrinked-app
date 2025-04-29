@@ -58,6 +58,9 @@ interface Identity {
   email?: string;
   name?: string;
   id?: string; // User ID from identity
+  subscriptionPlan?: {
+    name?: string;
+  };
 }
 
 interface FileData {
