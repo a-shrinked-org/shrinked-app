@@ -14,6 +14,8 @@ import {
   Flex,
   Stack,
   Title,
+  Modal,
+  TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -24,8 +26,9 @@ import {
   Trash,
   AlertCircle,
   FileText,
-  Settings, // Add Settings icon
-  X
+  Settings,
+  X,
+  File
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -117,6 +120,14 @@ export default function CapsuleView() {
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
     
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  const [promptsData, setPromptsData] = useState({
+    summary: '',
+    extraction: '',
+    classification: ''
+  });
+  const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
+  const [promptSaveStatus, setPromptSaveStatus] = useState('');
 
   // First get queryResult and refetch
   const { queryResult } = useShow<Capsule>({
@@ -899,14 +910,6 @@ export default function CapsuleView() {
         
         const contextSummary = extractContextSummary(record.summaryContext);
         const hasContextSummary = !!contextSummary;
-        
-        const [promptsData, setPromptsData] = useState({
-          summary: '',
-          extraction: '',
-          classification: ''
-        });
-        const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
-        const [promptSaveStatus, setPromptSaveStatus] = useState('');
         
         // Add the function to fetch prompts
         const fetchCapsulePrompts = useCallback(async () => {
