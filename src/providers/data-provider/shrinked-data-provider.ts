@@ -194,9 +194,12 @@ export const shrinkedDataProvider = (
   httpClient: AxiosInstance = axiosInstance
 ): DataProvider => {
 
-  // Define proxy mappings
+  // Define proxy mappings with explicit routes
   const proxyMappings: Record<string, string> = {
-	// Add specific resource mappings here if needed
+	// Add specific resource mappings here
+	'subscriptions': '/api/subscriptions-proxy', // Ensure subscriptions go through the proxy
+	'subscriptions/create-checkout-session': '/api/subscriptions-proxy/create-checkout-session',
+	'subscriptions/verify-session': '/api/subscriptions-proxy/verify-session'
   };
 
   // Improved proxy URL helper with enhanced debugging
@@ -212,6 +215,25 @@ export const shrinkedDataProvider = (
 	  const result = meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using explicit URL: ${result}`);
 	  return result;
+	}
+	
+	// Special case for subscription-related endpoints
+	if (resource.startsWith('subscriptions/')) {
+	  const specificRoute = proxyMappings[resource];
+	  if (specificRoute) {
+		if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific subscription endpoint: ${specificRoute}`);
+		return specificRoute;
+	  }
+	  
+	  // Handle dynamic subscription routes
+	  const parts = resource.split('/');
+	  if (parts.length >= 2) {
+		const basePath = '/api/subscriptions-proxy';
+		const subPath = parts.slice(1).join('/');
+		const result = `${basePath}/${subPath}`;
+		if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using constructed subscription path: ${result}`);
+		return result;
+	  }
 	}
 	
 	// Case 2: Special handling for capsules resource with ID
@@ -232,12 +254,13 @@ export const shrinkedDataProvider = (
 	  return '/api/documents-proxy';
 	}
 	
+	// Case 5: Check for specific resource mapping
 	if (proxyMappings[resource]) {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
 	  return proxyMappings[resource];
 	}
 	
-	// Case 5: Generic fallback
+	// Case 6: Generic fallback
 	const fallbackUrl = `/api/${resource}-proxy`;
 	if (IS_DEV) {
 	  console.log(`[getProxyUrl:DEBUG] No specific mapping for "${resource}". Using generic proxy: ${fallbackUrl}`);
@@ -395,8 +418,16 @@ export const shrinkedDataProvider = (
 	getApiUrl: () => '/api', // Always reflect proxy base path
 
 	custom: async ({ url, method, payload, query, headers }) => {
-	  // Ensure URL starts with /api/ for consistency
-	  const targetUrl = url.startsWith('/api/') ? url : `/api/${url}`;
+	  // Ensure URL starts with /api/ for consistency 
+	  // Make special case for subscription checkout - always use the correct route
+	  let targetUrl = url;
+	  
+	  if (url.includes('/subscriptions/create-checkout-session')) {
+		targetUrl = '/api/subscriptions-proxy/create-checkout-session';
+		if (IS_DEV) console.log(`[DataProvider:custom:DEBUG] Redirecting to correct subscription URL: ${targetUrl}`);
+	  } else if (!url.startsWith('/api/')) {
+		targetUrl = `/api/${url}`;
+	  }
 
 	  const axiosConfig: AxiosRequestConfig = {
 		headers: authUtils.getAuthHeaders(headers as Record<string, string>),
