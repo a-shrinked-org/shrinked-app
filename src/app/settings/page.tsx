@@ -347,7 +347,7 @@ export default function SettingsPage() {
             Basic Information
           </Text>
           
-          <Stack spacing="md">
+          <Stack gap="md">
             <Box>
               <Text size="sm" c="gray.5">
                 Name
@@ -544,7 +544,7 @@ export default function SettingsPage() {
                   {price === 0 ? "Free" : `${formatPrice(price)}/${billingCycle === 'monthly' ? 'month' : 'year'}`}
                 </Text>
                 
-                <Stack spacing="xs" mb="lg">
+                <Stack gap="xs" mb="lg">
                   <Group spacing="xs">
                     <Check size={16} />
                     <Text size="sm">{formatFeature(plan.jobsPerMonth)} jobs/month</Text>
@@ -593,7 +593,7 @@ export default function SettingsPage() {
           
           {isAdvancedOpen && (
             <Box mt="md" pl="md">
-              <Stack spacing="md">
+              <Stack gap="md">
                 {profile?.subscription?.id && !profile.subscription.cancelAtPeriodEnd && (
                   <Button 
                     variant="outline" 
@@ -634,7 +634,7 @@ export default function SettingsPage() {
               You are about to upgrade to the {plans.find(p => p._id === selectedPlanId)?.name} plan.
             </Text>
             
-            <Stack spacing="sm" mb="xl">
+            <Stack gap="sm" mb="xl">
               <Group position="apart">
                 <Text>Plan:</Text>
                 <Text fw={500}>{plans.find(p => p._id === selectedPlanId)?.name}</Text>
