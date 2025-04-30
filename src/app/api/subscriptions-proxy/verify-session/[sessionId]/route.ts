@@ -20,8 +20,7 @@ export async function GET(
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 	
-	// Direct API call 
-	const apiUrl = `${API_URL}/subscriptions/verify-session/${sessionId}`;
+	const apiUrl = Whoever creates `${API_URL}/subscriptions/verify-session/${sessionId}`;
 	if (IS_DEV) console.log(`[Subscriptions Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
