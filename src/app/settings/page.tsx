@@ -1,7 +1,7 @@
 // app/settings/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Stack,
   Box,
@@ -98,6 +98,29 @@ export default function SettingsPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
+  // Define fetchUsageData as a useCallback function so it can be used in useEffect
+  const fetchUsageData = useCallback(async (subscriptionId: string) => {
+    try {
+      const usageResponse = await fetch(`/api/usage-proxy/${subscriptionId}/jobs`, {
+        headers: authUtils.getAuthHeaders(),
+      });
+      
+      if (usageResponse.ok) {
+        const usageData = await usageResponse.json();
+        // Update usage state with real data
+        setUsage(prev => ({
+          ...prev,
+          jobs: {
+            used: usageData.used || 0,
+            limit: usageData.limit || prev.jobs.limit
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching usage data:", error);
+    }
+  }, []);
+
   // Fetch user profile, subscription plans and usage data
   useEffect(() => {
     const fetchData = async () => {
@@ -152,11 +175,6 @@ export default function SettingsPage() {
         } else {
           console.error("Failed to fetch subscription plans:", plansResponse.status);
         }
-
-        // Fetch usage data if user has a subscription
-        if (profile?.subscription?.id) {
-          fetchUsageData(profile.subscription.id);
-        }
       } catch (error) {
         console.error("Error fetching data:", error);
         notifications.show({
@@ -169,59 +187,15 @@ export default function SettingsPage() {
       }
     };
 
-    const fetchUsageData = async (subscriptionId: string) => {
-      try {
-        const usageResponse = await fetch(`/api/usage-proxy/${subscriptionId}/jobs`, {
-          headers: authUtils.getAuthHeaders(),
-        });
-        
-        if (usageResponse.ok) {
-          const usageData = await usageResponse.json();
-          // Update usage state with real data
-          setUsage(prev => ({
-            ...prev,
-            jobs: {
-              used: usageData.used || 0,
-              limit: usageData.limit || prev.jobs.limit
-            }
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching usage data:", error);
-      }
-    };
-
     fetchData();
-  }, [router]);
+  }, [router, fetchUsageData]);
 
   // When profile subscription changes, fetch usage data
   useEffect(() => {
     if (profile?.subscription?.id) {
-      const fetchUsageData = async () => {
-        try {
-          const usageResponse = await fetch(`/api/usage-proxy/${profile.subscription.id}/jobs`, {
-            headers: authUtils.getAuthHeaders(),
-          });
-          
-          if (usageResponse.ok) {
-            const usageData = await usageResponse.json();
-            // Update usage state with real data
-            setUsage(prev => ({
-              ...prev,
-              jobs: {
-                used: usageData.used || 0,
-                limit: usageData.limit || prev.jobs.limit
-              }
-            }));
-          }
-        } catch (error) {
-          console.error("Error fetching usage data:", error);
-        }
-      };
-      
-      fetchUsageData();
+      fetchUsageData(profile.subscription.id);
     }
-  }, [profile?.subscription?.id]);
+  }, [profile?.subscription?.id, fetchUsageData]);
 
   // Find current plan based on subscription
   const currentPlan = plans.find(plan => 

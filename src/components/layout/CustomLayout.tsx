@@ -1,3 +1,4 @@
+// app/components/layout/CustomLayout.tsx
 "use client";
 
 import React, { ReactNode, useEffect, useState } from "react";
@@ -13,7 +14,8 @@ import {
   Drawer,
   Tooltip,
   Skeleton,
-  Avatar
+  Avatar,
+  ActionIcon
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { usePathname, useRouter } from 'next/navigation';
@@ -384,9 +386,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
                 </Text>
               </Box>
               
-              <ActionIcon variant="subtle" radius="xl">
-                <Settings size={18} color={pathname === '/settings' ? '#ffffff' : '#a1a1a1'} />
-              </ActionIcon>
+              <Settings size={18} color={pathname === '/settings' ? '#ffffff' : '#a1a1a1'} />
             </>
           )}
         </UnstyledButton>
