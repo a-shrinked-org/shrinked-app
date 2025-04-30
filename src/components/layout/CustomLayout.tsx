@@ -395,7 +395,6 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         <Tooltip label="Logout" position="top" withArrow>
           <UnstyledButton 
             onClick={handleLogout} 
-            fullWidth
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -406,6 +405,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
               borderRadius: '8px',
               border: '1px solid #2b2b2b',
               transition: 'all 0.2s ease',
+              width: '100%', // Add this instead of using fullWidth prop
               '&:hover': {
                 color: '#ffffff',
                 backgroundColor: '#1A1A1A',
