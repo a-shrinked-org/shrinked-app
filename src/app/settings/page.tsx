@@ -488,7 +488,7 @@ export default function SettingsPage() {
         </Text>
         
         {/* Billing cycle toggle */}
-        <Group position="center" mb="lg">
+        <Group justify="center" mb="lg">
           <Button.Group>
             <Button 
               variant={billingCycle === 'monthly' ? "filled" : "outline"}
@@ -545,19 +545,19 @@ export default function SettingsPage() {
                 </Text>
                 
                 <Stack gap="xs" mb="lg">
-                  <Group spacing="xs">
+                  <Group gap="xs">
                     <Check size={16} />
                     <Text size="sm">{formatFeature(plan.jobsPerMonth)} jobs/month</Text>
                   </Group>
-                  <Group spacing="xs">
+                  <Group gap="xs">
                     <Check size={16} />
                     <Text size="sm">{formatTimeLimit(plan.processingTimeLimit)} processing</Text>
                   </Group>
-                  <Group spacing="xs">
+                  <Group gap="xs">
                     <Check size={16} />
                     <Text size="sm">{plan.exportFormats}</Text>
                   </Group>
-                  <Group spacing="xs">
+                  <Group gap="xs">
                     <Check size={16} />
                     <Text size="sm">{plan.supportLevel} Support</Text>
                   </Group>
@@ -635,17 +635,17 @@ export default function SettingsPage() {
             </Text>
             
             <Stack gap="sm" mb="xl">
-              <Group position="apart">
+              <Group justify="apart">
                 <Text>Plan:</Text>
                 <Text fw={500}>{plans.find(p => p._id === selectedPlanId)?.name}</Text>
               </Group>
               
-              <Group position="apart">
+              <Group justify="apart">
                 <Text>Billing:</Text>
                 <Text fw={500}>{billingCycle === 'monthly' ? 'Monthly' : 'Annual'}</Text>
               </Group>
               
-              <Group position="apart">
+              <Group justify="apart">
                 <Text>Price:</Text>
                 <Text fw={500}>
                   {billingCycle === 'monthly' 
@@ -656,18 +656,18 @@ export default function SettingsPage() {
               
               <Divider my="sm" />
               
-              <Group position="apart">
+              <Group justify="apart">
                 <Text>Jobs per month:</Text>
                 <Text fw={500}>{formatFeature(plans.find(p => p._id === selectedPlanId)?.jobsPerMonth || 0)}</Text>
               </Group>
               
-              <Group position="apart">
+              <Group justify="apart">
                 <Text>Processing time:</Text>
                 <Text fw={500}>{formatTimeLimit(plans.find(p => p._id === selectedPlanId)?.processingTimeLimit || 0)}</Text>
               </Group>
             </Stack>
             
-            <Group position="right" mt="xl">
+            <Group justify="right" mt="xl">
               <Button variant="outline" onClick={() => setIsUpgradeModalOpen(false)}>
                 Cancel
               </Button>
