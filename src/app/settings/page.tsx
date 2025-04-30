@@ -819,7 +819,7 @@ export default function SettingsPage() {
                     color={jobsPercent > 90 ? "red" : "blue"}
                   />
                   <Text size="xs" c="gray.5" mt="xs">
-                    You've used {jobsUsed} jobs out of your {jobsLimit === -1 ? "unlimited" : jobsLimit} monthly jobs quota.
+                    You&apos;ve used {jobsUsed} jobs out of your {jobsLimit === -1 ? "unlimited" : jobsLimit} monthly jobs quota.
                   </Text>
                 </Box>
                 
@@ -837,7 +837,7 @@ export default function SettingsPage() {
                     color={processingPercent > 90 ? "red" : "blue"}
                   />
                   <Text size="xs" c="gray.5" mt="xs">
-                    You've used {Math.round(processingUsed / (1000 * 60 * 60))} hours out of your {processingLimit === -1 ? "unlimited" : Math.round(processingLimit / (1000 * 60 * 60))} processing hours.
+                    You&apos;ve used {Math.round(processingUsed / (1000 * 60 * 60))} hours out of your {processingLimit === -1 ? "unlimited" : Math.round(processingLimit / (1000 * 60 * 60))} processing hours.
                   </Text>
                 </Box>
                 
@@ -855,7 +855,7 @@ export default function SettingsPage() {
                     color={apiPercent > 90 ? "red" : "blue"}
                   />
                   <Text size="xs" c="gray.5" mt="xs">
-                    You've used {apiUsed} API calls out of your {apiLimit === Infinity ? "unlimited" : apiLimit} daily API call quota.
+                    You&apos;ve used {apiUsed} API calls out of your {apiLimit === Infinity ? "unlimited" : apiLimit} daily API call quota.
                   </Text>
                 </Box>
               </Box>
