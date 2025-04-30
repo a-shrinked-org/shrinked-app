@@ -332,8 +332,23 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           )}
         </Box>
 
-        {/* User Profile with LogOut Icon */}
-        <Flex align="center" gap="xs" mb="md">
+        {/* User Profile with LogOut Icon - Clickable to navigate to settings */}
+        <UnstyledButton
+          onClick={handleNavigateToSettings}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%', 
+            padding: '10px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease',
+            '&:hover': {
+              backgroundColor: '#1A1A1A',
+            }
+          }}
+        >
           {identityLoading ? (
             <>
               <Box style={{ flex: 1 }}>
@@ -344,27 +359,23 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             </>
           ) : (
             <>
-              <Box>
+              <Box style={{ flex: 1 }}>
                 <Text size="xs">{userInfo.name}</Text>
                 <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
               </Box>
-              {/* Add a LogOut icon + the UserAvatar */}
+              {/* Avatar and logout on the right */}
               <Group ml="auto" gap="sm">
                 <Tooltip label="Logout" position="top" withArrow>
-                  <UnstyledButton onClick={handleLogout} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: '#a1a1a1',
-                    padding: '4px',
-                    borderRadius: '4px',
-                    '&:hover': {
-                      color: '#ffffff',
-                    }
-                  }}>
+                  <ActionIcon 
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the parent button's onClick
+                      handleLogout();
+                    }} 
+                    color="gray" 
+                    variant="subtle"
+                  >
                     <LogOut size={18} />
-                  </UnstyledButton>
+                  </ActionIcon>
                 </Tooltip>
                 <UserAvatar
                   name={userInfo.name}
@@ -376,7 +387,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
               </Group>
             </>
           )}
-        </Flex>
+        </UnstyledButton>
       </Box>
     </Box>
   );
