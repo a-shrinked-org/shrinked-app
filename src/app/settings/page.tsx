@@ -651,7 +651,7 @@ export default function SettingsPage() {
           }
           
           // Remove query params after processing
-          router.replace('/settings', undefined, { shallow: true });
+          router.replace('/settings');
         } else if (canceled === 'true') {
           console.log(`[Payment] Payment was canceled by user`);
           
@@ -664,7 +664,7 @@ export default function SettingsPage() {
           });
           
           // Remove query params
-          router.replace('/settings', undefined, { shallow: true });
+          router.replace('/settings');
         }
       } catch (error) {
         console.error(`[Payment] Unexpected error handling payment status:`, error);
