@@ -99,6 +99,7 @@ export default function SettingsPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
+  const [isVerifyingSession, setIsVerifyingSession] = useState(false);
 
   // Define fetchUsageData as a useCallback function so it can be used in useEffect
   const fetchUsageData = useCallback(async (subscriptionId: string) => {
@@ -325,7 +326,7 @@ export default function SettingsPage() {
           priceId: stripePriceId,
           planId: selectedPlanId,
           billingCycle: billingCycle,
-          successUrl: `${window.location.origin}/settings?success=true`,
+          successUrl: `${window.location.origin}/settings?session_id={CHECKOUT_SESSION_ID}&success=true`,
           cancelUrl: `${window.location.origin}/settings?canceled=true`,
         }),
       });
@@ -348,6 +349,56 @@ export default function SettingsPage() {
       });
       setIsSubscriptionLoading(false);
       setIsUpgradeModalOpen(false);
+    }
+  };
+
+  // Verify Stripe session
+  const verifyStripeSession = async (sessionId: string) => {
+    try {
+      setIsVerifyingSession(true);
+      
+      const response = await fetch(`/api/subscriptions-proxy/verify-session/${sessionId}`, {
+        headers: authUtils.getAuthHeaders(),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Refresh profile data to get updated subscription info
+        const profileResponse = await fetch("/api/users-proxy/profile", {
+          headers: authUtils.getAuthHeaders(),
+          cache: 'no-store',
+        });
+        
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          setProfile(profileData);
+        }
+        
+        notifications.show({
+          title: "Success",
+          message: "Your subscription has been verified and updated successfully",
+          color: "green",
+        });
+      } else {
+        const errorData = await response.json();
+        console.error("Session verification failed:", errorData);
+        
+        notifications.show({
+          title: "Warning",
+          message: "Subscription appears to be created but verification failed",
+          color: "yellow",
+        });
+      }
+    } catch (error) {
+      console.error("Error verifying session:", error);
+      notifications.show({
+        title: "Warning",
+        message: "Unable to verify subscription status. Please refresh the page.",
+        color: "yellow",
+      });
+    } finally {
+      setIsVerifyingSession(false);
     }
   };
 
@@ -413,7 +464,7 @@ export default function SettingsPage() {
     if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
       return;
     }
-
+  
     try {
       setIsLoading(true);
       
@@ -421,14 +472,14 @@ export default function SettingsPage() {
         method: "DELETE",
         headers: authUtils.getAuthHeaders(),
       });
-
+    
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete account");
       }
-
-      // Log out the user
-      await authUtils.logout();
+    
+      // Log out the user - using authUtils.clearAuthStorage() instead of logout()
+      authUtils.clearAuthStorage();
       
       // Redirect to login page
       router.push("/login");
@@ -463,16 +514,24 @@ export default function SettingsPage() {
   // Check for success or canceled query params (for stripe checkout return)
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
+    const sessionId = query.get('session_id');
     const success = query.get('success');
     const canceled = query.get('canceled');
     
     if (success === 'true') {
-      notifications.show({
-        title: "Success",
-        message: "Your subscription has been updated successfully",
-        color: "green",
-      });
-      // Remove query params
+      if (sessionId) {
+        // If we have a session ID, verify it
+        verifyStripeSession(sessionId);
+      } else {
+        // If no session ID, just show success message
+        notifications.show({
+          title: "Success",
+          message: "Your subscription has been updated successfully",
+          color: "green",
+        });
+      }
+      
+      // Remove query params after processing
       router.replace('/settings');
     } else if (canceled === 'true') {
       notifications.show({
@@ -480,6 +539,7 @@ export default function SettingsPage() {
         message: "Your subscription update was canceled",
         color: "yellow",
       });
+      
       // Remove query params
       router.replace('/settings');
     }
@@ -487,7 +547,7 @@ export default function SettingsPage() {
 
   return (
     <Box p="xl" style={{ maxWidth: "1200px", margin: "0 auto" }}>
-      <LoadingOverlay visible={isLoading} overlayProps={{ blur: 2 }} />
+      <LoadingOverlay visible={isLoading || isVerifyingSession} overlayProps={{ blur: 2 }} />
       
       {/* Page Title */}
       <Text
