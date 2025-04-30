@@ -562,39 +562,119 @@ export default function SettingsPage() {
     setIsUpgradeModalOpen(true);
   };
 
-  // Check for success or canceled query params (for stripe checkout return)
+  // Enhanced useEffect hook to handle payment success/failure in the settings page
+  
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    const sessionId = query.get('session_id');
-    const success = query.get('success');
-    const canceled = query.get('canceled');
-    
-    if (success === 'true') {
-      if (sessionId) {
-        // If we have a session ID, verify it
-        verifyStripeSession(sessionId);
-      } else {
-        // If no session ID, just show success message
-        notifications.show({
-          title: "Success",
-          message: "Your subscription has been updated successfully",
-          color: "green",
-        });
+    const handlePaymentStatus = async () => {
+      try {
+        // Get URL search params
+        const query = new URLSearchParams(window.location.search);
+        const sessionId = query.get('session_id');
+        const success = query.get('success');
+        const canceled = query.get('canceled');
+        
+        if (sessionId && success === 'true') {
+          // Show loading state while verifying
+          setIsVerifyingSession(true);
+          
+          // Log for debugging
+          console.log(`[Payment] Detected successful payment with session ID: ${sessionId}`);
+          
+          try {
+            // Verify the Stripe session
+            const response = await fetch(`/api/subscriptions-proxy/verify-session/${sessionId}`, {
+              headers: authUtils.getAuthHeaders(),
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              console.log(`[Payment] Session verification successful:`, data);
+              
+              // Refresh profile data to get updated subscription info
+              const profileResponse = await fetch("/api/users-proxy/profile", {
+                headers: authUtils.getAuthHeaders(),
+                cache: 'no-store',
+              });
+              
+              if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                setProfile(profileData);
+                
+                // Re-fetch subscription plans to ensure they're current
+                const plansResponse = await fetch("/api/subscriptions-proxy/plans", {
+                  headers: authUtils.getAuthHeaders(),
+                });
+                
+                if (plansResponse.ok) {
+                  const plansData = await plansResponse.json();
+                  setPlans(Array.isArray(plansData) ? plansData : []);
+                }
+                
+                // Update usage data if subscription ID is available
+                if (profileData?.subscription?.id) {
+                  await fetchUsageData(profileData.subscription.id);
+                }
+              }
+              
+              // Show success notification
+              notifications.show({
+                title: "Payment Successful",
+                message: "Your subscription has been activated successfully!",
+                color: "green",
+                icon: <Check size={16} />,
+                autoClose: 5000,
+              });
+            } else {
+              console.error(`[Payment] Session verification failed:`, data);
+              
+              // Show warning notification
+              notifications.show({
+                title: "Payment Verification Issue",
+                message: "Your payment appears to be successful, but we couldn't verify all details. Your account will be updated shortly.",
+                color: "yellow",
+                autoClose: 7000,
+              });
+            }
+          } catch (error) {
+            console.error(`[Payment] Error verifying session:`, error);
+            
+            // Show warning notification
+            notifications.show({
+              title: "Payment Verification Error",
+              message: "We encountered an error verifying your payment. If your account is not updated within an hour, please contact support.",
+              color: "orange",
+              autoClose: 7000,
+            });
+          } finally {
+            setIsVerifyingSession(false);
+          }
+          
+          // Remove query params after processing
+          router.replace('/settings', undefined, { shallow: true });
+        } else if (canceled === 'true') {
+          console.log(`[Payment] Payment was canceled by user`);
+          
+          // Show canceled notification
+          notifications.show({
+            title: "Payment Canceled",
+            message: "You've canceled the subscription process. No changes were made to your account.",
+            color: "gray",
+            autoClose: 5000,
+          });
+          
+          // Remove query params
+          router.replace('/settings', undefined, { shallow: true });
+        }
+      } catch (error) {
+        console.error(`[Payment] Unexpected error handling payment status:`, error);
+        setIsVerifyingSession(false);
       }
-      
-      // Remove query params after processing
-      router.replace('/settings');
-    } else if (canceled === 'true') {
-      notifications.show({
-        title: "Canceled",
-        message: "Your subscription update was canceled",
-        color: "yellow",
-      });
-      
-      // Remove query params
-      router.replace('/settings');
-    }
-  }, [router]);
+    };
+    
+    // Execute the handler
+    handlePaymentStatus();
+  }, [router, fetchUsageData]);
 
   return (
     <Box p="xl" style={{ maxWidth: "1200px", margin: "0 auto" }}>
