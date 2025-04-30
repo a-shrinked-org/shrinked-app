@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
 	  });
 	}
 
-	// Direct API call 
-	const apiUrl = `${API_URL}/subscriptions/create-checkout-session`;
+	// FIXED API endpoint URL - changed from /subscriptions/create-checkout-session to /subscriptions/stripe/checkout
+	const apiUrl = `${API_URL}/subscriptions/stripe/checkout`;
 	if (IS_DEV) console.log(`[Subscriptions Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
