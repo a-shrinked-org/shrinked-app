@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useGetIdentity } from "@refinedev/core";
 import {
   Stack,
   Box,
@@ -38,6 +39,16 @@ interface UserProfile {
     status: string;
     currentPeriodEnd: string;
     cancelAtPeriodEnd: boolean;
+  };
+}
+
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+  id?: string;
+  subscriptionPlan?: {
+    name?: string;
   };
 }
 
@@ -86,6 +97,8 @@ interface UsageData {
 
 export default function SettingsPage() {
   const router = useRouter();
+  // Get identity data from Refine
+  const { data: identity } = useGetIdentity<Identity>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [usage, setUsage] = useState<UsageData>({
@@ -506,9 +519,10 @@ export default function SettingsPage() {
     setIsUpgradeModalOpen(true);
   };
 
-  // Check if user is admin
-  const isUserAdmin = profile?.roles?.some(role => 
-    role === "admin" || role === "super_admin"
+  // Check if user is admin - Using BOTH identity from Refine AND profile roles for redundancy
+  const isUserAdmin = (
+    identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' || 
+    profile?.roles?.some(role => role === "admin" || role === "super_admin")
   ) || false;
 
   // Check for success or canceled query params (for stripe checkout return)
