@@ -332,90 +332,51 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           )}
         </Box>
 
-        {/* Settings Button - Large button with user avatar and info */}
-        <UnstyledButton
-          w="100%"
-          p="xs"
-          onClick={handleNavigateToSettings}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            borderRadius: "8px",
-            backgroundColor: pathname === '/settings' ? "#1A1A1A" : "transparent",
-            cursor: "pointer",
-            marginBottom: "16px",
-            padding: "10px",
-            border: "1px solid #2b2b2b",
-            transition: "background-color 0.2s ease",
-            "&:hover": {
-              backgroundColor: "#1A1A1A",
-            }
-          }}
-        >
+        {/* User Profile with LogOut Icon */}
+        <Flex align="center" gap="xs" mb="md">
           {identityLoading ? (
             <>
-              <Skeleton height={36} width={36} radius="xl" />
               <Box style={{ flex: 1 }}>
-                <Skeleton height={16} width={100} radius="sm" mb={4} />
-                <Skeleton height={14} width={140} radius="sm" />
+                <Skeleton height={14} width={140} radius="sm" mb={6} />
+                <Skeleton height={14} width={180} radius="sm" />
               </Box>
-              <Skeleton height={20} width={20} radius="sm" />
+              <Skeleton height={30} width={30} radius="xl" ml="auto" />
             </>
           ) : (
             <>
-              <Avatar 
-                color="blue"
-                radius="xl"
-                size="md"
-                styles={{
-                  root: {
-                    border: '1px solid #2b2b2b',
-                  }
-                }}
-              >
-                {userInitial.toUpperCase()}
-              </Avatar>
-              
-              <Box style={{ flex: 1, overflow: "hidden" }}>
-                <Text size="sm" truncate fw={500}>
-                  {userInfo.name}
-                </Text>
-                <Text size="xs" c="dimmed" truncate>
-                  {userInfo.email}
-                </Text>
+              <Box>
+                <Text size="xs">{userInfo.name}</Text>
+                <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
               </Box>
-              
-              <Settings size={18} color={pathname === '/settings' ? '#ffffff' : '#a1a1a1'} />
+              {/* Add a LogOut icon + the UserAvatar */}
+              <Group ml="auto" gap="sm">
+                <Tooltip label="Logout" position="top" withArrow>
+                  <UnstyledButton onClick={handleLogout} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#a1a1a1',
+                    padding: '4px',
+                    borderRadius: '4px',
+                    '&:hover': {
+                      color: '#ffffff',
+                    }
+                  }}>
+                    <LogOut size={18} />
+                  </UnstyledButton>
+                </Tooltip>
+                <UserAvatar
+                  name={userInfo.name}
+                  src={userInfo.avatar}
+                  size="sm"
+                  radius="xl"
+                  className="border-[1px] border-[#2b2b2b]"
+                />
+              </Group>
             </>
           )}
-        </UnstyledButton>
-
-        {/* Logout Button */}
-        <Tooltip label="Logout" position="top" withArrow>
-          <UnstyledButton 
-            onClick={handleLogout} 
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: '#a1a1a1',
-              padding: '8px',
-              borderRadius: '8px',
-              border: '1px solid #2b2b2b',
-              transition: 'all 0.2s ease',
-              width: '100%', // Add this instead of using fullWidth prop
-              '&:hover': {
-                color: '#ffffff',
-                backgroundColor: '#1A1A1A',
-              }
-            }}
-          >
-            <LogOut size={18} style={{ marginRight: '8px' }} />
-            <Text size="xs">LOGOUT</Text>
-          </UnstyledButton>
-        </Tooltip>
+        </Flex>
       </Box>
     </Box>
   );
