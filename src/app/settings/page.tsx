@@ -324,7 +324,7 @@ export default function SettingsPage() {
     return value;
   };
 
-  // Handle plan upgrade - Real Stripe implementation
+  // Modified handleUpgradePlan function with improved error handling and logging
   const handleUpgradePlan = async () => {
     if (!selectedPlanId) {
       notifications.show({
@@ -334,7 +334,7 @@ export default function SettingsPage() {
       });
       return;
     }
-
+  
     try {
       setIsSubscriptionLoading(true);
       
@@ -343,16 +343,24 @@ export default function SettingsPage() {
       if (!selectedPlan) {
         throw new Error("Selected plan not found");
       }
-
+  
       // Get the correct Stripe price ID based on billing cycle
       const stripePriceId = billingCycle === 'monthly' 
         ? selectedPlan.stripeMonthlyPriceId 
         : selectedPlan.stripeYearlyPriceId;
-
+  
       if (!stripePriceId) {
         throw new Error("Invalid Stripe price ID");
       }
-
+  
+      console.log("Creating checkout session with params:", {
+        priceId: stripePriceId,
+        planId: selectedPlanId,
+        billingCycle: billingCycle,
+        successUrl: `${window.location.origin}/settings?session_id={CHECKOUT_SESSION_ID}&success=true`,
+        cancelUrl: `${window.location.origin}/settings?canceled=true`,
+      });
+  
       // Create checkout session
       const response = await fetch("/api/subscriptions-proxy/create-checkout-session", {
         method: "POST",
@@ -368,16 +376,26 @@ export default function SettingsPage() {
           cancelUrl: `${window.location.origin}/settings?canceled=true`,
         }),
       });
-
+  
+      const responseData = await response.json();
+      console.log("Checkout session response:", responseData);
+  
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create checkout session");
+        throw new Error(responseData.message || responseData.error || "Failed to create checkout session");
       }
-
-      const { sessionUrl } = await response.json();
+  
+      // Check all possible URL field names that the API might return
+      const checkoutUrl = responseData.sessionUrl || responseData.url || responseData.checkoutUrl || responseData.stripeUrl;
+      
+      if (!checkoutUrl) {
+        console.error("No checkout URL found in response:", responseData);
+        throw new Error("No checkout URL found in API response");
+      }
+  
+      console.log("Redirecting to checkout:", checkoutUrl);
       
       // Redirect to Stripe checkout
-      window.location.href = sessionUrl;
+      window.location.href = checkoutUrl;
     } catch (error) {
       console.error("Error upgrading plan:", error);
       notifications.show({

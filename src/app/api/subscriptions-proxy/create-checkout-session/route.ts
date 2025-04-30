@@ -26,9 +26,20 @@ export async function POST(request: NextRequest) {
 	  return NextResponse.json({ error: "Missing required fields in request body" }, { status: 400 });
 	}
 
+	// Log request details in development
+	if (IS_DEV) {
+	  console.log(`[Subscriptions Proxy] Request details:`, {
+		priceId,
+		planId,
+		billingCycle,
+		successUrl,
+		cancelUrl
+	  });
+	}
+
 	// Direct API call 
 	const apiUrl = `${API_URL}/subscriptions/create-checkout-session`;
-	if (IS_DEV) console.log(`[Subscriptions Proxy] Sending request to: ${apiUrl}`, body);
+	if (IS_DEV) console.log(`[Subscriptions Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
 	  method: 'POST',
@@ -46,10 +57,26 @@ export async function POST(request: NextRequest) {
 	const responseTime = Date.now() - startTime;
 	if (IS_DEV) console.log(`[Subscriptions Proxy] Backend response: status=${response.status}, time=${responseTime}ms`);
 	
+	// Handle response
 	const contentType = response.headers.get('content-type');
 	
 	if (contentType && contentType.includes('application/json')) {
 	  const data = await response.json();
+
+	  // Log response data in development
+	  if (IS_DEV) {
+		console.log(`[Subscriptions Proxy] Response data:`, data);
+	  }
+
+	  // Check for URL in different possible field names
+	  if (!data.sessionUrl && (data.url || data.checkoutUrl || data.stripeUrl)) {
+		// Normalize the response to always use sessionUrl
+		return NextResponse.json({
+		  ...data,
+		  sessionUrl: data.url || data.checkoutUrl || data.stripeUrl
+		});
+	  }
+
 	  return NextResponse.json(data);
 	} else {
 	  const text = await response.text();
