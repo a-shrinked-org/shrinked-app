@@ -12,7 +12,8 @@ import {
   Burger,
   Drawer,
   Tooltip,
-  Skeleton
+  Skeleton,
+  Avatar
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { usePathname, useRouter } from 'next/navigation';
@@ -20,7 +21,7 @@ import { useLogout, useGetIdentity } from "@refinedev/core";
 import { GeistMono } from 'geist/font/mono';
 import Link from 'next/link';
 import { UserAvatar } from '@/components/UserAvatar';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import FeedbackModal from '@/components/FeedbackModal';
 
 interface Identity {
@@ -142,6 +143,14 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
     avatar: identity?.avatar,
   };
 
+  // Handle navigation to settings page
+  const handleNavigateToSettings = () => {
+    router.push('/settings');
+    if (isMobile) {
+      setDrawerOpened(false);
+    }
+  };
+
   // Calculate processing time usage
   const processingTimeUsed = identity?.usage?.processingTimeUsed || 0;
   const processingTimeLimit = identity?.subscriptionPlan?.processingTimeLimit || 11880000; // Default to 3.3 hours in ms
@@ -150,6 +159,9 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
   // Convert to hours for display
   const hoursUsed = (processingTimeUsed / 3600000).toFixed(1);
   const hoursLimit = (processingTimeLimit / 3600000).toFixed(1);
+
+  // Get user initials for the avatar
+  const userInitial = userInfo.name?.charAt(0) || userInfo.email?.charAt(0) || '?';
 
   const renderSidebar = () => (
     <Box w={316} style={{ 
@@ -318,51 +330,92 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
           )}
         </Box>
 
-        {/* User Profile with LogOut Icon */}
-        <Flex align="center" gap="xs">
+        {/* Settings Button - Large button with user avatar and info */}
+        <UnstyledButton
+          w="100%"
+          p="xs"
+          onClick={handleNavigateToSettings}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            borderRadius: "8px",
+            backgroundColor: pathname === '/settings' ? "#1A1A1A" : "transparent",
+            cursor: "pointer",
+            marginBottom: "16px",
+            padding: "10px",
+            border: "1px solid #2b2b2b",
+            transition: "background-color 0.2s ease",
+            "&:hover": {
+              backgroundColor: "#1A1A1A",
+            }
+          }}
+        >
           {identityLoading ? (
             <>
+              <Skeleton height={36} width={36} radius="xl" />
               <Box style={{ flex: 1 }}>
-                <Skeleton height={14} width={140} radius="sm" mb={6} />
-                <Skeleton height={14} width={180} radius="sm" />
+                <Skeleton height={16} width={100} radius="sm" mb={4} />
+                <Skeleton height={14} width={140} radius="sm" />
               </Box>
-              <Skeleton height={30} width={30} radius="xl" ml="auto" />
+              <Skeleton height={20} width={20} radius="sm" />
             </>
           ) : (
             <>
-              <Box>
-                <Text size="xs">{userInfo.name}</Text>
-                <Text size="xs" c="#a1a1a1">{userInfo.email}</Text>
+              <Avatar 
+                color="blue"
+                radius="xl"
+                size="md"
+                styles={{
+                  root: {
+                    border: '1px solid #2b2b2b',
+                  }
+                }}
+              >
+                {userInitial.toUpperCase()}
+              </Avatar>
+              
+              <Box style={{ flex: 1, overflow: "hidden" }}>
+                <Text size="sm" truncate fw={500}>
+                  {userInfo.name}
+                </Text>
+                <Text size="xs" c="dimmed" truncate>
+                  {userInfo.email}
+                </Text>
               </Box>
-              {/* Add a LogOut icon + the UserAvatar */}
-              <Group ml="auto" gap="sm">
-                <Tooltip label="Logout" position="top" withArrow>
-                  <UnstyledButton onClick={handleLogout} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    color: '#a1a1a1',
-                    padding: '4px',
-                    borderRadius: '4px',
-                    '&:hover': {
-                      color: '#ffffff',
-                    }
-                  }}>
-                    <LogOut size={18} />
-                  </UnstyledButton>
-                </Tooltip>
-                <UserAvatar
-                  name={userInfo.name}
-                  src={userInfo.avatar}
-                  size="sm"
-                  radius="xl"
-                  className="border-[1px] border-[#2b2b2b]"
-                />
-              </Group>
+              
+              <ActionIcon variant="subtle" radius="xl">
+                <Settings size={18} color={pathname === '/settings' ? '#ffffff' : '#a1a1a1'} />
+              </ActionIcon>
             </>
           )}
-        </Flex>
+        </UnstyledButton>
+
+        {/* Logout Button */}
+        <Tooltip label="Logout" position="top" withArrow>
+          <UnstyledButton 
+            onClick={handleLogout} 
+            fullWidth
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#a1a1a1',
+              padding: '8px',
+              borderRadius: '8px',
+              border: '1px solid #2b2b2b',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                color: '#ffffff',
+                backgroundColor: '#1A1A1A',
+              }
+            }}
+          >
+            <LogOut size={18} style={{ marginRight: '8px' }} />
+            <Text size="xs">LOGOUT</Text>
+          </UnstyledButton>
+        </Tooltip>
       </Box>
     </Box>
   );
