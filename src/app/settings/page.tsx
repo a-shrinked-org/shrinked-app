@@ -1,7 +1,7 @@
 // app/settings/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useGetIdentity } from "@refinedev/core";
 import {
   Stack,
@@ -255,10 +255,35 @@ export default function SettingsPage() {
     }
   }, [profile?.subscription?.id, fetchUsageData]);
 
-  // Find current plan based on subscription
-  const currentPlan = plans.find(plan => 
-    profile?.subscription?.planId === plan._id
-  ) || plans.find(plan => plan.name === "FREE") || null;
+  // Check if user is admin - Using BOTH identity from Refine AND profile roles for redundancy
+  const isUserAdmin = (
+    identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' || 
+    profile?.roles?.some(role => role === "admin" || role === "super_admin")
+  ) || false;
+
+  // Improved function to get current plan
+  const getCurrentPlan = useCallback(() => {
+    // If user has a subscription, try to find the matching plan by ID
+    if (profile?.subscription?.planId) {
+      const matchedPlan = plans.find(plan => plan._id === profile.subscription.planId);
+      if (matchedPlan) return matchedPlan;
+    }
+    
+    // If user is an admin but no subscription plan is found, use ADMIN plan
+    if (isUserAdmin) {
+      const adminPlan = plans.find(plan => 
+        plan.name.toUpperCase().includes("ADMIN") || 
+        plan.name.toUpperCase().includes("ENTERPRISE")
+      );
+      if (adminPlan) return adminPlan;
+    }
+    
+    // Default to FREE plan if no other plan is found
+    return plans.find(plan => plan.name.toUpperCase() === "FREE") || null;
+  }, [plans, profile, isUserAdmin]);
+
+  // Get current plan using the improved function
+  const currentPlan = useMemo(() => getCurrentPlan(), [getCurrentPlan]);
 
   // Calculate usage percentages for progress bars
   const jobsUsed = usage.jobs.used;
@@ -518,12 +543,6 @@ export default function SettingsPage() {
     setSelectedPlanId(planId);
     setIsUpgradeModalOpen(true);
   };
-
-  // Check if user is admin - Using BOTH identity from Refine AND profile roles for redundancy
-  const isUserAdmin = (
-    identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' || 
-    profile?.roles?.some(role => role === "admin" || role === "super_admin")
-  ) || false;
 
   // Check for success or canceled query params (for stripe checkout return)
   useEffect(() => {
@@ -786,6 +805,7 @@ export default function SettingsPage() {
               return !isAdminPlan || isUserAdmin;
             })
             .map((plan) => {
+              // Explicitly compare IDs for current plan check
               const isCurrentPlan = currentPlan?._id === plan._id;
               const price = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
               
