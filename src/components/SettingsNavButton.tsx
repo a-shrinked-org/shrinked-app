@@ -1,5 +1,15 @@
-// components/SettingsNavButton.tsx - component to be added to sidebar
-export function SettingsNavButton({ collapsed = false }) {
+// components/SettingsNavButton.tsx
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { UnstyledButton, Avatar, Box, Text, ActionIcon } from '@mantine/core';
+import { Settings } from 'lucide-react';
+import { authUtils } from '@/utils/authUtils';
+
+interface SettingsNavButtonProps {
+  collapsed?: boolean;
+}
+
+export function SettingsNavButton({ collapsed = false }: SettingsNavButtonProps) {
   const router = useRouter();
   
   // Get user data from auth utils

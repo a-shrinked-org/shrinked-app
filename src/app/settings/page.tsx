@@ -155,25 +155,7 @@ export default function SettingsPage() {
 
         // Fetch usage data if user has a subscription
         if (profile?.subscription?.id) {
-          try {
-            const usageResponse = await fetch(`/api/usage-proxy/${profile.subscription.id}/jobs`, {
-              headers: authUtils.getAuthHeaders(),
-            });
-            
-            if (usageResponse.ok) {
-              const usageData = await usageResponse.json();
-              // Update usage state with real data
-              setUsage(prev => ({
-                ...prev,
-                jobs: {
-                  used: usageData.used || 0,
-                  limit: usageData.limit || prev.jobs.limit
-                }
-              }));
-            }
-          } catch (error) {
-            console.error("Error fetching usage data:", error);
-          }
+          fetchUsageData(profile.subscription.id);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -187,8 +169,59 @@ export default function SettingsPage() {
       }
     };
 
+    const fetchUsageData = async (subscriptionId: string) => {
+      try {
+        const usageResponse = await fetch(`/api/usage-proxy/${subscriptionId}/jobs`, {
+          headers: authUtils.getAuthHeaders(),
+        });
+        
+        if (usageResponse.ok) {
+          const usageData = await usageResponse.json();
+          // Update usage state with real data
+          setUsage(prev => ({
+            ...prev,
+            jobs: {
+              used: usageData.used || 0,
+              limit: usageData.limit || prev.jobs.limit
+            }
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching usage data:", error);
+      }
+    };
+
     fetchData();
   }, [router]);
+
+  // When profile subscription changes, fetch usage data
+  useEffect(() => {
+    if (profile?.subscription?.id) {
+      const fetchUsageData = async () => {
+        try {
+          const usageResponse = await fetch(`/api/usage-proxy/${profile.subscription.id}/jobs`, {
+            headers: authUtils.getAuthHeaders(),
+          });
+          
+          if (usageResponse.ok) {
+            const usageData = await usageResponse.json();
+            // Update usage state with real data
+            setUsage(prev => ({
+              ...prev,
+              jobs: {
+                used: usageData.used || 0,
+                limit: usageData.limit || prev.jobs.limit
+              }
+            }));
+          }
+        } catch (error) {
+          console.error("Error fetching usage data:", error);
+        }
+      };
+      
+      fetchUsageData();
+    }
+  }, [profile?.subscription?.id]);
 
   // Find current plan based on subscription
   const currentPlan = plans.find(plan => 
@@ -406,7 +439,7 @@ export default function SettingsPage() {
                 color={jobsPercent > 90 ? "red" : "blue"}
               />
               <Text size="xs" c="gray.5" mt="xs">
-                You've used {jobsUsed} jobs out of your {jobsLimit === -1 ? "unlimited" : jobsLimit} monthly jobs quota.
+                You&apos;ve used {jobsUsed} jobs out of your {jobsLimit === -1 ? "unlimited" : jobsLimit} monthly jobs quota.
               </Text>
             </Box>
             
@@ -424,7 +457,7 @@ export default function SettingsPage() {
                 color={processingPercent > 90 ? "red" : "blue"}
               />
               <Text size="xs" c="gray.5" mt="xs">
-                You've used {Math.round(processingUsed / (1000 * 60 * 60))} hours out of your {processingLimit === -1 ? "unlimited" : Math.round(processingLimit / (1000 * 60 * 60))} processing hours.
+                You&apos;ve used {Math.round(processingUsed / (1000 * 60 * 60))} hours out of your {processingLimit === -1 ? "unlimited" : Math.round(processingLimit / (1000 * 60 * 60))} processing hours.
               </Text>
             </Box>
             
@@ -442,7 +475,7 @@ export default function SettingsPage() {
                 color={apiPercent > 90 ? "red" : "blue"}
               />
               <Text size="xs" c="gray.5" mt="xs">
-                You've used {apiUsed} API calls out of your {apiLimit === Infinity ? "unlimited" : apiLimit} daily API call quota.
+                You&apos;ve used {apiUsed} API calls out of your {apiLimit === Infinity ? "unlimited" : apiLimit} daily API call quota.
               </Text>
             </Box>
           </Box>
