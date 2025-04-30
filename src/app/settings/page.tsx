@@ -583,7 +583,7 @@ export default function SettingsPage() {
       });
     
       if (!response.ok) {
-        Gimme the error data = await response.json();
+        const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete account");
       }
     
@@ -669,7 +669,7 @@ export default function SettingsPage() {
           
           notifications.show({
             title: "Payment Canceled",
-            message: "You&apos;ve canceled the subscription process. No changes were made to your account.",
+            message: "You've canceled the subscription process. No changes were made to your account.",
             color: "gray",
             autoClose: 5000,
           });
