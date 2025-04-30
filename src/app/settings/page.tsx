@@ -31,6 +31,7 @@ interface UserProfile {
   email: string;
   username?: string;
   createdAt: string;
+  roles?: string[]; // Added roles field for admin check
   subscription?: {
     id: string;
     planId: string;
@@ -97,27 +98,65 @@ export default function SettingsPage() {
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
 
   // Define fetchUsageData as a useCallback function so it can be used in useEffect
   const fetchUsageData = useCallback(async (subscriptionId: string) => {
     try {
-      const usageResponse = await fetch(`/api/usage-proxy/${subscriptionId}/jobs`, {
+      // Fetch jobs usage
+      const jobsResponse = await fetch(`/api/usage-proxy/${subscriptionId}/jobs`, {
         headers: authUtils.getAuthHeaders(),
       });
       
-      if (usageResponse.ok) {
-        const usageData = await usageResponse.json();
-        // Update usage state with real data
+      if (jobsResponse.ok) {
+        const jobsData = await jobsResponse.json();
         setUsage(prev => ({
           ...prev,
           jobs: {
-            used: usageData.used || 0,
-            limit: usageData.limit || prev.jobs.limit
+            used: jobsData.used || 0,
+            limit: jobsData.limit || prev.jobs.limit
+          }
+        }));
+      }
+
+      // Fetch processing time usage
+      const processingResponse = await fetch(`/api/usage-proxy/${subscriptionId}/processing`, {
+        headers: authUtils.getAuthHeaders(),
+      });
+      
+      if (processingResponse.ok) {
+        const processingData = await processingResponse.json();
+        setUsage(prev => ({
+          ...prev,
+          processing: {
+            used: processingData.used || 0,
+            limit: processingData.limit || prev.processing.limit
+          }
+        }));
+      }
+
+      // Fetch API calls usage
+      const apiResponse = await fetch(`/api/usage-proxy/${subscriptionId}/api`, {
+        headers: authUtils.getAuthHeaders(),
+      });
+      
+      if (apiResponse.ok) {
+        const apiData = await apiResponse.json();
+        setUsage(prev => ({
+          ...prev,
+          api: {
+            used: apiData.used || 0,
+            limit: apiData.limit || prev.api.limit
           }
         }));
       }
     } catch (error) {
       console.error("Error fetching usage data:", error);
+      notifications.show({
+        title: "Error",
+        message: "Failed to fetch usage data",
+        color: "red",
+      });
     }
   }, []);
 
@@ -174,6 +213,11 @@ export default function SettingsPage() {
           setPlans(Array.isArray(plansData) ? plansData : []);
         } else {
           console.error("Failed to fetch subscription plans:", plansResponse.status);
+          notifications.show({
+            title: "Error",
+            message: "Failed to fetch subscription plans",
+            color: "red",
+          });
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -241,7 +285,7 @@ export default function SettingsPage() {
     return value;
   };
 
-  // Handle plan upgrade
+  // Handle plan upgrade - Real Stripe implementation
   const handleUpgradePlan = async () => {
     if (!selectedPlanId) {
       notifications.show({
@@ -253,46 +297,152 @@ export default function SettingsPage() {
     }
 
     try {
-      setIsLoading(true);
+      setIsSubscriptionLoading(true);
       
-      // Here you would implement the actual plan upgrade logic
-      // This would typically involve calling your subscription endpoint
-      notifications.show({
-        title: "Plan Upgrade",
-        message: "Redirecting to payment portal...",
-        color: "blue",
+      // Get the selected plan
+      const selectedPlan = plans.find(p => p._id === selectedPlanId);
+      if (!selectedPlan) {
+        throw new Error("Selected plan not found");
+      }
+
+      // Get the correct Stripe price ID based on billing cycle
+      const stripePriceId = billingCycle === 'monthly' 
+        ? selectedPlan.stripeMonthlyPriceId 
+        : selectedPlan.stripeYearlyPriceId;
+
+      if (!stripePriceId) {
+        throw new Error("Invalid Stripe price ID");
+      }
+
+      // Create checkout session
+      const response = await fetch("/api/subscriptions-proxy/create-checkout-session", {
+        method: "POST",
+        headers: {
+          ...authUtils.getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          priceId: stripePriceId,
+          planId: selectedPlanId,
+          billingCycle: billingCycle,
+          successUrl: `${window.location.origin}/settings?success=true`,
+          cancelUrl: `${window.location.origin}/settings?canceled=true`,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create checkout session");
+      }
+
+      const { sessionUrl } = await response.json();
       
-      // Mock implementation - in reality, you would redirect to a payment page or Stripe checkout
-      setTimeout(() => {
-        setIsUpgradeModalOpen(false);
-        setIsLoading(false);
-        
-        notifications.show({
-          title: "Success",
-          message: "Subscription updated successfully",
-          color: "green",
-        });
-        
-        // Update local state
-        if (profile && selectedPlanId) {
-          const newPlan = plans.find(p => p._id === selectedPlanId);
-          if (newPlan) {
-            setProfile({
-              ...profile,
-              subscription: {
-                ...profile.subscription || { id: 'new-sub-id', status: 'active', cancelAtPeriodEnd: false, currentPeriodEnd: '' },
-                planId: selectedPlanId
-              }
-            });
-          }
-        }
-      }, 2000);
+      // Redirect to Stripe checkout
+      window.location.href = sessionUrl;
     } catch (error) {
       console.error("Error upgrading plan:", error);
       notifications.show({
         title: "Error",
-        message: "Failed to upgrade plan",
+        message: error instanceof Error ? error.message : "Failed to upgrade plan",
+        color: "red",
+      });
+      setIsSubscriptionLoading(false);
+      setIsUpgradeModalOpen(false);
+    }
+  };
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = async () => {
+    if (!profile?.subscription?.id) {
+      notifications.show({
+        title: "Error",
+        message: "No active subscription found",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`/api/subscriptions-proxy/${profile.subscription.id}/cancel`, {
+        method: "POST",
+        headers: authUtils.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to cancel subscription");
+      }
+
+      const { message } = await response.json();
+      
+      // Update local profile state
+      setProfile(prev => {
+        if (prev && prev.subscription) {
+          return {
+            ...prev,
+            subscription: {
+              ...prev.subscription,
+              cancelAtPeriodEnd: true
+            }
+          };
+        }
+        return prev;
+      });
+
+      notifications.show({
+        title: "Success",
+        message: message || "Subscription will cancel at the end of the billing period",
+        color: "green",
+      });
+    } catch (error) {
+      console.error("Error canceling subscription:", error);
+      notifications.show({
+        title: "Error",
+        message: error instanceof Error ? error.message : "Failed to cancel subscription",
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch("/api/users-proxy/delete-account", {
+        method: "DELETE",
+        headers: authUtils.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete account");
+      }
+
+      // Log out the user
+      await authUtils.logout();
+      
+      // Redirect to login page
+      router.push("/login");
+      
+      notifications.show({
+        title: "Success",
+        message: "Your account has been deleted",
+        color: "green",
+      });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      notifications.show({
+        title: "Error",
+        message: error instanceof Error ? error.message : "Failed to delete account",
         color: "red",
       });
       setIsLoading(false);
@@ -304,6 +454,36 @@ export default function SettingsPage() {
     setSelectedPlanId(planId);
     setIsUpgradeModalOpen(true);
   };
+
+  // Check if user is admin
+  const isUserAdmin = profile?.roles?.some(role => 
+    role === "admin" || role === "super_admin"
+  ) || false;
+
+  // Check for success or canceled query params (for stripe checkout return)
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const success = query.get('success');
+    const canceled = query.get('canceled');
+    
+    if (success === 'true') {
+      notifications.show({
+        title: "Success",
+        message: "Your subscription has been updated successfully",
+        color: "green",
+      });
+      // Remove query params
+      router.replace('/settings');
+    } else if (canceled === 'true') {
+      notifications.show({
+        title: "Canceled",
+        message: "Your subscription update was canceled",
+        color: "yellow",
+      });
+      // Remove query params
+      router.replace('/settings');
+    }
+  }, [router]);
 
   return (
     <Box p="xl" style={{ maxWidth: "1200px", margin: "0 auto" }}>
@@ -370,6 +550,21 @@ export default function SettingsPage() {
                 {profile?.userId || "Not available"}
               </Text>
             </Box>
+            
+            {isUserAdmin && (
+              <Box>
+                <Text size="sm" c="gray.5">
+                  Roles
+                </Text>
+                <Group gap="xs">
+                  {profile?.roles?.map(role => (
+                    <Badge key={role} color="blue" variant="filled">
+                      {role}
+                    </Badge>
+                  ))}
+                </Group>
+              </Box>
+            )}
           </Stack>
         </Paper>
 
@@ -506,75 +701,85 @@ export default function SettingsPage() {
         </Group>
         
         <Flex gap="md" wrap="wrap">
-          {plans.map((plan) => {
-            const isCurrentPlan = currentPlan?._id === plan._id;
-            const price = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
-            
-            return (
-              <Paper
-                key={plan._id}
-                withBorder
-                p="md"
-                radius="md"
-                style={{
-                  borderColor: isCurrentPlan ? "#3377FF" : "#2B2B2B",
-                  backgroundColor: "#0C0C0C",
-                  flex: "1 1 300px",
-                  minWidth: "250px",
-                }}
-              >
-                <Text fw={600} size="lg" mb="xs">
-                  {plan.name}
-                  {isCurrentPlan && (
-                    <Badge ml="xs" color="blue" size="sm">
-                      Current
-                    </Badge>
-                  )}
-                </Text>
-                
-                <Text c="gray.5" size="sm" mb="md">
-                  {plan.name === "FREE" 
-                    ? "Basic access with limited features" 
-                    : plan.name === "PRO" 
-                      ? "Enhanced productivity for individuals" 
-                      : "Advanced features for teams"}
-                </Text>
-                
-                <Text fw={600} mb="md">
-                  {price === 0 ? "Free" : `${formatPrice(price)}/${billingCycle === 'monthly' ? 'month' : 'year'}`}
-                </Text>
-                
-                <Stack gap="xs" mb="lg">
-                  <Group gap="xs">
-                    <Check size={16} />
-                    <Text size="sm">{formatFeature(plan.jobsPerMonth)} jobs/month</Text>
-                  </Group>
-                  <Group gap="xs">
-                    <Check size={16} />
-                    <Text size="sm">{formatTimeLimit(plan.processingTimeLimit)} processing</Text>
-                  </Group>
-                  <Group gap="xs">
-                    <Check size={16} />
-                    <Text size="sm">{plan.exportFormats}</Text>
-                  </Group>
-                  <Group gap="xs">
-                    <Check size={16} />
-                    <Text size="sm">{plan.supportLevel} Support</Text>
-                  </Group>
-                </Stack>
-                
-                <Button
-                  fullWidth
-                  variant={isCurrentPlan ? "outline" : "filled"}
-                  color={isCurrentPlan ? "gray" : "blue"}
-                  disabled={isCurrentPlan}
-                  onClick={() => openUpgradeModal(plan._id)}
+          {plans
+            // Filter out admin plans for non-admin users
+            .filter(plan => {
+              // If the plan name includes "ADMIN" or "ENTERPRISE", only show to admin users
+              const isAdminPlan = plan.name.toUpperCase().includes("ADMIN") || 
+                                plan.name.toUpperCase().includes("ENTERPRISE");
+              
+              // Show the plan if it's not an admin plan OR if the user is an admin
+              return !isAdminPlan || isUserAdmin;
+            })
+            .map((plan) => {
+              const isCurrentPlan = currentPlan?._id === plan._id;
+              const price = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
+              
+              return (
+                <Paper
+                  key={plan._id}
+                  withBorder
+                  p="md"
+                  radius="md"
+                  style={{
+                    borderColor: isCurrentPlan ? "#3377FF" : "#2B2B2B",
+                    backgroundColor: "#0C0C0C",
+                    flex: "1 1 300px",
+                    minWidth: "250px",
+                  }}
                 >
-                  {isCurrentPlan ? "Current Plan" : `Upgrade to ${plan.name}`}
-                </Button>
-              </Paper>
-            );
-          })}
+                  <Text fw={600} size="lg" mb="xs">
+                    {plan.name}
+                    {isCurrentPlan && (
+                      <Badge ml="xs" color="blue" size="sm">
+                        Current
+                      </Badge>
+                    )}
+                  </Text>
+                  
+                  <Text c="gray.5" size="sm" mb="md">
+                    {plan.name === "FREE" 
+                      ? "Basic access with limited features" 
+                      : plan.name === "PRO" 
+                        ? "Enhanced productivity for individuals" 
+                        : "Advanced features for teams"}
+                  </Text>
+                  
+                  <Text fw={600} mb="md">
+                    {price === 0 ? "Free" : `${formatPrice(price)}/${billingCycle === 'monthly' ? 'month' : 'year'}`}
+                  </Text>
+                  
+                  <Stack gap="xs" mb="lg">
+                    <Group gap="xs">
+                      <Check size={16} />
+                      <Text size="sm">{formatFeature(plan.jobsPerMonth)} jobs/month</Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Check size={16} />
+                      <Text size="sm">{formatTimeLimit(plan.processingTimeLimit)} processing</Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Check size={16} />
+                      <Text size="sm">{plan.exportFormats}</Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Check size={16} />
+                      <Text size="sm">{plan.supportLevel} Support</Text>
+                    </Group>
+                  </Stack>
+                  
+                  <Button
+                    fullWidth
+                    variant={isCurrentPlan ? "outline" : "filled"}
+                    color={isCurrentPlan ? "gray" : "blue"}
+                    disabled={isCurrentPlan}
+                    onClick={() => openUpgradeModal(plan._id)}
+                  >
+                    {isCurrentPlan ? "Current Plan" : `Upgrade to ${plan.name}`}
+                  </Button>
+                </Paper>
+              );
+            })}
         </Flex>
 
         {/* Advanced Section (collapsible) */}
@@ -599,6 +804,7 @@ export default function SettingsPage() {
                     variant="outline" 
                     color="orange" 
                     style={{ width: "fit-content" }}
+                    onClick={handleCancelSubscription}
                   >
                     Cancel Subscription
                   </Button>
@@ -608,6 +814,7 @@ export default function SettingsPage() {
                   variant="outline" 
                   color="red" 
                   style={{ width: "fit-content" }}
+                  onClick={handleDeleteAccount}
                 >
                   Delete Account
                 </Button>
@@ -620,14 +827,18 @@ export default function SettingsPage() {
       {/* Plan Upgrade Modal */}
       <Modal
         opened={isUpgradeModalOpen}
-        onClose={() => setIsUpgradeModalOpen(false)}
+        onClose={() => !isSubscriptionLoading && setIsUpgradeModalOpen(false)}
         title="Upgrade Your Plan"
         centered
         styles={{
           title: { fontWeight: 600 },
           body: { paddingTop: 5 },
         }}
+        closeOnClickOutside={!isSubscriptionLoading}
+        closeOnEscape={!isSubscriptionLoading}
       >
+        <LoadingOverlay visible={isSubscriptionLoading} overlayProps={{ blur: 2 }} />
+        
         {selectedPlanId && (
           <Box>
             <Text size="sm" mb="md">
@@ -668,10 +879,18 @@ export default function SettingsPage() {
             </Stack>
             
             <Group justify="right" mt="xl">
-              <Button variant="outline" onClick={() => setIsUpgradeModalOpen(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsUpgradeModalOpen(false)}
+                disabled={isSubscriptionLoading}
+              >
                 Cancel
               </Button>
-              <Button leftSection={<CreditCard size={16} />} onClick={handleUpgradePlan}>
+              <Button 
+                leftSection={<CreditCard size={16} />} 
+                onClick={handleUpgradePlan}
+                loading={isSubscriptionLoading}
+              >
                 Confirm Upgrade
               </Button>
             </Group>
