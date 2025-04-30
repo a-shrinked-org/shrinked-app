@@ -144,7 +144,14 @@ export default function CapsuleView() {
       }
       
       const data = await response.json();
-      setPromptsData(Array.isArray(data) ? data : []);
+      
+      // Filter to only include capsule-related prompts (starting with "capsule.")
+      // And safely handle null/undefined section values
+      const filteredPrompts = Array.isArray(data) 
+        ? data.filter(prompt => prompt.section && prompt.section.startsWith('capsule.'))
+        : [];
+        
+      setPromptsData(filteredPrompts);
     } catch (error) {
       console.error('[CapsuleView] Failed to fetch admin prompts:', error);
       setErrorMessage(formatErrorMessage(error));
