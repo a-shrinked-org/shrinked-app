@@ -269,7 +269,7 @@ export default function SettingsPage() {
       });
       
       if (processingResponse.ok) {
-        const processingData = await processingResponse.json();
+        const processingData = await processingData.json();
         setUsage(prev => ({
           ...prev,
           processing: {
@@ -646,6 +646,7 @@ export default function SettingsPage() {
               await fetchUsageData(profileData.subscription.id);
             }
             
+            // eslint-disable-next-line react/no-unescaped-entities
             notifications.show({
               title: "Payment Successful",
               message: "Your subscription has been activated successfully!",
@@ -655,6 +656,7 @@ export default function SettingsPage() {
             });
           } else {
             console.error(`[Payment] Failed to fetch profile: ${profileResponse.status}`);
+            // eslint-disable-next-line react/no-unescaped-entities
             notifications.show({
               title: "Warning",
               message: "Payment processed, but failed to update profile. Please refresh the page.",
@@ -678,6 +680,7 @@ export default function SettingsPage() {
         }
       } catch (error) {
         console.error(`[Payment] Unexpected error handling payment status:`, error);
+        // eslint-disable-next-line react/no-unescaped-entities
         notifications.show({
           title: "Error",
           message: "An error occurred while processing your payment. Please try again or contact support.",
