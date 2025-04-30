@@ -671,7 +671,7 @@ export default function SettingsPage() {
               <Button variant="outline" onClick={() => setIsUpgradeModalOpen(false)}>
                 Cancel
               </Button>
-              <Button leftIcon={<CreditCard size={16} />} onClick={handleUpgradePlan}>
+              <Button leftSection={<CreditCard size={16} />} onClick={handleUpgradePlan}>
                 Confirm Upgrade
               </Button>
             </Group>
