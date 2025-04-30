@@ -265,7 +265,7 @@ export default function SettingsPage() {
   const getCurrentPlan = useCallback(() => {
     // If user has a subscription, try to find the matching plan by ID
     if (profile?.subscription?.planId) {
-      const matchedPlan = plans.find(plan => plan._id === profile.subscription.planId);
+      const matchedPlan = plans.find(plan => plan._id === profile?.subscription?.planId);
       if (matchedPlan) return matchedPlan;
     }
     
