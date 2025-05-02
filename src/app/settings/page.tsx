@@ -249,12 +249,18 @@ export default function SettingsPage() {
 
   const fetchUsageData = useCallback(async (subscriptionId: string) => {
     try {
-      const jobsResponse = await fetch(`/api/usage-proxy/${subscriptionId}/jobs`, {
+      // Log the subscription ID to help with debugging
+      console.log(`[Usage] Fetching usage data for subscription: ${subscriptionId}`);
+      
+      // Jobs usage
+      const jobsResponse = await fetch(`/api/subscriptions-proxy/${subscriptionId}/jobs`, {
         headers: authUtils.getAuthHeaders(),
+        cache: 'no-store'
       });
       
       if (jobsResponse.ok) {
         const jobsData = await jobsResponse.json();
+        console.log(`[Usage] Jobs data received:`, jobsData);
         setUsage(prev => ({
           ...prev,
           jobs: {
@@ -262,14 +268,21 @@ export default function SettingsPage() {
             limit: jobsData.limit || prev.jobs.limit
           }
         }));
+      } else {
+        console.error(`[Usage] Failed to fetch jobs usage: ${jobsResponse.status}`);
+        const errorText = await jobsResponse.text();
+        console.error(`[Usage] Error details:`, errorText.substring(0, 200));
       }
-
-      const processingResponse = await fetch(`/api/usage-proxy/${subscriptionId}/processing`, {
+  
+      // Processing time usage
+      const processingResponse = await fetch(`/api/subscriptions-proxy/${subscriptionId}/processing`, {
         headers: authUtils.getAuthHeaders(),
+        cache: 'no-store'
       });
       
       if (processingResponse.ok) {
-        const processingData = await processingData.json();
+        const processingData = await processingResponse.json(); // Fixed
+        console.log(`[Usage] Processing data received:`, processingData);
         setUsage(prev => ({
           ...prev,
           processing: {
@@ -277,14 +290,21 @@ export default function SettingsPage() {
             limit: processingData.limit || prev.processing.limit
           }
         }));
+      } else {
+        console.error(`[Usage] Failed to fetch processing usage: ${processingResponse.status}`);
+        const errorText = await processingResponse.text();
+        console.error(`[Usage] Error details:`, errorText.substring(0, 200));
       }
-
-      const apiResponse = await fetch(`/api/usage-proxy/${subscriptionId}/api`, {
+  
+      // API calls usage
+      const apiResponse = await fetch(`/api/subscriptions-proxy/${subscriptionId}/api`, {
         headers: authUtils.getAuthHeaders(),
+        cache: 'no-store'
       });
       
       if (apiResponse.ok) {
         const apiData = await apiResponse.json();
+        console.log(`[Usage] API data received:`, apiData);
         setUsage(prev => ({
           ...prev,
           api: {
@@ -292,12 +312,16 @@ export default function SettingsPage() {
             limit: apiData.limit || prev.api.limit
           }
         }));
+      } else {
+        console.error(`[Usage] Failed to fetch API usage: ${apiResponse.status}`);
+        const errorText = await apiResponse.text();
+        console.error(`[Usage] Error details:`, errorText.substring(0, 200));
       }
     } catch (error) {
       console.error("Error fetching usage data:", error);
       notifications.show({
         title: "Error",
-        message: "Failed to fetch usage data",
+        message: "Failed to fetch usage data. Please try refreshing the page.",
         color: "red",
       });
     }
