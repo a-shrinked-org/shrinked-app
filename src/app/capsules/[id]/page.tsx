@@ -164,7 +164,7 @@ export default function CapsuleView() {
   const { data: capsuleData, isLoading, isError, refetch } = queryResult;
   const record = capsuleData?.data;
 
-  // Define startStatusMonitoring
+  // Improved status monitoring with debouncing to prevent excessive requests
   const startStatusMonitoring = useCallback(() => {
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
@@ -183,19 +183,27 @@ export default function CapsuleView() {
     setStatusMonitorActive(true);
     setIsRegenerating(true);
     
-    refetch().then((refreshResult) => {
-      const refreshedData = refreshResult?.data?.data;
-      if (refreshedData && completedStatuses.includes(refreshedData.status?.toLowerCase())) {
-        if (IS_DEV) console.log(`[CapsuleView] Initial check shows completed status: ${refreshedData.status}`);
-        setIsRegenerating(false);
-        setIsAddingFiles(false);
-        setStatusMonitorActive(false);
-        return;
-      }
-    }).catch(err => {
-      console.error("[CapsuleView] Error in initial status check:", err);
-    });
+    // Avoid unnecessary initial refetch if we just fetched
+    const lastFetchTime = useRef(Date.now());
+    const shouldFetch = Date.now() - lastFetchTime.current > 2000;
     
+    if (shouldFetch) {
+      refetch().then((refreshResult) => {
+        lastFetchTime.current = Date.now();
+        const refreshedData = refreshResult?.data?.data;
+        if (refreshedData && completedStatuses.includes(refreshedData.status?.toLowerCase())) {
+          if (IS_DEV) console.log(`[CapsuleView] Initial check shows completed status: ${refreshedData.status}`);
+          setIsRegenerating(false);
+          setIsAddingFiles(false);
+          setStatusMonitorActive(false);
+          return;
+        }
+      }).catch(err => {
+        console.error("[CapsuleView] Error in initial status check:", err);
+      });
+    }
+    
+    // Use a longer interval to reduce API load - 3 seconds instead of 1.5
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
         if (!statusMonitorActive) {
@@ -208,6 +216,7 @@ export default function CapsuleView() {
         
         if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
         const refreshResult = await refetch();
+        lastFetchTime.current = Date.now();
         
         const capsuleData = refreshResult?.data?.data;
         if (!capsuleData || typeof capsuleData.status !== 'string') {
@@ -227,7 +236,6 @@ export default function CapsuleView() {
         } else if (refreshedStatus === 'completed' || refreshedStatus === 'ready' || refreshedStatus === 'failed') {
           if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
           setIsRegenerating(false);
-          
           setIsAddingFiles(false);
           
           notifications.show({
@@ -241,14 +249,13 @@ export default function CapsuleView() {
             clearInterval(statusCheckIntervalRef.current);
             statusCheckIntervalRef.current = null;
           }
-          
-          setTimeout(() => refetch(), 500);
         }
       } catch (error) {
         console.error("[CapsuleView] Error during status check:", error);
       }
-    }, 1500);
+    }, 3000); // Changed from 1500 to 3000 ms
     
+    // Still keep a timeout to prevent indefinite monitoring
     setTimeout(() => {
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
@@ -262,7 +269,12 @@ export default function CapsuleView() {
         if (IS_DEV) console.log("[CapsuleView] Force resetting isRegenerating after timeout");
         setIsRegenerating(false);
         setIsAddingFiles(false);
-        refetch();
+        
+        // Only refetch if we haven't fetched recently
+        if (Date.now() - lastFetchTime.current > 2000) {
+          refetch();
+          lastFetchTime.current = Date.now();
+        }
       }
     }, 90000);
   }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
@@ -307,30 +319,49 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth]);
   
-  // Save the updated prompt values
+  // Improved admin prompts save function with better error handling
   const handleSaveSettings = useCallback(async () => {
     setIsLoadingPrompts(true);
     setPromptSaveStatus('Saving...');
     
     try {
-      // Format the prompts as an array of objects matching the expected format for the admin API
-      const prompts: AdminPrompt[] = [
-        {
+      // Only include prompts that actually have content
+      const prompts: AdminPrompt[] = [];
+      
+      if (summaryPrompt.trim()) {
+        prompts.push({
           section: "capsule.summary",
           prompt: summaryPrompt,
           prefill: ""
-        },
-        {
+        });
+      }
+      
+      if (highlightsPrompt.trim()) {
+        prompts.push({
           section: "capsule.highlights",
           prompt: highlightsPrompt,
           prefill: ""
-        },
-        {
+        });
+      }
+      
+      if (testSummaryPrompt.trim()) {
+        prompts.push({
           section: "capsule.testSummary",
           prompt: testSummaryPrompt,
           prefill: ""
-        }
-      ];
+        });
+      }
+      
+      // Only send request if we have prompts to save
+      if (prompts.length === 0) {
+        setPromptSaveStatus('No changes to save');
+        setTimeout(() => {
+          setPromptSaveStatus('');
+          setIsSettingsModalOpen(false);
+        }, 2000);
+        setIsLoadingPrompts(false);
+        return;
+      }
       
       // Use the correct admin prompts endpoint with the capsuleId query parameter
       const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
@@ -342,7 +373,16 @@ export default function CapsuleView() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to save settings: ${response.status}`);
+        // Try to get the error message from the response
+        let errorMessage = `Failed to save settings: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // Ignore JSON parsing error
+        }
+        
+        throw new Error(errorMessage);
       }
       
       setPromptSaveStatus('Saved successfully');
@@ -365,7 +405,7 @@ export default function CapsuleView() {
       
       notifications.show({
         title: 'Error',
-        message: 'Failed to save admin settings',
+        message: error instanceof Error ? error.message : 'Failed to save admin settings',
         color: 'red',
       });
     } finally {
@@ -417,78 +457,69 @@ export default function CapsuleView() {
     };
   }, []);
 
-  // Fetch file details with batching for better performance
+  // Improved file fetching logic with better caching and error handling
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
     if (!fileIds || fileIds.length === 0 || !capsuleId) {
       if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or capsule ID");
       return;
     }
-
-    setIsLoadingFiles(true);
-    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
-
-    try {
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch capsule details: ${response.status}`);
-      }
-
-      const capsuleData = await response.json();
-      const data = capsuleData?.data || capsuleData;
-
-      if (data?.files && Array.isArray(data.files) && data.files.length > 0) {
-        const processedFiles = data.files
-          .filter((file: any) => fileIds.includes(file._id))
-          .map((file: any) => ({
-            _id: file._id,
-            title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
-            createdAt: file.createdAt || new Date().toISOString(),
-            fileName: file.fileName || "",
-            output: file.output || {}
-          }));
-        
-        if (processedFiles.length > 0) {
-          setLoadedFiles(processedFiles);
-          if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
-          setIsLoadingFiles(false);
-          return;
-        } else {
-          if (IS_DEV) console.log("[CapsuleView] No matching files found in capsule data");
-        }
-      } else {
-        if (IS_DEV) console.log("[CapsuleView] No files found in capsule data or invalid structure");
-      }
-
-      try {
-        const filesResponse = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`);
-        
-        if (filesResponse.ok) {
-          const filesData = await filesResponse.json();
-          
-          if (Array.isArray(filesData)) {
-            const filteredFiles = filesData
-              .filter((file: any) => fileIds.includes(file._id))
-              .map((file: any) => ({
-                _id: file._id,
-                title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
-                createdAt: file.createdAt || new Date().toISOString(),
-                fileName: file.fileName || "",
-                output: file.output || {}
-              }));
-            
-            if (filteredFiles.length > 0) {
-              setLoadedFiles(filteredFiles);
-              if (IS_DEV) console.log("[CapsuleView] Loaded file details from direct files endpoint:", filteredFiles.length);
-              setIsLoadingFiles(false);
-              return;
-            }
-          }
-        }
-      } catch (filesError) {
-        console.warn("[CapsuleView] Error fetching from direct files endpoint:", filesError);
+  
+    // First check if we already have all the files loaded
+    if (loadedFiles.length > 0) {
+      const loadedIds = loadedFiles.map(file => file._id);
+      const missingIds = fileIds.filter(id => !loadedIds.includes(id));
+      
+      // If we have all the files, no need to fetch again
+      if (missingIds.length === 0) {
+        if (IS_DEV) console.log("[CapsuleView] All files already loaded, skipping fetch");
+        return;
       }
       
+      // If we only need to fetch some files, only fetch those
+      if (missingIds.length < fileIds.length) {
+        if (IS_DEV) console.log(`[CapsuleView] Fetching only ${missingIds.length} missing files instead of all ${fileIds.length}`);
+        fileIds = missingIds;
+      }
+    }
+  
+    setIsLoadingFiles(true);
+    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
+  
+    try {
+      // Try to fetch from direct capsule endpoint first - most efficient source
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
+  
+      if (response.ok) {
+        const capsuleData = await response.json();
+        const data = capsuleData?.data || capsuleData;
+  
+        if (data?.files && Array.isArray(data.files) && data.files.length > 0) {
+          const processedFiles = data.files
+            .filter((file: any) => fileIds.includes(file._id))
+            .map((file: any) => ({
+              _id: file._id,
+              title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
+              createdAt: file.createdAt || new Date().toISOString(),
+              fileName: file.fileName || "",
+              output: file.output || {}
+            }));
+          
+          if (processedFiles.length > 0) {
+            // Merge with existing files, avoiding duplicates
+            setLoadedFiles(prev => {
+              const existingIds = prev.map(file => file._id);
+              const newFiles = processedFiles.filter(file => !existingIds.includes(file._id));
+              return [...prev, ...newFiles];
+            });
+            
+            if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
+            setIsLoadingFiles(false);
+            return;
+          }
+        }
+      }
+  
+      // Second attempt: Try user's documents endpoint if we have userId
       const token = await ensureValidToken();
       let userId = '';
       
@@ -501,16 +532,8 @@ export default function CapsuleView() {
         }
       }
       
-      if (!userId) {
-        try {
-          const profileResponse = await fetchWithAuth('/api/users-proxy/profile');
-          if (profileResponse.ok) {
-            const profile = await profileResponse.json();
-            userId = profile._id || profile.id || '';
-          }
-        } catch (profileError) {
-          console.warn("[CapsuleView] Error fetching user profile:", profileError);
-        }
+      if (!userId && identity?.id) {
+        userId = identity.id;
       }
       
       if (userId) {
@@ -532,7 +555,13 @@ export default function CapsuleView() {
                 }));
               
               if (filteredFiles.length > 0) {
-                setLoadedFiles(filteredFiles);
+                // Merge with existing files, avoiding duplicates
+                setLoadedFiles(prev => {
+                  const existingIds = prev.map(file => file._id);
+                  const newFiles = filteredFiles.filter(file => !existingIds.includes(file._id));
+                  return [...prev, ...newFiles];
+                });
+                
                 if (IS_DEV) console.log("[CapsuleView] Loaded file details from user documents:", filteredFiles.length);
                 setIsLoadingFiles(false);
                 return;
@@ -544,28 +573,42 @@ export default function CapsuleView() {
         }
       }
       
-      throw new Error("Unable to fetch file details from any source");
-      
-    } catch (error: any) {
-      console.error("[CapsuleView] Failed to fetch file details:", error);
+      // If we still can't find the files, create placeholders
       const placeholders = fileIds.map(id => ({
         _id: id,
         title: `File ${id.slice(-6)}`,
         createdAt: new Date().toISOString()
       }));
-      setLoadedFiles(placeholders);
+      
+      setLoadedFiles(prev => {
+        const existingIds = prev.map(file => file._id);
+        const newPlaceholders = placeholders.filter(file => !existingIds.includes(file._id));
+        return [...prev, ...newPlaceholders];
+      });
       
       if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
       
-      notifications.show({
-        title: 'Error Loading Files',
-        message: 'Could not load complete file details. Using placeholders instead.',
-        color: 'red',
+    } catch (error: any) {
+      console.error("[CapsuleView] Failed to fetch file details:", error);
+      
+      // Still create placeholders for missing files
+      const placeholders = fileIds.map(id => ({
+        _id: id,
+        title: `File ${id.slice(-6)}`,
+        createdAt: new Date().toISOString()
+      }));
+      
+      setLoadedFiles(prev => {
+        const existingIds = prev.map(file => file._id);
+        const newPlaceholders = placeholders.filter(file => !existingIds.includes(file._id));
+        return [...prev, ...newPlaceholders];
       });
+      
+      if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [capsuleId, fetchWithAuth, ensureValidToken]);
+  }, [capsuleId, fetchWithAuth, ensureValidToken, loadedFiles, identity?.id]);
 
   // Trigger initial fetch if needed
   useEffect(() => {
