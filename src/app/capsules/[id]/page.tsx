@@ -298,24 +298,27 @@ export default function CapsuleView() {
     setPromptSaveStatus('Saving...');
     
     try {
-      // Correctly structure the prompts as an array of section/prompt objects
-      // to match the expected format in the admin API
+      // Format the prompts as an array of objects matching the expected format for the admin API
       const prompts = [
         {
           section: "summary",
-          prompt: summaryPrompt
+          prompt: summaryPrompt,
+          prefill: ""
         },
         {
           section: "highlights",
-          prompt: highlightsPrompt
+          prompt: highlightsPrompt,
+          prefill: ""
         },
         {
           section: "testSummary",
-          prompt: testSummaryPrompt
+          prompt: testSummaryPrompt,
+          prefill: ""
         }
       ];
       
-      // Use the admin API path pattern with the prompts/upsert endpoint that has special handling
+      // Use the correct admin prompts endpoint without the capsuleId in the path
+      // Instead, pass capsuleId as a query parameter
       const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
         method: 'POST',
         headers: {
