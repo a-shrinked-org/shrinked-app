@@ -583,7 +583,7 @@ export default function SettingsPage() {
       });
       return;
     }
-
+  
     try {
       setIsLoading(true);
       
@@ -591,16 +591,19 @@ export default function SettingsPage() {
         method: "POST",
         headers: authUtils.getAuthHeaders(),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to cancel subscription");
       }
-
+  
       const { message } = await response.json();
       
       setProfile(prev => {
-        if (prev) {
+        if (!prev) return null;
+        
+        // If subscriptionPlan exists, update it
+        if (prev.subscriptionPlan) {
           return {
             ...prev,
             subscriptionPlan: {
@@ -609,9 +612,11 @@ export default function SettingsPage() {
             }
           };
         }
+        
+        // Otherwise return the profile unchanged
         return prev;
       });
-
+  
       notifications.show({
         title: "Success",
         message: message || "Subscription will cancel at the end of the billing period",
