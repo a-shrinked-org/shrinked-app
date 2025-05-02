@@ -38,7 +38,9 @@ async function handleRequest(
 	  // Parse and validate request body for prompts
 	  let body;
 	  try {
-		body = await request.json();
+		// Clone the request to read the body
+		const clonedRequest = request.clone();
+		body = await clonedRequest.json();
 	  } catch (error) {
 		if (IS_DEV) console.error("[Admin Proxy] Failed to parse request body as JSON:", error);
 		return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
@@ -91,22 +93,97 @@ async function handleRequest(
 	  // If it was an array, replace with an array of standardized prompts
 	  const requestBody = Array.isArray(body) ? standardizedPrompts : standardizedPrompts[0];
 	  
-	  // Replace the request body with our standardized version
-	  request = new Request(request.url, {
-		method: request.method,
-		headers: request.headers,
-		body: JSON.stringify(requestBody)
-	  });
+	  // Instead of creating a new Request (which doesn't work with NextRequest),
+	  // we'll just pass the standardized body directly to the fetch call
+	  const jsonBody = JSON.stringify(requestBody);
 	  
 	  if (IS_DEV) {
 		if (Array.isArray(requestBody)) {
-		  console.log(`[Admin Proxy] Forwarding array of ${requestBody.length} standardized prompts`);
+		  console.log(`[Admin Proxy] Prepared array of ${requestBody.length} standardized prompts for forwarding`);
 		} else {
-		  console.log("[Admin Proxy] Forwarding standardized prompt:", requestBody);
+		  console.log("[Admin Proxy] Prepared standardized prompt for forwarding:", requestBody);
 		}
+	  }
+	  
+	  const apiUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
+	  if (IS_DEV) console.log(`[Admin Proxy] Sending ${method} request to: ${apiUrl}`);
+	  
+	  const headers: HeadersInit = {
+		'Authorization': authHeader,
+		'Content-Type': 'application/json'
+	  };
+	  
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 60000);
+	  
+	  const response = await fetch(apiUrl, {
+		method,
+		headers,
+		body: jsonBody,
+		signal: controller.signal
+	  });
+	  
+	  clearTimeout(timeoutId);
+	  
+	  const responseTime = Date.now() - startTime;
+	  if (IS_DEV) console.log(`[Admin Proxy] API response: status=${response.status}, time=${responseTime}ms`);
+	  
+	  if (response.status === 204) {
+		if (IS_DEV) console.log("[Admin Proxy] Received 204 No Content from API.");
+		return new NextResponse(null, { status: 204 });
+	  }
+	  
+	  const responseContentType = response.headers.get('content-type') || '';
+	  let responseBodyText = '';
+	  try {
+		responseBodyText = await response.text();
+	  } catch (readError) {
+		console.error(`[Admin Proxy] Error reading response body:`, readError);
+		return NextResponse.json({
+		  error: "Failed to read response body from upstream API",
+		  status: response.status
+		}, { status: response.status });
+	  }
+	  
+	  const responseHeaders = new Headers();
+	  response.headers.forEach((value, key) => {
+		if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+		  responseHeaders.set(key, value);
+		}
+	  });
+	  
+	  if (responseContentType.includes('application/json')) {
+		try {
+		  const data = JSON.parse(responseBodyText);
+		  return NextResponse.json(data, { 
+			status: response.status,
+			headers: Object.fromEntries(responseHeaders)
+		  });
+		} catch (error) {
+		  console.error(`[Admin Proxy] Error parsing JSON response:`, error);
+		  if (IS_DEV) console.error(`[Admin Proxy] Raw text response (preview): ${responseBodyText.substring(0, 500)}`);
+		  return NextResponse.json({
+			error: "Failed to parse API response as JSON",
+			status: response.status,
+			rawResponsePreview: IS_DEV ? responseBodyText.substring(0, 500) : undefined
+		  }, { status: response.status });
+		}
+	  } else {
+		if (IS_DEV) {
+		  console.warn(`[Admin Proxy] Non-JSON response received: ${responseContentType}`);
+		  console.warn(`[Admin Proxy] Raw text response (preview): ${responseBodyText.substring(0, 500)}`);
+		}
+		
+		return NextResponse.json({
+		  error: `Unexpected response format from upstream API`,
+		  message: `Expected JSON but got ${responseContentType}`,
+		  status: response.status,
+		  rawResponsePreview: IS_DEV ? responseBodyText.substring(0, 500) : undefined
+		}, { status: response.status });
 	  }
 	}
 
+	// Handle non-prompts upsert requests
 	const apiUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
 	if (IS_DEV) console.log(`[Admin Proxy] Sending ${method} request to: ${apiUrl}`);
 
@@ -132,7 +209,9 @@ async function handleRequest(
 	  const contentType = request.headers.get('content-type');
 	  if (contentType && contentType.includes('application/json')) {
 		try {
-		  const rawBody = await request.text();
+		  // Clone the request to read the body
+		  const clonedRequest = request.clone();
+		  const rawBody = await clonedRequest.text();
 		  if (rawBody) {
 			options.body = rawBody;
 			if (IS_DEV) console.log("[Admin Proxy] Forwarding JSON body.");
