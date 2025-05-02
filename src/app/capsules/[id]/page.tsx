@@ -149,10 +149,7 @@ export default function CapsuleView() {
       enabled: !!capsuleId && !!identity?.token,
       staleTime: 30000,
       retry: 1,
-      refetchInterval: (query) => {
-        const currentStatus = ((query?.data as any)?.data?.status || '').toLowerCase();
-        return currentStatus === 'processing' ? REFRESH_INTERVAL_MS : false;
-      },
+      refetchInterval: false, // Disable automatic refetch - use our custom logic instead
       onError: (error) => {
         console.error("[CapsuleView] Error loading capsule:", error);
         handleAuthError(error);
@@ -166,98 +163,100 @@ export default function CapsuleView() {
   
   const lastFetchTimeRef = useRef<number>(Date.now());
 
-  // Significantly simplified status monitoring
+  // Significantly improved status monitoring - single source of truth
   const startStatusMonitoring = useCallback(() => {
-    // Clear any existing interval first to prevent duplicates
+    // If already monitoring or no record, don't start
+    if (statusMonitorActive || !record) {
+      return;
+    }
+    
+    // Clear any existing interval first
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
       statusCheckIntervalRef.current = null;
     }
     
-    // If already monitoring, don't start again
-    if (statusMonitorActive) {
-      return;
-    }
-    
-    // Check if we should even start monitoring based on the status
-    const currentStatus = (record?.status || '').toLowerCase();
+    // Check completed statuses only once at the beginning
+    const currentStatus = (record.status || '').toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
     
-    // If status is already completed, no need to monitor
     if (completedStatuses.includes(currentStatus)) {
-      if (IS_DEV) console.log(`[CapsuleView] Not starting monitoring for completed status: ${currentStatus}`);
+      if (IS_DEV) console.log(`[CapsuleView] No need to monitor: status already ${currentStatus}`);
       setIsRegenerating(false);
+      setIsAddingFiles(false);
       return;
     }
     
-    if (IS_DEV) console.log("[CapsuleView] Starting status monitoring...");
+    if (IS_DEV) console.log(`[CapsuleView] Starting status monitoring for status: ${currentStatus}`);
     setStatusMonitorActive(true);
     
-    // Set a reasonable interval - 8 seconds to avoid excessive polling
+    // Use a longer interval - 5 seconds is reasonable
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
-        // If not actively monitoring, clear the interval and exit
-        if (!statusMonitorActive) {
-          if (statusCheckIntervalRef.current) {
-            clearInterval(statusCheckIntervalRef.current);
-            statusCheckIntervalRef.current = null;
-          }
-          return;
+        // Add debouncing by checking time since last fetch
+        const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+        if (timeSinceLastFetch < 3000) {
+          return; // Skip if we just fetched
         }
         
-        if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
+        if (IS_DEV) console.log("[CapsuleView] Performing status check...");
+        lastFetchTimeRef.current = Date.now(); // Set before fetching
         
         const refreshResult = await refetch();
+        const refreshData = refreshResult?.data?.data;
         
-        const capsuleData = refreshResult?.data?.data;
-        if (!capsuleData || typeof capsuleData.status !== 'string') {
-          console.warn("[CapsuleView] Invalid status in refresh result");
+        if (!refreshData || typeof refreshData.status !== 'string') {
+          console.warn("[CapsuleView] Invalid status data in refresh");
           return;
         }
         
-        const refreshedStatus = capsuleData.status.toLowerCase();
+        // Process the refreshed status
+        const refreshedStatus = refreshData.status.toLowerCase();
+        if (IS_DEV) console.log(`[CapsuleView] Refreshed status: ${refreshedStatus}`);
         
-        if (IS_DEV) console.log(`[CapsuleView] Current status: ${refreshedStatus}`);
-        
-        // If status is no longer processing, stop monitoring
+        // Take action based on the status
         if (completedStatuses.includes(refreshedStatus)) {
-          if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
+          if (IS_DEV) console.log(`[CapsuleView] Processing complete: ${refreshedStatus}`);
           
+          // Update all flags at once
           setIsRegenerating(false);
           setIsAddingFiles(false);
+          setStatusMonitorActive(false);
           
+          // Show success notification
           notifications.show({
             title: 'Processing Complete',
             message: 'Capsule generation is complete.',
             color: 'green',
           });
           
-          // Clear the interval immediately
-          setStatusMonitorActive(false);
+          // Clear the interval
           if (statusCheckIntervalRef.current) {
             clearInterval(statusCheckIntervalRef.current);
             statusCheckIntervalRef.current = null;
           }
         }
       } catch (error) {
-        console.error("[CapsuleView] Error during status check:", error);
+        console.error("[CapsuleView] Error checking status:", error);
       }
-    }, 2000); // Every 2 seconds is reasonable
+    }, 2000); // 2 seconds interval
     
-    // Timeout after 2 minutes to prevent indefinite monitoring
+    // Add a safety timeout to avoid indefinite polling
     setTimeout(() => {
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
         statusCheckIntervalRef.current = null;
       }
+      
       if (statusMonitorActive) {
-        if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
         setStatusMonitorActive(false);
         setIsRegenerating(false);
         setIsAddingFiles(false);
+        
+        if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out after 2 minutes");
       }
-    }, 120000); // 2 minutes max
-  }, [refetch, record?.status]);
+    }, 120000); // 2 minutes maximum
+  }, [record, refetch]);
 
   // Fetch current prompt values when opening the modal
   const handleOpenSettingsModal = useCallback(async () => {
@@ -469,37 +468,23 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, loadedFiles, isLoadingFiles]);
   
+  // Only monitor status changes from the API, not from our own state changes
   useEffect(() => {
-    // Only run this effect if we have data and it has a status
+    // Only process when we have data
     if (!capsuleData?.data || !capsuleData.data.status) {
       return;
     }
     
     const status = capsuleData.data.status.toLowerCase();
-    const completedStatuses = ['completed', 'ready', 'failed'];
     
-    // If status is "processing" and we're not monitoring, start monitoring
-    if (status === 'processing' && !statusMonitorActive) {
-      if (IS_DEV) console.log("[Effect] Starting monitoring for processing status");
+    // Only take action if the state needs to change
+    if (status === 'processing' && !isRegenerating && !statusMonitorActive) {
+      // If we get a processing status but we're not monitoring, start monitoring
+      if (IS_DEV) console.log(`[Effect] API status is '${status}' but we're not monitoring - starting now`);
       setIsRegenerating(true);
       startStatusMonitoring();
-    } 
-    // If status is completed and we're still regenerating, update state
-    else if (completedStatuses.includes(status) && isRegenerating) {
-      if (IS_DEV) console.log("[Effect] Updating state for completed status");
-      setIsRegenerating(false);
-      setIsAddingFiles(false);
-      
-      // Also clean up any active monitoring
-      if (statusMonitorActive) {
-        setStatusMonitorActive(false);
-        if (statusCheckIntervalRef.current) {
-          clearInterval(statusCheckIntervalRef.current);
-          statusCheckIntervalRef.current = null;
-        }
-      }
     }
-  }, [capsuleData?.data?.status, statusMonitorActive, isRegenerating, startStatusMonitoring]);
+  }, [capsuleData?.data?.status, isRegenerating, statusMonitorActive, startStatusMonitoring]);
   
   useEffect(() => {
     const fileIds = capsuleData?.data?.fileIds;
@@ -537,12 +522,13 @@ export default function CapsuleView() {
   const handleRegenerateCapsule = useCallback(async (isRetry = false) => {
     if (!capsuleId) return;
   
-    // If already regenerating, don't trigger again
+    // Skip if already processing
     if (isRegenerating && !isRetry) {
       if (IS_DEV) console.log("[CapsuleView] Already regenerating, skipping duplicate call");
       return;
     }
   
+    // Set state first
     setIsRegenerating(true);
     setErrorMessage(null);
     
@@ -560,8 +546,9 @@ export default function CapsuleView() {
     }
   
     try {
-      if (IS_DEV) console.log(`[CapsuleView] Regenerating capsule: ${capsuleId}`);
+      if (IS_DEV) console.log(`[CapsuleView] Initiating regeneration for capsule: ${capsuleId}`);
       
+      // Make the API call
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
         method: 'GET',
       });
@@ -571,17 +558,14 @@ export default function CapsuleView() {
         throw new Error(errorData.message || `Failed to trigger regeneration: ${response.status}`);
       }
   
-      if (IS_DEV) console.log("[CapsuleView] Regenerate request sent successfully");
+      if (IS_DEV) console.log("[CapsuleView] Regenerate API call successful");
       
-      // Start monitoring only if the API call was successful
+      // Only start monitoring *after* successful API call
       startStatusMonitoring();
-      
-      // No need for setTimeout refetch here - the monitoring will handle it
-  
     } catch (error: any) {
-      console.error("[CapsuleView] Failed to regenerate capsule:", error);
+      console.error("[CapsuleView] Regeneration API call failed:", error);
       setErrorMessage(formatErrorMessage(error));
-      setIsRegenerating(false);
+      setIsRegenerating(false); // Reset flag on error
       handleAuthError(error);
       
       notifications.show({
