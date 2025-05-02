@@ -431,9 +431,9 @@ export default function SettingsPage() {
   }, [router, fetchUsageData]);
 
   useEffect(() => {
-    if (profile?.stripeCustomerId) {
-      console.log(`[Debug] Found Stripe customer ID: ${profile.stripeCustomerId}, calling fetchUsageData`);
-      fetchUsageData(profile.stripeCustomerId);
+    if (profile?._id) { // or profile?.userId
+      console.log(`[Debug] Found User ID: ${profile._id}, calling fetchUsageData`);
+      fetchUsageData(profile._id);
     } else {
       console.log(`[Debug] No Stripe customer ID found in profile:`, profile);
     }
