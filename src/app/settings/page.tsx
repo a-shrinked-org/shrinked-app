@@ -33,14 +33,15 @@ interface UserProfile {
   username?: string;
   createdAt: string;
   roles?: string[];
-  stripeCustomerId?: string; // Added
+  stripeCustomerId?: string;
   subscriptionPlan?: {
     _id: string;
     name: string;
     monthlyPrice: number;
     yearlyPrice: number;
+    cancelAtPeriodEnd?: boolean; // Add this property
   };
-  usage?: {  // Added
+  usage?: {
     jobsCount: number;
     processingTimeUsed: number;
   };
@@ -708,7 +709,7 @@ export default function SettingsPage() {
             }
             
             if (profileData?.stripeCustomerId) {
-              await fetchUsageData(profileData.subscription.id);
+              await fetchUsageData(profileData.stripeCustomerId);
             }
             
             // eslint-disable-next-line react/no-unescaped-entities
@@ -1068,7 +1069,7 @@ export default function SettingsPage() {
               {isAdvancedOpen && (
                 <Box mt="md" pl="md">
                   <Stack gap="md">
-                    {profile?.subscriptionPlan?.id && !profile.subscription.cancelAtPeriodEnd && (
+                    {profile?.subscriptionPlan?._id && !profile.subscriptionPlan.cancelAtPeriodEnd && (
                       <Button 
                         variant="outline" 
                         color="orange" 
