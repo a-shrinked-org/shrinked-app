@@ -265,7 +265,7 @@ export default function CapsuleView() {
   const handleOpenSettingsModal = useCallback(async () => {
     setIsLoadingPrompts(true);
     try {
-      // Fetch the prompts from the admin API
+      // Fetch the current prompts from the admin API
       const response = await fetchWithAuth(`/api/admin/prompts?capsuleId=${capsuleId}`);
       
       if (!response.ok) {
@@ -273,24 +273,17 @@ export default function CapsuleView() {
       }
       
       const data = await response.json();
+      console.log('Loaded prompts:', data);
       
-      // Check if we have an array of prompts
-      if (Array.isArray(data)) {
-        // Find each relevant prompt section
-        const summaryPrompt = data.find(p => p.section === 'summary');
-        const highlightsPrompt = data.find(p => p.section === 'highlights');
-        const testSummaryPrompt = data.find(p => p.section === 'testSummary');
-        
-        // Set prompt values if they exist
-        setSummaryPrompt(summaryPrompt?.prompt || '');
-        setHighlightsPrompt(highlightsPrompt?.prompt || '');
-        setTestSummaryPrompt(testSummaryPrompt?.prompt || '');
-      } else {
-        // If we get a single object with direct values
-        setSummaryPrompt(data.summary || '');
-        setHighlightsPrompt(data.highlights || '');
-        setTestSummaryPrompt(data.testSummary || '');
-      }
+      // Find each relevant prompt by section
+      const summaryPrompt = data.find(p => p.section === 'capsule.summary');
+      const highlightsPrompt = data.find(p => p.section === 'capsule.highlights');
+      const testSummaryPrompt = data.find(p => p.section === 'capsule.testSummary');
+      
+      // Set the prompt values from the prompt field if they exist
+      setSummaryPrompt(summaryPrompt?.prompt || '');
+      setHighlightsPrompt(highlightsPrompt?.prompt || '');
+      setTestSummaryPrompt(testSummaryPrompt?.prompt || '');
       
       setIsSettingsModalOpen(true);
     } catch (error) {
@@ -300,6 +293,9 @@ export default function CapsuleView() {
         message: 'Failed to load capsule settings',
         color: 'red',
       });
+      
+      // Open the modal anyway with empty values so user can still add prompts
+      setIsSettingsModalOpen(true);
     } finally {
       setIsLoadingPrompts(false);
     }
@@ -314,24 +310,23 @@ export default function CapsuleView() {
       // Format the prompts as an array of objects matching the expected format for the admin API
       const prompts = [
         {
-          section: "summary",
+          section: "capsule.summary",
           prompt: summaryPrompt,
           prefill: ""
         },
         {
-          section: "highlights",
+          section: "capsule.highlights",
           prompt: highlightsPrompt,
           prefill: ""
         },
         {
-          section: "testSummary",
+          section: "capsule.testSummary",
           prompt: testSummaryPrompt,
           prefill: ""
         }
       ];
       
-      // Use the correct admin prompts endpoint without the capsuleId in the path
-      // Instead, pass capsuleId as a query parameter
+      // Use the correct admin prompts endpoint with the capsuleId query parameter
       const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
         method: 'POST',
         headers: {
