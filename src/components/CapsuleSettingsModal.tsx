@@ -299,7 +299,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
                 },
               }}
             >
-              Save & Regenerate
+              Save Settings
             </Button>
           </Group>
         </Box>

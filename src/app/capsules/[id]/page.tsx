@@ -298,17 +298,30 @@ export default function CapsuleView() {
     setPromptSaveStatus('Saving...');
     
     try {
-      // Use the admin API endpoint for saving capsule prompts
-      const response = await fetchWithAuth(`/api/admin/capsules/${capsuleId}/prompts`, {
+      // Correctly structure the prompts as an array of section/prompt objects
+      // to match the expected format in the admin API
+      const prompts = [
+        {
+          section: "summary",
+          prompt: summaryPrompt
+        },
+        {
+          section: "highlights",
+          prompt: highlightsPrompt
+        },
+        {
+          section: "testSummary",
+          prompt: testSummaryPrompt
+        }
+      ];
+      
+      // Use the admin API path pattern with the prompts/upsert endpoint that has special handling
+      const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          summary: summaryPrompt,
-          highlights: highlightsPrompt,
-          testSummary: testSummaryPrompt
-        })
+        body: JSON.stringify(prompts)
       });
       
       if (!response.ok) {
