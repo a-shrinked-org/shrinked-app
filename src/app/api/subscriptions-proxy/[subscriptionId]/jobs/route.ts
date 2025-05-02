@@ -8,9 +8,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { subscriptionId: string } }
 ) {
+  const startTime = Date.now(); // Add this line to define startTime
   const subscriptionId = params.subscriptionId;
   
-  if (IS_DEV) console.log(`[Subscription Proxy] GET jobs usage for subscription: ${subscriptionId}`);
+  if (IS_DEV) console.log(`[Usage Proxy] GET jobs usage for subscription: ${subscriptionId}`);
   
   try {
 	const authHeader = request.headers.get('authorization');
@@ -18,9 +19,9 @@ export async function GET(
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 	
-	// Direct API call 
+	// Updated to match the Postman endpoint structure
 	const apiUrl = `${API_URL}/usage/${subscriptionId}/jobs`;
-	if (IS_DEV) console.log(`[Subscription Proxy] Sending request to: ${apiUrl}`);
+	if (IS_DEV) console.log(`[Usage Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
 	  method: 'GET',
