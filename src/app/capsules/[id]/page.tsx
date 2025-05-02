@@ -163,6 +163,8 @@ export default function CapsuleView() {
 
   const { data: capsuleData, isLoading, isError, refetch } = queryResult;
   const record = capsuleData?.data;
+  
+  const lastFetchTimeRef = useRef<number>(Date.now());
 
   // Improved status monitoring with debouncing to prevent excessive requests
   const startStatusMonitoring = useCallback(() => {
@@ -184,12 +186,11 @@ export default function CapsuleView() {
     setIsRegenerating(true);
     
     // Avoid unnecessary initial refetch if we just fetched
-    const lastFetchTime = useRef(Date.now());
-    const shouldFetch = Date.now() - lastFetchTime.current > 2000;
+    const shouldFetch = Date.now() - lastFetchTimeRef.current > 2000;
     
     if (shouldFetch) {
       refetch().then((refreshResult) => {
-        lastFetchTime.current = Date.now();
+        lastFetchTimeRef.current = Date.now();
         const refreshedData = refreshResult?.data?.data;
         if (refreshedData && completedStatuses.includes(refreshedData.status?.toLowerCase())) {
           if (IS_DEV) console.log(`[CapsuleView] Initial check shows completed status: ${refreshedData.status}`);
@@ -216,7 +217,7 @@ export default function CapsuleView() {
         
         if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
         const refreshResult = await refetch();
-        lastFetchTime.current = Date.now();
+        lastFetchTimeRef.current = Date.now();
         
         const capsuleData = refreshResult?.data?.data;
         if (!capsuleData || typeof capsuleData.status !== 'string') {
@@ -271,9 +272,9 @@ export default function CapsuleView() {
         setIsAddingFiles(false);
         
         // Only refetch if we haven't fetched recently
-        if (Date.now() - lastFetchTime.current > 2000) {
+        if (Date.now() - lastFetchTimeRef.current > 2000) {
           refetch();
-          lastFetchTime.current = Date.now();
+          lastFetchTimeRef.current = Date.now();
         }
       }
     }, 90000);
