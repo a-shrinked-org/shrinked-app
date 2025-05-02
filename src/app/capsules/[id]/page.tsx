@@ -170,52 +170,25 @@ export default function CapsuleView() {
 
   // Handle prompt changes
   const handlePromptChange = useCallback((section: string, value: string) => {
-    // Special case for prefill fields
-    if (section.endsWith('.prefill')) {
-      const actualSection = section.replace('.prefill', '');
-      setPromptsData(prev => {
-        const existingPromptIndex = prev.findIndex(p => p.section === actualSection);
-        
-        if (existingPromptIndex !== -1) {
-          // Update existing prompt's prefill
-          const updatedPrompts = [...prev];
-          updatedPrompts[existingPromptIndex] = {
-            ...updatedPrompts[existingPromptIndex],
-            prefill: value
-          };
-          return updatedPrompts;
-        } else {
-          // If the prompt doesn't exist yet, create a new one with empty prompt text
-          return [...prev, {
-            section: actualSection,
-            prompt: '',
-            prefill: value
-          }];
-        }
-      });
-    } else {
-      // Normal case for prompt text
-      setPromptsData(prev => {
-        const existingPromptIndex = prev.findIndex(p => p.section === section);
-        
-        if (existingPromptIndex !== -1) {
-          // Update existing prompt
-          const updatedPrompts = [...prev];
-          updatedPrompts[existingPromptIndex] = {
-            ...updatedPrompts[existingPromptIndex],
-            prompt: value
-          };
-          return updatedPrompts;
-        } else {
-          // Create new prompt
-          return [...prev, {
-            section: section,
-            prompt: value,
-            prefill: ''
-          }];
-        }
-      });
-    }
+    setPromptsData(prev => {
+      const existingPromptIndex = prev.findIndex(p => p.section === section);
+      
+      if (existingPromptIndex !== -1) {
+        // Update existing prompt
+        const updatedPrompts = [...prev];
+        updatedPrompts[existingPromptIndex] = {
+          ...updatedPrompts[existingPromptIndex],
+          prompt: value
+        };
+        return updatedPrompts;
+      } else {
+        // Create new prompt
+        return [...prev, {
+          section: section,
+          prompt: value
+        }];
+      }
+    });
   }, []);
 
   // First get queryResult and refetch
