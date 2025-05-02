@@ -35,7 +35,7 @@ interface UserProfile {
   roles?: string[];
   stripeCustomerId?: string; // Added
   subscriptionPlan?: {
-    id: string;
+    _id: string;
     name: string;
     monthlyPrice: number;
     yearlyPrice: number;
