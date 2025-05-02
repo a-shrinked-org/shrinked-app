@@ -431,13 +431,13 @@ export default function SettingsPage() {
   }, [router, fetchUsageData]);
 
   useEffect(() => {
-    if (profile?._id) { // or profile?.userId
-      console.log(`[Debug] Found User ID: ${profile._id}, calling fetchUsageData`);
-      fetchUsageData(profile._id);
+    if (profile?.subscriptionPlan?._id) {
+      console.log(`[Debug] Found Subscription Plan ID: ${profile.subscriptionPlan._id}, calling fetchUsageData`);
+      fetchUsageData(profile.subscriptionPlan._id);
     } else {
-      console.log(`[Debug] No Stripe customer ID found in profile:`, profile);
+      console.log(`[Debug] No Subscription Plan ID found in profile:`, profile);
     }
-  }, [profile?.stripeCustomerId, fetchUsageData]);
+  }, [profile?.subscriptionPlan?._id, fetchUsageData]);
 
   const isUserAdmin = (
     identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' || 
