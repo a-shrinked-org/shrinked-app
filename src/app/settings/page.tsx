@@ -587,7 +587,7 @@ export default function SettingsPage() {
     try {
       setIsLoading(true);
       
-      const response = await fetch(`/api/subscriptions-proxy/${profile.subscription.id}/cancel`, {
+      const response = await fetch(`/api/subscriptions-proxy/${profile.stripeCustomerId}/cancel`, {
         method: "POST",
         headers: authUtils.getAuthHeaders(),
       });
