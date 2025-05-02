@@ -77,6 +77,12 @@ interface FileData {
   };
 }
 
+interface AdminPrompt {
+  section: string;
+  prompt: string;
+  prefill?: string;
+}
+
 interface Capsule {
   _id: string;
   name: string;
@@ -272,13 +278,13 @@ export default function CapsuleView() {
         throw new Error(`Failed to fetch capsule settings: ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as AdminPrompt[];
       console.log('Loaded prompts:', data);
       
       // Find each relevant prompt by section
-      const summaryPrompt = data.find(p => p.section === 'capsule.summary');
-      const highlightsPrompt = data.find(p => p.section === 'capsule.highlights');
-      const testSummaryPrompt = data.find(p => p.section === 'capsule.testSummary');
+      const summaryPrompt = data.find((p: AdminPrompt) => p.section === 'capsule.summary');
+      const highlightsPrompt = data.find((p: AdminPrompt) => p.section === 'capsule.highlights');
+      const testSummaryPrompt = data.find((p: AdminPrompt) => p.section === 'capsule.testSummary');
       
       // Set the prompt values from the prompt field if they exist
       setSummaryPrompt(summaryPrompt?.prompt || '');
@@ -308,7 +314,7 @@ export default function CapsuleView() {
     
     try {
       // Format the prompts as an array of objects matching the expected format for the admin API
-      const prompts = [
+      const prompts: AdminPrompt[] = [
         {
           section: "capsule.summary",
           prompt: summaryPrompt,
