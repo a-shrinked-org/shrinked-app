@@ -265,19 +265,32 @@ export default function CapsuleView() {
   const handleOpenSettingsModal = useCallback(async () => {
     setIsLoadingPrompts(true);
     try {
-      // Fetch current settings for the capsule
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
+      // Fetch the prompts from the admin API
+      const response = await fetchWithAuth(`/api/admin/prompts?capsuleId=${capsuleId}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch capsule data: ${response.status}`);
+        throw new Error(`Failed to fetch capsule settings: ${response.status}`);
       }
       
       const data = await response.json();
       
-      // Set prompt values (if they exist)
-      setSummaryPrompt(data.summary || '');
-      setHighlightsPrompt(data.highlights || '');
-      setTestSummaryPrompt(data.testSummary || '');
+      // Check if we have an array of prompts
+      if (Array.isArray(data)) {
+        // Find each relevant prompt section
+        const summaryPrompt = data.find(p => p.section === 'summary');
+        const highlightsPrompt = data.find(p => p.section === 'highlights');
+        const testSummaryPrompt = data.find(p => p.section === 'testSummary');
+        
+        // Set prompt values if they exist
+        setSummaryPrompt(summaryPrompt?.prompt || '');
+        setHighlightsPrompt(highlightsPrompt?.prompt || '');
+        setTestSummaryPrompt(testSummaryPrompt?.prompt || '');
+      } else {
+        // If we get a single object with direct values
+        setSummaryPrompt(data.summary || '');
+        setHighlightsPrompt(data.highlights || '');
+        setTestSummaryPrompt(data.testSummary || '');
+      }
       
       setIsSettingsModalOpen(true);
     } catch (error) {
@@ -291,7 +304,7 @@ export default function CapsuleView() {
       setIsLoadingPrompts(false);
     }
   }, [capsuleId, fetchWithAuth]);
-
+  
   // Save the updated prompt values
   const handleSaveSettings = useCallback(async () => {
     setIsLoadingPrompts(true);
