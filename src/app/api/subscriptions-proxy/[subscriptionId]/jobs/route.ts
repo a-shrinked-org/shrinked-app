@@ -1,4 +1,4 @@
-// app/api/usage-proxy/[subscriptionId]/jobs/route.ts
+// app/api/subscriptions-proxy/[subscriptionId]/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
@@ -8,21 +8,19 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { subscriptionId: string } }
 ) {
-  const startTime = Date.now();
   const subscriptionId = params.subscriptionId;
   
-  if (IS_DEV) console.log(`[Usage Proxy] GET jobs usage for subscription: ${subscriptionId}`);
+  if (IS_DEV) console.log(`[Subscription Proxy] GET jobs usage for subscription: ${subscriptionId}`);
   
   try {
 	const authHeader = request.headers.get('authorization');
 	if (!authHeader) {
-	  if (IS_DEV) console.error(`[Usage Proxy] Missing authorization header`);
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 	
 	// Direct API call 
 	const apiUrl = `${API_URL}/usage/${subscriptionId}/jobs`;
-	if (IS_DEV) console.log(`[Usage Proxy] Sending request to: ${apiUrl}`);
+	if (IS_DEV) console.log(`[Subscription Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
 	  method: 'GET',
