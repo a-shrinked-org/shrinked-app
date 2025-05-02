@@ -426,23 +426,30 @@ export default function CapsuleView() {
 
   // Improved file fetching logic with better caching and error handling
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
-    if (!fileIds || fileIds.length === 0 || !capsuleId) {
-      if (IS_DEV) console.warn("[CapsuleView] Cannot fetch file details: Missing file IDs or capsule ID");
-      return;
+    if (!fileIds || fileIds.length === 0 || !capsuleId || isLoadingFiles) {
+      return; // Already loading or no IDs to fetch
     }
-  
+    
+    // Check if we already have all files loaded
+    const missingFileIds = fileIds.filter(id => 
+      !loadedFiles.some(file => file._id === id)
+    );
+    
+    if (missingFileIds.length === 0) {
+      return; // All files already loaded
+    }
+    
     setIsLoadingFiles(true);
-    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
-  
+    
     try {
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
-  
       if (response.ok) {
-        const capsuleData = await response.json();
-        const data = capsuleData?.data || capsuleData;
-  
-        if (data?.files && Array.isArray(data.files) && data.files.length > 0) {
-          const processedFiles = data.files
+        const data = await response.json();
+        const capsuleData = data?.data || data;
+        
+        if (capsuleData?.files?.length) {
+          // Process files and update state
+          const processedFiles = capsuleData.files
             .filter((file: any) => fileIds.includes(file._id))
             .map((file: any) => ({
               _id: file._id,
@@ -452,55 +459,46 @@ export default function CapsuleView() {
               output: file.output || {}
             }));
           
-          if (processedFiles.length > 0) {
-            // Fix the type error by explicitly typing the file parameter
-            setLoadedFiles(prev => {
-              const existingIds = prev.map((file: FileData) => file._id);
-              const newFiles = processedFiles.filter((file: FileData) => !existingIds.includes(file._id));
-              return [...prev, ...newFiles];
-            });
-            
-            if (IS_DEV) console.log("[CapsuleView] Successfully loaded file details:", processedFiles.length);
-            setIsLoadingFiles(false);
-            return;
-          }
+          // Only add files we don't already have
+          setLoadedFiles(prev => {
+            const existingIds = prev.map(f => f._id);
+            const newFiles = processedFiles.filter((f: FileData) => !existingIds.includes(f._id));
+            return [...prev, ...newFiles];
+          });
         }
+      } else {
+        throw new Error(`Failed to fetch files: ${response.status}`);
       }
-  
-    } catch (error: any) {
-      console.error("[CapsuleView] Failed to fetch file details:", error);
-      const placeholders = fileIds.map(id => ({
+    } catch (error) {
+      console.error("Error fetching file details:", error);
+      
+      // Create placeholders for missing files
+      const placeholders = missingFileIds.map(id => ({
         _id: id,
         title: `File ${id.slice(-6)}`,
         createdAt: new Date().toISOString()
       }));
-      setLoadedFiles(placeholders);
       
-      if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
-      
-      notifications.show({
-        title: 'Error Loading Files',
-        message: 'Could not load complete file details. Using placeholders instead.',
-        color: 'red',
+      setLoadedFiles(prev => {
+        const existingIds = prev.map(f => f._id);
+        const newPlaceholders = placeholders.filter(p => !existingIds.includes(p._id));
+        return [...prev, ...newPlaceholders];
       });
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [capsuleId, fetchWithAuth, ensureValidToken]);
+  }, [capsuleId, fetchWithAuth, loadedFiles, isLoadingFiles]);
   
   useEffect(() => {
+    // Simple status check without side effects
     if (capsuleData?.data) {
-      const data = capsuleData;
-      const currentStatus = (data.data.status || '').toLowerCase();
+      const status = (capsuleData.data.status || '').toLowerCase();
       
-      if (currentStatus === 'processing' && !statusMonitorActive) {
-        if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
+      // Handle status changes
+      if (status === 'processing' && !statusMonitorActive && !isRegenerating) {
         setIsRegenerating(true);
         startStatusMonitoring();
-      }
-      
-      if ((currentStatus === 'completed' || currentStatus === 'ready') && isRegenerating) {
-        if (IS_DEV) console.log(`[CapsuleView] Detected ${currentStatus.toUpperCase()} status, stopping regeneration`);
+      } else if ((status === 'completed' || status === 'ready') && isRegenerating) {
         setIsRegenerating(false);
         setIsAddingFiles(false);
         
@@ -512,26 +510,15 @@ export default function CapsuleView() {
           }
         }
       }
-      
-      if (data.data.fileIds && (!data.data.files || data.data.files.length === 0)) {
-        if (!isLoadingFiles && loadedFiles.length === 0) {
-          fetchFileDetails(data.data.fileIds);
-        }
-      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, isAddingFiles]);
+  }, [capsuleData?.data?.status, statusMonitorActive, isRegenerating, startStatusMonitoring]);
   
   useEffect(() => {
-    if (
-      record?.fileIds && 
-      (!record.files || record.files.length === 0) && 
-      loadedFiles.length === 0 && 
-      !isLoadingFiles
-    ) {
-      fetchFileDetails(record.fileIds);
+    const fileIds = capsuleData?.data?.fileIds;
+    if (fileIds && fileIds.length > 0 && !isLoadingFiles && loadedFiles.length === 0) {
+      fetchFileDetails(fileIds);
     }
-  }, [record?.fileIds, record?.files, loadedFiles.length, isLoadingFiles, fetchFileDetails]);
+  }, [capsuleData?.data?.fileIds, isLoadingFiles, loadedFiles.length, fetchFileDetails]);
 
   // Helper function to extract summary
   const extractContextSummary = (summaryContext?: string): string | null => {
