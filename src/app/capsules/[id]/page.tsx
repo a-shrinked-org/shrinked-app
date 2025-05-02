@@ -298,16 +298,13 @@ export default function CapsuleView() {
     setPromptSaveStatus('Saving...');
     
     try {
-      // For updating files and prompts
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
+      // Use the admin API endpoint for saving capsule prompts
+      const response = await fetchWithAuth(`/api/admin/capsules/${capsuleId}/prompts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          // Include existing file IDs if you have them
-          fileIds: record?.fileIds || record?.files?.map(file => file._id) || [],
-          // Include the prompts
           summary: summaryPrompt,
           highlights: highlightsPrompt,
           testSummary: testSummaryPrompt
@@ -328,7 +325,7 @@ export default function CapsuleView() {
       
       notifications.show({
         title: 'Settings Saved',
-        message: 'Capsule settings have been updated successfully',
+        message: 'Admin prompts have been updated successfully',
         color: 'green',
       });
       
@@ -338,14 +335,14 @@ export default function CapsuleView() {
       
       notifications.show({
         title: 'Error',
-        message: 'Failed to save capsule settings',
+        message: 'Failed to save admin settings',
         color: 'red',
       });
     } finally {
       setIsLoadingPrompts(false);
     }
-  }, [capsuleId, record?.fileIds, record?.files, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
-
+  }, [capsuleId, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
+  
   // Implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
     if (capsuleData?.data) {
