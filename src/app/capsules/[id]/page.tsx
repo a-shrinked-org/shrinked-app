@@ -288,7 +288,7 @@ export default function CapsuleView() {
         }
       }
     }, 90000);
-  }, [refetch, record?.status]);
+  }, [refetch, record?.status, isRegenerating, statusMonitorActive]);
 
   // Fetch current prompt values when opening the modal
   const handleOpenSettingsModal = useCallback(async () => {
@@ -432,13 +432,6 @@ export default function CapsuleView() {
         clearInterval(statusCheckIntervalRef.current);
         statusCheckIntervalRef.current = null;
       }
-      
-      // Clear any pending timeouts
-      const allTimeoutIds = [];
-      while (setTimeout(() => {}, 0) - 1 > 0) {
-        allTimeoutIds.push(setTimeout(() => {}, 0) - 1);
-      }
-      allTimeoutIds.forEach(clearTimeout);
     };
   }, []);
 
@@ -531,7 +524,7 @@ export default function CapsuleView() {
         }
       }
     }
-  }, [capsuleData?.data?.status, statusMonitorActive, isRegenerating, startStatusMonitoring]);
+  }, [capsuleData?.data, capsuleData?.data?.status, statusMonitorActive, isRegenerating, startStatusMonitoring]);
   
   useEffect(() => {
     const fileIds = capsuleData?.data?.fileIds;
