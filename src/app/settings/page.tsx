@@ -427,7 +427,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (profile?.subscription?.id) {
+      console.log(`[Debug] Found subscription ID: ${profile.subscription.id}, calling fetchUsageData`);
       fetchUsageData(profile.subscription.id);
+    } else {
+      console.log(`[Debug] No subscription ID found in profile:`, profile);
     }
   }, [profile?.subscription?.id, fetchUsageData]);
 
