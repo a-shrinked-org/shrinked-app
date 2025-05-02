@@ -20,7 +20,7 @@ export async function GET(
 	}
 	
 	// Updated to match the Postman endpoint structure
-	const apiUrl = `${API_URL}/usage/${subscriptionId}/jobs`;
+	const apiUrl = `${API_URL}/usage/${subscriptionId}/jobsCount`;
 	if (IS_DEV) console.log(`[Usage Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {

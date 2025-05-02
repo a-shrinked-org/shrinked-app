@@ -20,7 +20,7 @@ export async function GET(
 	}
 	
 	// Updated to match the Postman endpoint structure
-	const apiUrl = `${API_URL}/usage/${subscriptionId}/processing`;
+	const apiUrl = `${API_URL}/usage/${subscriptionId}/processingTimeUsed`;
 	if (IS_DEV) console.log(`[Subscription Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
