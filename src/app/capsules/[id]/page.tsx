@@ -170,9 +170,52 @@ export default function CapsuleView() {
 
   // Handle prompt changes
   const handlePromptChange = useCallback((section: string, value: string) => {
-    setPromptsData(prev => prev.map(p => 
-      p.section === section ? { ...p, prompt: value } : p
-    ));
+    // Special case for prefill fields
+    if (section.endsWith('.prefill')) {
+      const actualSection = section.replace('.prefill', '');
+      setPromptsData(prev => {
+        const existingPromptIndex = prev.findIndex(p => p.section === actualSection);
+        
+        if (existingPromptIndex !== -1) {
+          // Update existing prompt's prefill
+          const updatedPrompts = [...prev];
+          updatedPrompts[existingPromptIndex] = {
+            ...updatedPrompts[existingPromptIndex],
+            prefill: value
+          };
+          return updatedPrompts;
+        } else {
+          // If the prompt doesn't exist yet, create a new one with empty prompt text
+          return [...prev, {
+            section: actualSection,
+            prompt: '',
+            prefill: value
+          }];
+        }
+      });
+    } else {
+      // Normal case for prompt text
+      setPromptsData(prev => {
+        const existingPromptIndex = prev.findIndex(p => p.section === section);
+        
+        if (existingPromptIndex !== -1) {
+          // Update existing prompt
+          const updatedPrompts = [...prev];
+          updatedPrompts[existingPromptIndex] = {
+            ...updatedPrompts[existingPromptIndex],
+            prompt: value
+          };
+          return updatedPrompts;
+        } else {
+          // Create new prompt
+          return [...prev, {
+            section: section,
+            prompt: value,
+            prefill: ''
+          }];
+        }
+      });
+    }
   }, []);
 
   // First get queryResult and refetch
@@ -309,6 +352,7 @@ export default function CapsuleView() {
       setIsLoadingPrompts(true);
       setPromptSaveStatus('Saving...');
       
+      // Send all prompts to the API at once
       const response = await fetchWithAuth(`/api/admin/prompts/upsert`, {
         method: 'POST',
         headers: {
@@ -318,7 +362,8 @@ export default function CapsuleView() {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to save prompts: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Failed to save prompts: ${response.status} ${errorData?.error || ''}`);
       }
       
       setPromptSaveStatus('Saved successfully');
@@ -327,7 +372,8 @@ export default function CapsuleView() {
         setPromptSaveStatus('');
       }, 3000);
       
-      const regenerateResponse = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, {
+      // Trigger regeneration
+      const regenerateResponse = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
         method: 'GET',
       });
       

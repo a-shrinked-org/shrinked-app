@@ -1,3 +1,4 @@
+// In app/api/admin/[[...path]]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -28,6 +29,83 @@ async function handleRequest(
 	  searchParams.append(key, value);
 	});
 	const searchParamsString = searchParams.toString();
+
+	// Special case handling for prompts upsert
+	const isPromptsUpsert = pathSuffix === 'prompts/upsert';
+	if (isPromptsUpsert && method === 'POST') {
+	  if (IS_DEV) console.log("[Admin Proxy] Detected prompts upsert request, performing validation");
+	  
+	  // Parse and validate request body for prompts
+	  let body;
+	  try {
+		body = await request.json();
+	  } catch (error) {
+		if (IS_DEV) console.error("[Admin Proxy] Failed to parse request body as JSON:", error);
+		return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
+	  }
+	  
+	  // Check if we received an array of prompts or a single prompt
+	  const promptsArray = Array.isArray(body) ? body : [body];
+	  
+	  // Process each prompt in the array
+	  const standardizedPrompts = [];
+	  
+	  for (const promptData of promptsArray) {
+		// Validate required fields for each prompt
+		if (!promptData.section || typeof promptData.section !== 'string') {
+		  if (IS_DEV) console.error("[Admin Proxy] Missing or invalid section field", promptData);
+		  return NextResponse.json({ 
+			error: "section field is required and must be a string",
+			details: "Invalid prompt at index " + standardizedPrompts.length
+		  }, { status: 400 });
+		}
+		
+		if (!promptData.prompt || typeof promptData.prompt !== 'string') {
+		  if (IS_DEV) console.error("[Admin Proxy] Missing or invalid prompt field", promptData);
+		  return NextResponse.json({ 
+			error: "prompt field is required and must be a string",
+			details: "Invalid prompt at index " + standardizedPrompts.length
+		  }, { status: 400 });
+		}
+		
+		// Ensure prefill is always a string if provided
+		if (promptData.prefill !== undefined && typeof promptData.prefill !== 'string') {
+		  if (IS_DEV) console.error("[Admin Proxy] Invalid prefill field", promptData);
+		  return NextResponse.json({ 
+			error: "prefill field must be a string when provided",
+			details: "Invalid prompt at index " + standardizedPrompts.length
+		  }, { status: 400 });
+		}
+		
+		// Standardize each prompt object
+		standardizedPrompts.push({
+		  section: promptData.section,
+		  prompt: promptData.prompt,
+		  prefill: promptData.prefill || "" // Default to empty string if not provided
+		});
+	  }
+	  
+	  if (IS_DEV) console.log(`[Admin Proxy] Standardized ${standardizedPrompts.length} prompts`);
+	  
+	  // If it was a single prompt, replace with a single standardized prompt
+	  // If it was an array, replace with an array of standardized prompts
+	  const requestBody = Array.isArray(body) ? standardizedPrompts : standardizedPrompts[0];
+	  
+	  // Replace the request body with our standardized version
+	  request = new Request(request.url, {
+		method: request.method,
+		headers: request.headers,
+		body: JSON.stringify(requestBody)
+	  });
+	  
+	  if (IS_DEV) {
+		if (Array.isArray(requestBody)) {
+		  console.log(`[Admin Proxy] Forwarding array of ${requestBody.length} standardized prompts`);
+		} else {
+		  console.log("[Admin Proxy] Forwarding standardized prompt:", requestBody);
+		}
+	  }
+	}
 
 	const apiUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
 	if (IS_DEV) console.log(`[Admin Proxy] Sending ${method} request to: ${apiUrl}`);
