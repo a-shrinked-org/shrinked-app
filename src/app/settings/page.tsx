@@ -248,15 +248,20 @@ export default function SettingsPage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const fetchUsageData = useCallback(async (subscriptionId: string) => {
+    console.log(`[Usage] Starting to fetch usage data for subscription ID: ${subscriptionId}`);
+    
     try {
-      // Log the subscription ID to help with debugging
-      console.log(`[Usage] Fetching usage data for subscription: ${subscriptionId}`);
-      
       // Jobs usage
-      const jobsResponse = await fetch(`/api/subscriptions-proxy/${subscriptionId}/jobs`, {
+      console.log(`[Usage] Fetching jobs usage data...`);
+      const jobsUrl = `/api/subscriptions-proxy/${subscriptionId}/jobs`;
+      console.log(`[Usage] Request URL: ${jobsUrl}`);
+      
+      const jobsResponse = await fetch(jobsUrl, {
         headers: authUtils.getAuthHeaders(),
         cache: 'no-store'
       });
+      
+      console.log(`[Usage] Jobs response status: ${jobsResponse.status}`);
       
       if (jobsResponse.ok) {
         const jobsData = await jobsResponse.json();
@@ -264,43 +269,63 @@ export default function SettingsPage() {
         setUsage(prev => ({
           ...prev,
           jobs: {
-            used: jobsData.used || 0,
-            limit: jobsData.limit || prev.jobs.limit
+            used: jobsData.used ?? 0,
+            limit: jobsData.limit ?? prev.jobs.limit
           }
         }));
       } else {
         console.error(`[Usage] Failed to fetch jobs usage: ${jobsResponse.status}`);
-        const errorText = await jobsResponse.text();
-        console.error(`[Usage] Error details:`, errorText.substring(0, 200));
+        try {
+          const errorText = await jobsResponse.text();
+          console.error(`[Usage] Error details:`, errorText);
+        } catch (e) {
+          console.error('[Usage] Could not read error response body');
+        }
       }
   
       // Processing time usage
-      const processingResponse = await fetch(`/api/subscriptions-proxy/${subscriptionId}/processing`, {
+      console.log(`[Usage] Fetching processing usage data...`);
+      const processingUrl = `/api/subscriptions-proxy/${subscriptionId}/processing`;
+      console.log(`[Usage] Request URL: ${processingUrl}`);
+      
+      const processingResponse = await fetch(processingUrl, {
         headers: authUtils.getAuthHeaders(),
         cache: 'no-store'
       });
       
+      console.log(`[Usage] Processing response status: ${processingResponse.status}`);
+      
       if (processingResponse.ok) {
-        const processingData = await processingResponse.json(); // Fixed
+        const processingData = await processingResponse.json();
         console.log(`[Usage] Processing data received:`, processingData);
         setUsage(prev => ({
           ...prev,
           processing: {
-            used: processingData.used || 0,
-            limit: processingData.limit || prev.processing.limit
+            used: processingData.used ?? 0,
+            limit: processingData.limit ?? prev.processing.limit
           }
         }));
       } else {
         console.error(`[Usage] Failed to fetch processing usage: ${processingResponse.status}`);
-        const errorText = await processingResponse.text();
-        console.error(`[Usage] Error details:`, errorText.substring(0, 200));
+        try {
+          const errorText = await processingResponse.text();
+          console.error(`[Usage] Error details:`, errorText);
+        } catch (e) {
+          console.error('[Usage] Could not read error response body');
+        }
       }
   
       // API calls usage
-      const apiResponse = await fetch(`/api/subscriptions-proxy/${subscriptionId}/api`, {
+      console.log(`[Usage] Fetching API usage data...`);
+      const apiUrl = `/api/subscriptions-proxy/${subscriptionId}/api`;
+      console.log(`[Usage] Request URL: ${apiUrl}`);
+      
+      const apiResponse = await fetch(apiUrl, {
         headers: authUtils.getAuthHeaders(),
         cache: 'no-store'
       });
+      
+      console.log(`[Usage] API response status: ${apiResponse.status}`);
       
       if (apiResponse.ok) {
         const apiData = await apiResponse.json();
@@ -308,14 +333,18 @@ export default function SettingsPage() {
         setUsage(prev => ({
           ...prev,
           api: {
-            used: apiData.used || 0,
-            limit: apiData.limit || prev.api.limit
+            used: apiData.used ?? 0,
+            limit: apiData.limit ?? prev.api.limit
           }
         }));
       } else {
         console.error(`[Usage] Failed to fetch API usage: ${apiResponse.status}`);
-        const errorText = await apiResponse.text();
-        console.error(`[Usage] Error details:`, errorText.substring(0, 200));
+        try {
+          const errorText = await apiResponse.text();
+          console.error(`[Usage] Error details:`, errorText);
+        } catch (e) {
+          console.error('[Usage] Could not read error response body');
+        }
       }
     } catch (error) {
       console.error("Error fetching usage data:", error);

@@ -1,4 +1,4 @@
-// app/api/usage-proxy/[subscriptionId]/api/route.ts
+// app/api/subscriptions-proxy/[subscriptionId]/api/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
@@ -11,18 +11,18 @@ export async function GET(
   const startTime = Date.now();
   const subscriptionId = params.subscriptionId;
   
-  if (IS_DEV) console.log(`[Usage Proxy] GET API usage for subscription: ${subscriptionId}`);
+  if (IS_DEV) console.log(`[Subscription Proxy] GET API usage for subscription: ${subscriptionId}`);
   
   try {
 	const authHeader = request.headers.get('authorization');
 	if (!authHeader) {
-	  if (IS_DEV) console.error(`[Usage Proxy] Missing authorization header`);
+	  if (IS_DEV) console.error(`[Subscription Proxy] Missing authorization header`);
 	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
 	}
 	
 	// Direct API call 
 	const apiUrl = `${API_URL}/usage/${subscriptionId}/api`;
-	if (IS_DEV) console.log(`[Usage Proxy] Sending request to: ${apiUrl}`);
+	if (IS_DEV) console.log(`[Subscription Proxy] Sending request to: ${apiUrl}`);
 	
 	const response = await fetch(apiUrl, {
 	  method: 'GET',
@@ -36,7 +36,7 @@ export async function GET(
 	});
 	
 	const responseTime = Date.now() - startTime;
-	if (IS_DEV) console.log(`[Usage Proxy] Backend response: status=${response.status}, time=${responseTime}ms`);
+	if (IS_DEV) console.log(`[Subscription Proxy] Backend response: status=${response.status}, time=${responseTime}ms`);
 	
 	const contentType = response.headers.get('content-type');
 	
@@ -45,7 +45,7 @@ export async function GET(
 	  return NextResponse.json(data);
 	} else {
 	  const text = await response.text();
-	  if (IS_DEV) console.error(`[Usage Proxy] Unexpected response format: ${contentType}`);
+	  if (IS_DEV) console.error(`[Subscription Proxy] Unexpected response format: ${contentType}`);
 	  return NextResponse.json({ 
 		error: "Unexpected response format", 
 		details: text.substring(0, 200) 
@@ -53,7 +53,7 @@ export async function GET(
 	}
   } catch (error) {
 	const responseTime = Date.now() - startTime;
-	console.error(`[Usage Proxy] Error (${responseTime}ms):`, error);
+	console.error(`[Subscription Proxy] Error (${responseTime}ms):`, error);
 	return NextResponse.json({
 	  error: "Failed to fetch API usage data",
 	  message: error instanceof Error ? error.message : "Unknown error"
