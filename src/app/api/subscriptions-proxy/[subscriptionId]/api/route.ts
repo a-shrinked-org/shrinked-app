@@ -8,6 +8,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { subscriptionId: string } }
 ) {
+  const startTime = Date.now(); // Add this line to define startTime
   const subscriptionId = params.subscriptionId;
   
   if (IS_DEV) console.log(`[Subscription Proxy] GET API usage for subscription: ${subscriptionId}`);
