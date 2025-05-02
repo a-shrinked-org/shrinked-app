@@ -168,9 +168,15 @@ export default function CapsuleView() {
 
   // Improved status monitoring with debouncing to prevent excessive requests
   const startStatusMonitoring = useCallback(() => {
+    // Clear any existing interval first
     if (statusCheckIntervalRef.current) {
       clearInterval(statusCheckIntervalRef.current);
       statusCheckIntervalRef.current = null;
+    }
+    
+    // If already monitoring, don't start again
+    if (statusMonitorActive) {
+      return;
     }
     
     const currentStatus = (record?.status || '').toLowerCase();
@@ -183,10 +189,10 @@ export default function CapsuleView() {
     
     if (IS_DEV) console.log("[CapsuleView] Starting status monitoring...");
     setStatusMonitorActive(true);
-    setIsRegenerating(true);
     
     // Avoid unnecessary initial refetch if we just fetched
-    const shouldFetch = Date.now() - lastFetchTimeRef.current > 2000;
+    const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+    const shouldFetch = timeSinceLastFetch > 2000;
     
     if (shouldFetch) {
       refetch().then((refreshResult) => {
@@ -204,7 +210,7 @@ export default function CapsuleView() {
       });
     }
     
-    // Use a longer interval to reduce API load - 3 seconds instead of 1.5
+    // Use a longer interval to reduce API load - 5 seconds instead of 3
     statusCheckIntervalRef.current = setInterval(async () => {
       try {
         if (!statusMonitorActive) {
@@ -213,6 +219,12 @@ export default function CapsuleView() {
             statusCheckIntervalRef.current = null;
           }
           return;
+        }
+        
+        // Add debouncing for API calls
+        const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
+        if (timeSinceLastFetch < 3000) {
+          return; // Skip this update cycle if we just fetched
         }
         
         if (IS_DEV) console.log("[CapsuleView] Checking capsule status...");
@@ -227,14 +239,12 @@ export default function CapsuleView() {
         
         const refreshedStatus = capsuleData.status.toLowerCase();
         
-        if (IS_DEV) console.log(`[CapsuleView] Status check: "${refreshedStatus}" (original: "${capsuleData.status}")`);
-        
         if (refreshedStatus === 'processing') {
           if (!isRegenerating) {
             if (IS_DEV) console.log("[CapsuleView] Setting isRegenerating to true based on status");
             setIsRegenerating(true);
           }
-        } else if (refreshedStatus === 'completed' || refreshedStatus === 'ready' || refreshedStatus === 'failed') {
+        } else if (completedStatuses.includes(refreshedStatus)) {
           if (IS_DEV) console.log(`[CapsuleView] Processing complete, final status: ${refreshedStatus}`);
           setIsRegenerating(false);
           setIsAddingFiles(false);
@@ -254,9 +264,9 @@ export default function CapsuleView() {
       } catch (error) {
         console.error("[CapsuleView] Error during status check:", error);
       }
-    }, 3000); // Changed from 1500 to 3000 ms
+    }, 5000); // Changed from 3000 to 5000 ms for less frequent checking
     
-    // Still keep a timeout to prevent indefinite monitoring
+    // Keep a timeout to prevent indefinite monitoring
     setTimeout(() => {
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
@@ -278,7 +288,7 @@ export default function CapsuleView() {
         }
       }
     }, 90000);
-  }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
+  }, [refetch, record?.status]);
 
   // Fetch current prompt values when opening the modal
   const handleOpenSettingsModal = useCallback(async () => {
@@ -417,10 +427,18 @@ export default function CapsuleView() {
   // Cleanup effect
   useEffect(() => {
     return () => {
+      // Clear any timers or intervals when component unmounts
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
         statusCheckIntervalRef.current = null;
       }
+      
+      // Clear any pending timeouts
+      const allTimeoutIds = [];
+      while (setTimeout(() => {}, 0) - 1 > 0) {
+        allTimeoutIds.push(setTimeout(() => {}, 0) - 1);
+      }
+      allTimeoutIds.forEach(clearTimeout);
     };
   }, []);
 
@@ -491,23 +509,25 @@ export default function CapsuleView() {
   
   useEffect(() => {
     // Simple status check without side effects
-    if (capsuleData?.data) {
-      const status = (capsuleData.data.status || '').toLowerCase();
+    if (!capsuleData?.data || !capsuleData.data.status) {
+      return; // Exit early if data isn't available yet
+    }
+    
+    const status = (capsuleData.data.status || '').toLowerCase();
+    
+    // Handle status changes
+    if (status === 'processing' && !statusMonitorActive && !isRegenerating) {
+      setIsRegenerating(true);
+      startStatusMonitoring();
+    } else if ((status === 'completed' || status === 'ready') && isRegenerating) {
+      setIsRegenerating(false);
+      setIsAddingFiles(false);
       
-      // Handle status changes
-      if (status === 'processing' && !statusMonitorActive && !isRegenerating) {
-        setIsRegenerating(true);
-        startStatusMonitoring();
-      } else if ((status === 'completed' || status === 'ready') && isRegenerating) {
-        setIsRegenerating(false);
-        setIsAddingFiles(false);
-        
-        if (statusMonitorActive) {
-          setStatusMonitorActive(false);
-          if (statusCheckIntervalRef.current) {
-            clearInterval(statusCheckIntervalRef.current);
-            statusCheckIntervalRef.current = null;
-          }
+      if (statusMonitorActive) {
+        setStatusMonitorActive(false);
+        if (statusCheckIntervalRef.current) {
+          clearInterval(statusCheckIntervalRef.current);
+          statusCheckIntervalRef.current = null;
         }
       }
     }
@@ -515,10 +535,28 @@ export default function CapsuleView() {
   
   useEffect(() => {
     const fileIds = capsuleData?.data?.fileIds;
-    if (fileIds && fileIds.length > 0 && !isLoadingFiles && loadedFiles.length === 0) {
-      fetchFileDetails(fileIds);
+    
+    // Exit early conditions
+    if (!fileIds || fileIds.length === 0 || isLoadingFiles) {
+      return;
     }
-  }, [capsuleData?.data?.fileIds, isLoadingFiles, loadedFiles.length, fetchFileDetails]);
+    
+    // Check if we already have all files loaded
+    const haveAllFiles = fileIds.every(id => 
+      loadedFiles.some(file => file._id === id)
+    );
+    
+    if (haveAllFiles) {
+      return; // Skip fetching if we already have all files
+    }
+    
+    // Use a debounced fetch to avoid excessive calls
+    const timeoutId = setTimeout(() => {
+      fetchFileDetails(fileIds);
+    }, 300);
+    
+    return () => clearTimeout(timeoutId); // Clean up timeout
+  }, [capsuleData?.data?.fileIds, isLoadingFiles, loadedFiles, fetchFileDetails]);
 
   // Helper function to extract summary
   const extractContextSummary = (summaryContext?: string): string | null => {
