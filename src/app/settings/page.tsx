@@ -600,11 +600,11 @@ export default function SettingsPage() {
       const { message } = await response.json();
       
       setProfile(prev => {
-        if (prev && prev.subscription) {
+        if (prev) {
           return {
             ...prev,
-            subscription: {
-              ...prev.subscription,
+            subscriptionPlan: {
+              ...prev.subscriptionPlan,
               cancelAtPeriodEnd: true
             }
           };
