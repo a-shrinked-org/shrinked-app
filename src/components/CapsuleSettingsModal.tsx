@@ -14,18 +14,16 @@ import {
 } from '@mantine/core';
 import { X } from 'lucide-react';
 
-interface Prompt {
-  section: string;
-  prompt: string;
-  prefill?: string;
-}
-
 interface CapsuleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   isLoading: boolean;
-  prompts: Prompt[];
-  onPromptChange: (section: string, value: string) => void;
+  summary: string;
+  highlights: string;
+  testSummary: string;
+  onSummaryChange: (value: string) => void;
+  onHighlightsChange: (value: string) => void;
+  onTestSummaryChange: (value: string) => void;
   onSave: () => void;
   saveStatus: string;
 }
@@ -34,16 +32,15 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   isOpen,
   onClose,
   isLoading,
-  prompts,
-  onPromptChange,
+  summary,
+  highlights,
+  testSummary,
+  onSummaryChange,
+  onHighlightsChange,
+  onTestSummaryChange,
   onSave,
   saveStatus
 }) => {
-  // Find specific prompts
-  const summaryPrompt = prompts.find(p => p.section === 'capsule.summary');
-  const highlightsPrompt = prompts.find(p => p.section === 'capsule.highlights');
-  const testSummaryPrompt = prompts.find(p => p.section === 'capsule.testSummary');
-
   return (
     <Modal
       opened={isOpen}
@@ -116,8 +113,8 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
               
               <Textarea
                 placeholder="Generate a comprehensive summary of the provided documents."
-                value={summaryPrompt?.prompt || ''}
-                onChange={(e) => onPromptChange('capsule.summary', e.target.value)}
+                value={summary}
+                onChange={(e) => onSummaryChange(e.target.value)}
                 minRows={4}
                 autosize
                 maxRows={8}
@@ -169,8 +166,8 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
               
               <Textarea
                 placeholder="Extract key highlights from the documents."
-                value={highlightsPrompt?.prompt || ''}
-                onChange={(e) => onPromptChange('capsule.highlights', e.target.value)}
+                value={highlights}
+                onChange={(e) => onHighlightsChange(e.target.value)}
                 minRows={4}
                 autosize
                 maxRows={8}
@@ -222,8 +219,8 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
               
               <Textarea
                 placeholder="Generate a test summary to verify functionality and language support."
-                value={testSummaryPrompt?.prompt || ''}
-                onChange={(e) => onPromptChange('capsule.testSummary', e.target.value)}
+                value={testSummary}
+                onChange={(e) => onTestSummaryChange(e.target.value)}
                 minRows={4}
                 autosize
                 maxRows={8}

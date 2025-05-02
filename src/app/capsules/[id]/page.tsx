@@ -14,6 +14,10 @@ import {
   Flex,
   Stack,
   Title,
+  ScrollArea,
+  Textarea,
+  Modal,
+  Divider,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -33,7 +37,301 @@ import { useAuth } from "@/utils/authUtils";
 import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
-import CapsuleSettingsModal from '@/components/CapsuleSettingsModal';
+
+// CapsuleSettingsModal Component
+interface CapsuleSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  isLoading: boolean;
+  summary: string;
+  highlights: string;
+  testSummary: string;
+  onSummaryChange: (value: string) => void;
+  onHighlightsChange: (value: string) => void;
+  onTestSummaryChange: (value: string) => void;
+  onSave: () => void;
+  saveStatus: string;
+}
+
+const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
+  isOpen,
+  onClose,
+  isLoading,
+  summary,
+  highlights,
+  testSummary,
+  onSummaryChange,
+  onHighlightsChange,
+  onTestSummaryChange,
+  onSave,
+  saveStatus
+}) => {
+  return (
+    <Modal
+      opened={isOpen}
+      onClose={onClose}
+      withCloseButton={false}
+      title={null}
+      centered
+      size="lg"
+      styles={{
+        body: { 
+          backgroundColor: '#000000', 
+          color: '#ffffff',
+          padding: '22px 30px',
+        },
+        inner: {
+          padding: 0,
+        },
+        content: {
+          maxWidth: '700px',
+          borderRadius: '10px',
+          border: '0.5px solid #2B2B2B',
+          overflow: 'hidden',
+        },
+      }}
+    >
+      <Box>
+        <Flex justify="space-between" align="center" mb="16px">
+          <Text fw={500} size="md">
+            Capsule Settings
+          </Text>
+          <ActionIcon 
+            onClick={onClose} 
+            variant="transparent" 
+            color="#ffffff" 
+            style={{ marginRight: '-10px', marginTop: '-10px' }}
+          >
+            <X size={18} />
+          </ActionIcon>
+        </Flex>
+        
+        <Text size="md" mb="lg" style={{ 
+          color: '#A1A1A1', 
+          fontSize: '14px',
+          fontFamily: 'inherit'
+        }}>
+          Edit the admin prompts used for content generation
+        </Text>
+        
+        <Box style={{ position: 'relative' }}>
+          <LoadingOverlay visible={isLoading} overlayProps={{ blur: 2 }} />
+          
+          <ScrollArea h={450} scrollbarSize={6} scrollHideDelay={500} type="auto" offsetScrollbars>
+            {/* Capsule Summary Prompt */}
+            <Box mb="lg">
+              <Divider 
+                my="md" 
+                label="Capsule Summary" 
+                labelPosition="center"
+                styles={{
+                  label: { 
+                    color: '#F5A623', 
+                    fontSize: '14px',
+                    fontWeight: 500
+                  },
+                  root: {
+                    borderColor: '#2B2B2B'
+                  }
+                }}
+              />
+              
+              <Textarea
+                placeholder="Generate a comprehensive summary of the provided documents."
+                value={summary}
+                onChange={(e) => onSummaryChange(e.target.value)}
+                minRows={4}
+                autosize
+                maxRows={8}
+                styles={{
+                  input: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2B2B2B',
+                    color: '#ffffff',
+                    borderWidth: '0.5px',
+                    padding: '12px 16px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    '&:focus': {
+                      borderColor: '#F5A623',
+                    },
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: '#000000',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#0C0C0C',
+                      borderRadius: '3px',
+                      border: '0.5px solid #2B2B2B',
+                    },
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Highlights Prompt */}
+            <Box mb="lg">
+              <Divider 
+                my="md" 
+                label="Capsule Highlights" 
+                labelPosition="center"
+                styles={{
+                  label: { 
+                    color: '#F5A623', 
+                    fontSize: '14px',
+                    fontWeight: 500
+                  },
+                  root: {
+                    borderColor: '#2B2B2B'
+                  }
+                }}
+              />
+              
+              <Textarea
+                placeholder="Extract key highlights from the documents."
+                value={highlights}
+                onChange={(e) => onHighlightsChange(e.target.value)}
+                minRows={4}
+                autosize
+                maxRows={8}
+                styles={{
+                  input: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2B2B2B',
+                    color: '#ffffff',
+                    borderWidth: '0.5px',
+                    padding: '12px 16px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    '&:focus': {
+                      borderColor: '#F5A623',
+                    },
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: '#000000',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#0C0C0C',
+                      borderRadius: '3px',
+                      border: '0.5px solid #2B2B2B',
+                    },
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Test Summary Prompt */}
+            <Box mb="lg">
+              <Divider 
+                my="md" 
+                label="Test Summary" 
+                labelPosition="center"
+                styles={{
+                  label: { 
+                    color: '#F5A623', 
+                    fontSize: '14px',
+                    fontWeight: 500
+                  },
+                  root: {
+                    borderColor: '#2B2B2B'
+                  }
+                }}
+              />
+              
+              <Textarea
+                placeholder="Generate a test summary to verify functionality and language support."
+                value={testSummary}
+                onChange={(e) => onTestSummaryChange(e.target.value)}
+                minRows={4}
+                autosize
+                maxRows={8}
+                styles={{
+                  input: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2B2B2B',
+                    color: '#ffffff',
+                    borderWidth: '0.5px',
+                    padding: '12px 16px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    '&:focus': {
+                      borderColor: '#F5A623',
+                    },
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: '#000000',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#0C0C0C',
+                      borderRadius: '3px',
+                      border: '0.5px solid #2B2B2B',
+                    },
+                  }
+                }}
+              />
+              <Text size="xs" mt="xs" style={{ color: '#666666' }}>
+                Test summary allows you to test specific summary configurations, e.g., non-English summaries
+              </Text>
+            </Box>
+          </ScrollArea>
+          
+          {saveStatus && (
+            <Text 
+              size="sm" 
+              c={saveStatus === 'Saved successfully' ? 'green' : 
+                 saveStatus === 'Saving...' ? 'orange' : 'red'} 
+              mb="md"
+              mt="md"
+            >
+              {saveStatus}
+            </Text>
+          )}
+          
+          <Group justify="flex-end" mt="lg">
+            <Button
+              variant="default"
+              onClick={onClose}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                  height: '44px',
+                  '&:hover': {
+                    backgroundColor: '#2b2b2b',
+                  },
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={onSave}
+              loading={isLoading && saveStatus === 'Saving...'}
+              styles={{
+                root: {
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  height: '44px',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              Save & Regenerate
+            </Button>
+          </Group>
+        </Box>
+      </Box>
+    </Modal>
+  );
+};
 
 // Consistent error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -93,12 +391,8 @@ interface Capsule {
   highlights?: Array<{
     xml: string;
   }>;
-}
-
-interface Prompt {
-  section: string;
-  prompt: string;
-  prefill?: string;
+  summary?: string;
+  testSummary?: string;
 }
 
 // Constants
@@ -127,69 +421,13 @@ export default function CapsuleView() {
   const [statusMonitorActive, setStatusMonitorActive] = useState(false);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
     
+  // Settings modal state
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  
-  const [promptsData, setPromptsData] = useState<Prompt[]>([]);
+  const [summaryPrompt, setSummaryPrompt] = useState('');
+  const [highlightsPrompt, setHighlightsPrompt] = useState('');
+  const [testSummaryPrompt, setTestSummaryPrompt] = useState('');
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [promptSaveStatus, setPromptSaveStatus] = useState('');
-
-  // Fetch admin prompts
-  const fetchAdminPrompts = useCallback(async () => {
-    try {
-      setIsLoadingPrompts(true);
-      const response = await fetchWithAuth(`/api/admin/prompts`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch prompts: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Filter to only include capsule-related prompts (starting with "capsule.")
-      // And safely handle null/undefined section values
-      const filteredPrompts = Array.isArray(data) 
-        ? data.filter(prompt => prompt.section && prompt.section.startsWith('capsule.'))
-        : [];
-        
-      setPromptsData(filteredPrompts);
-    } catch (error) {
-      console.error('[CapsuleView] Failed to fetch admin prompts:', error);
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  }, [fetchWithAuth, handleAuthError]);
-
-  // Update prompts when modal opens
-  useEffect(() => {
-    if (isSettingsModalOpen) {
-      fetchAdminPrompts();
-    }
-  }, [isSettingsModalOpen, fetchAdminPrompts]);
-
-  // Handle prompt changes
-  const handlePromptChange = useCallback((section: string, value: string) => {
-    setPromptsData(prev => {
-      const existingPromptIndex = prev.findIndex(p => p.section === section);
-      
-      if (existingPromptIndex !== -1) {
-        // Update existing prompt
-        const updatedPrompts = [...prev];
-        updatedPrompts[existingPromptIndex] = {
-          ...updatedPrompts[existingPromptIndex],
-          prompt: value
-        };
-        return updatedPrompts;
-      } else {
-        // Create new prompt
-        return [...prev, {
-          section: section,
-          prompt: value
-        }];
-      }
-    });
-  }, []);
 
   // First get queryResult and refetch
   const { queryResult } = useShow<Capsule>({
@@ -317,61 +555,102 @@ export default function CapsuleView() {
     }, 90000);
   }, [refetch, isRegenerating, statusMonitorActive, record?.status]);
 
-  // Save admin prompts
-  const saveAdminPrompts = useCallback(async () => {
-    if (!promptsData.length) return;
+  // Fetch current prompt values when opening the modal
+  const handleOpenSettingsModal = useCallback(async () => {
+    setIsLoadingPrompts(true);
+    try {
+      // Fetch current settings for the capsule
+      const response = await fetchWithAuth(`/api/capsules/${capsuleId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch capsule data: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Set prompt values (if they exist)
+      setSummaryPrompt(data.summary || '');
+      setHighlightsPrompt(data.highlights || '');
+      setTestSummaryPrompt(data.testSummary || '');
+      
+      setIsSettingsModalOpen(true);
+    } catch (error) {
+      console.error('Failed to fetch capsule settings:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to load capsule settings',
+        color: 'red',
+      });
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth]);
+
+  // Save the updated prompt values
+  const handleSaveSettings = useCallback(async () => {
+    setIsLoadingPrompts(true);
+    setPromptSaveStatus('Saving...');
     
     try {
-      setIsLoadingPrompts(true);
-      setPromptSaveStatus('Saving...');
-      
-      // Send all prompts to the API at once
-      const response = await fetchWithAuth(`/api/admin/prompts/upsert`, {
+      // For updating files and prompts
+      const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(promptsData)
+        body: JSON.stringify({
+          // Include existing file IDs if you have them
+          fileIds: record?.fileIds || record?.files?.map(file => file._id) || [],
+          // Include the prompts
+          summary: summaryPrompt,
+          highlights: highlightsPrompt,
+          testSummary: testSummaryPrompt
+        })
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Failed to save prompts: ${response.status} ${errorData?.error || ''}`);
+        throw new Error(`Failed to save settings: ${response.status}`);
       }
       
       setPromptSaveStatus('Saved successfully');
       
-      setTimeout(() => {
-        setPromptSaveStatus('');
-      }, 3000);
-      
       // Trigger regeneration
-      const regenerateResponse = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, {
+      const regenerateResponse = await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, {
         method: 'GET',
       });
       
       if (!regenerateResponse.ok) {
-        console.warn('[CapsuleView] Regeneration after saving prompts failed:', regenerateResponse.status);
+        console.warn('Regeneration request failed:', regenerateResponse.status);
       } else {
         setIsRegenerating(true);
         startStatusMonitoring();
         
         notifications.show({
-          title: 'Regenerating Capsule',
-          message: 'Capsule is being regenerated with new prompts.',
-          color: 'yellow',
+          title: 'Regenerating',
+          message: 'Capsule is being regenerated with new settings',
+          color: 'blue',
         });
       }
       
+      // Clear status after a delay
+      setTimeout(() => {
+        setPromptSaveStatus('');
+        setIsSettingsModalOpen(false);
+      }, 2000);
+      
     } catch (error) {
-      console.error('[CapsuleView] Failed to save prompts:', error);
+      console.error('Failed to save settings:', error);
       setPromptSaveStatus('Failed to save');
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
+      
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to save capsule settings',
+        color: 'red',
+      });
     } finally {
       setIsLoadingPrompts(false);
     }
-  }, [capsuleId, fetchWithAuth, handleAuthError, promptsData, startStatusMonitoring]);
+  }, [capsuleId, record?.fileIds, record?.files, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt, startStatusMonitoring]);
 
   // Implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
@@ -1007,7 +1286,7 @@ export default function CapsuleView() {
             <Button
               variant="default"
               leftSection={<Settings size={16} />}
-              onClick={() => setIsSettingsModalOpen(true)}
+              onClick={() => handleOpenSettingsModal()}
               disabled={isProcessing}
               styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
             >
@@ -1188,13 +1467,18 @@ export default function CapsuleView() {
         capsuleId={capsuleId}
         existingFileIds={record?.fileIds || []}
       />
+      
       <CapsuleSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         isLoading={isLoadingPrompts}
-        prompts={promptsData}
-        onPromptChange={handlePromptChange}
-        onSave={saveAdminPrompts}
+        summary={summaryPrompt}
+        highlights={highlightsPrompt}
+        testSummary={testSummaryPrompt}
+        onSummaryChange={setSummaryPrompt}
+        onHighlightsChange={setHighlightsPrompt}
+        onTestSummaryChange={setTestSummaryPrompt}
+        onSave={handleSaveSettings}
         saveStatus={promptSaveStatus}
       />
     </Box>
