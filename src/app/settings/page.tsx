@@ -33,12 +33,16 @@ interface UserProfile {
   username?: string;
   createdAt: string;
   roles?: string[];
-  subscription?: {
+  stripeCustomerId?: string; // Added
+  subscriptionPlan?: {
     id: string;
-    planId: string;
-    status: string;
-    currentPeriodEnd: string;
-    cancelAtPeriodEnd: boolean;
+    name: string;
+    monthlyPrice: number;
+    yearlyPrice: number;
+  };
+  usage?: {  // Added
+    jobsCount: number;
+    processingTimeUsed: number;
   };
 }
 
@@ -426,13 +430,13 @@ export default function SettingsPage() {
   }, [router, fetchUsageData]);
 
   useEffect(() => {
-    if (profile?.subscription?.id) {
-      console.log(`[Debug] Found subscription ID: ${profile.subscription.id}, calling fetchUsageData`);
-      fetchUsageData(profile.subscription.id);
+    if (profile?.stripeCustomerId) {
+      console.log(`[Debug] Found Stripe customer ID: ${profile.stripeCustomerId}, calling fetchUsageData`);
+      fetchUsageData(profile.stripeCustomerId);
     } else {
-      console.log(`[Debug] No subscription ID found in profile:`, profile);
+      console.log(`[Debug] No Stripe customer ID found in profile:`, profile);
     }
-  }, [profile?.subscription?.id, fetchUsageData]);
+  }, [profile?.stripeCustomerId, fetchUsageData]);
 
   const isUserAdmin = (
     identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' || 
@@ -440,8 +444,8 @@ export default function SettingsPage() {
   ) || false;
 
   const getCurrentPlan = useCallback(() => {
-    if (profile?.subscription?.planId) {
-      const matchedPlan = plans.find(plan => plan._id === profile?.subscription?.planId);
+    if (profile?.subscriptionPlan?._id) {
+      const matchedPlan = plans.find(plan => plan._id === profile?.subscriptionPlan?._id);
       if (matchedPlan) return matchedPlan;
     }
     
