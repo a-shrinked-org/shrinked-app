@@ -413,40 +413,6 @@ export default function CapsuleView() {
       setIsLoadingPrompts(false);
     }
   }, [capsuleId, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
-  
-  // Implement the onSuccess callback with startStatusMonitoring
-  useEffect(() => {
-    if (capsuleData?.data) {
-      const data = capsuleData;
-      const currentStatus = (data.data.status || '').toLowerCase();
-      
-      if (currentStatus === 'processing' && !statusMonitorActive) {
-        if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
-        setIsRegenerating(true);
-        startStatusMonitoring();
-      }
-      
-      if ((currentStatus === 'completed' || currentStatus === 'ready') && isRegenerating) {
-        if (IS_DEV) console.log(`[CapsuleView] Detected ${currentStatus.toUpperCase()} status, stopping regeneration`);
-        setIsRegenerating(false);
-        setIsAddingFiles(false);
-        
-        if (statusMonitorActive) {
-          setStatusMonitorActive(false);
-          if (statusCheckIntervalRef.current) {
-            clearInterval(statusCheckIntervalRef.current);
-            statusCheckIntervalRef.current = null;
-          }
-        }
-      }
-      
-      if (data.data.fileIds && (!data.data.files || data.data.files.length === 0)) {
-        if (!isLoadingFiles && loadedFiles.length === 0) {
-          fetchFileDetails(data.data.fileIds);
-        }
-      }
-    }
-  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, isAddingFiles, fetchFileDetails]);
 
   // Cleanup effect
   useEffect(() => {
@@ -501,11 +467,6 @@ export default function CapsuleView() {
         }
       }
   
-      // If we get here, we couldn't get the files from the capsule directly
-      // Let's try getting them from the user's documents
-  
-      // Rest of the function remains unchanged...
-  
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
       const placeholders = fileIds.map(id => ({
@@ -526,8 +487,41 @@ export default function CapsuleView() {
       setIsLoadingFiles(false);
     }
   }, [capsuleId, fetchWithAuth, ensureValidToken]);
-
-  // Trigger initial fetch if needed
+  
+  useEffect(() => {
+    if (capsuleData?.data) {
+      const data = capsuleData;
+      const currentStatus = (data.data.status || '').toLowerCase();
+      
+      if (currentStatus === 'processing' && !statusMonitorActive) {
+        if (IS_DEV) console.log("[CapsuleView] Detected PROCESSING status, starting monitoring");
+        setIsRegenerating(true);
+        startStatusMonitoring();
+      }
+      
+      if ((currentStatus === 'completed' || currentStatus === 'ready') && isRegenerating) {
+        if (IS_DEV) console.log(`[CapsuleView] Detected ${currentStatus.toUpperCase()} status, stopping regeneration`);
+        setIsRegenerating(false);
+        setIsAddingFiles(false);
+        
+        if (statusMonitorActive) {
+          setStatusMonitorActive(false);
+          if (statusCheckIntervalRef.current) {
+            clearInterval(statusCheckIntervalRef.current);
+            statusCheckIntervalRef.current = null;
+          }
+        }
+      }
+      
+      if (data.data.fileIds && (!data.data.files || data.data.files.length === 0)) {
+        if (!isLoadingFiles && loadedFiles.length === 0) {
+          fetchFileDetails(data.data.fileIds);
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, isAddingFiles]);
+  
   useEffect(() => {
     if (
       record?.fileIds && 
