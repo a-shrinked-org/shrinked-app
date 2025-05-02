@@ -575,7 +575,7 @@ export default function SettingsPage() {
   };
 
   const handleCancelSubscription = async () => {
-    if (!profile?.subscription?.id) {
+    if (!profile?.stripeCustomerId) {
       notifications.show({
         title: "Error",
         message: "No active subscription found",
@@ -702,7 +702,7 @@ export default function SettingsPage() {
               setPlans(Array.isArray(plansData) ? plansData : []);
             }
             
-            if (profileData?.subscription?.id) {
+            if (profileData?.stripeCustomerId) {
               await fetchUsageData(profileData.subscription.id);
             }
             
@@ -947,7 +947,7 @@ export default function SettingsPage() {
                 {currentPlan?.name || "FREE"}
               </Badge>
               
-              {profile?.subscription?.cancelAtPeriodEnd && (
+              {profile?.subscriptionPlan?.cancelAtPeriodEnd && (
                 <Badge ml="sm" color="yellow" size="sm">Cancels at period end</Badge>
               )}
             </Text>
@@ -1063,7 +1063,7 @@ export default function SettingsPage() {
               {isAdvancedOpen && (
                 <Box mt="md" pl="md">
                   <Stack gap="md">
-                    {profile?.subscription?.id && !profile.subscription.cancelAtPeriodEnd && (
+                    {profile?.subscriptionPlan?.id && !profile.subscription.cancelAtPeriodEnd && (
                       <Button 
                         variant="outline" 
                         color="orange" 
