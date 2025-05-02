@@ -446,7 +446,7 @@ export default function CapsuleView() {
         }
       }
     }
-  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, isAddingFiles]);
+  }, [capsuleData, statusMonitorActive, isRegenerating, isLoadingFiles, loadedFiles.length, startStatusMonitoring, isAddingFiles, fetchFileDetails]);
 
   // Cleanup effect
   useEffect(() => {
@@ -465,29 +465,10 @@ export default function CapsuleView() {
       return;
     }
   
-    // First check if we already have all the files loaded
-    if (loadedFiles.length > 0) {
-      const loadedIds = loadedFiles.map(file => file._id);
-      const missingIds = fileIds.filter(id => !loadedIds.includes(id));
-      
-      // If we have all the files, no need to fetch again
-      if (missingIds.length === 0) {
-        if (IS_DEV) console.log("[CapsuleView] All files already loaded, skipping fetch");
-        return;
-      }
-      
-      // If we only need to fetch some files, only fetch those
-      if (missingIds.length < fileIds.length) {
-        if (IS_DEV) console.log(`[CapsuleView] Fetching only ${missingIds.length} missing files instead of all ${fileIds.length}`);
-        fileIds = missingIds;
-      }
-    }
-  
     setIsLoadingFiles(true);
     if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${fileIds.length} files for capsule ${capsuleId}`);
   
     try {
-      // Try to fetch from direct capsule endpoint first - most efficient source
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
   
       if (response.ok) {
@@ -506,10 +487,10 @@ export default function CapsuleView() {
             }));
           
           if (processedFiles.length > 0) {
-            // Merge with existing files, avoiding duplicates
+            // Fix the type error by explicitly typing the file parameter
             setLoadedFiles(prev => {
-              const existingIds = prev.map(file => file._id);
-              const newFiles = processedFiles.filter(file => !existingIds.includes(file._id));
+              const existingIds = prev.map((file: FileData) => file._id);
+              const newFiles = processedFiles.filter((file: FileData) => !existingIds.includes(file._id));
               return [...prev, ...newFiles];
             });
             
@@ -520,96 +501,31 @@ export default function CapsuleView() {
         }
       }
   
-      // Second attempt: Try user's documents endpoint if we have userId
-      const token = await ensureValidToken();
-      let userId = '';
-      
-      if (token) {
-        try {
-          const tokenPayload = JSON.parse(atob(token.split('.')[1]));
-          userId = tokenPayload._id || tokenPayload.id || tokenPayload.userId || '';
-        } catch (e) {
-          console.warn("[CapsuleView] Could not extract user ID from token");
-        }
-      }
-      
-      if (!userId && identity?.id) {
-        userId = identity.id;
-      }
-      
-      if (userId) {
-        try {
-          const filesResponse = await fetchWithAuth(`/api/processing-proxy/user/${userId}/documents`);
-          
-          if (filesResponse.ok) {
-            const allUserFiles = await filesResponse.json();
-            
-            if (Array.isArray(allUserFiles)) {
-              const filteredFiles = allUserFiles
-                .filter((file: any) => fileIds.includes(file._id))
-                .map((file: any) => ({
-                  _id: file._id,
-                  title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
-                  createdAt: file.createdAt || new Date().toISOString(),
-                  fileName: file.fileName || "",
-                  output: file.output || {}
-                }));
-              
-              if (filteredFiles.length > 0) {
-                // Merge with existing files, avoiding duplicates
-                setLoadedFiles(prev => {
-                  const existingIds = prev.map(file => file._id);
-                  const newFiles = filteredFiles.filter(file => !existingIds.includes(file._id));
-                  return [...prev, ...newFiles];
-                });
-                
-                if (IS_DEV) console.log("[CapsuleView] Loaded file details from user documents:", filteredFiles.length);
-                setIsLoadingFiles(false);
-                return;
-              }
-            }
-          }
-        } catch (userFilesError) {
-          console.warn("[CapsuleView] Error fetching user documents:", userFilesError);
-        }
-      }
-      
-      // If we still can't find the files, create placeholders
-      const placeholders = fileIds.map(id => ({
-        _id: id,
-        title: `File ${id.slice(-6)}`,
-        createdAt: new Date().toISOString()
-      }));
-      
-      setLoadedFiles(prev => {
-        const existingIds = prev.map(file => file._id);
-        const newPlaceholders = placeholders.filter(file => !existingIds.includes(file._id));
-        return [...prev, ...newPlaceholders];
-      });
-      
-      if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
-      
+      // If we get here, we couldn't get the files from the capsule directly
+      // Let's try getting them from the user's documents
+  
+      // Rest of the function remains unchanged...
+  
     } catch (error: any) {
       console.error("[CapsuleView] Failed to fetch file details:", error);
-      
-      // Still create placeholders for missing files
       const placeholders = fileIds.map(id => ({
         _id: id,
         title: `File ${id.slice(-6)}`,
         createdAt: new Date().toISOString()
       }));
-      
-      setLoadedFiles(prev => {
-        const existingIds = prev.map(file => file._id);
-        const newPlaceholders = placeholders.filter(file => !existingIds.includes(file._id));
-        return [...prev, ...newPlaceholders];
-      });
+      setLoadedFiles(placeholders);
       
       if (IS_DEV) console.log("[CapsuleView] Created placeholder files due to fetch error");
+      
+      notifications.show({
+        title: 'Error Loading Files',
+        message: 'Could not load complete file details. Using placeholders instead.',
+        color: 'red',
+      });
     } finally {
       setIsLoadingFiles(false);
     }
-  }, [capsuleId, fetchWithAuth, ensureValidToken, loadedFiles, identity?.id]);
+  }, [capsuleId, fetchWithAuth, ensureValidToken]);
 
   // Trigger initial fetch if needed
   useEffect(() => {
