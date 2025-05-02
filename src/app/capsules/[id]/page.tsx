@@ -299,7 +299,7 @@ export default function CapsuleView() {
     
     try {
       // For updating files and prompts
-      const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files`, {
+      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -320,29 +320,17 @@ export default function CapsuleView() {
       
       setPromptSaveStatus('Saved successfully');
       
-      // Trigger regeneration
-      const regenerateResponse = await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, {
-        method: 'GET',
-      });
-      
-      if (!regenerateResponse.ok) {
-        console.warn('Regeneration request failed:', regenerateResponse.status);
-      } else {
-        setIsRegenerating(true);
-        startStatusMonitoring();
-        
-        notifications.show({
-          title: 'Regenerating',
-          message: 'Capsule is being regenerated with new settings',
-          color: 'blue',
-        });
-      }
-      
-      // Clear status after a delay
+      // Clear status after a delay and close modal
       setTimeout(() => {
         setPromptSaveStatus('');
         setIsSettingsModalOpen(false);
       }, 2000);
+      
+      notifications.show({
+        title: 'Settings Saved',
+        message: 'Capsule settings have been updated successfully',
+        color: 'green',
+      });
       
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -356,7 +344,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingPrompts(false);
     }
-  }, [capsuleId, record?.fileIds, record?.files, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt, startStatusMonitoring]);
+  }, [capsuleId, record?.fileIds, record?.files, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
 
   // Implement the onSuccess callback with startStatusMonitoring
   useEffect(() => {
