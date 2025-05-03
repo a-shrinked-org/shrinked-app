@@ -691,7 +691,7 @@ export default function CapsuleView() {
             variant="default"
             leftSection={<RefreshCw size={16} />}
             onClick={handleRegenerateCapsule}
-            loading={isProcessing}
+            loading={isProcessing
             disabled={!hasFiles || isAddingFiles}
             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
@@ -810,7 +810,7 @@ export default function CapsuleView() {
           </Box>
           <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
             {isProcessing ? (
-              <Stack align="center" justify "center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
                 <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
                 <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
