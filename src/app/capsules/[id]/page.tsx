@@ -813,7 +813,7 @@ export default function CapsuleView() {
                 </Text>
               </Stack>
             ) : hasContextSummary ? (
-              <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext)} />
+              <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext) ?? ""} />
             ) : hasFiles ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                 <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
