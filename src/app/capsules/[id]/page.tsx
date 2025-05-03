@@ -93,9 +93,10 @@ interface Capsule {
   testSummary?: string;
 }
 
-const REFRESH_INTERVAL_MS = 10000; // 10 seconds
+const REFRESH_INTERVAL_MS = 5000; // 5 seconds
 const FILE_BATCH_SIZE = 5;
 const IS_DEV = process.env.NODE_ENV === 'development';
+const MAX_FETCH_RETRIES = 3; // Limit retries to prevent loops
 
 // Debounce utility
 const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
@@ -114,14 +115,14 @@ export default function CapsuleView() {
   const params = useParams();
   const { list } = useNavigation();
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
-  const { data: identity } = useGetIdentity<Identity>({
+  const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>({
     queryOptions: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchInterval: false,
       refetchOnWindowFocus: false,
     },
   });
-  const { handleAuthError, fetchWithAuth } = useAuth();
+  const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
 
   // State declarations
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -132,6 +133,7 @@ export default function CapsuleView() {
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [statusMonitorActive, setStatusMonitorActive] = useState(false);
+  const [fetchRetries, setFetchRetries] = useState(0); // Track fetch attempts
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Settings modal state
@@ -167,12 +169,15 @@ export default function CapsuleView() {
 
   // Status monitoring
   const startStatusMonitoring = useCallback(() => {
-    if (statusMonitorActive) return;
+    if (statusMonitorActive) {
+      if (IS_DEV) console.log("[CapsuleView] Status monitoring already active, skipping");
+      return;
+    }
 
     const currentStatus = (record?.status || '').toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
 
-    if (completedStatuses.includes(currentStatus)) {
+    if (completedStatuses.includes(currentStatus) && !isRegenerating) {
       if (IS_DEV) console.log(`[CapsuleView] Status ${currentStatus}, no monitoring needed`);
       setIsRegenerating(false);
       return;
@@ -214,6 +219,7 @@ export default function CapsuleView() {
       }
     }, REFRESH_INTERVAL_MS);
 
+    // Timeout to prevent infinite monitoring
     setTimeout(() => {
       if (statusMonitorActive) {
         if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out");
@@ -221,28 +227,68 @@ export default function CapsuleView() {
         setIsRegenerating(false);
         setIsAddingFiles(false);
         if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
+        debouncedRefetch();
       }
-    }, 120000);
-  }, [record?.status, debouncedRefetch, statusMonitorActive]);
+    }, 90000); // 90 seconds
+  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
 
   // File operations
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
-    if (!fileIds?.length || !capsuleId || isLoadingFiles) return;
+    if (!fileIds?.length || !capsuleId || !identity?.id || isLoadingFiles) {
+      if (IS_DEV) console.log("[CapsuleView] Skipping fetch: missing data or already loading");
+      return;
+    }
 
     const missingFileIds = fileIds.filter(id => !loadedFiles.some(file => file._id === id));
-    if (!missingFileIds.length) return;
+    if (!missingFileIds.length) {
+      if (IS_DEV) console.log("[CapsuleView] All file IDs already loaded");
+      return;
+    }
 
     setIsLoadingFiles(true);
+    if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${missingFileIds.length} files`);
+
     try {
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
-      if (!response.ok) throw new Error(`Failed to fetch files: ${response.status}`);
+      // Primary endpoint: /processing/user/:userId/documents
+      let response = await fetchWithAuth(`/api/processing-proxy/user/${identity.id}/documents`);
+      if (!response.ok) throw new Error(`User documents fetch failed: ${response.status}`);
 
-      const data = await response.json();
-      const capsuleData = data?.data || data;
+      let documents = await response.json();
+      if (!Array.isArray(documents)) {
+        if (IS_DEV) console.warn("[CapsuleView] Invalid documents response, not an array");
+        documents = [];
+      }
 
-      if (capsuleData?.files?.length) {
-        const processedFiles = capsuleData.files
-          .filter((file: any) => fileIds.includes(file._id))
+      let processedFiles = documents
+        .filter((doc: any) => missingFileIds.includes(doc._id))
+        .map((doc: any) => ({
+          _id: doc._id,
+          title: doc.title || doc.output?.title || doc.fileName || `File ${doc._id.slice(-6)}`,
+          createdAt: doc.createdAt || new Date().toISOString(),
+          fileName: doc.fileName || "",
+          output: doc.output || {}
+        }));
+
+      if (processedFiles.length) {
+        setLoadedFiles(prev => {
+          const existingIds = prev.map(f => f._id);
+          const newFiles = processedFiles.filter((f: FileData) => !existingIds.includes(f._id));
+          return [...prev, ...newFiles];
+        });
+        if (IS_DEV) console.log("[CapsuleView] Loaded files from user documents endpoint");
+        return;
+      }
+
+      // Fallback: /capsules/:id
+      response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
+      if (!response.ok) throw new Error(`Capsule fetch failed: ${response.status}`);
+
+      let data = await response.json();
+      data = data?.data || data;
+
+      if (data?.files?.length) {
+        processedFiles = data.files
+          .filter((file: any) => missingFileIds.includes(file._id))
           .map((file: any) => ({
             _id: file._id,
             title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
@@ -251,14 +297,21 @@ export default function CapsuleView() {
             output: file.output || {}
           }));
 
-        setLoadedFiles(prev => {
-          const existingIds = prev.map(f => f._id);
-          const newFiles = processedFiles.filter((f: FileData) => !existingIds.includes(f._id));
-          return [...prev, ...newFiles];
-        });
+        if (processedFiles.length) {
+          setLoadedFiles(prev => {
+            const existingIds = prev.map(f => f._id);
+            const newFiles = processedFiles.filter((f: FileData) => !existingIds.includes(f._id));
+            return [...prev, ...newFiles];
+          });
+          if (IS_DEV) console.log("[CapsuleView] Loaded files from capsule endpoint");
+          return;
+        }
       }
+
+      // No files found, use placeholders
+      throw new Error("No file data found from any endpoint");
     } catch (error) {
-      if (IS_DEV) console.error("Error fetching file details:", error);
+      if (IS_DEV) console.error("[CapsuleView] Failed to fetch file details:", error);
       const placeholders = missingFileIds.map(id => ({
         _id: id,
         title: `File ${id.slice(-6)}`,
@@ -269,10 +322,16 @@ export default function CapsuleView() {
         const newPlaceholders = placeholders.filter(p => !existingIds.includes(p._id));
         return [...prev, ...newPlaceholders];
       });
+      notifications.show({
+        title: 'Error Loading Files',
+        message: 'Could not load file details. Showing placeholders.',
+        color: 'red',
+      });
     } finally {
       setIsLoadingFiles(false);
+      setFetchRetries(prev => prev + 1); // Increment retry count
     }
-  }, [capsuleId, fetchWithAuth, loadedFiles, isLoadingFiles]);
+  }, [capsuleId, identity?.id, fetchWithAuth, loadedFiles, isLoadingFiles]);
 
   const handleAddFile = useCallback(() => {
     setIsFileSelectorOpen(true);
@@ -504,14 +563,23 @@ export default function CapsuleView() {
     }
   }, [capsuleData?.data?.status, identity?.token, statusMonitorActive, isRegenerating, startStatusMonitoring]);
 
-  // File effect
+  // File effect with retry limit
   useEffect(() => {
     const fileIds = capsuleData?.data?.fileIds;
-    if (!fileIds?.length || isLoadingFiles || fileIds.every(id => loadedFiles.some(file => file._id === id))) return;
+    if (
+      !fileIds?.length ||
+      isLoadingFiles ||
+      fileIds.every(id => loadedFiles.some(file => file._id === id)) ||
+      fetchRetries >= MAX_FETCH_RETRIES
+    ) {
+      if (fetchRetries >= MAX_FETCH_RETRIES) {
+        if (IS_DEV) console.log("[CapsuleView] Max fetch retries reached, stopping");
+      }
+      return;
+    }
 
-    const timeoutId = setTimeout(() => fetchFileDetails(fileIds), 300);
-    return () => clearTimeout(timeoutId);
-  }, [capsuleData?.data?.fileIds, isLoadingFiles, loadedFiles, fetchFileDetails]);
+    fetchFileDetails(fileIds);
+  }, [capsuleData?.data?.fileIds, isLoadingFiles, loadedFiles, fetchRetries, fetchFileDetails]);
 
   // Cleanup
   useEffect(() => {
@@ -569,7 +637,7 @@ export default function CapsuleView() {
   };
 
   // Render
-  if (isLoading) {
+  if (isLoading || identityLoading) {
     return (
       <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
         <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
@@ -593,8 +661,7 @@ export default function CapsuleView() {
   const displayFiles = record.files?.length ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
-  const contextSummary = extractContextSummary(record.summaryContext);
-  const hasContextSummary = !!contextSummary;
+  const hasContextSummary = !!extractContextSummary(record.summaryContext);
 
   return (
     <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
@@ -746,7 +813,7 @@ export default function CapsuleView() {
                 </Text>
               </Stack>
             ) : hasContextSummary ? (
-              <DocumentMarkdownWrapper markdown={contextSummary} />
+              <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext)} />
             ) : hasFiles ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                 <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
