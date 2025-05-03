@@ -266,13 +266,13 @@ export default function CapsuleView() {
       startStatusMonitoring();
 
       const optimisticNewFiles = fileIds.map(id => {
-        const fileInfo = fileData.find(f => f._id === id) || {};
+        const fileInfo = fileData.find(f => f._id === id);
         return {
           _id: id,
-          title: fileInfo.title || fileInfo.output?.title || fileInfo.fileName || `File ${id.slice(-6)}`,
-          createdAt: fileInfo.createdAt || new Date().toISOString(),
-          fileName: fileInfo.fileName || "",
-          output: fileInfo.output || {}
+          title: fileInfo?.title || fileInfo?.output?.title || fileInfo?.fileName || `File ${id.slice(-6)}`,
+          createdAt: fileInfo?.createdAt || new Date().toISOString(),
+          fileName: fileInfo?.fileName || "",
+          output: fileInfo?.output || {}
         };
       });
 
@@ -716,7 +716,7 @@ export default function CapsuleView() {
           <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
             {isProcessing ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: '0.6' }} loaderProps={{ color: 'orange', type: 'dots' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
                 <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
                   Analyzing files and creating the capsule summary.
