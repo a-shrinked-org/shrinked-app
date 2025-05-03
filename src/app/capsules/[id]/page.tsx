@@ -97,11 +97,30 @@ const REFRESH_INTERVAL_MS = 10000; // 10 seconds
 const FILE_BATCH_SIZE = 5;
 const IS_DEV = process.env.NODE_ENV === 'development';
 
+// Debounce utility
+const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<F>): Promise<ReturnType<F>> => {
+    return new Promise((resolve) => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        resolve(func(...args));
+      }, wait);
+    });
+  };
+};
+
 export default function CapsuleView() {
   const params = useParams();
   const { list } = useNavigation();
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
-  const { data: identity } = useGetIdentity<Identity>();
+  const { data: identity } = useGetIdentity<Identity>({
+    queryOptions: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+    },
+  });
   const { handleAuthError, fetchWithAuth } = useAuth();
 
   // State declarations
@@ -131,6 +150,7 @@ export default function CapsuleView() {
       staleTime: 30000,
       retry: 1,
       refetchInterval: false,
+      refetchOnWindowFocus: false,
       onError: (error) => {
         if (IS_DEV) console.error("[CapsuleView] Error loading capsule:", error);
         handleAuthError(error);
@@ -141,6 +161,9 @@ export default function CapsuleView() {
 
   const { data: capsuleData, isLoading, isError, refetch } = queryResult;
   const record = capsuleData?.data;
+
+  // Debounced refetch
+  const debouncedRefetch = useCallback(debounce(refetch, 500), [refetch]);
 
   // Status monitoring
   const startStatusMonitoring = useCallback(() => {
@@ -165,7 +188,7 @@ export default function CapsuleView() {
       }
 
       try {
-        const refreshResult = await refetch();
+        const refreshResult = await debouncedRefetch();
         const refreshedStatus = refreshResult?.data?.data?.status?.toLowerCase();
 
         if (!refreshedStatus) {
@@ -200,7 +223,7 @@ export default function CapsuleView() {
         if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
       }
     }, 120000);
-  }, [record?.status, refetch, statusMonitorActive]);
+  }, [record?.status, debouncedRefetch, statusMonitorActive]);
 
   // File operations
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
@@ -294,7 +317,7 @@ export default function CapsuleView() {
       }
 
       await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
-      setTimeout(() => refetch(), 750);
+      setTimeout(() => debouncedRefetch(), 750);
 
       notifications.show({
         title: 'Files Added',
@@ -315,7 +338,7 @@ export default function CapsuleView() {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleAuthError, startStatusMonitoring]);
+  }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, startStatusMonitoring]);
 
   const handleRemoveFile = useCallback(async (fileId: string) => {
     if (!capsuleId || !fileId) return;
@@ -338,7 +361,7 @@ export default function CapsuleView() {
       if (remainingFiles.length > 0) {
         await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
       }
-      setTimeout(() => refetch(), 750);
+      setTimeout(() => debouncedRefetch(), 750);
 
       notifications.show({
         title: 'File Removed',
@@ -364,7 +387,7 @@ export default function CapsuleView() {
         color: 'red',
       });
     }
-  }, [capsuleId, fetchWithAuth, refetch, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
+  }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
 
   // Regeneration
   const handleRegenerateCapsule = useCallback(async () => {
@@ -463,7 +486,7 @@ export default function CapsuleView() {
 
   // Status effect
   useEffect(() => {
-    if (!capsuleData?.data?.status) return;
+    if (!capsuleData?.data?.status || !identity?.token) return;
 
     const status = capsuleData.data.status.toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
@@ -479,7 +502,7 @@ export default function CapsuleView() {
       setStatusMonitorActive(false);
       if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
     }
-  }, [capsuleData?.data?.status, statusMonitorActive, isRegenerating, startStatusMonitoring]);
+  }, [capsuleData?.data?.status, identity?.token, statusMonitorActive, isRegenerating, startStatusMonitoring]);
 
   // File effect
   useEffect(() => {
@@ -770,7 +793,7 @@ export default function CapsuleView() {
       />
       <CapsuleSettingsModal
         isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+        onClose={() => setIsSettingsModalOpen(false)
         isLoading={isLoadingPrompts}
         summary={summaryPrompt}
         highlights={highlightsPrompt}
