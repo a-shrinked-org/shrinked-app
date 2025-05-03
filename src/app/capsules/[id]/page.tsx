@@ -739,7 +739,7 @@ export default function CapsuleView() {
           <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
             {isProcessing ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: '0.6' }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
                 <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
                   Analyzing files and creating the capsule summary.
@@ -749,7 +749,7 @@ export default function CapsuleView() {
               <DocumentMarkdownWrapper markdown={contextSummary} />
             ) : hasFiles ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: '0.3', marginBottom: '20px' }} />
+                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                 <Text ta="center" c="dimmed" mb="xl">
                   Click the {"Regenerate"} button to analyze files and create the summary.
@@ -765,7 +765,7 @@ export default function CapsuleView() {
               </Stack>
             ) : (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: '0.3', marginBottom: '20px' }} />
+                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                 <Text ta="center" c="dimmed" mb="xl">
                   Add files to your capsule to generate a summary.
@@ -793,7 +793,7 @@ export default function CapsuleView() {
       />
       <CapsuleSettingsModal
         isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)
+        onClose={() => setIsSettingsModalOpen(false)}
         isLoading={isLoadingPrompts}
         summary={summaryPrompt}
         highlights={highlightsPrompt}
