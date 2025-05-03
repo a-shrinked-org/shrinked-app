@@ -691,7 +691,7 @@ export default function CapsuleView() {
             variant="default"
             leftSection={<RefreshCw size={16} />}
             onClick={handleRegenerateCapsule}
-            loading={isProcessing
+            loading={isProcessing}
             disabled={!hasFiles || isAddingFiles}
             styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
           >
