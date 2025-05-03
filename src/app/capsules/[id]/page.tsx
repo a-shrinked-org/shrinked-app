@@ -93,7 +93,7 @@ interface Capsule {
   testSummary?: string;
 }
 
-const REFRESH_INTERVAL_MS = 5000; // 5 seconds
+const REFRESH_INTERVAL_MS = 3000; // Adjusted to 3 seconds for faster polling
 const FILE_BATCH_SIZE = 5;
 const IS_DEV = process.env.NODE_ENV === 'development';
 const MAX_FETCH_RETRIES = 3; // Limit retries to prevent loops
@@ -167,7 +167,7 @@ export default function CapsuleView() {
   // Debounced refetch
   const debouncedRefetch = useCallback(debounce(refetch, 500), [refetch]);
 
-  // Status monitoring
+  // Status monitoring with improved logic
   const startStatusMonitoring = useCallback(() => {
     if (statusMonitorActive) {
       if (IS_DEV) console.log("[CapsuleView] Status monitoring already active, skipping");
@@ -177,6 +177,7 @@ export default function CapsuleView() {
     const currentStatus = (record?.status || '').toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
 
+    // If already in a completed state and not regenerating, no need to monitor
     if (completedStatuses.includes(currentStatus) && !isRegenerating) {
       if (IS_DEV) console.log(`[CapsuleView] Status ${currentStatus}, no monitoring needed`);
       setIsRegenerating(false);
@@ -194,7 +195,8 @@ export default function CapsuleView() {
 
       try {
         const refreshResult = await debouncedRefetch();
-        const refreshedStatus = refreshResult?.data?.data?.status?.toLowerCase();
+        const refreshedRecord = refreshResult?.data?.data;
+        const refreshedStatus = refreshedRecord?.status?.toLowerCase();
 
         if (!refreshedStatus) {
           if (IS_DEV) console.warn("[CapsuleView] Invalid status in refresh result");
@@ -208,14 +210,20 @@ export default function CapsuleView() {
           setStatusMonitorActive(false);
           if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
 
+          // Force a final refetch to ensure the context is updated
+          await debouncedRefetch();
+
           notifications.show({
             title: 'Processing Complete',
             message: 'Capsule generation is complete.',
             color: 'green',
           });
+        } else if (refreshedStatus === 'processing') {
+          setIsRegenerating(true); // Ensure UI reflects processing state
         }
       } catch (error) {
         if (IS_DEV) console.error("[CapsuleView] Error checking status:", error);
+        setErrorMessage(formatErrorMessage(error));
       }
     }, REFRESH_INTERVAL_MS);
 
@@ -229,7 +237,7 @@ export default function CapsuleView() {
         if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
         debouncedRefetch();
       }
-    }, 90000); // 90 seconds
+    }, 90000); // 90 seconds timeout as a safeguard
   }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
 
   // File operations
@@ -448,18 +456,20 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
 
-  // Regeneration
+  // Regeneration with immediate UI feedback
   const handleRegenerateCapsule = useCallback(async () => {
     if (!capsuleId || isRegenerating) return;
 
     setErrorMessage(null);
-    setIsRegenerating(true);
+    setIsRegenerating(true); // Immediately set to regenerating to show loading state
 
     try {
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
 
+      // Start monitoring after the request
       startStatusMonitoring();
+
       notifications.show({
         title: 'Processing Started',
         message: 'Capsule regeneration in progress.',
@@ -548,7 +558,7 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
 
-  // Status effect
+  // Status effect to sync UI with capsule status
   useEffect(() => {
     if (!capsuleData?.data?.status || !identity?.token) return;
 
