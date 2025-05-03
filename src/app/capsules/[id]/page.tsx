@@ -518,12 +518,17 @@ export default function CapsuleView() {
         return;
       }
 
-      const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prompts)
-      });
-      if (!response.ok) throw new Error(`Failed to save prompts: ${response.status}`);
+      if (IS_DEV) console.log("[CapsuleView] Saving prompts:", { capsuleId, prompts });
+
+      // Send each prompt as a separate POST request
+      for (const prompt of prompts) {
+        const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prompt)
+        });
+        if (!response.ok) throw new Error(`Failed to save prompt for section ${prompt.section}: ${response.status}`);
+      }
 
       notifications.show({
         title: 'Settings Saved',
@@ -805,7 +810,7 @@ export default function CapsuleView() {
           </Box>
           <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
             {isProcessing ? (
-              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+              <Stack align="center" justify "center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
                 <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
                 <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
