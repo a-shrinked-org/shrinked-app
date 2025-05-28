@@ -73,7 +73,7 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   ): string => {
     let enrichedContent = content;
     
-    // Create markdown-compatible links that will be processed by the markdown renderer
+    // Create clean markdown links that will be processed by the markdown renderer
     // Replace [[306]] patterns with markdown links
     enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
       return `[[[${refNum}]]](${pdfUrl}#page=${refNum})`;
@@ -323,16 +323,20 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
                 }}
               >
                 <Text size="xs" c="dimmed" mb="xs">
-                  Preview of enriched content:
+                  Preview of enriched content (markdown):
                 </Text>
-                <div 
-                  dangerouslySetInnerHTML={{ __html: enrichedContent.substring(0, 500) + '...' }}
+                <pre 
                   style={{ 
                     fontSize: '12px',
                     lineHeight: '1.4',
-                    color: '#e0e0e0'
+                    color: '#e0e0e0',
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace'
                   }}
-                />
+                >
+                  {enrichedContent.substring(0, 500) + '...'}
+                </pre>
               </Box>
             </Box>
           )}
