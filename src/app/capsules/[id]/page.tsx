@@ -29,7 +29,8 @@ import {
   AlertCircle,
   FileText,
   Settings,
-  File
+  File,
+  Link2
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -37,6 +38,7 @@ import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
+import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -142,6 +144,9 @@ export default function CapsuleView() {
   const [highlightsPrompt, setHighlightsPrompt] = useState('');
   const [testSummaryPrompt, setTestSummaryPrompt] = useState('');
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
+  
+  const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
+  const [enrichedContent, setEnrichedContent] = useState<string>('');
 
   // Capsule query
   const { queryResult } = useShow<Capsule>({
@@ -406,6 +411,10 @@ export default function CapsuleView() {
       setIsFileSelectorOpen(false);
     }
   }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, startStatusMonitoring]);
+  
+  const handleContentEnrichment = useCallback((enrichedContent: string) => {
+    setEnrichedContent(enrichedContent);
+  }, []);
 
   const handleRemoveFile = useCallback(async (fileId: string) => {
     if (!capsuleId || !fileId) return;
@@ -726,7 +735,21 @@ export default function CapsuleView() {
             >
               Settings
             </Button>
-          )}
+            <Button
+              variant="default"
+              leftSection={<Link2 size={16} />}
+              onClick={() => setIsReferenceModalOpen(true)}
+              disabled={!hasContextSummary || isProcessing}
+              styles={{ 
+                root: { 
+                  borderColor: '#2b2b2b', 
+                  color: '#ffffff', 
+                  '&:hover': { backgroundColor: '#2b2b2b' }
+                }
+              }}
+            >
+              Refs
+            </Button>
         </Group>
       </Group>
 
@@ -828,7 +851,20 @@ export default function CapsuleView() {
                 </Text>
               </Stack>
             ) : hasContextSummary ? (
-              <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext) ?? ""} />
+              enrichedContent ? (
+                <div 
+                  dangerouslySetInnerHTML={{ 
+                    __html: enrichedContent 
+                  }} 
+                  style={{ 
+                    color: '#ffffff', 
+                    lineHeight: '1.6',
+                    fontSize: '14px'
+                  }}
+                />
+              ) : (
+                <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext) ?? ""} />
+              )
             ) : hasFiles ? (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                 <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
@@ -885,6 +921,12 @@ export default function CapsuleView() {
         onTestSummaryChange={setTestSummaryPrompt}
         onSave={handleSaveSettings}
         saveStatus=""
+      />
+      <ReferenceEnrichmentModal
+        isOpen={isReferenceModalOpen}
+        onClose={() => setIsReferenceModalOpen(false)}
+        originalContent={extractContextSummary(record?.summaryContext) ?? ''}
+        onContentUpdate={handleContentEnrichment}
       />
     </Box>
   );
