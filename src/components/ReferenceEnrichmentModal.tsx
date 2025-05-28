@@ -41,20 +41,28 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   }, []);
 
   const extractReferencesFromContent = useCallback((content: string): string[] => {
-    // Match patterns like [[306]], [306]
-    const patterns = [
-      /\[\[(\d+)\]\]/g,  // [[306]]
-      /\[(\d+)\]/g,      // [306]
-    ];
-    
+    // Match patterns like [[306]], [306] but avoid double-matching
     const refs = new Set<string>();
-    patterns.forEach(pattern => {
-      // Fix: Convert matchAll iterator to array
-      const matches = Array.from(content.matchAll(pattern));
-      for (const match of matches) {
+    
+    // First, find double bracket patterns [[306]]
+    const doubleBracketMatches = Array.from(content.matchAll(/\[\[(\d+)\]\]/g));
+    for (const match of doubleBracketMatches) {
+      refs.add(match[1]);
+    }
+    
+    // Then find single bracket patterns [306], but exclude those already found in double brackets
+    const singleBracketMatches = Array.from(content.matchAll(/\[(\d+)\]/g));
+    for (const match of singleBracketMatches) {
+      // Check if this position is not part of a double bracket pattern
+      const matchStart = match.index || 0;
+      const beforeChar = content.charAt(matchStart - 1);
+      const afterChar = content.charAt(matchStart + match[0].length);
+      
+      // Only add if it's not surrounded by additional brackets (not part of [[306]])
+      if (beforeChar !== '[' && afterChar !== ']') {
         refs.add(match[1]);
       }
-    });
+    }
     
     return Array.from(refs).sort((a, b) => parseInt(a) - parseInt(b));
   }, []);
@@ -65,14 +73,15 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   ): string => {
     let enrichedContent = content;
     
-    // Replace [[306]] patterns with simple links
+    // Only replace reference patterns, preserving all other formatting
+    // Replace [[306]] patterns with clickable links
     enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
-      return `<a href="${pdfUrl}#page=1" target="_blank" class="ref-link" title="Reference ${refNum} - Click to view in PDF">[[${refNum}]]</a>`;
+      return `<a href="${pdfUrl}#page=${refNum}" target="_blank" class="ref-link" title="Reference ${refNum} - Click to view in PDF" style="color: #F5A623; text-decoration: none; border-bottom: 1px dotted #F5A623;">[[${refNum}]]</a>`;
     });
     
-    // Replace [306] patterns  
-    enrichedContent = enrichedContent.replace(/\[(\d+)\]/g, (match, refNum) => {
-      return `<a href="${pdfUrl}#page=1" target="_blank" class="ref-link" title="Reference ${refNum} - Click to view in PDF">[${refNum}]</a>`;
+    // Replace standalone [306] patterns (but avoid double-processing [[306]] references)
+    enrichedContent = enrichedContent.replace(/(?<!\[)\[(\d+)\](?!\])/g, (match, refNum) => {
+      return `<a href="${pdfUrl}#page=${refNum}" target="_blank" class="ref-link" title="Reference ${refNum} - Click to view in PDF" style="color: #F5A623; text-decoration: none; border-bottom: 1px dotted #F5A623;">[${refNum}]</a>`;
     });
     
     return enrichedContent;
