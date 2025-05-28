@@ -124,7 +124,21 @@ function DocumentMarkdocRenderer({
 
   const processReferences = (html: string): string => {
     let processed = html;
-    // Handle [[num]](#ts-num) format
+    
+    // Handle the new reference link formats created by ReferenceEnrichmentModal
+    // Handle [[[306]]](url) format (from [[306]] patterns) - convert to properly styled links
+    processed = processed.replace(
+      /<a href="([^"]+)"[^>]*>\[\[\[(\d+)\]\]\]<\/a>/g,
+      '<a href="$1" target="_blank" class="reference-link" title="Reference $2 - Click to view in PDF">[[$2]]</a>'
+    );
+    
+    // Handle [[306]](url) format (from [306] patterns) - convert to properly styled links
+    processed = processed.replace(
+      /<a href="([^"]+)"[^>]*>\[\[(\d+)\]\]<\/a>/g,
+      '<a href="$1" target="_blank" class="reference-link" title="Reference $2 - Click to view in PDF">[$2]</a>'
+    );
+    
+    // Handle existing [[num]](#ts-num) format (for backward compatibility)
     processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
@@ -143,7 +157,7 @@ function DocumentMarkdocRenderer({
     );
     return processed;
   };
-
+  
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
     // Convert chapters to proper list format

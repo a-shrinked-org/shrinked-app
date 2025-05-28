@@ -73,15 +73,15 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   ): string => {
     let enrichedContent = content;
     
-    // Only replace reference patterns, preserving all other formatting
-    // Replace [[306]] patterns with clickable links
+    // Create markdown-compatible links that will be processed by the markdown renderer
+    // Replace [[306]] patterns with markdown links
     enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
-      return `<a href="${pdfUrl}#page=${refNum}" target="_blank" class="ref-link" title="Reference ${refNum} - Click to view in PDF" style="color: #F5A623; text-decoration: none; border-bottom: 1px dotted #F5A623;">[[${refNum}]]</a>`;
+      return `[[[${refNum}]]](${pdfUrl}#page=${refNum})`;
     });
     
     // Replace standalone [306] patterns (but avoid double-processing [[306]] references)
     enrichedContent = enrichedContent.replace(/(?<!\[)\[(\d+)\](?!\])/g, (match, refNum) => {
-      return `<a href="${pdfUrl}#page=${refNum}" target="_blank" class="ref-link" title="Reference ${refNum} - Click to view in PDF" style="color: #F5A623; text-decoration: none; border-bottom: 1px dotted #F5A623;">[${refNum}]</a>`;
+      return `[[${refNum}]](${pdfUrl}#page=${refNum})`;
     });
     
     return enrichedContent;
