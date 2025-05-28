@@ -845,46 +845,35 @@ export default function CapsuleView() {
             Capsule Context
           </Box>
           <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
-            {isProcessing ? (
-              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
-                  Analyzing files and creating the capsule summary.
-                </Text>
-              </Stack>
-            ) : hasContextSummary ? (
-              enrichedContent ? (
-                <div 
-                  dangerouslySetInnerHTML={{ 
-                    __html: enrichedContent 
-                  }} 
-                  style={{ 
-                    color: '#ffffff', 
-                    lineHeight: '1.6',
-                    fontSize: '14px'
-                  }}
-                />
-              ) : (
-                <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext) ?? ""} />
-              )
-            ) : hasFiles ? (
-              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                <Text ta="center" c="dimmed" mb="xl">
-                  Click the {"Regenerate"} button to analyze files and create the summary.
-                </Text>
-                <Button
-                  leftSection={<RefreshCw size={16} />}
-                  onClick={handleRegenerateCapsule}
-                  styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                  loading={isProcessing}
-                >
-                  Generate Summary
-                </Button>
-              </Stack>
-            ) : (
+           {isProcessing ? (
+             <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+               <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+               <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+               <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                 Analyzing files and creating the capsule summary.
+               </Text>
+             </Stack>
+           ) : hasContextSummary ? (
+             <DocumentMarkdownWrapper 
+               markdown={enrichedContent || extractContextSummary(record.summaryContext) ?? ""} 
+             />
+           ) : hasFiles ? (
+             <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+               <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+               <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+               <Text ta="center" c="dimmed" mb="xl">
+                 Click the {"Regenerate"} button to analyze files and create the summary.
+               </Text>
+               <Button
+                 leftSection={<RefreshCw size={16} />}
+                 onClick={handleRegenerateCapsule}
+                 styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                 loading={isProcessing}
+               >
+                 Generate Summary
+               </Button>
+             </Stack>
+           ) : (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                 <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
