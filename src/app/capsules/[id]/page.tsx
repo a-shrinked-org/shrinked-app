@@ -726,30 +726,33 @@ export default function CapsuleView() {
             Download MD
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button
-              variant="default"
-              leftSection={<Settings size={16} />}
-              onClick={handleOpenSettingsModal}
-              disabled={isProcessing}
-              styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-            >
-              Settings
-            </Button>
-            <Button
-              variant="default"
-              leftSection={<Link2 size={16} />}
-              onClick={() => setIsReferenceModalOpen(true)}
-              disabled={!hasContextSummary || isProcessing}
-              styles={{ 
-                root: { 
-                  borderColor: '#2b2b2b', 
-                  color: '#ffffff', 
-                  '&:hover': { backgroundColor: '#2b2b2b' }
-                }
-              }}
-            >
-              Refs
-            </Button>
+            <>
+              <Button
+                variant="default"
+                leftSection={<Settings size={16} />}
+                onClick={handleOpenSettingsModal}
+                disabled={isProcessing}
+                styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+              >
+                Settings
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<Link2 size={16} />}
+                onClick={() => setIsReferenceModalOpen(true)}
+                disabled={!hasContextSummary || isProcessing}
+                styles={{ 
+                  root: { 
+                    borderColor: '#2b2b2b', 
+                    color: '#ffffff', 
+                    '&:hover': { backgroundColor: '#2b2b2b' }
+                  }
+                }}
+              >
+                Refs
+              </Button>
+            </>
+          )}
         </Group>
       </Group>
 
