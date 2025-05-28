@@ -73,15 +73,15 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   ): string => {
     let enrichedContent = content;
     
-    // Create clean markdown links with the correct #ts- format
-    // Replace [[306]] patterns with markdown links
+    // Create italic markdown links like *[306](url)*
+    // Replace [[306]] patterns with italic markdown links
     enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
-      return `[[[${refNum}]]](${pdfUrl}#ts-${refNum})`;
+      return `*[${refNum}](${pdfUrl}#ts-${refNum})*`;
     });
     
     // Replace standalone [306] patterns (but avoid double-processing [[306]] references)
     enrichedContent = enrichedContent.replace(/(?<!\[)\[(\d+)\](?!\])/g, (match, refNum) => {
-      return `[[${refNum}]](${pdfUrl}#ts-${refNum})`;
+      return `*[${refNum}](${pdfUrl}#ts-${refNum})*`;
     });
     
     return enrichedContent;

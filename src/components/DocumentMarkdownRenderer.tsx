@@ -125,18 +125,9 @@ function DocumentMarkdocRenderer({
   const processReferences = (html: string): string => {
     let processed = html;
     
-    // Handle the new reference link formats created by ReferenceEnrichmentModal
-    // Handle [[[306]]](url) format (from [[306]] patterns) - convert to properly styled links
-    processed = processed.replace(
-      /<a href="([^"]+)"[^>]*>\[\[\[(\d+)\]\]\]<\/a>/g,
-      '<a href="$1" target="_blank" class="reference-link" title="Reference $2 - Click to view in PDF">[[$2]]</a>'
-    );
-    
-    // Handle [[306]](url) format (from [306] patterns) - convert to properly styled links
-    processed = processed.replace(
-      /<a href="([^"]+)"[^>]*>\[\[(\d+)\]\]<\/a>/g,
-      '<a href="$1" target="_blank" class="reference-link" title="Reference $2 - Click to view in PDF">[$2]</a>'
-    );
+    // Handle the new italic reference link format *[306](url)*
+    // The markdown renderer will convert *[306](url)* to <em><a href="url">[306]</a></em>
+    // We don't need to do much processing since markdown handles it naturally
     
     // Handle existing [[num]](#ts-num) format (for backward compatibility)
     processed = processed.replace(
