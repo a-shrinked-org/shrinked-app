@@ -49,7 +49,8 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     
     const refs = new Set<string>();
     patterns.forEach(pattern => {
-      const matches = content.matchAll(pattern);
+      // Fix: Convert matchAll iterator to array
+      const matches = Array.from(content.matchAll(pattern));
       for (const match of matches) {
         refs.add(match[1]);
       }
