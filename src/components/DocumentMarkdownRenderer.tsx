@@ -123,81 +123,38 @@ function DocumentMarkdocRenderer({
   }
 
   const processReferences = (html: string): string => {
-    console.log('=== DEBUG: processReferences ===');
-    console.log('Input HTML sample:', html.substring(0, 500) + '...');
-    
-    // Look for what Markdoc actually rendered - let's find ALL patterns with numbers
-    const numberPatterns = html.match(/<[^>]*>\d+<\/[^>]*>/g);
-    if (numberPatterns) {
-      console.log('Found number patterns:', numberPatterns.slice(0, 10));
-    }
-    
-    // Look for specific patterns that might be our references
-    const strongPatterns = html.match(/<strong>\d+<\/strong>/g);
-    if (strongPatterns) {
-      console.log('Found <strong>number</strong> patterns:', strongPatterns.slice(0, 5));
-    }
-    
-    // Check if there are any anchor tags at all
-    const linkPatterns = html.match(/<a[^>]*>.*?<\/a>/g);
-    if (linkPatterns) {
-      console.log('Found link patterns:', linkPatterns.slice(0, 3));
-    } else {
-      console.log('NO LINKS FOUND IN HTML!');
-    }
-    
     let processed = html;
     
-    // NEW: Handle if Markdoc rendered *[306](url)* as just plain text or <strong>306</strong>
-    // Look for **306*(url) pattern in the HTML (malformed)
+    // Handle the main pattern: <a href="url#ts-306">306</a> 
+    // Convert to: <em><a href="url#ts-306" class="citation-ref">[306]</a></em>
     processed = processed.replace(
-      /\*\*(\d+)\*\(([^)]+)\)/g,
-      (match, num, url) => {
-        console.log(`Found malformed pattern: ${match}`);
-        return `<em><a href="${url}" class="citation-ref">[${num}]</a></em>`;
+      /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
+      (match, url, tsNum, linkText) => {
+        console.log(`Converting link: ${match} -> <em><a href="${url}" class="citation-ref">[${linkText}]</a></em>`);
+        return `<em><a href="${url}" class="citation-ref">[${linkText}]</a></em>`;
       }
     );
     
-    // Handle <strong>306</strong> followed by URL patterns
+    // Handle existing [[num]](#ts-num) format (for backward compatibility)
     processed = processed.replace(
-      /<strong>(\d+)<\/strong>\(([^)]+)\)/g,
-      (match, num, url) => {
-        console.log(`Found <strong>num</strong>(url) pattern: ${match}`);
-        return `<em><a href="${url}" class="citation-ref">[${num}]</a></em>`;
-      }
+      /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
     
-    // Original patterns (in case they work)
+    // Handle regular [num](#ts-num) format  
     processed = processed.replace(
-      /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
-      (match, url, num) => {
-        console.log(`Replacing italic: ${match}`);
-        return `<em><a href="${url}" class="citation-ref">[${num}]</a></em>`;
-      }
+      /\[(\d+)\]\(#ts-(\d+)\)/g,
+      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
     
-    processed = processed.replace(
-      /<em><a href="([^"]*#ts-\d+)">(\[\d+\])<\/a><\/em>/g,
-      (match, url, num) => {
-        console.log(`Replacing italic with brackets: ${match}`);
-        return `<em><a href="${url}" class="citation-ref">${num}</a></em>`;
-      }
-    );
-    
-    // Clean up
-    processed = processed.replace(/\[\[(\d+)\]\]\(#ts-(\d+)\)/g, '<a href="#ts-$2" class="citation-ref">[$1]</a>');
-    processed = processed.replace(/\[(\d+)\]\(#ts-(\d+)\)/g, '<a href="#ts-$2" class="citation-ref">[$1]</a>');
+    // Clean up any leftover reference markers
     processed = processed.replace(/\{#ts-\d+\}/g, '');
+    
+    // Format reference section
     processed = processed.replace(
       /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
       '<p id="ts-$1">$2. [$3]: $5</p>'
     );
-    
-    if (html !== processed) {
-      console.log('Made changes! Output sample:', processed.substring(0, 500) + '...');
-    } else {
-      console.log('No changes made to HTML');
-    }
     
     return processed;
   };
