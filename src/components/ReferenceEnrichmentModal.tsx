@@ -129,13 +129,6 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     const enriched = enrichContentWithReferences(originalContent, pdfUrl);
     setEnrichedContent(enriched);
 
-    // DEBUG: Log what we're actually producing
-    console.log('Original content sample:', originalContent.substring(0, 200) + '...');
-    console.log('Enriched content sample:', enriched.substring(0, 200) + '...');
-    console.log('First reference transformation:');
-    console.log('  Before:', originalContent.match(/\[\[\d+\]\]/)?.[0] || 'No match');
-    console.log('  After:', enriched.match(/\*\[\d+\]\([^)]+\)\*/)?.[0] || 'No match');
-
     notifications.show({
       title: 'References Processed',
       message: `Converted ${foundRefs.length} references to clickable links.`,

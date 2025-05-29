@@ -129,10 +129,7 @@ function DocumentMarkdocRenderer({
     // Convert to: <em><a href="url#ts-306" class="citation-ref">[306]</a></em>
     processed = processed.replace(
       /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
-      (match, url, tsNum, linkText) => {
-        console.log(`Converting link: ${match} -> <em><a href="${url}" class="citation-ref">[${linkText}]</a></em>`);
-        return `<em><a href="${url}" class="citation-ref">[${linkText}]</a></em>`;
-      }
+      '<em><a href="$1" class="citation-ref">[$3]</a></em>'
     );
     
     // Handle existing [[num]](#ts-num) format (for backward compatibility)
