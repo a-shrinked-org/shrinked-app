@@ -124,65 +124,31 @@ function DocumentMarkdocRenderer({
 
   const processReferences = (html: string): string => {
     let processed = html;
-    
-    // FIRST: Handle the specific malformed pattern we're seeing: **[306](url)*(url)*
-    processed = processed.replace(
-      /\*\*\[(\d+)\]\(([^)]+)\)\*\([^)]+\)\*/g,
-      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
-    );
-    
-    // Handle other malformed patterns like **[306](url)*
-    processed = processed.replace(
-      /\*\*\[(\d+)\]\(([^)]+)\)\*/g,
-      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
-    );
-    
-    // Handle the normal pattern: **[306](url)
-    processed = processed.replace(
-      /\*\*\[(\d+)\]\(([^)]+#ts-\d+)\)/g,
-      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
-    );
-    
-    // Handle the italic links that Markdoc creates from *[306](url)*
-    // Markdoc renders *[306](url)* as <em><a href="url">306</a></em>
+  
+    // ✅ Safely convert italic <em><a href="url">403</a></em> to desired format
     processed = processed.replace(
       /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
       '<em><a href="$1" class="citation-ref">[$2]</a></em>'
     );
-    
-    // Handle regular links in case some aren't wrapped in <em>
+  
+    // ✅ Handle plain [403](#ts-403) links
     processed = processed.replace(
       /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
       '<em><a href="$1" class="citation-ref">[$3]</a></em>'
     );
-    
-    // Clean up any remaining bold patterns around numbers with URLs
-    processed = processed.replace(
-      /\*\*(\d+)\*\*\(([^)]+)\)/g,
-      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
-    );
-    
-    // Handle existing [[num]](#ts-num) format (for backward compatibility)
+  
+    // ✅ Backward compatibility: [[403]](#ts-403)
     processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
-    
-    // Handle regular [num](#ts-num) format  
-    processed = processed.replace(
-      /\[(\d+)\]\(#ts-(\d+)\)/g,
-      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
-    );
-    
-    // Clean up any leftover reference markers
-    processed = processed.replace(/\{#ts-\d+\}/g, '');
-    
-    // Format reference section
+  
+    // ✅ Handle clean reference headings
     processed = processed.replace(
       /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
       '<p id="ts-$1">$2. [$3]: $5</p>'
     );
-    
+  
     return processed;
   };
   

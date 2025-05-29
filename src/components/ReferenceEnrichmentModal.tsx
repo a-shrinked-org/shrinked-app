@@ -79,9 +79,6 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   ): string => {
     let enrichedContent = content;
     
-    // FIRST: Clean up any existing **306(url) patterns
-    enrichedContent = enrichedContent.replace(/\*\*(\d+)\([^)]+\)/g, '[[$1]]');
-    
     // Create italic markdown links like *[306](url)*
     // Replace [[306]] patterns with italic markdown links
     enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
