@@ -100,8 +100,6 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
       });
       return;
     }
-    
-    console.log('ENRICHED PREVIEW:', enriched.substring(0, 300));
 
     if (!originalContent.trim()) {
       notifications.show({
