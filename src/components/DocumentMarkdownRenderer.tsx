@@ -125,21 +125,32 @@ function DocumentMarkdocRenderer({
   const processReferences = (html: string): string => {
     let processed = html;
     
-    // Handle the actual pattern we're seeing: **[289](url)
-    // This is what Markdoc is creating from *[306](url)*
+    // FIRST: Handle the specific malformed pattern we're seeing: **[306](url)*(url)*
+    processed = processed.replace(
+      /\*\*\[(\d+)\]\(([^)]+)\)\*\([^)]+\)\*/g,
+      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
+    );
+    
+    // Handle other malformed patterns like **[306](url)*
+    processed = processed.replace(
+      /\*\*\[(\d+)\]\(([^)]+)\)\*/g,
+      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
+    );
+    
+    // Handle the normal pattern: **[306](url)
     processed = processed.replace(
       /\*\*\[(\d+)\]\(([^)]+#ts-\d+)\)/g,
       '<em><a href="$2" class="citation-ref">[$1]</a></em>'
     );
     
-    // Handle malformed patterns like ***[306](url)***** 
+    // Handle the italic links that Markdoc creates from *[306](url)*
+    // Markdoc renders *[306](url)* as <em><a href="url">306</a></em>
     processed = processed.replace(
-      /\*{2,5}\[(\d+)\]\(([^)]+)\)\*{2,5}/g,
-      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
+      /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
+      '<em><a href="$1" class="citation-ref">[$2]</a></em>'
     );
     
-    // Handle the main pattern: <a href="url#ts-306">306</a> 
-    // Convert to: <em><a href="url#ts-306" class="citation-ref">[306]</a></em>
+    // Handle regular links in case some aren't wrapped in <em>
     processed = processed.replace(
       /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
       '<em><a href="$1" class="citation-ref">[$3]</a></em>'
@@ -177,6 +188,10 @@ function DocumentMarkdocRenderer({
   
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
+    
+    // CRITICAL: Don't process reference links here - let them pass through to Markdoc naturally
+    // The *[306](url)* format should be handled by Markdoc, not preprocessed
+    
     // Convert chapters to proper list format
     processed = processed.replace(
       /## Chapters\n([\s\S]+?)(?=\n##|$)/g,
