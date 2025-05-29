@@ -123,20 +123,43 @@ function DocumentMarkdocRenderer({
   }
 
   const processReferences = (html: string): string => {
+    console.log('=== DEBUG: processReferences ===');
+    console.log('Input HTML sample:', html.substring(0, 500) + '...');
+    
+    // Look for what Markdoc actually rendered from *[306](url)*
+    const italicLinkPattern = /<em><a[^>]*>.*?<\/a><\/em>/g;
+    const italicLinks = html.match(italicLinkPattern);
+    if (italicLinks) {
+      console.log('Found italic links:', italicLinks.slice(0, 3));
+    }
+    
+    // Look for any reference-like patterns
+    const anyRefPattern = /\*\*?\d+[^a-zA-Z]/g;
+    const anyRefs = html.match(anyRefPattern);
+    if (anyRefs) {
+      console.log('Found reference-like patterns:', anyRefs.slice(0, 5));
+    }
+    
     let processed = html;
     
     // Handle the italic reference link format from *[306](url)*
     // Markdoc renders *[306](url)* as <em><a href="url">306</a></em> (WITHOUT brackets)
-    // Convert to our citation format with proper styling
+    const beforeItalic = processed;
     processed = processed.replace(
       /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
-      '<em><a href="$1" class="citation-ref">[$2]</a></em>'
+      (match, url, num) => {
+        console.log(`Replacing italic: ${match} -> <em><a href="${url}" class="citation-ref">[${num}]</a></em>`);
+        return `<em><a href="${url}" class="citation-ref">[${num}]</a></em>`;
+      }
     );
     
     // Also handle if Markdoc keeps the brackets: <em><a href="url">[306]</a></em>
     processed = processed.replace(
       /<em><a href="([^"]*#ts-\d+)">(\[\d+\])<\/a><\/em>/g,
-      '<em><a href="$1" class="citation-ref">$2</a></em>'
+      (match, url, num) => {
+        console.log(`Replacing italic with brackets: ${match} -> <em><a href="${url}" class="citation-ref">${num}</a></em>`);
+        return `<em><a href="${url}" class="citation-ref">${num}</a></em>`;
+      }
     );
     
     // Handle existing [[num]](#ts-num) format (for backward compatibility)
@@ -145,7 +168,7 @@ function DocumentMarkdocRenderer({
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
     
-    // Handle regular [num](#ts-num) format
+    // Handle regular [num](#ts-num) format  
     processed = processed.replace(
       /\[(\d+)\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
@@ -159,6 +182,12 @@ function DocumentMarkdocRenderer({
       /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
       '<p id="ts-$1">$2. [$3]: $5</p>'
     );
+    
+    if (beforeItalic !== processed) {
+      console.log('Output HTML sample:', processed.substring(0, 500) + '...');
+    } else {
+      console.log('No changes made to HTML');
+    }
     
     return processed;
   };
