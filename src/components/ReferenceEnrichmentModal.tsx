@@ -41,7 +41,7 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
   }, []);
 
   const extractReferencesFromContent = useCallback((content: string): string[] => {
-    // Match patterns like [[306]], [306] but avoid double-matching
+    // Match patterns like [[306]], [306], and **306(url) but avoid double-matching
     const refs = new Set<string>();
     
     // First, find double bracket patterns [[306]]
@@ -62,6 +62,12 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
       if (beforeChar !== '[' && afterChar !== ']') {
         refs.add(match[1]);
       }
+    }
+    
+    // ALSO find existing **306(url) patterns
+    const existingBoldMatches = Array.from(content.matchAll(/\*\*(\d+)\([^)]+\)/g));
+    for (const match of existingBoldMatches) {
+      refs.add(match[1]);
     }
     
     return Array.from(refs).sort((a, b) => parseInt(a) - parseInt(b));
@@ -122,6 +128,13 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     // Enrich content with links
     const enriched = enrichContentWithReferences(originalContent, pdfUrl);
     setEnrichedContent(enriched);
+
+    // DEBUG: Log what we're actually producing
+    console.log('Original content sample:', originalContent.substring(0, 200) + '...');
+    console.log('Enriched content sample:', enriched.substring(0, 200) + '...');
+    console.log('First reference transformation:');
+    console.log('  Before:', originalContent.match(/\[\[\d+\]\]/)?.[0] || 'No match');
+    console.log('  After:', enriched.match(/\*\[\d+\]\([^)]+\)\*/)?.[0] || 'No match');
 
     notifications.show({
       title: 'References Processed',
