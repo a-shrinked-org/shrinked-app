@@ -78,18 +78,23 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     pdfUrl: string
   ): string => {
     let enrichedContent = content;
-    
-    // Create italic markdown links like *[306](url)*
-    // Replace [[306]] patterns with italic markdown links
+  
+    // 🧼 Step 1: Strip bold/italic around references like **[[306]]**, __[306]__, etc.
+    enrichedContent = enrichedContent.replace(/\*\*\[\[(\d+)\]\]\*\*/g, '[[$1]]');
+    enrichedContent = enrichedContent.replace(/__\[\[(\d+)\]\]__/g, '[[$1]]');
+    enrichedContent = enrichedContent.replace(/\*\*\[(\d+)\]\*\*/g, '[$1]');
+    enrichedContent = enrichedContent.replace(/__\[(\d+)\]__/g, '[$1]');
+  
+    // 🧼 Step 2: Replace double-bracket references with proper markdown
     enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
       return `*[${refNum}](${pdfUrl}#ts-${refNum})*`;
     });
-    
-    // Replace standalone [306] patterns (but avoid double-processing [[306]] references)
+  
+    // 🧼 Step 3: Replace remaining standalone [306] references (not part of [[306]])
     enrichedContent = enrichedContent.replace(/(?<!\[)\[(\d+)\](?!\])/g, (match, refNum) => {
       return `*[${refNum}](${pdfUrl}#ts-${refNum})*`;
     });
-    
+  
     return enrichedContent;
   }, []);
 
