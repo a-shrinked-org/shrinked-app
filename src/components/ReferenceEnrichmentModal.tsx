@@ -64,12 +64,6 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
       }
     }
     
-    // ALSO find existing **306(url) patterns
-    const existingBoldMatches = Array.from(content.matchAll(/\*\*(\d+)\([^)]+\)/g));
-    for (const match of existingBoldMatches) {
-      refs.add(match[1]);
-    }
-    
     return Array.from(refs).sort((a, b) => parseInt(a) - parseInt(b));
   }, []);
 
@@ -106,6 +100,8 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
       });
       return;
     }
+    
+    console.log('ENRICHED PREVIEW:', enriched.substring(0, 300));
 
     if (!originalContent.trim()) {
       notifications.show({
