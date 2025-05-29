@@ -80,7 +80,6 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     let enrichedContent = content;
   
     // 🧼 Step 1: Strip bold/italic around references like **[[306]]**, __[306]__, etc.
-    enrichedContent = enrichedContent.replace(/\*\*\[\[(\d+)\]\]\*\*/g, '[[$1]]');
     enrichedContent = enrichedContent.replace(/__\[\[(\d+)\]\]__/g, '[[$1]]');
     enrichedContent = enrichedContent.replace(/\*\*\[(\d+)\]\*\*/g, '[$1]');
     enrichedContent = enrichedContent.replace(/__\[(\d+)\]__/g, '[$1]');
