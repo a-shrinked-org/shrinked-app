@@ -132,6 +132,15 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     const enriched = enrichContentWithReferences(originalContent, pdfUrl);
     setEnrichedContent(enriched);
 
+    // DEBUG: Check for malformed patterns in output
+    const malformedPatterns = enriched.match(/\*{3,}\[/g);
+    if (malformedPatterns) {
+      console.error('MODAL ERROR: Found malformed patterns:', malformedPatterns);
+      console.error('Sample enriched content:', enriched.substring(0, 300));
+    } else {
+      console.log('MODAL SUCCESS: Clean output produced');
+    }
+
     notifications.show({
       title: 'References Processed',
       message: `Converted ${foundRefs.length} references to clickable links.`,
