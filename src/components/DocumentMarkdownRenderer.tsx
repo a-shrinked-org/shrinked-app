@@ -338,7 +338,7 @@ function DocumentMarkdocRenderer({
           margin-bottom: 1rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 1rem; color: #000000;
         }
         .citation-ref {
-          color: #0066cc; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          color: #8c8c8c; font-weight: 400; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
         .citation-ref:hover { text-decoration: underline; }
         .markdoc-container [id^="ts-"] { scroll-margin-top: 2rem; }
