@@ -125,11 +125,23 @@ function DocumentMarkdocRenderer({
   const processReferences = (html: string): string => {
     let processed = html;
     
+    // FIRST: Clean up any malformed patterns like ***[306](url)***** or **[306](url)**
+    processed = processed.replace(
+      /\*{2,5}\[(\d+)\]\(([^)]+)\)\*{2,5}/g,
+      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
+    );
+    
     // Handle the main pattern: <a href="url#ts-306">306</a> 
     // Convert to: <em><a href="url#ts-306" class="citation-ref">[306]</a></em>
     processed = processed.replace(
       /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
       '<em><a href="$1" class="citation-ref">[$3]</a></em>'
+    );
+    
+    // Clean up any remaining bold patterns around numbers with URLs
+    processed = processed.replace(
+      /\*\*(\d+)\*\*\(([^)]+)\)/g,
+      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
     );
     
     // Handle existing [[num]](#ts-num) format (for backward compatibility)
