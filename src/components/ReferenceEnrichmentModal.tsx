@@ -355,7 +355,7 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
                     fontFamily: 'monospace'
                   }}
                 >
-                  {enrichedContent.substring(0, 500) + '...'}
+                  {enrichedContent.substring(0, 1500) + '...'}
                 </pre>
               </Box>
             </Box>
