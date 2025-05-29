@@ -125,7 +125,14 @@ function DocumentMarkdocRenderer({
   const processReferences = (html: string): string => {
     let processed = html;
     
-    // FIRST: Clean up any malformed patterns like ***[306](url)***** or **[306](url)**
+    // Handle the actual pattern we're seeing: **[289](url)
+    // This is what Markdoc is creating from *[306](url)*
+    processed = processed.replace(
+      /\*\*\[(\d+)\]\(([^)]+#ts-\d+)\)/g,
+      '<em><a href="$2" class="citation-ref">[$1]</a></em>'
+    );
+    
+    // Handle malformed patterns like ***[306](url)***** 
     processed = processed.replace(
       /\*{2,5}\[(\d+)\]\(([^)]+)\)\*{2,5}/g,
       '<em><a href="$2" class="citation-ref">[$1]</a></em>'
