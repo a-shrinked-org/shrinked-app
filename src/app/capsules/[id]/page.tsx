@@ -413,7 +413,14 @@ export default function CapsuleView() {
   }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, startStatusMonitoring]);
   
   const handleContentEnrichment = useCallback((enrichedContent: string) => {
+    console.log('SETTING enriched content:', enrichedContent.substring(0, 200));
     setEnrichedContent(enrichedContent);
+  }, []);
+  
+  // Add this function to reset enriched content
+  const handleResetEnrichedContent = useCallback(() => {
+    console.log('RESETTING enriched content');
+    setEnrichedContent('');
   }, []);
 
   const handleRemoveFile = useCallback(async (fileId: string) => {
@@ -750,7 +757,10 @@ export default function CapsuleView() {
               <Button
                 variant="default"
                 leftSection={<Link2 size={16} />}
-                onClick={() => setIsReferenceModalOpen(true)}
+                onClick={() => {
+                  handleResetEnrichedContent(); // Reset before opening
+                  setIsReferenceModalOpen(true);
+                }}
                 disabled={!hasContextSummary || isProcessing}
                 styles={{ 
                   root: { 
@@ -927,7 +937,9 @@ export default function CapsuleView() {
       />
       <ReferenceEnrichmentModal
         isOpen={isReferenceModalOpen}
-        onClose={() => setIsReferenceModalOpen(false)}
+        onClose={() => {
+          setIsReferenceModalOpen(false);
+        }}
         originalContent={extractContextSummary(record?.summaryContext) ?? ''}
         onContentUpdate={handleContentEnrichment}
       />
