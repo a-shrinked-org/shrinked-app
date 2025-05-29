@@ -126,8 +126,14 @@ function DocumentMarkdocRenderer({
     let processed = html;
     
     // Handle the italic reference link format from *[306](url)*
-    // Markdoc renders *[306](url)* as <em><a href="url">[306]</a></em>
+    // Markdoc renders *[306](url)* as <em><a href="url">306</a></em> (WITHOUT brackets)
     // Convert to our citation format with proper styling
+    processed = processed.replace(
+      /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
+      '<em><a href="$1" class="citation-ref">[$2]</a></em>'
+    );
+    
+    // Also handle if Markdoc keeps the brackets: <em><a href="url">[306]</a></em>
     processed = processed.replace(
       /<em><a href="([^"]*#ts-\d+)">(\[\d+\])<\/a><\/em>/g,
       '<em><a href="$1" class="citation-ref">$2</a></em>'
