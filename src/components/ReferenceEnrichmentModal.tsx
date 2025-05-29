@@ -67,24 +67,27 @@ const ReferenceEnrichmentModal: React.FC<ReferenceEnrichmentModalProps> = ({
     return Array.from(refs).sort((a, b) => parseInt(a) - parseInt(b));
   }, []);
 
-  const enrichContentWithReferences = useCallback((
-    content: string, 
-    pdfUrl: string
-  ): string => {
+  const enrichContentWithReferences = useCallback((content: string, pdfUrl: string): string => {
     let enrichedContent = content;
   
-    // 🧼 Step 1: Strip bold/italic around references like **[[306]]**, __[306]__, etc.
-    enrichedContent = enrichedContent.replace(/__\[\[(\d+)\]\]__/g, '[[$1]]');
-    enrichedContent = enrichedContent.replace(/\*\*\[(\d+)\]\*\*/g, '[$1]');
-    enrichedContent = enrichedContent.replace(/__\[(\d+)\]__/g, '[$1]');
+    // 🧼 Step 1: Sanitize bold wrappers if any
+    enrichedContent = enrichedContent
+      .replace(/\*\*\[\[(\d+)\]\]\*\*/g, '[[$1]]')
+      .replace(/__\[\[(\d+)\]\]__/g, '[[$1]]')
+      .replace(/\*\*\[(\d+)\]\*\*/g, '[$1]')
+      .replace(/__\[(\d+)\]__/g, '[$1]');
   
-    // 🧼 Step 2: Replace double-bracket references with proper markdown
-    enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (match, refNum) => {
+    // 🧼 Step 2: Replace ONLY double-bracket [[306]] → *[306](...)*
+    // Wrap this to avoid polluting other markdown
+    const replacedSet = new Set<string>();
+    enrichedContent = enrichedContent.replace(/\[\[(\d+)\]\]/g, (_, refNum) => {
+      replacedSet.add(refNum);
       return `*[${refNum}](${pdfUrl}#ts-${refNum})*`;
     });
   
-    // 🧼 Step 3: Replace remaining standalone [306] references (not part of [[306]])
-    enrichedContent = enrichedContent.replace(/(?<!\[)\[(\d+)\](?!\])/g, (match, refNum) => {
+    // 🧼 Step 3: Now replace [306] only if not already enriched
+    enrichedContent = enrichedContent.replace(/(?<!\[)\[(\d+)\](?!\])/g, (_, refNum) => {
+      if (replacedSet.has(refNum)) return `[${refNum}]`; // don't double-link
       return `*[${refNum}](${pdfUrl}#ts-${refNum})*`;
     });
   
