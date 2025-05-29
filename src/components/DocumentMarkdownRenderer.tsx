@@ -125,9 +125,13 @@ function DocumentMarkdocRenderer({
   const processReferences = (html: string): string => {
     let processed = html;
     
-    // Handle the new italic reference link format *[306](url)*
-    // The markdown renderer will convert *[306](url)* to <em><a href="url">[306]</a></em>
-    // We don't need to do much processing since markdown handles it naturally
+    // Handle the new italic reference link format from *[306](url)*
+    // Markdoc renders *[306](url)* as <em><a href="url">[306]</a></em>
+    // Convert to our citation format: <em><a href="url" class="citation-ref">[306]</a></em>
+    processed = processed.replace(
+      /<em><a href="([^"]*#ts-\d+)">(\[\d+\])<\/a><\/em>/g,
+      '<em><a href="$1" class="citation-ref">$2</a></em>'
+    );
     
     // Handle existing [[num]](#ts-num) format (for backward compatibility)
     processed = processed.replace(
@@ -335,6 +339,16 @@ function DocumentMarkdocRenderer({
         }
         .citation-ref:hover { text-decoration: underline; }
         .markdoc-container [id^="ts-"] { scroll-margin-top: 2rem; }
+        
+        /* Style for italic citation links */
+        .markdoc-container em .citation-ref {
+          font-style: italic;
+          color: #0066cc;
+          text-decoration: none;
+        }
+        .markdoc-container em .citation-ref:hover {
+          text-decoration: underline;
+        }
         
         /* Reset list styles to remove browser default styling first */
         .markdoc-container ul,
