@@ -125,9 +125,9 @@ function DocumentMarkdocRenderer({
   const processReferences = (html: string): string => {
     let processed = html;
     
-    // Handle the new italic reference link format from *[306](url)*
+    // Handle the italic reference link format from *[306](url)*
     // Markdoc renders *[306](url)* as <em><a href="url">[306]</a></em>
-    // Convert to our citation format: <em><a href="url" class="citation-ref">[306]</a></em>
+    // Convert to our citation format with proper styling
     processed = processed.replace(
       /<em><a href="([^"]*#ts-\d+)">(\[\d+\])<\/a><\/em>/g,
       '<em><a href="$1" class="citation-ref">$2</a></em>'
@@ -138,18 +138,22 @@ function DocumentMarkdocRenderer({
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
-    // Handle [num](#ts-num) format
+    
+    // Handle regular [num](#ts-num) format
     processed = processed.replace(
       /\[(\d+)\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
+    
     // Clean up any leftover reference markers
     processed = processed.replace(/\{#ts-\d+\}/g, '');
+    
     // Format reference section
     processed = processed.replace(
       /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
       '<p id="ts-$1">$2. [$3]: $5</p>'
     );
+    
     return processed;
   };
   
