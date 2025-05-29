@@ -686,6 +686,17 @@ export default function CapsuleView() {
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
   const hasContextSummary = !!extractContextSummary(record.summaryContext);
+  
+  const debugContent = enrichedContent || extractContextSummary(record?.summaryContext);
+  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 200));
+  
+  // Check for malformed patterns
+  const malformedInPage = debugContent?.match(/\*{3,}\[/g);
+  if (malformedInPage) {
+    console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
+  } else {
+    console.log('PAGE SUCCESS: Clean content being passed to renderer');
+  }
 
   return (
     <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
@@ -854,17 +865,6 @@ export default function CapsuleView() {
                </Text>
              </Stack>
            ) : hasContextSummary ? (
-             // Add this right before the DocumentMarkdownWrapper
-             const debugContent = enrichedContent || extractContextSummary(record.summaryContext);
-             console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 200));
-             
-             // Check for malformed patterns
-             const malformedInPage = debugContent?.match(/\*{3,}\[/g);
-             if (malformedInPage) {
-               console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
-             } else {
-               console.log('PAGE SUCCESS: Clean content being passed to renderer');
-             }
              <DocumentMarkdownWrapper 
                markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
              />
