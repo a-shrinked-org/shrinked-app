@@ -688,7 +688,7 @@ export default function CapsuleView() {
   const hasContextSummary = !!extractContextSummary(record.summaryContext);
   
   const debugContent = enrichedContent || extractContextSummary(record?.summaryContext);
-  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 1000)); // Changed from 200 to 1000
+  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000)); // Changed from 200 to 1000
   
   // Check for malformed patterns
   const malformedInPage = debugContent?.match(/\*{3,}\[/g);
