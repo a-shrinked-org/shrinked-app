@@ -124,28 +124,40 @@ function DocumentMarkdocRenderer({
 
   const processReferences = (html: string): string => {
     let processed = html;
-    // Handle [[num]](#ts-num) format
+  
+    // ✅ Safely convert italic <em><a href="url">403</a></em> to desired format
+    processed = processed.replace(
+      /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
+      '<em><a href="$1" class="citation-ref">[$2]</a></em>'
+    );
+  
+    // ✅ Handle plain [403](#ts-403) links
+    processed = processed.replace(
+      /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
+      '<em><a href="$1" class="citation-ref">[$3]</a></em>'
+    );
+  
+    // ✅ Backward compatibility: [[403]](#ts-403)
     processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
-    // Handle [num](#ts-num) format
-    processed = processed.replace(
-      /\[(\d+)\]\(#ts-(\d+)\)/g,
-      '<a href="#ts-$2" class="citation-ref">[$1]</a>'
-    );
-    // Clean up any leftover reference markers
-    processed = processed.replace(/\{#ts-\d+\}/g, '');
-    // Format reference section
+  
+    // ✅ Handle clean reference headings
     processed = processed.replace(
       /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
       '<p id="ts-$1">$2. [$3]: $5</p>'
     );
+  
     return processed;
   };
-
+  
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
+    
+    // CRITICAL: Don't process reference links here - let them pass through to Markdoc naturally
+    // The *[306](url)* format should be handled by Markdoc, not preprocessed
+    
     // Convert chapters to proper list format
     processed = processed.replace(
       /## Chapters\n([\s\S]+?)(?=\n##|$)/g,
@@ -326,10 +338,20 @@ function DocumentMarkdocRenderer({
           margin-bottom: 1rem; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 1rem; color: #000000;
         }
         .citation-ref {
-          color: #0066cc; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          color: #8c8c8c; font-weight: 400; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         }
         .citation-ref:hover { text-decoration: underline; }
         .markdoc-container [id^="ts-"] { scroll-margin-top: 2rem; }
+        
+        /* Style for italic citation links */
+        .markdoc-container em .citation-ref {
+          font-style: italic;
+          color: #0066cc;
+          text-decoration: none;
+        }
+        .markdoc-container em .citation-ref:hover {
+          text-decoration: underline;
+        }
         
         /* Reset list styles to remove browser default styling first */
         .markdoc-container ul,

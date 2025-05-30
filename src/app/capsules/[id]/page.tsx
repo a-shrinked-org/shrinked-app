@@ -29,7 +29,8 @@ import {
   AlertCircle,
   FileText,
   Settings,
-  File
+  File,
+  Link2
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -37,6 +38,7 @@ import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
+import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -93,7 +95,7 @@ interface Capsule {
   testSummary?: string;
 }
 
-const REFRESH_INTERVAL_MS = 5000; // 5 seconds
+const REFRESH_INTERVAL_MS = 3000; // Adjusted to 3 seconds for faster polling
 const FILE_BATCH_SIZE = 5;
 const IS_DEV = process.env.NODE_ENV === 'development';
 const MAX_FETCH_RETRIES = 3; // Limit retries to prevent loops
@@ -142,6 +144,9 @@ export default function CapsuleView() {
   const [highlightsPrompt, setHighlightsPrompt] = useState('');
   const [testSummaryPrompt, setTestSummaryPrompt] = useState('');
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
+  
+  const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
+  const [enrichedContent, setEnrichedContent] = useState<string>('');
 
   // Capsule query
   const { queryResult } = useShow<Capsule>({
@@ -167,7 +172,7 @@ export default function CapsuleView() {
   // Debounced refetch
   const debouncedRefetch = useCallback(debounce(refetch, 500), [refetch]);
 
-  // Status monitoring
+  // Status monitoring with improved logic
   const startStatusMonitoring = useCallback(() => {
     if (statusMonitorActive) {
       if (IS_DEV) console.log("[CapsuleView] Status monitoring already active, skipping");
@@ -177,6 +182,7 @@ export default function CapsuleView() {
     const currentStatus = (record?.status || '').toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
 
+    // If already in a completed state and not regenerating, no need to monitor
     if (completedStatuses.includes(currentStatus) && !isRegenerating) {
       if (IS_DEV) console.log(`[CapsuleView] Status ${currentStatus}, no monitoring needed`);
       setIsRegenerating(false);
@@ -194,7 +200,8 @@ export default function CapsuleView() {
 
       try {
         const refreshResult = await debouncedRefetch();
-        const refreshedStatus = refreshResult?.data?.data?.status?.toLowerCase();
+        const refreshedRecord = refreshResult?.data?.data;
+        const refreshedStatus = refreshedRecord?.status?.toLowerCase();
 
         if (!refreshedStatus) {
           if (IS_DEV) console.warn("[CapsuleView] Invalid status in refresh result");
@@ -208,14 +215,20 @@ export default function CapsuleView() {
           setStatusMonitorActive(false);
           if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
 
+          // Force a final refetch to ensure the context is updated
+          await debouncedRefetch();
+
           notifications.show({
             title: 'Processing Complete',
             message: 'Capsule generation is complete.',
             color: 'green',
           });
+        } else if (refreshedStatus === 'processing') {
+          setIsRegenerating(true); // Ensure UI reflects processing state
         }
       } catch (error) {
         if (IS_DEV) console.error("[CapsuleView] Error checking status:", error);
+        setErrorMessage(formatErrorMessage(error));
       }
     }, REFRESH_INTERVAL_MS);
 
@@ -229,7 +242,7 @@ export default function CapsuleView() {
         if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
         debouncedRefetch();
       }
-    }, 90000); // 90 seconds
+    }, 90000); // 90 seconds timeout as a safeguard
   }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
 
   // File operations
@@ -398,6 +411,17 @@ export default function CapsuleView() {
       setIsFileSelectorOpen(false);
     }
   }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, startStatusMonitoring]);
+  
+  const handleContentEnrichment = useCallback((enrichedContent: string) => {
+    console.log('SETTING enriched content:', enrichedContent.substring(0, 200));
+    setEnrichedContent(enrichedContent);
+  }, []);
+  
+  // Add this function to reset enriched content
+  const handleResetEnrichedContent = useCallback(() => {
+    console.log('RESETTING enriched content');
+    setEnrichedContent('');
+  }, []);
 
   const handleRemoveFile = useCallback(async (fileId: string) => {
     if (!capsuleId || !fileId) return;
@@ -448,18 +472,20 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
 
-  // Regeneration
+  // Regeneration with immediate UI feedback
   const handleRegenerateCapsule = useCallback(async () => {
     if (!capsuleId || isRegenerating) return;
 
     setErrorMessage(null);
-    setIsRegenerating(true);
+    setIsRegenerating(true); // Immediately set to regenerating to show loading state
 
     try {
       const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
 
+      // Start monitoring after the request
       startStatusMonitoring();
+
       notifications.show({
         title: 'Processing Started',
         message: 'Capsule regeneration in progress.',
@@ -548,7 +574,7 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
 
-  // Status effect
+  // Status effect to sync UI with capsule status
   useEffect(() => {
     if (!capsuleData?.data?.status || !identity?.token) return;
 
@@ -667,6 +693,17 @@ export default function CapsuleView() {
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
   const hasContextSummary = !!extractContextSummary(record.summaryContext);
+  
+  const debugContent = enrichedContent || extractContextSummary(record?.summaryContext);
+  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000)); // Changed from 200 to 1000
+  
+  // Check for malformed patterns
+  const malformedInPage = debugContent?.match(/\*{3,}\[/g);
+  if (malformedInPage) {
+    console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
+  } else {
+    console.log('PAGE SUCCESS: Clean content being passed to renderer');
+  }
 
   return (
     <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
@@ -707,15 +744,35 @@ export default function CapsuleView() {
             Download MD
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button
-              variant="default"
-              leftSection={<Settings size={16} />}
-              onClick={handleOpenSettingsModal}
-              disabled={isProcessing}
-              styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-            >
-              Settings
-            </Button>
+            <>
+              <Button
+                variant="default"
+                leftSection={<Settings size={16} />}
+                onClick={handleOpenSettingsModal}
+                disabled={isProcessing}
+                styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+              >
+                Settings
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<Link2 size={16} />}
+                onClick={() => {
+                  handleResetEnrichedContent(); // Reset before opening
+                  setIsReferenceModalOpen(true);
+                }}
+                disabled={!hasContextSummary || isProcessing}
+                styles={{ 
+                  root: { 
+                    borderColor: '#2b2b2b', 
+                    color: '#ffffff', 
+                    '&:hover': { backgroundColor: '#2b2b2b' }
+                  }
+                }}
+              >
+                Refs
+              </Button>
+            </>
           )}
         </Group>
       </Group>
@@ -809,33 +866,35 @@ export default function CapsuleView() {
             Capsule Context
           </Box>
           <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
-            {isProcessing ? (
-              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
-                  Analyzing files and creating the capsule summary.
-                </Text>
-              </Stack>
-            ) : hasContextSummary ? (
-              <DocumentMarkdownWrapper markdown={extractContextSummary(record.summaryContext) ?? ""} />
-            ) : hasFiles ? (
-              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                <Text ta="center" c="dimmed" mb="xl">
-                  Click the {"Regenerate"} button to analyze files and create the summary.
-                </Text>
-                <Button
-                  leftSection={<RefreshCw size={16} />}
-                  onClick={handleRegenerateCapsule}
-                  styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                  loading={isProcessing}
-                >
-                  Generate Summary
-                </Button>
-              </Stack>
-            ) : (
+           {isProcessing ? (
+             <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+               <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+               <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+               <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                 Analyzing files and creating the capsule summary.
+               </Text>
+             </Stack>
+           ) : hasContextSummary ? (
+             <DocumentMarkdownWrapper 
+               markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+             />
+           ) : hasFiles ? (
+             <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+               <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+               <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+               <Text ta="center" c="dimmed" mb="xl">
+                 Click the {"Regenerate"} button to analyze files and create the summary.
+               </Text>
+               <Button
+                 leftSection={<RefreshCw size={16} />}
+                 onClick={handleRegenerateCapsule}
+                 styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                 loading={isProcessing}
+               >
+                 Generate Summary
+               </Button>
+             </Stack>
+           ) : (
               <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
                 <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                 <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
@@ -875,6 +934,14 @@ export default function CapsuleView() {
         onTestSummaryChange={setTestSummaryPrompt}
         onSave={handleSaveSettings}
         saveStatus=""
+      />
+      <ReferenceEnrichmentModal
+        isOpen={isReferenceModalOpen}
+        onClose={() => {
+          setIsReferenceModalOpen(false);
+        }}
+        originalContent={extractContextSummary(record?.summaryContext) ?? ''}
+        onContentUpdate={handleContentEnrichment}
       />
     </Box>
   );
