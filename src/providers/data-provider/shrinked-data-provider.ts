@@ -202,7 +202,7 @@ export const shrinkedDataProvider = (
 	'subscriptions/verify-session': '/api/subscriptions-proxy/verify-session',
 	
 	// User endpoints
-	'users/api-keys': '/api/users-proxy/api-keys',
+	'users/api-keys': '/api/users/api-keys',
 	
 	// Processing endpoints (for simple cases)
 	'processing': '/api/processing-proxy',
