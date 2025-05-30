@@ -202,72 +202,151 @@ export const shrinkedDataProvider = (
 	'subscriptions/verify-session': '/api/subscriptions-proxy/verify-session'
   };
 
-  // Improved proxy URL helper with enhanced debugging
-  const getProxyUrl = (resource: string, meta?: any): string => {
-	// Add explicit debug logging
-	if (IS_DEV) {
-	  console.log(`[getProxyUrl:DEBUG] Resource: ${resource}`);
-	  console.log(`[getProxyUrl:DEBUG] Meta:`, meta);
-	}
-  
-	// Case 1: Direct URL override in meta - use it as is
-	if (meta?.url) {
-	  const result = meta.url.startsWith('/') ? meta.url : `/api/${meta.url}`;
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using explicit URL: ${result}`);
-	  return result;
-	}
-	
-	// Special case for subscription-related endpoints
-	if (resource.startsWith('subscriptions/')) {
-	  const specificRoute = proxyMappings[resource];
-	  if (specificRoute) {
-		if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific subscription endpoint: ${specificRoute}`);
-		return specificRoute;
-	  }
-	  
-	  // Handle dynamic subscription routes
-	  const parts = resource.split('/');
-	  if (parts.length >= 2) {
-		const basePath = '/api/subscriptions-proxy';
-		const subPath = parts.slice(1).join('/');
-		const result = `${basePath}/${subPath}`;
-		if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using constructed subscription path: ${result}`);
-		return result;
-	  }
-	}
-	
-	// Case 2: Special handling for capsules resource with ID
-	if (resource === 'capsules' && meta?.hasId) {
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using direct route: /api/capsules-direct`);
-	  return '/api/capsules-direct';
-	}
-	
-	// Case 3: Special handling for capsules resource without ID
-	if (resource === 'capsules') {
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule without ID, using non-dynamic route: /api/capsules-proxy`);
-	  return '/api/capsules-proxy';
-	}
-	
-	// Case 4: Special handling for documents resource
-	if (resource === 'documents') {
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using documents proxy: /api/documents-proxy`);
-	  return '/api/documents-proxy';
-	}
-	
-	// Case 5: Check for specific resource mapping
-	if (proxyMappings[resource]) {
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
-	  return proxyMappings[resource];
-	}
-	
-	// Case 6: Generic fallback
-	const fallbackUrl = `/api/${resource}-proxy`;
-	if (IS_DEV) {
-	  console.log(`[getProxyUrl:DEBUG] No specific mapping for "${resource}". Using generic proxy: ${fallbackUrl}`);
-	}
-	
-	return fallbackUrl;
-  };
+ // Updated getProxyUrl function in shrinked-data-provider.ts
+ 
+ const getProxyUrl = (resource: string, meta?: any): string => {
+   // Add explicit debug logging
+   if (IS_DEV) {
+	 console.log(`[getProxyUrl:DEBUG] Resource: ${resource}`);
+	 console.log(`[getProxyUrl:DEBUG] Meta:`, meta);
+   }
+ 
+   // Case 1: Direct URL override in meta - handle carefully
+   if (meta?.url) {
+	 let result = meta.url;
+	 
+	 // If it's a full URL (starts with http), extract just the path part
+	 if (result.startsWith('http')) {
+	   try {
+		 const urlObj = new URL(result);
+		 result = urlObj.pathname + urlObj.search; // Include query parameters
+		 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Extracted path from full URL: ${result}`);
+	   } catch (e) {
+		 console.error(`[getProxyUrl:ERROR] Invalid URL: ${result}`);
+		 // Fallback to generic proxy
+		 result = `/api/${resource}-proxy`;
+	   }
+	 } 
+	 // If it already starts with /api/, use it as-is (for jobs page)
+	 else if (result.startsWith('/api/')) {
+	   if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using existing /api/ URL: ${result}`);
+	   return result;
+	 }
+	 // If it starts with / but not /api/, use it as-is
+	 else if (result.startsWith('/')) {
+	   if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using absolute path: ${result}`);
+	   return result;
+	 }
+	 // Otherwise, prefix with /api/
+	 else {
+	   result = `/api/${result}`;
+	 }
+	 
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using explicit URL: ${result}`);
+	 return result;
+   }
+   
+   // Case 2: Special handling for subscription-related endpoints
+   if (resource.startsWith('subscriptions/')) {
+	 const specificRoute = proxyMappings[resource];
+	 if (specificRoute) {
+	   if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific subscription endpoint: ${specificRoute}`);
+	   return specificRoute;
+	 }
+	 
+	 // Handle dynamic subscription routes
+	 const parts = resource.split('/');
+	 if (parts.length >= 2) {
+	   const basePath = '/api/subscriptions-proxy';
+	   const subPath = parts.slice(1).join('/');
+	   const result = `${basePath}/${subPath}`;
+	   if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using constructed subscription path: ${result}`);
+	   return result;
+	 }
+   }
+   
+   // Case 3: Handle complex resource paths like "processing/user/123/documents"
+   if (resource.includes('/')) {
+	 const parts = resource.split('/');
+	 const baseResource = parts[0];
+	 const remainingPath = parts.slice(1).join('/');
+	 
+	 if (baseResource === 'processing') {
+	   const result = `/api/processing-proxy/${remainingPath}`;
+	   if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using processing proxy: ${result}`);
+	   return result;
+	 }
+	 
+	 if (baseResource === 'users') {
+	   const result = `/api/users-proxy/${remainingPath}`;
+	   if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using users proxy: ${result}`);
+	   return result;
+	 }
+	 
+	 // Handle other complex paths generically
+	 const result = `/api/${baseResource}-proxy/${remainingPath}`;
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using generic complex path: ${result}`);
+	 return result;
+   }
+   
+   // Case 4: Special handling for capsules resource with ID
+   if (resource === 'capsules' && meta?.hasId) {
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using direct route: /api/capsules-direct`);
+	 return '/api/capsules-direct';
+   }
+   
+   // Case 5: Special handling for capsules resource without ID
+   if (resource === 'capsules') {
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule without ID, using non-dynamic route: /api/capsules-proxy`);
+	 return '/api/capsules-proxy';
+   }
+   
+   // Case 6: Special handling for documents resource
+   if (resource === 'documents') {
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using documents proxy: /api/documents-proxy`);
+	 return '/api/documents-proxy';
+   }
+   
+   // Case 7: Special handling for jobs resource
+   if (resource === 'jobs') {
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using jobs proxy: /api/jobs-proxy`);
+	 return '/api/jobs-proxy';
+   }
+   
+   // Case 8: Check for specific resource mapping
+   if (proxyMappings[resource]) {
+	 if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
+	 return proxyMappings[resource];
+   }
+   
+   // Case 9: Generic fallback
+   const fallbackUrl = `/api/${resource}-proxy`;
+   if (IS_DEV) {
+	 console.log(`[getProxyUrl:DEBUG] No specific mapping for "${resource}". Using generic proxy: ${fallbackUrl}`);
+   }
+   
+   return fallbackUrl;
+ };
+ 
+ // Updated proxy mappings
+ const proxyMappings: Record<string, string> = {
+   // Subscription endpoints
+   'subscriptions': '/api/subscriptions-proxy',
+   'subscriptions/create-checkout-session': '/api/subscriptions-proxy/create-checkout-session',
+   'subscriptions/verify-session': '/api/subscriptions-proxy/verify-session',
+   
+   // User endpoints
+   'users/api-keys': '/api/users-proxy/api-keys',
+   
+   // Processing endpoints (for simple cases)
+   'processing': '/api/processing-proxy',
+   
+   // Jobs endpoints
+   'jobs': '/api/jobs-proxy',
+   
+   // Documents endpoints
+   'documents': '/api/documents-proxy'
+ };
 
   return {
 	getList: async ({ resource, pagination, filters, sorters, meta }) => {

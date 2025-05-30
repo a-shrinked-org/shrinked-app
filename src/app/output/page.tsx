@@ -74,8 +74,7 @@ export default function ProcessingList() {
       pageSize: 100,
     },
     meta: {
-      headers: authUtils.getAuthHeaders(),
-      url: identity?.id ? `${API_CONFIG.API_URL}/processing/user/${identity.id}/documents` : ""
+      headers: authUtils.getAuthHeaders()
     }
   });
 

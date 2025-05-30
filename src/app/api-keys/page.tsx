@@ -97,8 +97,7 @@ export default function ApiKeysList() {
       pageSize: 100,
     },
     meta: {
-      headers: authUtils.getAuthHeaders(),
-      url: apiKeysUrl
+      headers: authUtils.getAuthHeaders()
     }
   });
 
