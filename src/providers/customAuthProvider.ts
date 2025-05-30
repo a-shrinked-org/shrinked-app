@@ -116,11 +116,17 @@ export const customAuthProvider: Required<AuthProvider> & {
 		  
 		  // If Loops API fails, try direct auth check
 		  try {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+			
 			const checkResponse = await fetch(`/api/auth-proxy/check-email`, {
 			  method: "POST",
 			  headers: { "Content-Type": "application/json" },
 			  body: JSON.stringify({ email }),
+			  signal: controller.signal,
 			});
+			
+			clearTimeout(timeoutId);
 			
 			if (checkResponse.ok) {
 			  const checkData = await checkResponse.json();
@@ -130,6 +136,12 @@ export const customAuthProvider: Required<AuthProvider> & {
 			}
 		  } catch (fallbackError) {
 			console.error("Fallback email check failed:", fallbackError);
+			if (fallbackError instanceof Error && fallbackError.name === 'AbortError') {
+			  return { 
+				success: false, 
+				error: { message: "Email check timed out. Please try again.", name: "TimeoutError" } 
+			  };
+			}
 		  }
 		  
 		  // If all checks fail, assume registration is required
@@ -140,33 +152,72 @@ export const customAuthProvider: Required<AuthProvider> & {
 		}
 	  }
   
-	  // Full login
+	  // Full login with timeout handling
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  
+	  console.log("[AuthProvider] Attempting login request...");
+	  
 	  const response = await fetch(`/api/auth-proxy/login`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ email, password }),
 		credentials: "include",
+		signal: controller.signal,
 	  });
   
+	  clearTimeout(timeoutId);
+	  console.log("[AuthProvider] Login response received:", response.status);
+  
 	  const data = await response.json();
+	  
 	  if (!response.ok) {
-		return { success: false, error: { message: data.message || "Login failed", name: "LoginError" } };
+		console.error("[AuthProvider] Login failed:", data);
+		return { 
+		  success: false, 
+		  error: { 
+			message: data.message || `Login failed (${response.status})`, 
+			name: "LoginError" 
+		  } 
+		};
 	  }
   
 	  if (data.accessToken && data.refreshToken) {
+		console.log("[AuthProvider] Login successful, saving tokens...");
 		authUtils.saveTokens(data.accessToken, data.refreshToken);
+		
 		const profile = await authUtils.ensureUserProfile();
 		if (!profile) {
 		  authUtils.clearAuthStorage();
 		  return { success: false, error: { message: "Failed to fetch profile", name: "ProfileError" } };
 		}
+		
 		authUtils.setAuthenticatedState(true);
 		return { success: true, redirectTo: "/jobs" };
 	  }
   
 	  return { success: false, error: { message: "Invalid response", name: "LoginError" } };
+	  
 	} catch (error) {
+	  console.error("[AuthProvider] Login error:", error);
 	  authUtils.clearAuthStorage();
+	  
+	  // Handle timeout errors specifically
+	  if (error instanceof Error && error.name === 'AbortError') {
+		return {
+		  success: false,
+		  error: { message: "Login request timed out. Please check your connection and try again.", name: "TimeoutError" },
+		};
+	  }
+	  
+	  // Handle network errors
+	  if (error instanceof TypeError && error.message.includes('fetch')) {
+		return {
+		  success: false,
+		  error: { message: "Cannot connect to authentication server. Please try again.", name: "NetworkError" },
+		};
+	  }
+	  
 	  return {
 		success: false,
 		error: { message: error instanceof Error ? error.message : "Login failed", name: "LoginError" },
