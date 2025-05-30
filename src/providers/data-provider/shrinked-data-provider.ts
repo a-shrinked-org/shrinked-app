@@ -201,8 +201,8 @@ export const shrinkedDataProvider = (
 	'subscriptions/create-checkout-session': '/api/subscriptions-proxy/create-checkout-session',
 	'subscriptions/verify-session': '/api/subscriptions-proxy/verify-session',
 	
-	// User endpoints
-	'users/api-keys': '/api/users/api-keys',
+	// User endpoints - Route to users proxy
+	'users/api-keys': '/api/users-proxy/api-keys',
 	
 	// Processing endpoints (for simple cases)
 	'processing': '/api/processing-proxy',
@@ -276,7 +276,13 @@ export const shrinkedDataProvider = (
 	  }
 	}
 	
-	// Case 3: Handle complex resource paths like "processing/user/123/documents"
+	// Case 3: Check for specific resource mapping FIRST (before complex path handling)
+	if (proxyMappings[resource]) {
+	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
+	  return proxyMappings[resource];
+	}
+	
+	// Case 4: Handle complex resource paths like "processing/user/123/documents"
 	if (resource.includes('/')) {
 	  const parts = resource.split('/');
 	  const baseResource = parts[0];
@@ -300,34 +306,28 @@ export const shrinkedDataProvider = (
 	  return result;
 	}
 	
-	// Case 4: Special handling for capsules resource with ID
+	// Case 5: Special handling for capsules resource with ID
 	if (resource === 'capsules' && meta?.hasId) {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule with ID, using direct route: /api/capsules-direct`);
 	  return '/api/capsules-direct';
 	}
 	
-	// Case 5: Special handling for capsules resource without ID
+	// Case 6: Special handling for capsules resource without ID
 	if (resource === 'capsules') {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Capsule without ID, using non-dynamic route: /api/capsules-proxy`);
 	  return '/api/capsules-proxy';
 	}
 	
-	// Case 6: Special handling for documents resource
+	// Case 7: Special handling for documents resource
 	if (resource === 'documents') {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using documents proxy: /api/documents-proxy`);
 	  return '/api/documents-proxy';
 	}
 	
-	// Case 7: Special handling for jobs resource
+	// Case 8: Special handling for jobs resource
 	if (resource === 'jobs') {
 	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using jobs proxy: /api/jobs-proxy`);
 	  return '/api/jobs-proxy';
-	}
-	
-	// Case 8: Check for specific resource mapping
-	if (proxyMappings[resource]) {
-	  if (IS_DEV) console.log(`[getProxyUrl:DEBUG] Using specific mapping for ${resource}: ${proxyMappings[resource]}`);
-	  return proxyMappings[resource];
 	}
 	
 	// Case 9: Generic fallback
