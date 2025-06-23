@@ -46,13 +46,13 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
   activePurpose,
   capsuleId
 }) => {
-  // Default cards loaded from API
+  // Default cards using backend data
   const defaultCards: PurposeCard[] = [
     {
       id: 'summary',
       name: 'Summary',
       description: 'Generate a comprehensive summary of the provided documents',
-      prompt: summary,
+      prompt: summary || 'Generate a comprehensive summary of the provided documents',
       section: 'capsule.summary',
       isDefault: true
     },
@@ -60,13 +60,13 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
       id: 'highlights',
       name: 'Highlights',
       description: 'Extract key highlights and important points from documents',
-      prompt: highlights,
+      prompt: highlights || 'Extract key highlights and important points from documents',
       section: 'capsule.highlights',
       isDefault: true
     }
   ];
 
-  // Additional prototype cards (stored in component for now)
+  // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = [
     {
       id: 'rfp-response',
@@ -250,25 +250,6 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
               </Card>
             ))}
           </SimpleGrid>
-          
-          <Group justify="flex-end" mt="xl">
-            <Button
-              variant="default"
-              onClick={onClose}
-              styles={{
-                root: {
-                  borderColor: '#2b2b2b',
-                  color: '#ffffff',
-                  height: '44px',
-                  '&:hover': {
-                    backgroundColor: '#2b2b2b',
-                  },
-                }
-              }}
-            >
-              Close
-            </Button>
-          </Group>
         </Box>
       </Box>
     </Modal>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import {
   Text,
@@ -30,7 +30,7 @@ import {
   FileText,
   File,
   Link2,
-  Target // Added for purpose icon
+  Target
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -38,7 +38,7 @@ import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
-import CapsulePurposeModal from "@/components/CapsulePurposeModal"; // Added import
+import CapsulePurposeModal from "@/components/CapsulePurposeModal";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -73,7 +73,6 @@ interface AdminPrompt {
   prefill?: string;
 }
 
-// Added PurposeCard interface
 interface PurposeCard {
   id: string;
   name: string;
@@ -103,19 +102,14 @@ interface Capsule {
   highlights?: Array<{ xml: string }>;
   summary?: string;
   testSummary?: string;
-  // Added purpose override field
-  purposeOverride?: {
-    cardId: string;
-    cardName: string;
-    prompt: string;
-    section: string;
-  };
+  // Updated to match your actual field
+  overridePrompt?: string; // JSON string containing override data or plain text
 }
 
-const REFRESH_INTERVAL_MS = 3000; // Adjusted to 3 seconds for faster polling
+const REFRESH_INTERVAL_MS = 3000;
 const FILE_BATCH_SIZE = 5;
 const IS_DEV = process.env.NODE_ENV === 'development';
-const MAX_FETCH_RETRIES = 3; // Limit retries to prevent loops
+const MAX_FETCH_RETRIES = 3;
 
 // Debounce utility
 const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
@@ -136,7 +130,7 @@ export default function CapsuleView() {
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>({
     queryOptions: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
       refetchInterval: false,
       refetchOnWindowFocus: false,
     },
@@ -152,7 +146,7 @@ export default function CapsuleView() {
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [statusMonitorActive, setStatusMonitorActive] = useState(false);
-  const [fetchRetries, setFetchRetries] = useState(0); // Track fetch attempts
+  const [fetchRetries, setFetchRetries] = useState(0);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Prompts state for purpose modal
@@ -164,10 +158,10 @@ export default function CapsuleView() {
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [enrichedContent, setEnrichedContent] = useState<string>('');
 
-  // Added purpose modal state
+  // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
 
-  // Capsule query - Updated to use the proper API endpoint
+  // Capsule query
   const { queryResult } = useShow<Capsule>({
     resource: "capsules",
     id: capsuleId,
@@ -191,6 +185,160 @@ export default function CapsuleView() {
   // Debounced refetch
   const debouncedRefetch = useCallback(debounce(refetch, 500), [refetch]);
 
+  // Prototype cards with frontend-stored prompts
+  const prototypeCards: PurposeCard[] = useMemo(() => [
+    {
+      id: 'rfp-response',
+      name: 'Answer RFP documentation',
+      description: 'Generate comprehensive responses to RFP requirements based on provided documentation',
+      prompt: 'Analyze the provided RFP documentation and generate detailed, compliant responses that address all requirements. Structure the response professionally with clear sections for technical approach, methodology, timeline, and deliverables.',
+      section: 'capsule.rfp-response'
+    },
+    {
+      id: 'competitor-analysis',
+      name: 'Conduct a competitor analysis',
+      description: 'Perform detailed competitive analysis from provided market research and company data',
+      prompt: 'Conduct a comprehensive competitor analysis based on the provided documents. Identify key competitors, analyze their strengths and weaknesses, market positioning, pricing strategies, and provide strategic recommendations.',
+      section: 'capsule.competitor-analysis'
+    },
+    {
+      id: 'communication-feedback',
+      name: 'Provide feedback on communication effectiveness',
+      description: 'Analyze communication materials and provide improvement recommendations',
+      prompt: 'Review the provided communication materials and provide detailed feedback on effectiveness, clarity, tone, and audience engagement. Suggest specific improvements for better communication outcomes.',
+      section: 'capsule.communication-feedback'
+    },
+    {
+      id: 'linkedin-connection',
+      name: 'Craft a LinkedIn connection request',
+      description: 'Create personalized LinkedIn connection requests based on prospect research',
+      prompt: 'Based on the provided prospect research and company information, craft personalized LinkedIn connection requests that are professional, relevant, and likely to be accepted. Include specific reasons for connecting.',
+      section: 'capsule.linkedin-connection'
+    },
+    {
+      id: 'prospect-email',
+      name: 'Write a prospect email',
+      description: 'Compose compelling prospect emails using research insights',
+      prompt: 'Using the provided prospect and company research, write compelling outreach emails that are personalized, value-focused, and designed to generate positive responses. Include clear call-to-actions.',
+      section: 'capsule.prospect-email'
+    },
+    {
+      id: 'followup-templates',
+      name: 'Prepare follow-up email templates for prospect',
+      description: 'Create a series of follow-up email templates for prospect nurturing',
+      prompt: 'Create a series of follow-up email templates based on the prospect research provided. Include templates for different scenarios: initial follow-up, value-add follow-up, and final attempt. Each should be personalized and professional.',
+      section: 'capsule.followup-templates'
+    }
+  ], []);
+
+  // Default cards using backend data
+  const defaultCards: PurposeCard[] = useMemo(() => [
+    {
+      id: 'summary',
+      name: 'Summary',
+      description: 'Generate a comprehensive summary of the provided documents',
+      prompt: summaryPrompt || 'Generate a comprehensive summary of the provided documents',
+      section: 'capsule.summary',
+      isDefault: true
+    },
+    {
+      id: 'highlights',
+      name: 'Highlights',
+      description: 'Extract key highlights and important points from documents',
+      prompt: highlightsPrompt || 'Extract key highlights and important points from documents',
+      section: 'capsule.highlights',
+      isDefault: true
+    }
+  ], [summaryPrompt, highlightsPrompt]);
+
+  // Helper function to parse override prompt data
+  const parseOverridePrompt = useCallback((overridePrompt?: string) => {
+    if (!overridePrompt) return null;
+    
+    try {
+      // Try to parse as JSON first (new structured format)
+      const parsed = JSON.parse(overridePrompt);
+      if (parsed.cardId && parsed.cardName && parsed.prompt) {
+        return parsed as {
+          cardId: string;
+          cardName: string;
+          prompt: string;
+          section: string;
+          timestamp?: string;
+        };
+      }
+    } catch (error) {
+      // If JSON parsing fails, it might be a legacy plain text prompt
+      if (IS_DEV) console.log('overridePrompt is not JSON, checking if it matches known cards');
+    }
+    
+    // Check if the plain text matches any of our prototype card prompts
+    const allCards = [...defaultCards, ...prototypeCards];
+    const matchingCard = allCards.find(card => card.prompt === overridePrompt);
+    
+    if (matchingCard) {
+      return {
+        cardId: matchingCard.id,
+        cardName: matchingCard.name,
+        prompt: matchingCard.prompt,
+        section: matchingCard.section
+      };
+    }
+    
+    // If it's a custom prompt that doesn't match any card, treat as custom
+    if (overridePrompt.trim()) {
+      return {
+        cardId: 'custom',
+        cardName: 'Custom Prompt',
+        prompt: overridePrompt,
+        section: 'capsule.custom'
+      };
+    }
+    
+    return null;
+  }, [defaultCards, prototypeCards]);
+
+  // Updated helper functions
+  const getCurrentPurposeName = useCallback(() => {
+    const overrideData = parseOverridePrompt(record?.overridePrompt);
+    if (overrideData) {
+      return overrideData.cardName;
+    }
+    return 'Summary'; // Default
+  }, [record?.overridePrompt, parseOverridePrompt]);
+
+  const getCurrentPurposeId = useCallback(() => {
+    const overrideData = parseOverridePrompt(record?.overridePrompt);
+    if (overrideData) {
+      return overrideData.cardId;
+    }
+    return 'summary'; // Default
+  }, [record?.overridePrompt, parseOverridePrompt]);
+
+  // Helper to get the current prompt for display/debugging
+  const getCurrentPrompt = useCallback(() => {
+    const overrideData = parseOverridePrompt(record?.overridePrompt);
+    if (overrideData) {
+      return overrideData.prompt;
+    }
+    return summaryPrompt; // Default summary prompt
+  }, [record?.overridePrompt, parseOverridePrompt, summaryPrompt]);
+
+  // Debug effect to monitor overridePrompt changes
+  useEffect(() => {
+    if (record?.overridePrompt !== undefined) {
+      const overrideData = parseOverridePrompt(record.overridePrompt);
+      if (IS_DEV) {
+        console.log('[CapsuleView] overridePrompt analysis:', {
+          raw: record.overridePrompt,
+          parsed: overrideData,
+          currentPurpose: getCurrentPurposeName(),
+          currentPurposeId: getCurrentPurposeId()
+        });
+      }
+    }
+  }, [record?.overridePrompt, parseOverridePrompt, getCurrentPurposeName, getCurrentPurposeId]);
+
   // Status monitoring with improved logic
   const startStatusMonitoring = useCallback(() => {
     if (statusMonitorActive) {
@@ -201,7 +349,6 @@ export default function CapsuleView() {
     const currentStatus = (record?.status || '').toLowerCase();
     const completedStatuses = ['completed', 'ready', 'failed'];
 
-    // If already in a completed state and not regenerating, no need to monitor
     if (completedStatuses.includes(currentStatus) && !isRegenerating) {
       if (IS_DEV) console.log(`[CapsuleView] Status ${currentStatus}, no monitoring needed`);
       setIsRegenerating(false);
@@ -234,7 +381,6 @@ export default function CapsuleView() {
           setStatusMonitorActive(false);
           if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
 
-          // Force a final refetch to ensure the context is updated
           await debouncedRefetch();
 
           notifications.show({
@@ -243,7 +389,7 @@ export default function CapsuleView() {
             color: 'green',
           });
         } else if (refreshedStatus === 'processing') {
-          setIsRegenerating(true); // Ensure UI reflects processing state
+          setIsRegenerating(true);
         }
       } catch (error) {
         if (IS_DEV) console.error("[CapsuleView] Error checking status:", error);
@@ -251,7 +397,6 @@ export default function CapsuleView() {
       }
     }, REFRESH_INTERVAL_MS);
 
-    // Timeout to prevent infinite monitoring
     setTimeout(() => {
       if (statusMonitorActive) {
         if (IS_DEV) console.log("[CapsuleView] Status monitoring timed out");
@@ -261,7 +406,7 @@ export default function CapsuleView() {
         if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
         debouncedRefetch();
       }
-    }, 90000); // 90 seconds timeout as a safeguard
+    }, 90000);
   }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
 
   // File operations
@@ -281,7 +426,6 @@ export default function CapsuleView() {
     if (IS_DEV) console.log(`[CapsuleView] Fetching details for ${missingFileIds.length} files`);
 
     try {
-      // Primary endpoint: /processing/user/:userId/documents
       let response = await fetchWithAuth(`/api/processing-proxy/user/${identity.id}/documents`);
       if (!response.ok) throw new Error(`User documents fetch failed: ${response.status}`);
 
@@ -311,7 +455,6 @@ export default function CapsuleView() {
         return;
       }
 
-      // Fallback: /capsules/:id - using the proper API endpoint
       response = await fetchWithAuth(`/api/capsules/${capsuleId}`);
       if (!response.ok) throw new Error(`Capsule fetch failed: ${response.status}`);
 
@@ -340,7 +483,6 @@ export default function CapsuleView() {
         }
       }
 
-      // No files found, use placeholders
       throw new Error("No file data found from any endpoint");
     } catch (error) {
       if (IS_DEV) console.error("[CapsuleView] Failed to fetch file details:", error);
@@ -361,7 +503,7 @@ export default function CapsuleView() {
       });
     } finally {
       setIsLoadingFiles(false);
-      setFetchRetries(prev => prev + 1); // Increment retry count
+      setFetchRetries(prev => prev + 1);
     }
   }, [capsuleId, identity?.id, fetchWithAuth, loadedFiles, isLoadingFiles]);
 
@@ -398,7 +540,6 @@ export default function CapsuleView() {
 
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
         const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
-        // Using the proper API endpoint from the documentation
         const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -408,7 +549,6 @@ export default function CapsuleView() {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
-      // Using the proper regenerate endpoint
       await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
       setTimeout(() => debouncedRefetch(), 750);
 
@@ -438,7 +578,6 @@ export default function CapsuleView() {
     setEnrichedContent(enrichedContent);
   }, []);
   
-  // Add this function to reset enriched content
   const handleResetEnrichedContent = useCallback(() => {
     console.log('RESETTING enriched content');
     setEnrichedContent('');
@@ -456,7 +595,6 @@ export default function CapsuleView() {
 
       setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
 
-      // Using the proper API endpoint from the documentation
       const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
       });
@@ -499,14 +637,12 @@ export default function CapsuleView() {
     if (!capsuleId || isRegenerating) return;
 
     setErrorMessage(null);
-    setIsRegenerating(true); // Immediately set to regenerating to show loading state
+    setIsRegenerating(true);
 
     try {
-      // Using the proper API endpoint from the documentation
       const response = await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
 
-      // Start monitoring after the request
       startStatusMonitoring();
 
       notifications.show({
@@ -542,7 +678,6 @@ export default function CapsuleView() {
       setTestSummaryPrompt(data.find(p => p.section === 'capsule.testSummary')?.prompt || '');
     } catch (error) {
       if (IS_DEV) console.error('Failed to fetch prompts:', error);
-      // Set default prompts if fetch fails
       setSummaryPrompt('Generate a comprehensive summary of the provided documents');
       setHighlightsPrompt('Extract key highlights and important points from documents');
       setTestSummaryPrompt('Create a test summary of the content');
@@ -551,29 +686,27 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth]);
 
-  // Added purpose selection handlers
-  const getCurrentPurposeName = useCallback(() => {
-    if (record?.purposeOverride) {
-      return record.purposeOverride.cardName;
-    }
-    return 'Summary'; // Default
-  }, [record?.purposeOverride]);
-
-  const getCurrentPurposeId = useCallback(() => {
-    if (record?.purposeOverride) {
-      return record.purposeOverride.cardId;
-    }
-    return 'summary'; // Default
-  }, [record?.purposeOverride]);
-
+  // Purpose selection handlers
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
     try {
       setIsLoadingPrompts(true);
       
       if (card.isDefault && card.id === 'summary') {
-        // For default summary, clear override (simulate API call)
+        // For default summary, clear override by setting to null/empty
         console.log('Clearing purpose override for default summary');
-        // In real implementation: await fetchWithAuth(`/api/capsules/${capsuleId}/purpose`, { method: 'DELETE' });
+        const response = await fetchWithAuth(`/api/capsules/${capsuleId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            overridePrompt: null // Clear the override
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to clear purpose override: ${response.status}`);
+        }
         
         notifications.show({
           title: 'Purpose Updated',
@@ -581,18 +714,30 @@ export default function CapsuleView() {
           color: 'green',
         });
       } else if (!card.isDefault) {
-        // For prototype cards, set override (simulate API call)
+        // For prototype cards, set override with structured JSON data
         console.log('Setting purpose override:', card.name);
-        // In real implementation: 
-        // await fetchWithAuth(`/api/capsules/${capsuleId}/purpose`, {
-        //   method: 'PATCH',
-        //   body: JSON.stringify({
-        //     cardId: card.id,
-        //     cardName: card.name,
-        //     prompt: card.prompt,
-        //     section: card.section
-        //   })
-        // });
+        
+        const overrideData = {
+          cardId: card.id,
+          cardName: card.name,
+          prompt: card.prompt,
+          section: card.section,
+          timestamp: new Date().toISOString()
+        };
+        
+        const response = await fetchWithAuth(`/api/capsules/${capsuleId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            overridePrompt: JSON.stringify(overrideData) // Store as JSON string
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to set purpose override: ${response.status}`);
+        }
         
         notifications.show({
           title: 'Purpose Updated',
@@ -714,9 +859,7 @@ export default function CapsuleView() {
     }
   };
 
-  // Handle new capsule creation (placeholder for future implementation)
   const handleCreateNewCapsule = useCallback(() => {
-    // TODO: Implement capsule creation logic
     console.log("Create new capsule - to be implemented");
     notifications.show({
       title: 'Coming Soon',
@@ -767,7 +910,6 @@ export default function CapsuleView() {
   const debugContent = enrichedContent || extractContextSummary(record?.summaryContext);
   console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
   
-  // Check for malformed patterns
   const malformedInPage = debugContent?.match(/\*{3,}\[/g);
   if (malformedInPage) {
     console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
@@ -795,7 +937,6 @@ export default function CapsuleView() {
         }}
       >
         <Group align="center">
-          {/* Passive + icon for future capsule creation */}
           <ActionIcon 
             size="lg" 
             variant="subtle" 
@@ -805,7 +946,6 @@ export default function CapsuleView() {
           >
             <Plus size={20} />
           </ActionIcon>
-          {/* Display actual capsule name from API */}
           <Text 
             size="sm" 
             fw={500} 
@@ -824,7 +964,6 @@ export default function CapsuleView() {
           >
             {isProcessing ? 'PROCESSING' : record.status || 'Unknown'}
           </Badge>
-          {/* Added current purpose display */}
           <Badge
             variant="outline"
             color="orange"
@@ -864,7 +1003,6 @@ export default function CapsuleView() {
           >
             ADD CONTEXT
           </Button>
-          {/* Added purpose selection button */}
           <Button 
             variant="subtle"
             leftSection={<Target size={14} />}
@@ -1149,7 +1287,6 @@ export default function CapsuleView() {
         originalContent={extractContextSummary(record?.summaryContext) ?? ''}
         onContentUpdate={handleContentEnrichment}
       />
-      {/* Added CapsulePurposeModal */}
       <CapsulePurposeModal
         isOpen={isPurposeModalOpen}
         onClose={() => setIsPurposeModalOpen(false)}
