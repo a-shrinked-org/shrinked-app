@@ -670,7 +670,13 @@ export default function CapsuleView() {
   // Render
   if (isLoading || identityLoading) {
     return (
-      <Box p="md" style={{ position: 'relative', minHeight: '300px' }}>
+      <Box style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '100vh', 
+        backgroundColor: '#0a0a0a', 
+        color: '#ffffff' 
+      }}>
         <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
       </Box>
     );
@@ -678,7 +684,13 @@ export default function CapsuleView() {
 
   if (isError || !record) {
     return (
-      <Box p="md">
+      <Box style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        height: '100vh', 
+        backgroundColor: '#0a0a0a', 
+        color: '#ffffff' 
+      }}>
         <Alert color="red" title="Error Loading Capsule" icon={<AlertCircle size={16} />} mb="md">
           {errorMessage || "Could not load capsule details."}
         </Alert>
@@ -695,7 +707,7 @@ export default function CapsuleView() {
   const hasContextSummary = !!extractContextSummary(record.summaryContext);
   
   const debugContent = enrichedContent || extractContextSummary(record?.summaryContext);
-  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000)); // Changed from 200 to 1000
+  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
   
   // Check for malformed patterns
   const malformedInPage = debugContent?.match(/\*{3,}\[/g);
@@ -706,95 +718,291 @@ export default function CapsuleView() {
   }
 
   return (
-    <Box style={{ backgroundColor: '#0a0a0a', minHeight: '100vh', padding: '24px' }}>
-      <Group mb="xl" justify="space-between" align="center">
+    <Box style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100vh', 
+      backgroundColor: '#0a0a0a', 
+      color: '#ffffff' 
+    }}>
+      {/* Unified Header */}
+      <Flex 
+        justify="space-between" 
+        align="center" 
+        p="sm" 
+        style={{ 
+          borderBottom: '1px solid #2b2b2b', 
+          flexShrink: 0,
+          backgroundColor: '#000000'
+        }}
+      >
         <Group align="center">
-          <ActionIcon size="lg" variant="subtle" onClick={() => list("capsules")} style={{ color: '#a0a0a0' }}>
+          <ActionIcon 
+            size="lg" 
+            variant="subtle" 
+            onClick={() => list("capsules")} 
+            style={{ color: '#a0a0a0' }}
+          >
             <ArrowLeft size={20} />
           </ActionIcon>
-          <Title order={3} style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#ffffff' }}>
+          <Text 
+            size="sm" 
+            fw={500} 
+            style={{ 
+              fontFamily: GeistMono.style.fontFamily, 
+              letterSpacing: '0.5px',
+              textTransform: 'uppercase'
+            }}
+          >
             {record.name || "Unnamed Capsule"}
-          </Title>
+          </Text>
           <Badge
             variant="filled"
             color={isProcessing ? 'yellow' : record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? 'green' : 'gray'}
-            style={{ textTransform: 'uppercase', marginLeft: '8px' }}
+            style={{ textTransform: 'uppercase', fontSize: '11px', fontFamily: GeistMono.style.fontFamily }}
           >
             {isProcessing ? 'PROCESSING' : record.status || 'Unknown'}
           </Badge>
         </Group>
-        <Group>
-          <Button
-            variant="default"
-            leftSection={<RefreshCw size={16} />}
-            onClick={handleRegenerateCapsule}
-            loading={isProcessing}
-            disabled={!hasFiles || isAddingFiles}
-            styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+        <Group gap="xs">
+          <Button 
+            variant="subtle" 
+            leftSection={<Plus size={14} />}
+            onClick={handleAddFile}
+            disabled={isProcessing}
+            loading={isAddingFiles}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
+                },
+              },
+            }}
           >
-            Regenerate
-          </Button>
-          <Button
-            variant="default"
-            leftSection={<Download size={16} />}
-            onClick={handleDownloadMarkdown}
-            disabled={!hasContextSummary || isProcessing}
-            styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
-          >
-            Download MD
+            ADD CONTEXT
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
             <>
-              <Button
-                variant="default"
-                leftSection={<Settings size={16} />}
+              <Button 
+                variant="subtle"
+                leftSection={<Settings size={14} />}
                 onClick={handleOpenSettingsModal}
                 disabled={isProcessing}
-                styles={{ root: { borderColor: '#2b2b2b', color: '#ffffff', '&:hover': { backgroundColor: '#2b2b2b' }}}}
+                styles={{
+                  root: {
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
+                    '&:hover': {
+                      backgroundColor: '#1a1a1a',
+                    },
+                  },
+                }}
               >
-                Settings
+                SETTINGS
               </Button>
-              <Button
-                variant="default"
-                leftSection={<Link2 size={16} />}
+              <Button 
+                variant="subtle"
+                leftSection={<Link2 size={14} />}
                 onClick={() => {
-                  handleResetEnrichedContent(); // Reset before opening
+                  handleResetEnrichedContent();
                   setIsReferenceModalOpen(true);
                 }}
                 disabled={!hasContextSummary || isProcessing}
-                styles={{ 
-                  root: { 
-                    borderColor: '#2b2b2b', 
-                    color: '#ffffff', 
-                    '&:hover': { backgroundColor: '#2b2b2b' }
-                  }
+                styles={{
+                  root: {
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
+                    '&:hover': {
+                      backgroundColor: '#1a1a1a',
+                    },
+                  },
                 }}
               >
-                Refs
+                REFS
               </Button>
             </>
           )}
         </Group>
-      </Group>
+      </Flex>
 
-      {errorMessage && (
-        <Alert color="red" title="Action Required" mb="md" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setErrorMessage(null)}>
-          {errorMessage}
-        </Alert>
-      )}
+      {/* Main Content Area */}
+      <Flex style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Main Content */}
+        <Box style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
+          backgroundColor: '#0a0a0a'
+        }}>
+          <Box style={{ 
+            maxWidth: '750px', 
+            margin: '0 auto', 
+            padding: '24px' 
+          }}>
+            {errorMessage && (
+              <Alert color="red" title="Action Required" mb="md" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setErrorMessage(null)}>
+                {errorMessage}
+              </Alert>
+            )}
 
-      <Flex gap="xl">
-        <Box w={330} style={{ backgroundColor: '#131313', padding: '16px', borderRadius: '8px', border: '1px solid #2b2b2b' }}>
-          <Title order={4} mb="md" ta="center" style={{ fontFamily: GeistMono.style.fontFamily, letterSpacing: '0.5px', color: '#a0a0a0' }}>
-            SOURCE FILES
-          </Title>
+            {/* Capsule Context Header with Actions */}
+            <Flex justify="space-between" align="center" mb="md">
+              <Text 
+                size="lg" 
+                fw={600} 
+                style={{ 
+                  color: '#F5A623',
+                  fontFamily: 'Geist, sans-serif'
+                }}
+              >
+                Capsule Context
+              </Text>
+              <Group gap="xs">
+                <Button
+                  variant="default"
+                  leftSection={<RefreshCw size={16} />}
+                  onClick={handleRegenerateCapsule}
+                  loading={isProcessing}
+                  disabled={!hasFiles || isAddingFiles}
+                  styles={{ 
+                    root: { 
+                      borderColor: '#2b2b2b', 
+                      color: '#ffffff', 
+                      '&:hover': { backgroundColor: '#2b2b2b' }
+                    }
+                  }}
+                >
+                  Regenerate
+                </Button>
+                <Button
+                  variant="default"
+                  leftSection={<Download size={16} />}
+                  onClick={handleDownloadMarkdown}
+                  disabled={!hasContextSummary || isProcessing}
+                  styles={{ 
+                    root: { 
+                      borderColor: '#2b2b2b', 
+                      color: '#ffffff', 
+                      '&:hover': { backgroundColor: '#2b2b2b' }
+                    }
+                  }}
+                >
+                  Download MD
+                </Button>
+              </Group>
+            </Flex>
+
+            {/* Content Area */}
+            <Box style={{ 
+              backgroundColor: '#131313', 
+              minHeight: 'calc(100vh - 250px)', 
+              maxHeight: 'calc(100vh - 250px)', 
+              overflowY: 'auto', 
+              border: '1px solid #2b2b2b', 
+              borderRadius: '8px', 
+              padding: '20px', 
+              position: 'relative' 
+            }}>
+              {isProcessing ? (
+                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+                  <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                  <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+                  <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                    Analyzing files and creating the capsule summary.
+                  </Text>
+                </Stack>
+              ) : hasContextSummary ? (
+                <DocumentMarkdownWrapper 
+                  markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                />
+              ) : hasFiles ? (
+                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                  <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+                  <Text ta="center" c="dimmed" mb="xl">
+                    Click the {"Regenerate"} button to analyze files and create the summary.
+                  </Text>
+                  <Button
+                    leftSection={<RefreshCw size={16} />}
+                    onClick={handleRegenerateCapsule}
+                    styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                    loading={isProcessing}
+                  >
+                    Generate Summary
+                  </Button>
+                </Stack>
+              ) : (
+                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                  <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
+                  <Text ta="center" c="dimmed" mb="xl">
+                    Add files to your capsule to generate a summary.
+                  </Text>
+                  <Button
+                    leftSection={<Plus size={16} />}
+                    onClick={handleAddFile}
+                    styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                    disabled={isProcessing}
+                  >
+                    Add Files
+                  </Button>
+                </Stack>
+              )}
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Right Sidebar - Files */}
+        <Box style={{ 
+          width: '384px', 
+          borderLeft: '1px solid #2B2B2B', 
+          padding: '1.5rem',
+          backgroundColor: '#000000',
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflowY: 'auto'
+        }}>
+          <Text 
+            c="dimmed" 
+            mb="md" 
+            size="xs" 
+            style={{ 
+              fontFamily: GeistMono.style.fontFamily,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}
+          >
+            Source Files ({displayFiles.length})
+          </Text>
+          
           {hasFiles ? (
-            <Stack gap="sm" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
+            <Stack gap="sm" style={{ marginBottom: '1rem' }}>
               {displayFiles.map((file) => (
                 <Box
                   key={file._id}
                   style={{
-                    backgroundColor: '#1a1a1a',
+                    backgroundColor: '#131313',
                     borderRadius: '6px',
                     border: '1px solid #2b2b2b',
                     overflow: 'hidden'
@@ -831,7 +1039,7 @@ export default function CapsuleView() {
                     </Box>
                   )}
                   {showDeleteConfirm !== file._id && (
-                    <Box p="xs" style={{ backgroundColor: '#151515', borderTop: '1px solid #2b2b2b' }}>
+                    <Box p="xs" style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid #2b2b2b' }}>
                       <Text size="xs" c="dimmed" ta="right">{formatDate(file.createdAt)}</Text>
                     </Box>
                   )}
@@ -844,77 +1052,14 @@ export default function CapsuleView() {
               <Text size="sm" c="dimmed">Loading file details...</Text>
             </Box>
           ) : (
-            <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16} />} style={{ borderColor: '#2b2b2b' }}>
-              Add source documents to your capsule using the button below.
+            <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16} />} style={{ borderColor: '#2b2b2b', marginBottom: '1rem' }}>
+              Add source documents to your capsule using the button above.
             </Alert>
           )}
-          <Button
-            fullWidth
-            mt="md"
-            leftSection={<Plus size={16} />}
-            onClick={handleAddFile}
-            disabled={isProcessing}
-            loading={isAddingFiles}
-            styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-          >
-            Add Files
-          </Button>
-        </Box>
-
-        <Box style={{ flex: 1 }}>
-          <Box style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '10px', borderBottom: '1px solid #2b2b2b', paddingBottom: '10px', color: '#F5A623' }}>
-            Capsule Context
-          </Box>
-          <Box style={{ backgroundColor: '#131313', minHeight: 'calc(100vh - 250px)', maxHeight: 'calc(100vh - 250px)', overflowY: 'auto', border: '1px solid #2b2b2b', borderRadius: '8px', padding: '20px', position: 'relative' }}>
-           {isProcessing ? (
-             <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-               <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-               <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-               <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
-                 Analyzing files and creating the capsule summary.
-               </Text>
-             </Stack>
-           ) : hasContextSummary ? (
-             <DocumentMarkdownWrapper 
-               markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
-             />
-           ) : hasFiles ? (
-             <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-               <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-               <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-               <Text ta="center" c="dimmed" mb="xl">
-                 Click the {"Regenerate"} button to analyze files and create the summary.
-               </Text>
-               <Button
-                 leftSection={<RefreshCw size={16} />}
-                 onClick={handleRegenerateCapsule}
-                 styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                 loading={isProcessing}
-               >
-                 Generate Summary
-               </Button>
-             </Stack>
-           ) : (
-              <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
-                <Text ta="center" c="dimmed" mb="xl">
-                  Add files to your capsule to generate a summary.
-                </Text>
-                <Button
-                  leftSection={<Plus size={16} />}
-                  onClick={handleAddFile}
-                  styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                  disabled={isProcessing}
-                >
-                  Add Files
-                </Button>
-              </Stack>
-            )}
-          </Box>
         </Box>
       </Flex>
 
+      {/* Modals */}
       <FileSelector
         opened={isFileSelectorOpen}
         onClose={() => setIsFileSelectorOpen(false)}
