@@ -156,7 +156,7 @@ export const authUtils = {
 	  };
 	  localStorage.setItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA, JSON.stringify(metadata));
 
-	  authDebug.log("saveTokens", "Tokens and metadata stored successfully");
+	  authDebug.log("saveTokens", `Token expires in ${Math.round((metadata.accessExpiry - Date.now()) / 60000)} minutes`);
 	  authUtils.setupRefreshTimer(); // Setup timer after successful save
 	} catch (e) {
 	  authDebug.error("saveTokens", "Error saving tokens:", e);
@@ -191,11 +191,28 @@ export const authUtils = {
 	return hasTokens;
   },
 
+  // FIX 1: Updated refreshToken to check expiry before cooldown
   refreshToken: async (): Promise<boolean> => {
 	const now = Date.now();
-	if (now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
-	  authDebug.log("refreshToken", "Skipping refresh due to cooldown");
-	  // Return true because we assume the tokens are still likely valid within the cooldown
+	
+	// Check if token is actually expired before applying cooldown
+	const metadataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
+	let tokenExpired = false;
+	
+	if (metadataStr) {
+	  try {
+		const metadata: TokenMetadata = JSON.parse(metadataStr);
+		tokenExpired = metadata.accessExpiry < now + 60000; // Expires within 60 seconds
+	  } catch (e) {
+		tokenExpired = true; // Force refresh if metadata is corrupt
+	  }
+	} else {
+	  tokenExpired = true; // Force refresh if no metadata
+	}
+	
+	// Only apply cooldown if token is NOT expired
+	if (!tokenExpired && now - lastSuccessfulRefreshTime < REFRESH_COOLDOWN) {
+	  authDebug.log("refreshToken", "Skipping refresh due to cooldown (token still valid)");
 	  return true;
 	}
 
@@ -209,8 +226,7 @@ export const authUtils = {
 	  try {
 		const currentRefreshToken = authUtils.getRefreshToken();
 		if (!currentRefreshToken) {
-		  authDebug.log("refreshToken", "No refresh token available for refresh attempt.");
-		  // If no refresh token, clear everything and signal failure
+		  authDebug.log("refreshToken", "No refresh token available");
 		  authUtils.clearAuthStorage();
 		  authUtils.setAuthenticatedState(false);
 		  return false;
@@ -224,12 +240,16 @@ export const authUtils = {
 		});
 
 		if (!response.ok) {
-		  // Handle specific errors from refresh endpoint
-		  const errorData = await response.json().catch(() => ({ message: `Refresh failed with status ${response.status}` }));
+		  const errorData = await response.json().catch(() => ({ 
+			message: `Refresh failed with status ${response.status}` 
+		  }));
 		  authDebug.error("refreshToken", `Refresh failed (${response.status}):`, errorData.message || errorData);
-		  // Clear storage on explicit failure (like invalid refresh token)
-		  authUtils.clearAuthStorage();
-		  authUtils.setAuthenticatedState(false);
+		  
+		  // Only clear storage on 401/403 (invalid refresh token)
+		  if (response.status === 401 || response.status === 403) {
+			authUtils.clearAuthStorage();
+			authUtils.setAuthenticatedState(false);
+		  }
 		  return false;
 		}
 
@@ -247,10 +267,10 @@ export const authUtils = {
 		}
 	  } catch (e) {
 		authDebug.error("refreshToken", "Network or unexpected error during refresh:", e);
-		authUtils.setAuthenticatedState(false); // Reflect potential logged-out state
+		// Don't clear storage on network errors - just return false
 		success = false;
 	  } finally {
-		refreshPromise = null; // Clear promise regardless of outcome
+		refreshPromise = null;
 	  }
 	  return success;
 	})();
@@ -258,31 +278,38 @@ export const authUtils = {
 	return refreshPromise;
   },
 
+  // FIX 3: Updated ensureValidToken to be more robust
   ensureValidToken: async (): Promise<string | null> => {
 	const accessToken = authUtils.getAccessToken();
+	
 	if (!accessToken) {
 	  authDebug.log("ensureValidToken", "No access token found, trying refresh...");
 	  const refreshed = await authUtils.refreshToken();
 	  return refreshed ? authUtils.getAccessToken() : null;
 	}
 
+	// Always check metadata if available
 	const metadataStr = localStorage.getItem(API_CONFIG.STORAGE_KEYS.TOKEN_METADATA);
 	let needsRefresh = false;
+	
 	if (metadataStr) {
 	  try {
 		const metadata: TokenMetadata = JSON.parse(metadataStr);
-		// Refresh if token expires within the next 60 seconds
-		if (metadata.accessExpiry < Date.now() + 60000) {
+		// Refresh if token expires within the next 2 minutes (increased buffer)
+		if (metadata.accessExpiry < Date.now() + 120000) {
 		  authDebug.log("ensureValidToken", "Token expiring soon, refreshing");
 		  needsRefresh = true;
 		}
 	  } catch (e) {
 		authDebug.error("ensureValidToken", "Error parsing metadata, forcing refresh", e);
-		needsRefresh = true; // Force refresh if metadata is corrupt
+		needsRefresh = true;
 	  }
 	} else {
-	  authDebug.log("ensureValidToken", "No metadata found, forcing refresh");
-	  needsRefresh = true; // Force refresh if no metadata
+	  // If no metadata, try to parse token directly
+	  const tokenData = parseJwt(accessToken);
+	  if (tokenData.exp && tokenData.exp * 1000 < Date.now() + 120000) {
+		needsRefresh = true;
+	  }
 	}
 
 	if (needsRefresh) {
@@ -378,8 +405,8 @@ export const authUtils = {
 	return baseHeaders;
   },
 
+  // FIX 2: Updated handleAuthError to be less aggressive
   handleAuthError: (error: any): void => {
-	// Basic error handling, triggers toast notifications
 	if (!error) return;
 	const status = error?.status ?? error?.statusCode ?? error?.response?.status;
 	const message = error?.message ?? "An unknown error occurred";
@@ -387,34 +414,31 @@ export const authUtils = {
 	authDebug.warn("handleAuthError", `Handling error (status: ${status})`, message);
 
 	if (status === 401 || status === 403) {
-	  toast.error("Session expired or unauthorized. Please log in again.", {toastId: 'authError'});
-	  // Attempt refresh
+	  toast.error("Session expired. Attempting to refresh...", {toastId: 'authError'});
+	  
+	  // Attempt refresh with better error handling
 	  authUtils.refreshToken().then(success => {
 		if (!success) {
-		  // If refresh fails immediately, redirect to login
+		  // Only logout after refresh fails
+		  toast.error("Please log in again.", {toastId: 'authErrorFinal'});
 		  authUtils.clearAuthStorage();
 		  authUtils.setAuthenticatedState(false);
-		  // Avoid redirecting if already on login page
+		  
 		  if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-			window.location.href = '/login'; // Force reload redirect
+			window.location.href = '/login';
 		  }
+		} else {
+		  toast.success("Session refreshed successfully", {toastId: 'authSuccess'});
 		}
 	  });
 	} else if (status >= 500) {
-	  toast.error("A server error occurred. Please try again later.", {toastId: 'serverError'});
+	  toast.error("Server error. Please try again.", {toastId: 'serverError'});
 	} else if (typeof navigator !== 'undefined' && !navigator.onLine) {
-	  toast.warn("You appear to be offline. Some actions may fail.", {toastId: 'offlineError'});
+	  toast.warn("You appear to be offline.", {toastId: 'offlineError'});
 	} else if (status === 400) {
 	  toast.error(`Bad request: ${message}`, {toastId: 'badRequestError'});
 	} else if (status === 404) {
-	  toast.warn(`Resource not found: ${message}`, {toastId: 'notFoundError'});
-	}
-	// Don't toast generic network errors if offline message was already shown
-	else if (message !== "Network Error" || (typeof navigator !== 'undefined' && navigator.onLine)) {
-	  // Avoid double-toasting common errors
-	  if (!String(message).includes("token") && !String(message).includes("Authentication")) {
-		toast.error(`An error occurred: ${message}`, {toastId: 'genericError'});
-	  }
+	  toast.warn(`Resource not found`, {toastId: 'notFoundError'});
 	}
   },
 
