@@ -18,6 +18,8 @@ import {
   Textarea,
   Modal,
   Divider,
+  Tabs,
+  Code,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -65,6 +67,8 @@ interface FileData {
   createdAt: string;
   fileName?: string;
   output?: { title?: string };
+  size?: number;
+  contentType?: string;
 }
 
 interface AdminPrompt {
@@ -102,8 +106,8 @@ interface Capsule {
   highlights?: Array<{ xml: string }>;
   summary?: string;
   testSummary?: string;
-  // Updated to match your actual field
-  overridePrompt?: string; // JSON string containing override data or plain text
+  overridePrompt?: string;
+  __v?: number;
 }
 
 const REFRESH_INTERVAL_MS = 3000;
@@ -138,6 +142,7 @@ export default function CapsuleView() {
   const { handleAuthError, fetchWithAuth, ensureValidToken } = useAuth();
 
   // State declarations
+  const [activeTab, setActiveTab] = useState("preview");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
@@ -442,7 +447,9 @@ export default function CapsuleView() {
           title: doc.title || doc.output?.title || doc.fileName || `File ${doc._id.slice(-6)}`,
           createdAt: doc.createdAt || new Date().toISOString(),
           fileName: doc.fileName || "",
-          output: doc.output || {}
+          output: doc.output || {},
+          size: doc.size || 0,
+          contentType: doc.contentType || 'application/octet-stream'
         }));
 
       if (processedFiles.length) {
@@ -469,7 +476,9 @@ export default function CapsuleView() {
             title: file.output?.title || file.title || file.fileName || `File ${file._id.slice(-6)}`,
             createdAt: file.createdAt || new Date().toISOString(),
             fileName: file.fileName || "",
-            output: file.output || {}
+            output: file.output || {},
+            size: file.size || 0,
+            contentType: file.contentType || 'application/octet-stream'
           }));
 
         if (processedFiles.length) {
@@ -489,7 +498,9 @@ export default function CapsuleView() {
       const placeholders = missingFileIds.map(id => ({
         _id: id,
         title: `File ${id.slice(-6)}`,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        size: 0,
+        contentType: 'application/octet-stream'
       }));
       setLoadedFiles(prev => {
         const existingIds = prev.map(f => f._id);
@@ -528,7 +539,9 @@ export default function CapsuleView() {
           title: fileInfo?.title || fileInfo?.output?.title || fileInfo?.fileName || `File ${id.slice(-6)}`,
           createdAt: fileInfo?.createdAt || new Date().toISOString(),
           fileName: fileInfo?.fileName || "",
-          output: fileInfo?.output || {}
+          output: fileInfo?.output || {},
+          size: fileInfo?.size || 0,
+          contentType: fileInfo?.contentType || 'application/octet-stream'
         };
       });
 
@@ -617,7 +630,9 @@ export default function CapsuleView() {
         const file = record?.files?.find(f => f._id === fileId) || {
           _id: fileId,
           title: `File ${fileId.slice(-6)}`,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          size: 0,
+          contentType: 'application/octet-stream'
         };
         return prev.some(f => f._id === fileId) ? prev : [...prev, file];
       });
@@ -859,6 +874,22 @@ export default function CapsuleView() {
     }
   };
 
+  const formatFileSize = (size: number) => {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+    if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+    return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  const formatDuration = (createdAt: string, updatedAt: string) => {
+    const created = new Date(createdAt);
+    const updated = new Date(updatedAt);
+    const diffMs = updated.getTime() - created.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffSeconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+    return `${diffMinutes}M ${diffSeconds}S`;
+  };
+
   const handleCreateNewCapsule = useCallback(() => {
     console.log("Create new capsule - to be implemented");
     notifications.show({
@@ -925,7 +956,7 @@ export default function CapsuleView() {
       backgroundColor: '#0a0a0a', 
       color: '#ffffff' 
     }}>
-      {/* Unified Header */}
+      {/* Header */}
       <Flex 
         justify="space-between" 
         align="center" 
@@ -955,28 +986,8 @@ export default function CapsuleView() {
               textTransform: 'uppercase'
             }}
           >
-            {record.name || "Untitled Capsule"}
+            CAPSULE ID
           </Text>
-          <Badge
-            variant="filled"
-            color={isProcessing ? 'yellow' : record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? 'green' : 'gray'}
-            style={{ textTransform: 'uppercase', fontSize: '11px', fontFamily: GeistMono.style.fontFamily }}
-          >
-            {isProcessing ? 'PROCESSING' : record.status || 'Unknown'}
-          </Badge>
-          <Badge
-            variant="outline"
-            color="orange"
-            style={{ 
-              textTransform: 'uppercase', 
-              fontSize: '10px', 
-              fontFamily: GeistMono.style.fontFamily,
-              borderColor: '#F5A623',
-              color: '#F5A623'
-            }}
-          >
-            {getCurrentPurposeName()}
-          </Badge>
         </Group>
         <Group gap="xs">
           <Button 
@@ -1054,12 +1065,137 @@ export default function CapsuleView() {
               REFS
             </Button>
           )}
+          <Button 
+            variant="filled"
+            leftSection={<Download size={14} />}
+            onClick={handleDownloadMarkdown}
+            disabled={!hasContextSummary || isProcessing}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#E09612',
+                },
+              },
+            }}
+          >
+            DOWNLOAD
+          </Button>
         </Group>
       </Flex>
 
-      {/* Main Content Area */}
+      {/* Capsule Metadata Bar */}
+      <Box style={{ 
+        backgroundColor: '#000000', 
+        borderBottom: '1px solid #2b2b2b',
+        padding: '12px 24px'
+      }}>
+        <Text 
+          size="xs" 
+          c="dimmed" 
+          mb="xs"
+          style={{ 
+            fontFamily: GeistMono.style.fontFamily,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}
+        >
+          {record.name}
+        </Text>
+        <Text 
+          size="sm" 
+          c="dimmed" 
+          mb="md"
+          style={{ lineHeight: 1.4 }}
+        >
+          Your capsule ingests your documents & knowledge bases to create contextual summaries and insights uniquely suited to your needs.
+        </Text>
+        
+        <Flex gap="xl" style={{ fontSize: '14px' }}>
+          <Box>
+            <Text 
+              size="xs" 
+              c="dimmed" 
+              style={{ 
+                fontFamily: GeistMono.style.fontFamily,
+                textTransform: 'uppercase',
+                marginBottom: '4px'
+              }}
+            >
+              Created
+            </Text>
+            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+              {new Date(record.createdAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              }).toUpperCase()}
+            </Text>
+          </Box>
+          
+          <Box>
+            <Text 
+              size="xs" 
+              c="dimmed" 
+              style={{ 
+                fontFamily: GeistMono.style.fontFamily,
+                textTransform: 'uppercase',
+                marginBottom: '4px'
+              }}
+            >
+              Duration
+            </Text>
+            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+              {formatDuration(record.createdAt, record.updatedAt)}
+            </Text>
+          </Box>
+          
+          <Box>
+            <Text 
+              size="xs" 
+              c="dimmed" 
+              style={{ 
+                fontFamily: GeistMono.style.fontFamily,
+                textTransform: 'uppercase',
+                marginBottom: '4px'
+              }}
+            >
+              Files
+            </Text>
+            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+              {displayFiles.length}
+            </Text>
+          </Box>
+          
+          <Box>
+            <Text 
+              size="xs" 
+              c="dimmed" 
+              style={{ 
+                fontFamily: GeistMono.style.fontFamily,
+                textTransform: 'uppercase',
+                marginBottom: '4px'
+              }}
+            >
+              Purpose
+            </Text>
+            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+              {getCurrentPurposeName().toUpperCase()}
+            </Text>
+          </Box>
+        </Flex>
+      </Box>
+
+      {/* Main Content */}
       <Flex style={{ flex: 1, overflow: 'hidden' }}>
-        {/* Main Content */}
+        {/* Left Panel - Scrollable */}
         <Box style={{ 
           flex: 1, 
           overflowY: 'auto', 
@@ -1077,114 +1213,168 @@ export default function CapsuleView() {
               </Alert>
             )}
 
-            {/* Capsule Context Header with Actions */}
-            <Flex justify="space-between" align="center" mb="md">
-              <Text 
-                size="lg" 
-                fw={600} 
-                style={{ 
-                  color: '#F5A623',
-                  fontFamily: 'Geist, sans-serif'
+            {/* Title Section */}
+            <Box mb="lg">
+              <Badge 
+                size="sm"
+                variant="filled"
+                styles={{
+                  root: {
+                    backgroundColor: '#2B2B2B',
+                    color: '#A1A1A1',
+                    textTransform: 'uppercase',
+                    fontSize: '11px',
+                    fontFamily: GeistMono.style.fontFamily,
+                    marginBottom: '8px',
+                  }
                 }}
               >
-                Capsule Context
+                Context
+              </Badge>
+              <Text 
+                size="28px" 
+                fw={600} 
+                style={{ 
+                  fontFamily: 'Geist, sans-serif',
+                  lineHeight: 1.2
+                }}
+              >
+                {record.name}
               </Text>
-              <Group gap="xs">
-                <Button
-                  variant="default"
-                  leftSection={<RefreshCw size={16} />}
-                  onClick={handleRegenerateCapsule}
-                  loading={isProcessing}
-                  disabled={!hasFiles || isAddingFiles}
-                  styles={{ 
-                    root: { 
-                      borderColor: '#2b2b2b', 
-                      color: '#ffffff', 
-                      '&:hover': { backgroundColor: '#2b2b2b' }
-                    }
-                  }}
-                >
-                  Regenerate
-                </Button>
-                <Button
-                  variant="default"
-                  leftSection={<Download size={16} />}
-                  onClick={handleDownloadMarkdown}
-                  disabled={!hasContextSummary || isProcessing}
-                  styles={{ 
-                    root: { 
-                      borderColor: '#2b2b2b', 
-                      color: '#ffffff', 
-                      '&:hover': { backgroundColor: '#2b2b2b' }
-                    }
-                  }}
-                >
-                  Download MD
-                </Button>
-              </Group>
-            </Flex>
-
-            {/* Content Area */}
-            <Box style={{ 
-              backgroundColor: '#131313', 
-              minHeight: 'calc(100vh - 250px)', 
-              maxHeight: 'calc(100vh - 250px)', 
-              overflowY: 'auto', 
-              border: '1px solid #2b2b2b', 
-              borderRadius: '8px', 
-              padding: '20px', 
-              position: 'relative' 
-            }}>
-              {isProcessing ? (
-                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                  <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                  <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                  <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
-                    Analyzing files and creating the capsule summary.
-                  </Text>
-                </Stack>
-              ) : hasContextSummary ? (
-                <DocumentMarkdownWrapper 
-                  markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
-                />
-              ) : hasFiles ? (
-                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                  <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                  <Text ta="center" c="dimmed" mb="xl">
-                    Click the {"Regenerate"} button to analyze files and create the summary.
-                  </Text>
-                  <Button
-                    leftSection={<RefreshCw size={16} />}
-                    onClick={handleRegenerateCapsule}
-                    styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                    loading={isProcessing}
-                  >
-                    Generate Summary
-                  </Button>
-                </Stack>
-              ) : (
-                <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                  <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                  <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
-                  <Text ta="center" c="dimmed" mb="xl">
-                    Add files to your capsule to generate a summary.
-                  </Text>
-                  <Button
-                    leftSection={<Plus size={16} />}
-                    onClick={handleAddFile}
-                    styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                    disabled={isProcessing}
-                  >
-                    Add Files
-                  </Button>
-                </Stack>
-              )}
+              <Text c="dimmed" mt="xs" size="sm">
+                {record.slug}
+              </Text>
             </Box>
+
+            {/* Tabs Section */}
+            <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
+              <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
+                <Tabs.Tab 
+                  value="preview"
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                >
+                  Preview
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="metadata"
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                >
+                  Metadata
+                </Tabs.Tab>
+              </Tabs.List>
+              
+              <Tabs.Panel value="preview" pt="md">
+                <Box style={{ 
+                  backgroundColor: '#131313', 
+                  minHeight: 'calc(100vh - 350px)', 
+                  maxHeight: 'calc(100vh - 350px)', 
+                  overflowY: 'auto', 
+                  border: '1px solid #2b2b2b', 
+                  borderRadius: '8px', 
+                  padding: '20px', 
+                  position: 'relative' 
+                }}>
+                  {isProcessing ? (
+                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
+                      <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+                      <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                        Analyzing files and creating the capsule summary.
+                      </Text>
+                    </Stack>
+                  ) : hasContextSummary ? (
+                    <DocumentMarkdownWrapper 
+                      markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                    />
+                  ) : hasFiles ? (
+                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+                      <Text ta="center" c="dimmed" mb="xl">
+                        Click the {"Regenerate"} button to analyze files and create the summary.
+                      </Text>
+                      <Button
+                        leftSection={<RefreshCw size={16} />}
+                        onClick={handleRegenerateCapsule}
+                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                        loading={isProcessing}
+                      >
+                        Generate Summary
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
+                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
+                      <Text ta="center" c="dimmed" mb="xl">
+                        Add files to your capsule to generate a summary.
+                      </Text>
+                      <Button
+                        leftSection={<Plus size={16} />}
+                        onClick={handleAddFile}
+                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                        disabled={isProcessing}
+                      >
+                        Add Files
+                      </Button>
+                    </Stack>
+                  )}
+                </Box>
+              </Tabs.Panel>
+
+              <Tabs.Panel value="metadata" pt="md">
+                <Box style={{ 
+                  backgroundColor: '#131313', 
+                  padding: '16px', 
+                  borderRadius: 8,
+                  border: '1px solid #2B2B2B'
+                }}>
+                  <Code
+                    block
+                    style={{
+                      backgroundColor: '#1a1a1a',
+                      color: '#e0e0e0',
+                      padding: '16px',
+                      borderRadius: '8px',
+                      overflow: 'auto',
+                      maxHeight: '70vh',
+                      fontSize: '0.9rem',
+                      fontFamily: 'monospace',
+                      lineHeight: 1.5,
+                      border: '1px solid #333',
+                      width: '100%',
+                      maxWidth: '100%',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {JSON.stringify(record, null, 2)}
+                  </Code>
+                </Box>
+              </Tabs.Panel>
+            </Tabs>
           </Box>
         </Box>
 
-        {/* Right Sidebar - Files */}
+        {/* Right Panel - Capsule Details */}
         <Box style={{ 
           width: '384px', 
           borderLeft: '1px solid #2B2B2B', 
@@ -1195,79 +1385,212 @@ export default function CapsuleView() {
           height: '100vh',
           overflowY: 'auto'
         }}>
-          <Text 
-            c="dimmed" 
-            mb="md" 
-            size="xs" 
-            style={{ 
-              fontFamily: GeistMono.style.fontFamily,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
-            }}
-          >
-            Source Files ({displayFiles.length})
-          </Text>
-          
-          {hasFiles ? (
-            <Stack gap="sm" style={{ marginBottom: '1rem' }}>
-              {displayFiles.map((file) => (
-                <Box
-                  key={file._id}
-                  style={{
-                    backgroundColor: '#131313',
-                    borderRadius: '6px',
-                    border: '1px solid #2b2b2b',
-                    overflow: 'hidden'
+          {/* Capsule Stats */}
+          <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+            <Box>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Files
+              </Text>
+              <Text>{displayFiles.length}</Text>
+            </Box>
+            <Box>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Version
+              </Text>
+              <Text>v{record.__v || 0}</Text>
+            </Box>
+            <Box>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Total Size
+              </Text>
+              <Text>
+                {formatFileSize(displayFiles.reduce((total, file) => total + (file.size || 0), 0))}
+              </Text>
+            </Box>
+            <Box>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Purpose
+              </Text>
+              <Text style={{ fontSize: '12px' }}>{getCurrentPurposeName()}</Text>
+            </Box>
+            <Box style={{ gridColumn: 'span 2' }}>
+              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                Last Updated
+              </Text>
+              <Text>
+                {new Date(record.updatedAt).toLocaleString(undefined, {
+                  timeZone: "UTC",
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </Text>
+            </Box>
+          </Box>
+
+          {/* Source Files */}
+          <Box>
+            <Text 
+              c="dimmed" 
+              mb="md" 
+              size="xs" 
+              style={{ 
+                fontFamily: GeistMono.style.fontFamily,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
+              Source Files ({displayFiles.length})
+            </Text>
+            
+            {hasFiles ? (
+              <Stack gap="sm" style={{ marginBottom: '1rem' }}>
+                {displayFiles.map((file) => (
+                  <Box
+                    key={file._id}
+                    style={{
+                      backgroundColor: '#0a0a0a',
+                      borderRadius: '6px',
+                      border: '1px solid #2b2b2b',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
+                      <Group gap="xs" align="center">
+                        <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
+                        <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
+                          {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
+                        </Text>
+                      </Group>
+                      {showDeleteConfirm !== file._id && (
+                        <ActionIcon
+                          color="red"
+                          variant="subtle"
+                          onClick={() => setShowDeleteConfirm(file._id)}
+                          disabled={isProcessing}
+                          title="Remove file"
+                        >
+                          <Trash size={16} />
+                        </ActionIcon>
+                      )}
+                    </Group>
+                    {showDeleteConfirm === file._id && (
+                      <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
+                        <Group justify="space-between" gap="xs">
+                          <Text size="xs" c="dimmed">Delete file?</Text>
+                          <Group gap="xs">
+                            <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
+                            <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
+                          </Group>
+                        </Group>
+                      </Box>
+                    )}
+                    {showDeleteConfirm !== file._id && (
+                      <Box p="xs" style={{ backgroundColor: '#131313', borderTop: '1px solid #2b2b2b' }}>
+                        <Flex justify="space-between" align="center">
+                          <Text size="xs" c="dimmed">{formatFileSize(file.size || 0)}</Text>
+                          <Text size="xs" c="dimmed">{formatDate(file.createdAt)}</Text>
+                        </Flex>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
+              </Stack>
+            ) : isLoadingFiles ? (
+              <Box style={{ padding: '20px', textAlign: 'center' }}>
+                <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{ size: 'sm' }} />
+                <Text size="sm" c="dimmed">Loading file details...</Text>
+              </Box>
+            ) : (
+              <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16} />} style={{ borderColor: '#2b2b2b', marginBottom: '1rem' }}>
+                Add source documents to your capsule using the button above.
+              </Alert>
+            )}
+          </Box>
+
+          {/* Capsule Properties */}
+          <Box style={{ marginTop: '2rem' }}>
+            <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+              Properties
+            </Text>
+            <Stack gap="md">
+              <Box style={{ 
+                backgroundColor: '#0a0a0a',
+                border: '1px solid #2B2B2B',
+                borderRadius: '4px',
+                padding: '12px'
+              }}>
+                <Text 
+                  style={{ 
+                    fontFamily: GeistMono.style.fontFamily, 
+                    fontSize: '14px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '4px'
                   }}
                 >
-                  <Group justify="space-between" p="sm" style={{ borderBottom: showDeleteConfirm === file._id ? '1px solid #333' : 'none' }}>
-                    <Group gap="xs" align="center">
-                      <File size={16} style={{ opacity: 0.6, color: '#a0a0a0', flexShrink: 0 }} />
-                      <Text size="sm" lineClamp={1} title={file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`} style={{ maxWidth: '180px', color: '#e0e0e0' }}>
-                        {file.title || file.output?.title || file.fileName || `File ${file._id.slice(-6)}`}
-                      </Text>
-                    </Group>
-                    {showDeleteConfirm !== file._id && (
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => setShowDeleteConfirm(file._id)}
-                        disabled={isProcessing}
-                        title="Remove file"
-                      >
-                        <Trash size={16} />
-                      </ActionIcon>
-                    )}
-                  </Group>
-                  {showDeleteConfirm === file._id && (
-                    <Box p="xs" style={{ backgroundColor: '#2a2a2a' }}>
-                      <Group justify="space-between" gap="xs">
-                        <Text size="xs" c="dimmed">Delete file?</Text>
-                        <Group gap="xs">
-                          <Button size="xs" variant="outline" color="gray" onClick={() => setShowDeleteConfirm(null)}>Cancel</Button>
-                          <Button size="xs" color="red" onClick={() => handleRemoveFile(file._id)} loading={isProcessing}>Delete</Button>
-                        </Group>
-                      </Group>
-                    </Box>
-                  )}
-                  {showDeleteConfirm !== file._id && (
-                    <Box p="xs" style={{ backgroundColor: '#0a0a0a', borderTop: '1px solid #2b2b2b' }}>
-                      <Text size="xs" c="dimmed" ta="right">{formatDate(file.createdAt)}</Text>
-                    </Box>
-                  )}
-                </Box>
-              ))}
+                  Capsule ID
+                </Text>
+                <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', fontSize: '11px' }}>
+                  {record._id}
+                </Text>
+              </Box>
+
+              <Box style={{ 
+                backgroundColor: '#0a0a0a',
+                border: '1px solid #2B2B2B',
+                borderRadius: '4px',
+                padding: '12px'
+              }}>
+                <Text 
+                  style={{ 
+                    fontFamily: GeistMono.style.fontFamily, 
+                    fontSize: '14px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '4px'
+                  }}
+                >
+                  Status
+                </Text>
+                <Flex align="center" gap="xs">
+                  <Box style={{ 
+                    width: '8px', 
+                    height: '8px', 
+                    borderRadius: '50%',
+                    backgroundColor: isProcessing ? '#F5A623' : 
+                                    record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? '#3DC28B' : 
+                                    record.status?.toLowerCase() === 'failed' ? '#FF4F56' : '#F5A623'
+                  }} />
+                  <Text size="sm" style={{ textTransform: 'capitalize' }}>
+                    {isProcessing ? 'Processing' : record.status || 'Unknown'}
+                  </Text>
+                </Flex>
+              </Box>
+
+              <Box style={{ 
+                backgroundColor: '#0a0a0a',
+                border: '1px solid #2B2B2B',
+                borderRadius: '4px',
+                padding: '12px'
+              }}>
+                <Text 
+                  style={{ 
+                    fontFamily: GeistMono.style.fontFamily, 
+                    fontSize: '14px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    marginBottom: '4px'
+                  }}
+                >
+                  Access Level
+                </Text>
+                <Text size="sm" c="dimmed">Private</Text>
+              </Box>
             </Stack>
-          ) : isLoadingFiles ? (
-            <Box style={{ padding: '20px', textAlign: 'center' }}>
-              <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{ size: 'sm' }} />
-              <Text size="sm" c="dimmed">Loading file details...</Text>
-            </Box>
-          ) : (
-            <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16} />} style={{ borderColor: '#2b2b2b', marginBottom: '1rem' }}>
-              Add source documents to your capsule using the button above.
-            </Alert>
-          )}
+          </Box>
         </Box>
       </Flex>
 
