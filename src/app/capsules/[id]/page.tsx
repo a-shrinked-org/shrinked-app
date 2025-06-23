@@ -148,7 +148,7 @@ export default function CapsuleView() {
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [enrichedContent, setEnrichedContent] = useState<string>('');
 
-  // Capsule query
+  // Capsule query - Updated to use the proper API endpoint
   const { queryResult } = useShow<Capsule>({
     resource: "capsules",
     id: capsuleId,
@@ -292,8 +292,8 @@ export default function CapsuleView() {
         return;
       }
 
-      // Fallback: /capsules/:id
-      response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}`);
+      // Fallback: /capsules/:id - using the proper API endpoint
+      response = await fetchWithAuth(`/api/capsules/${capsuleId}`);
       if (!response.ok) throw new Error(`Capsule fetch failed: ${response.status}`);
 
       let data = await response.json();
@@ -379,7 +379,8 @@ export default function CapsuleView() {
 
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
         const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
-        const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files`, {
+        // Using the proper API endpoint from the documentation
+        const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileIds: batch }),
@@ -388,7 +389,8 @@ export default function CapsuleView() {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
-      await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
+      // Using the proper regenerate endpoint
+      await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
       setTimeout(() => debouncedRefetch(), 750);
 
       notifications.show({
@@ -435,14 +437,15 @@ export default function CapsuleView() {
 
       setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
 
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/files/${fileId}`, {
+      // Using the proper API endpoint from the documentation
+      const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
       });
       if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
 
       const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
       if (remainingFiles.length > 0) {
-        await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
+        await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
       }
       setTimeout(() => debouncedRefetch(), 750);
 
@@ -480,7 +483,8 @@ export default function CapsuleView() {
     setIsRegenerating(true); // Immediately set to regenerating to show loading state
 
     try {
-      const response = await fetchWithAuth(`/api/capsules-direct/${capsuleId}/regenerate`, { method: 'GET' });
+      // Using the proper API endpoint from the documentation
+      const response = await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
 
       // Start monitoring after the request
@@ -667,6 +671,17 @@ export default function CapsuleView() {
     }
   };
 
+  // Handle new capsule creation (placeholder for future implementation)
+  const handleCreateNewCapsule = useCallback(() => {
+    // TODO: Implement capsule creation logic
+    console.log("Create new capsule - to be implemented");
+    notifications.show({
+      title: 'Coming Soon',
+      message: 'Capsule creation will be available soon.',
+      color: 'blue',
+    });
+  }, []);
+
   // Render
   if (isLoading || identityLoading) {
     return (
@@ -737,14 +752,17 @@ export default function CapsuleView() {
         }}
       >
         <Group align="center">
+          {/* Passive + icon for future capsule creation */}
           <ActionIcon 
             size="lg" 
             variant="subtle" 
-            onClick={() => list("capsules")} 
+            onClick={handleCreateNewCapsule}
             style={{ color: '#a0a0a0' }}
+            title="Create new capsule"
           >
-            <ArrowLeft size={20} />
+            <Plus size={20} />
           </ActionIcon>
+          {/* Display actual capsule name from API */}
           <Text 
             size="sm" 
             fw={500} 
@@ -754,7 +772,7 @@ export default function CapsuleView() {
               textTransform: 'uppercase'
             }}
           >
-            {record.name || "Unnamed Capsule"}
+            {record.name || "Untitled Capsule"}
           </Text>
           <Badge
             variant="filled"
