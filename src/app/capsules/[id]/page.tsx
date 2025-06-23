@@ -30,7 +30,8 @@ import {
   FileText,
   Settings,
   File,
-  Link2
+  Link2,
+  Target // Added for purpose icon
 } from 'lucide-react';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
@@ -39,6 +40,7 @@ import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
 import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
+import CapsulePurposeModal from "@/components/CapsulePurposeModal"; // Added import
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -73,6 +75,16 @@ interface AdminPrompt {
   prefill?: string;
 }
 
+// Added PurposeCard interface
+interface PurposeCard {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  section: string;
+  isDefault?: boolean;
+}
+
 interface Capsule {
   _id: string;
   name: string;
@@ -93,6 +105,13 @@ interface Capsule {
   highlights?: Array<{ xml: string }>;
   summary?: string;
   testSummary?: string;
+  // Added purpose override field
+  purposeOverride?: {
+    cardId: string;
+    cardName: string;
+    prompt: string;
+    section: string;
+  };
 }
 
 const REFRESH_INTERVAL_MS = 3000; // Adjusted to 3 seconds for faster polling
@@ -147,6 +166,9 @@ export default function CapsuleView() {
   
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [enrichedContent, setEnrichedContent] = useState<string>('');
+
+  // Added purpose modal state
+  const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
 
   // Capsule query - Updated to use the proper API endpoint
   const { queryResult } = useShow<Capsule>({
@@ -578,6 +600,71 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
 
+  // Added purpose selection handlers
+  const getCurrentPurposeName = useCallback(() => {
+    if (record?.purposeOverride) {
+      return record.purposeOverride.cardName;
+    }
+    return 'Summary'; // Default
+  }, [record?.purposeOverride]);
+
+  const getCurrentPurposeId = useCallback(() => {
+    if (record?.purposeOverride) {
+      return record.purposeOverride.cardId;
+    }
+    return 'summary'; // Default
+  }, [record?.purposeOverride]);
+
+  const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
+    try {
+      setIsLoadingPrompts(true);
+      
+      if (card.isDefault && card.id === 'summary') {
+        // For default summary, clear override (simulate API call)
+        console.log('Clearing purpose override for default summary');
+        // In real implementation: await fetchWithAuth(`/api/capsules/${capsuleId}/purpose`, { method: 'DELETE' });
+        
+        notifications.show({
+          title: 'Purpose Updated',
+          message: 'Using default summary purpose.',
+          color: 'green',
+        });
+      } else if (!card.isDefault) {
+        // For prototype cards, set override (simulate API call)
+        console.log('Setting purpose override:', card.name);
+        // In real implementation: 
+        // await fetchWithAuth(`/api/capsules/${capsuleId}/purpose`, {
+        //   method: 'PATCH',
+        //   body: JSON.stringify({
+        //     cardId: card.id,
+        //     cardName: card.name,
+        //     prompt: card.prompt,
+        //     section: card.section
+        //   })
+        // });
+        
+        notifications.show({
+          title: 'Purpose Updated',
+          message: `Capsule purpose set to: ${card.name}`,
+          color: 'green',
+        });
+      }
+      
+      // Refresh capsule data to get updated purpose
+      setTimeout(() => debouncedRefetch(), 500);
+      
+    } catch (error) {
+      if (IS_DEV) console.error('Failed to update purpose:', error);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    } finally {
+      setIsLoadingPrompts(false);
+    }
+  }, [capsuleId, fetchWithAuth, debouncedRefetch]);
+
   // Status effect to sync UI with capsule status
   useEffect(() => {
     if (!capsuleData?.data?.status || !identity?.token) return;
@@ -781,6 +868,20 @@ export default function CapsuleView() {
           >
             {isProcessing ? 'PROCESSING' : record.status || 'Unknown'}
           </Badge>
+          {/* Added current purpose display */}
+          <Badge
+            variant="outline"
+            color="orange"
+            style={{ 
+              textTransform: 'uppercase', 
+              fontSize: '10px', 
+              fontFamily: GeistMono.style.fontFamily,
+              borderColor: '#F5A623',
+              color: '#F5A623'
+            }}
+          >
+            {getCurrentPurposeName()}
+          </Badge>
         </Group>
         <Group gap="xs">
           <Button 
@@ -806,6 +907,30 @@ export default function CapsuleView() {
             }}
           >
             ADD CONTEXT
+          </Button>
+          {/* Added purpose selection button */}
+          <Button 
+            variant="subtle"
+            leftSection={<Target size={14} />}
+            onClick={() => setIsPurposeModalOpen(true)}
+            disabled={isProcessing}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
+                },
+              },
+            }}
+          >
+            PURPOSE
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
             <>
@@ -1105,6 +1230,18 @@ export default function CapsuleView() {
         }}
         originalContent={extractContextSummary(record?.summaryContext) ?? ''}
         onContentUpdate={handleContentEnrichment}
+      />
+      {/* Added CapsulePurposeModal */}
+      <CapsulePurposeModal
+        isOpen={isPurposeModalOpen}
+        onClose={() => setIsPurposeModalOpen(false)}
+        isLoading={isLoadingPrompts}
+        summary={summaryPrompt}
+        highlights={highlightsPrompt}
+        testSummary={testSummaryPrompt}
+        onPurposeSelect={handlePurposeSelect}
+        activePurpose={getCurrentPurposeId()}
+        capsuleId={capsuleId}
       />
     </Box>
   );
