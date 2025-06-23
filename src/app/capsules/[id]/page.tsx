@@ -28,7 +28,6 @@ import {
   Trash,
   AlertCircle,
   FileText,
-  Settings,
   File,
   Link2,
   Target // Added for purpose icon
@@ -156,8 +155,7 @@ export default function CapsuleView() {
   const [fetchRetries, setFetchRetries] = useState(0); // Track fetch attempts
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Settings modal state
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  // Prompts state for purpose modal
   const [summaryPrompt, setSummaryPrompt] = useState('');
   const [highlightsPrompt, setHighlightsPrompt] = useState('');
   const [testSummaryPrompt, setTestSummaryPrompt] = useState('');
@@ -529,8 +527,10 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating]);
 
-  // Settings modal
-  const handleOpenSettingsModal = useCallback(async () => {
+  // Load prompts for purpose modal
+  const loadPrompts = useCallback(async () => {
+    if (!capsuleId) return;
+    
     setIsLoadingPrompts(true);
     try {
       const response = await fetchWithAuth(`/api/admin/prompts?capsuleId=${capsuleId}`);
@@ -540,64 +540,16 @@ export default function CapsuleView() {
       setSummaryPrompt(data.find(p => p.section === 'capsule.summary')?.prompt || '');
       setHighlightsPrompt(data.find(p => p.section === 'capsule.highlights')?.prompt || '');
       setTestSummaryPrompt(data.find(p => p.section === 'capsule.testSummary')?.prompt || '');
-      setIsSettingsModalOpen(true);
     } catch (error) {
       if (IS_DEV) console.error('Failed to fetch prompts:', error);
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to load capsule settings',
-        color: 'red',
-      });
-      setIsSettingsModalOpen(true);
+      // Set default prompts if fetch fails
+      setSummaryPrompt('Generate a comprehensive summary of the provided documents');
+      setHighlightsPrompt('Extract key highlights and important points from documents');
+      setTestSummaryPrompt('Create a test summary of the content');
     } finally {
       setIsLoadingPrompts(false);
     }
   }, [capsuleId, fetchWithAuth]);
-
-  const handleSaveSettings = useCallback(async () => {
-    setIsLoadingPrompts(true);
-    try {
-      const prompts: AdminPrompt[] = [
-        { section: "capsule.summary", prompt: summaryPrompt, prefill: "" },
-        { section: "capsule.highlights", prompt: highlightsPrompt, prefill: "" },
-        { section: "capsule.testSummary", prompt: testSummaryPrompt, prefill: "" }
-      ].filter(p => p.prompt.trim());
-
-      if (!prompts.length) {
-        notifications.show({ title: 'No Changes', message: 'No prompts to save.', color: 'yellow' });
-        setIsSettingsModalOpen(false);
-        return;
-      }
-
-      if (IS_DEV) console.log("[CapsuleView] Saving prompts:", { capsuleId, prompts });
-
-      // Send each prompt as a separate POST request
-      for (const prompt of prompts) {
-        const response = await fetchWithAuth(`/api/admin/prompts/upsert?capsuleId=${capsuleId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(prompt)
-        });
-        if (!response.ok) throw new Error(`Failed to save prompt for section ${prompt.section}: ${response.status}`);
-      }
-
-      notifications.show({
-        title: 'Settings Saved',
-        message: 'Prompts updated successfully.',
-        color: 'green',
-      });
-      setIsSettingsModalOpen(false);
-    } catch (error) {
-      if (IS_DEV) console.error('Failed to save settings:', error);
-      notifications.show({
-        title: 'Error',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  }, [capsuleId, fetchWithAuth, summaryPrompt, highlightsPrompt, testSummaryPrompt]);
 
   // Added purpose selection handlers
   const getCurrentPurposeName = useCallback(() => {
@@ -663,6 +615,11 @@ export default function CapsuleView() {
       setIsLoadingPrompts(false);
     }
   }, [capsuleId, fetchWithAuth, debouncedRefetch]);
+
+  const handleOpenPurposeModal = useCallback(async () => {
+    await loadPrompts();
+    setIsPurposeModalOpen(true);
+  }, [loadPrompts]);
 
   // Status effect to sync UI with capsule status
   useEffect(() => {
@@ -911,7 +868,7 @@ export default function CapsuleView() {
           <Button 
             variant="subtle"
             leftSection={<Target size={14} />}
-            onClick={() => setIsPurposeModalOpen(true)}
+            onClick={handleOpenPurposeModal}
             disabled={isProcessing}
             styles={{
               root: {
@@ -932,57 +889,32 @@ export default function CapsuleView() {
             PURPOSE
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <>
-              <Button 
-                variant="subtle"
-                leftSection={<Settings size={14} />}
-                onClick={handleOpenSettingsModal}
-                disabled={isProcessing}
-                styles={{
-                  root: {
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: '14px',
-                    fontWeight: 400,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    padding: '8px 16px',
-                    backgroundColor: 'transparent',
-                    color: '#ffffff',
-                    '&:hover': {
-                      backgroundColor: '#1a1a1a',
-                    },
+            <Button 
+              variant="subtle"
+              leftSection={<Link2 size={14} />}
+              onClick={() => {
+                handleResetEnrichedContent();
+                setIsReferenceModalOpen(true);
+              }}
+              disabled={!hasContextSummary || isProcessing}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
                   },
-                }}
-              >
-                SETTINGS
-              </Button>
-              <Button 
-                variant="subtle"
-                leftSection={<Link2 size={14} />}
-                onClick={() => {
-                  handleResetEnrichedContent();
-                  setIsReferenceModalOpen(true);
-                }}
-                disabled={!hasContextSummary || isProcessing}
-                styles={{
-                  root: {
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: '14px',
-                    fontWeight: 400,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    padding: '8px 16px',
-                    backgroundColor: 'transparent',
-                    color: '#ffffff',
-                    '&:hover': {
-                      backgroundColor: '#1a1a1a',
-                    },
-                  },
-                }}
-              >
-                REFS
-              </Button>
-            </>
+                },
+              }}
+            >
+              REFS
+            </Button>
           )}
         </Group>
       </Flex>
@@ -1208,19 +1140,6 @@ export default function CapsuleView() {
         onSelect={handleFileSelect}
         capsuleId={capsuleId}
         existingFileIds={record?.fileIds || []}
-      />
-      <CapsuleSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        isLoading={isLoadingPrompts}
-        summary={summaryPrompt}
-        highlights={highlightsPrompt}
-        testSummary={testSummaryPrompt}
-        onSummaryChange={setSummaryPrompt}
-        onHighlightsChange={setHighlightsPrompt}
-        onTestSummaryChange={setTestSummaryPrompt}
-        onSave={handleSaveSettings}
-        saveStatus=""
       />
       <ReferenceEnrichmentModal
         isOpen={isReferenceModalOpen}
