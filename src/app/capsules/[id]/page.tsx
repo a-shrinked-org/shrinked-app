@@ -966,6 +966,8 @@ export default function CapsuleView() {
           flexShrink: 0,
           backgroundColor: '#000000'
         }}
+        direction={{ base: 'column', sm: 'row' }}
+        gap={{ base: 'xs', sm: 0 }}
       >
         <Group align="center">
           <ActionIcon 
@@ -989,7 +991,7 @@ export default function CapsuleView() {
             CAPSULE ID
           </Text>
         </Group>
-        <Group gap="xs">
+        <Group gap="xs" style={{ flexWrap: { base: 'wrap', sm: 'nowrap' } }}>
           <Button 
             variant="subtle" 
             leftSection={<Plus size={14} />}
@@ -1145,7 +1147,7 @@ export default function CapsuleView() {
             </Box>
 
             {/* Capsule Parameters - Above Context Block */}
-            <Box mb="lg" style={{ maxWidth: '600px' }}>
+            <Box mb="lg" style={{ maxWidth: { base: '100%', md: '600px' } }}>
               <Text 
                 c="dimmed" 
                 mb="md" 
@@ -1158,7 +1160,12 @@ export default function CapsuleView() {
               >
                 Capsule Parameters
               </Text>
-              <Flex gap="xl" style={{ fontSize: '14px' }}>
+              <Flex 
+                gap={{ base: 'md', md: 'xl' }} 
+                style={{ fontSize: '14px' }}
+                direction={{ base: 'column', sm: 'row' }}
+                wrap="wrap"
+              >
                 <Box>
                   <Text 
                     size="xs" 
@@ -1269,117 +1276,94 @@ export default function CapsuleView() {
               </Tabs.List>
               
               <Tabs.Panel value="preview" pt="md">
-                <Box style={{ 
-                  backgroundColor: '#131313', 
-                  minHeight: 'calc(100vh - 450px)', 
-                  maxHeight: 'calc(100vh - 450px)', 
-                  overflowY: 'auto', 
-                  border: '1px solid #2b2b2b', 
-                  borderRadius: '8px', 
-                  padding: '20px', 
-                  position: 'relative' 
-                }}>
-                  {isProcessing ? (
-                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                      <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                      <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
-                        Analyzing files and creating the capsule summary.
-                      </Text>
-                    </Stack>
-                  ) : hasContextSummary ? (
-                    <DocumentMarkdownWrapper 
-                      markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
-                    />
-                  ) : hasFiles ? (
-                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                      <Text ta="center" c="dimmed" mb="xl">
-                        Click the {"Regenerate"} button to analyze files and create the summary.
-                      </Text>
-                      <Button
-                        leftSection={<RefreshCw size={16} />}
-                        onClick={handleRegenerateCapsule}
-                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                        loading={isProcessing}
-                      >
-                        Generate Summary
-                      </Button>
-                    </Stack>
-                  ) : (
-                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
-                      <Text ta="center" c="dimmed" mb="xl">
-                        Add files to your capsule to generate a summary.
-                      </Text>
-                      <Button
-                        leftSection={<Plus size={16} />}
-                        onClick={handleAddFile}
-                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                        disabled={isProcessing}
-                      >
-                        Add Files
-                      </Button>
-                    </Stack>
-                  )}
-                </Box>
-              </Tabs.Panel>
-
-              <Tabs.Panel value="markdown" pt="md">
-                <Box style={{ 
-                  backgroundColor: '#131313', 
-                  minHeight: 'calc(100vh - 450px)', 
-                  maxHeight: 'calc(100vh - 450px)', 
-                  overflowY: 'auto', 
-                  border: '1px solid #2b2b2b', 
-                  borderRadius: '8px', 
-                  padding: '20px', 
-                  position: 'relative' 
-                }}>
-                  {hasContextSummary ? (
-                    <Code
-                      block
-                      style={{
-                        backgroundColor: '#1a1a1a',
-                        color: '#e0e0e0',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        overflow: 'auto',
-                        fontSize: '0.9rem',
-                        fontFamily: 'monospace',
-                        lineHeight: 1.5,
-                        border: '1px solid #333',
-                        width: '100%',
-                        maxWidth: '100%',
-                        wordBreak: 'break-word',
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {enrichedContent || extractContextSummary(record.summaryContext) || 'No markdown content available'}
-                    </Code>
-                  ) : (
-                    <Text c="dimmed" ta="center" mt="xl">
-                      No markdown content available yet
+                {isProcessing ? (
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
+                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+                    <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                      Analyzing files and creating the capsule summary.
                     </Text>
-                  )}
-                </Box>
+                  </Stack>
+                ) : hasContextSummary ? (
+                  <DocumentMarkdownWrapper 
+                    markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                  />
+                ) : hasFiles ? (
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
+                      Click the {"Regenerate"} button to analyze files and create the summary.
+                    </Text>
+                    <Button
+                      leftSection={<RefreshCw size={16} />}
+                      onClick={handleRegenerateCapsule}
+                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                      loading={isProcessing}
+                    >
+                      Generate Summary
+                    </Button>
+                  </Stack>
+                ) : (
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
+                      Add files to your capsule to generate a summary.
+                    </Text>
+                    <Button
+                      leftSection={<Plus size={16} />}
+                      onClick={handleAddFile}
+                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                      disabled={isProcessing}
+                    >
+                      Add Files
+                    </Button>
+                  </Stack>
+                )}
               </Tabs.Panel>
-            </Tabs>
-          </Box>
-        </Box>
+              
+              <Tabs.Panel value="markdown" pt="md">
+                {hasContextSummary ? (
+                  <Code
+                    block
+                    style={{
+                      backgroundColor: '#1a1a1a',
+                      color: '#e0e0e0',
+                      padding: '16px',
+                      borderRadius: '8px',
+                      overflow: 'auto',
+                      fontSize: '0.9rem',
+                      fontFamily: 'monospace',
+                      lineHeight: 1.5,
+                      border: '1px solid #333',
+                      width: '100%',
+                      maxWidth: '100%',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {enrichedContent || extractContextSummary(record.summaryContext) || 'No markdown content available'}
+                  </Code>
+                ) : (
+                  <Text c="dimmed" ta="center" mt="xl">
+                    No markdown content available yet
+                  </Text>
+                )}
+              </Tabs.Panel>
 
         {/* Right Panel - Simplified */}
         <Box style={{ 
-          width: '384px', 
-          borderLeft: '1px solid #2B2B2B', 
-          padding: '1.5rem',
+          width: { base: '100%', md: '384px' },
+          borderLeft: { base: 'none', md: '1px solid #2B2B2B' },
+          borderTop: { base: '1px solid #2B2B2B', md: 'none' },
+          padding: { base: '1rem', md: '1.5rem' },
           backgroundColor: '#000000',
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowY: 'auto'
+          position: { base: 'relative', md: 'sticky' },
+          top: { base: 'auto', md: 0 },
+          height: { base: 'auto', md: '100vh' },
+          overflowY: { base: 'visible', md: 'auto' },
+          order: { base: 2, md: 1 }
         }}>
           {/* Capsule Status */}
           <Box style={{ marginBottom: '2rem' }}>
