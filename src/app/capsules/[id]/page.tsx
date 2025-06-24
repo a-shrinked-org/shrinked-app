@@ -1351,6 +1351,9 @@ export default function CapsuleView() {
                   </Text>
                 )}
               </Tabs.Panel>
+            </Tabs>
+          </Box>
+        </Box>
 
         {/* Right Panel - Simplified */}
         <Box style={{ 
