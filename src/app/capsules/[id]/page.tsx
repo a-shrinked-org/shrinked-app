@@ -966,8 +966,6 @@ export default function CapsuleView() {
           flexShrink: 0,
           backgroundColor: '#000000'
         }}
-        direction={{ base: 'column', sm: 'row' }}
-        gap={{ base: 'xs', sm: 0 }}
       >
         <Group align="center">
           <ActionIcon 
@@ -991,7 +989,7 @@ export default function CapsuleView() {
             CAPSULE ID
           </Text>
         </Group>
-        <Group gap="xs" style={{ flexWrap: { base: 'wrap', sm: 'nowrap' } }}>
+        <Group gap="xs">
           <Button 
             variant="subtle" 
             leftSection={<Plus size={14} />}
@@ -1147,7 +1145,7 @@ export default function CapsuleView() {
             </Box>
 
             {/* Capsule Parameters - Above Context Block */}
-            <Box mb="lg" style={{ maxWidth: { base: '100%', md: '600px' } }}>
+            <Box mb="lg" style={{ maxWidth: '600px' }}>
               <Text 
                 c="dimmed" 
                 mb="md" 
@@ -1161,9 +1159,8 @@ export default function CapsuleView() {
                 Capsule Parameters
               </Text>
               <Flex 
-                gap={{ base: 'md', md: 'xl' }} 
+                gap="xl"
                 style={{ fontSize: '14px' }}
-                direction={{ base: 'column', sm: 'row' }}
                 wrap="wrap"
               >
                 <Box>
@@ -1357,16 +1354,14 @@ export default function CapsuleView() {
 
         {/* Right Panel - Simplified */}
         <Box style={{ 
-          width: { base: '100%', md: '384px' },
-          borderLeft: { base: 'none', md: '1px solid #2B2B2B' },
-          borderTop: { base: '1px solid #2B2B2B', md: 'none' },
-          padding: { base: '1rem', md: '1.5rem' },
+          width: '384px',
+          borderLeft: '1px solid #2B2B2B',
+          padding: '1.5rem',
           backgroundColor: '#000000',
-          position: { base: 'relative', md: 'sticky' },
-          top: { base: 'auto', md: 0 },
-          height: { base: 'auto', md: '100vh' },
-          overflowY: { base: 'visible', md: 'auto' },
-          order: { base: 2, md: 1 }
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflowY: 'auto'
         }}>
           {/* Capsule Status */}
           <Box style={{ marginBottom: '2rem' }}>
