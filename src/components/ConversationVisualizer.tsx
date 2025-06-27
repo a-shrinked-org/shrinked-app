@@ -15,47 +15,61 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
   const [currentFrame, setCurrentFrame] = useState(0);
   const animationRef = useRef<number>();
 
-  // Grid configuration
+  // Grid configuration - made dots bigger and more spaced
   const COLS = 48;
   const ROWS = 8;
-  const DOT_SIZE = 2.5;
-  const DOT_GAP = 6;
+  const DOT_SIZE = 3; // Increased from 2.5
+  const DOT_GAP = 7; // Increased from 6
   const GRID_WIDTH = COLS * (DOT_SIZE + DOT_GAP);
   const GRID_HEIGHT = ROWS * (DOT_SIZE + DOT_GAP);
 
-  // Generate conversation-like data patterns
+  // Generate more dramatic conversation-like data patterns
   const generateConversationPattern = () => {
     const patterns = [];
-    const numFrames = 120; // 2 seconds at 60fps
+    const numFrames = 180; // 3 seconds at 60fps - longer loop
     
     for (let frame = 0; frame < numFrames; frame++) {
       const frameData = [];
       
       for (let col = 0; col < COLS; col++) {
-        // Create conversation-like patterns
-        const time = frame * 0.1;
+        const time = frame * 0.08; // Slower animation
         const position = col / COLS;
         
-        // Simulate conversation segments with varying intensity
+        // Create more dramatic conversation segments
         let intensity = 0;
         
-        // Create "speaking" segments
-        const segment1 = Math.sin(time + position * 8) * 0.5 + 0.5;
-        const segment2 = Math.sin(time * 1.5 + position * 12) * 0.3 + 0.3;
-        const segment3 = Math.sin(time * 0.8 + position * 6) * 0.4 + 0.4;
+        // Multiple overlapping wave patterns for richer visualization
+        const wave1 = Math.sin(time * 2 + position * 10) * 0.5 + 0.5;
+        const wave2 = Math.sin(time * 1.3 + position * 8 + Math.PI/3) * 0.4 + 0.4;
+        const wave3 = Math.sin(time * 0.7 + position * 6 + Math.PI/2) * 0.6 + 0.6;
         
-        // Combine segments to create conversation flow
-        if (position < 0.3) {
-          intensity = segment1 * (Math.sin(time * 0.5) > 0 ? 1 : 0.1);
-        } else if (position < 0.6) {
-          intensity = segment2 * (Math.sin(time * 0.7 + Math.PI) > 0 ? 1 : 0.1);
+        // Create speaking segments with more dramatic on/off
+        const speakerA = Math.sin(time * 0.4) > 0.3 ? 1 : 0.1;
+        const speakerB = Math.sin(time * 0.5 + Math.PI) > 0.2 ? 1 : 0.1;
+        const overlap = Math.sin(time * 0.6 + Math.PI/4) > 0.4 ? 1 : 0.1;
+        
+        // Assign different patterns to different zones
+        if (position < 0.33) {
+          // Speaker A zone - Blue
+          intensity = wave1 * speakerA;
+        } else if (position < 0.67) {
+          // Overlap zone - Purple
+          intensity = wave2 * overlap;
         } else {
-          intensity = segment3 * (Math.sin(time * 0.6 + Math.PI/2) > 0 ? 1 : 0.1);
+          // Speaker B zone - Cyan
+          intensity = wave3 * speakerB;
         }
         
-        // Add some randomness for natural feel
-        intensity += (Math.random() - 0.5) * 0.1;
-        intensity = Math.max(0, Math.min(1, intensity));
+        // Add some high-frequency variation for texture
+        const texture = Math.sin(time * 8 + position * 20) * 0.1;
+        intensity += texture;
+        
+        // Add occasional "bursts" for emphasis
+        const burst = Math.sin(time * 0.3 + position * 4) > 0.8 ? 0.3 : 0;
+        intensity += burst;
+        
+        // Ensure intensity stays in bounds but allow higher values
+        intensity = Math.max(0, Math.min(1.2, intensity)); // Allow up to 1.2 for brighter peaks
         
         frameData.push(intensity);
       }
@@ -77,7 +91,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
     }
   }, [files]);
 
-  // Animation loop
+  // Animation loop - slower frame rate for smoother appearance
   useEffect(() => {
     if (isActive && animationData.length > 0) {
       const animate = () => {
@@ -85,9 +99,13 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
         animationRef.current = requestAnimationFrame(animate);
       };
       
-      animationRef.current = requestAnimationFrame(animate);
+      // Start animation with a slight delay
+      const timeoutId = setTimeout(() => {
+        animationRef.current = requestAnimationFrame(animate);
+      }, 100);
       
       return () => {
+        clearTimeout(timeoutId);
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
         }
@@ -109,34 +127,39 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
         const y = (ROWS - 1 - row) * (DOT_SIZE + DOT_GAP) + DOT_SIZE / 2;
         const isActive = row < activeRows;
         
-        // Color scheme for conversation data
+        // Enhanced color scheme with better visibility
         let color = '#1a1a1a'; // Default dim
-        let opacity = 0.3;
+        let opacity = 0.2;
         
         if (hasData && isActive) {
           const rowIntensity = (row + 1) / ROWS;
-          const baseIntensity = intensity * 0.8 + 0.2;
+          const baseIntensity = Math.min(intensity, 1); // Cap at 1 for opacity calculation
           
-          // Different colors for different "conversation zones"
+          // Brighter, more vibrant colors
           if (col < COLS * 0.33) {
-            // Speaker 1 zone - Blue
-            color = '#1a4fff';
-            opacity = baseIntensity * (0.4 + rowIntensity * 0.6);
-          } else if (col < COLS * 0.66) {
-            // Overlap/interaction zone - Purple
-            color = '#8b5cf6';
-            opacity = baseIntensity * (0.3 + rowIntensity * 0.7);
+            // Speaker A zone - Bright Blue
+            color = '#3b82f6'; // Brighter blue
+            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7); // Higher opacity range
+          } else if (col < COLS * 0.67) {
+            // Overlap zone - Bright Purple
+            color = '#a855f7'; // Brighter purple
+            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
           } else {
-            // Speaker 2 zone - Cyan
-            color = '#06b6d4';
-            opacity = baseIntensity * (0.4 + rowIntensity * 0.6);
+            // Speaker B zone - Bright Cyan
+            color = '#06b6d4'; // Keep cyan as is
+            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
+          }
+          
+          // Add extra brightness for peaks
+          if (intensity > 1) {
+            opacity = Math.min(1, opacity * 1.3);
           }
         } else if (!hasData) {
-          // Static pattern when no data
+          // More visible static pattern when no data
           const staticNoise = Math.random();
-          if (staticNoise > 0.95) {
-            color = '#333333';
-            opacity = 0.2;
+          if (staticNoise > 0.92) { // More frequent static
+            color = '#404040'; // Brighter static
+            opacity = 0.3;
           }
         }
         
@@ -149,7 +172,11 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             height={DOT_SIZE}
             fill={color}
             fillOpacity={opacity}
-            className={isActive && hasData ? 'transition-opacity duration-75' : ''}
+            rx={0.5} // Slightly rounded corners for better appearance
+            className={isActive && hasData ? 'animate-pulse' : ''}
+            style={{
+              transition: 'fill-opacity 0.1s ease-out'
+            }}
           />
         );
       }
@@ -205,7 +232,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
         </Text>
         <Text 
           size="xs" 
-          c={files.some(f => f.url.trim() !== '') ? "#1a4fff" : "#666"}
+          c={files.some(f => f.url.trim() !== '') ? "#3b82f6" : "#666"}
           style={{ 
             fontFamily: GeistMono.style.fontFamily,
             letterSpacing: '0.5px'
@@ -257,9 +284,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             style={{ 
               width: '8px', 
               height: '8px', 
-              backgroundColor: '#1a4fff', 
+              backgroundColor: '#3b82f6', // Updated to match new blue
               borderRadius: '1px',
-              opacity: 0.7
+              opacity: 0.8
             }} 
           />
           <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
@@ -271,9 +298,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             style={{ 
               width: '8px', 
               height: '8px', 
-              backgroundColor: '#8b5cf6', 
+              backgroundColor: '#a855f7', // Updated to match new purple
               borderRadius: '1px',
-              opacity: 0.7
+              opacity: 0.8
             }} 
           />
           <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
@@ -287,7 +314,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
               height: '8px', 
               backgroundColor: '#06b6d4', 
               borderRadius: '1px',
-              opacity: 0.7
+              opacity: 0.8
             }} 
           />
           <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
