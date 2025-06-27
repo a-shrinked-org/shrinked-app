@@ -15,7 +15,8 @@ import {
   ActionIcon,
   Tooltip,
   Collapse,
-  Select
+  Select,
+  Tabs
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { showNotification } from '@mantine/notifications';
@@ -26,12 +27,15 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  X
+  LinkIcon,
+  Upload,
+  FileText
 } from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
+import { FileUpload } from '@/components/FileUpload'; // Import the FileUpload component
 import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans';
-import ConversationVisualizer from './ConversationVisualizer'; // Import the visualizer
+import ConversationVisualizer from './ConversationVisualizer';
 
 interface Identity {
   token?: string;
@@ -114,6 +118,31 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 3. Speaker identification requirements: {{speaker_identification}}
 
 The resulting data structure should enable context-aware AI analysis with complete traceability to source statements, supporting both comprehensive research generation and targeted information retrieval.`;
+
+  // Format file size for display
+  const formatFileSize = (size: number): string => {
+    if (size < 1024) return `${size} bytes`;
+    else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    else if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  };
+
+  // Handle file upload success
+  const handleFileUploaded = (fileUrl: string, index: number = 0) => {
+    setValue(`files.${index}.url`, fileUrl);
+    
+    // Extract filename from URL for display purposes only
+    const urlParts = fileUrl.split('/');
+    const filenameWithParams = urlParts[urlParts.length - 1];
+    const filename = filenameWithParams.split('?')[0]; // Remove query parameters if any
+    setValue(`files.${index}.filename`, filename);
+    
+    showNotification({
+      title: 'Success',
+      message: 'File URL has been added',
+      color: 'green',
+    });
+  };
 
   const handleAddFile = () => {
     append({ type: 'link', url: '' });
@@ -346,103 +375,163 @@ The resulting data structure should enable context-aware AI analysis with comple
               />
             </Box>
 
-            {/* URL TO A MEDIA */}
-            <Box>
-              <Group align="center" mb="xs">
-                <Text size="sm" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                  URL TO A MEDIA
-                </Text>
-                <Tooltip 
-                  label="You can add multiple URLs by clicking 'ADD MORE' below"
-                  multiline
-                >
-                  <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
-                </Tooltip>
-              </Group>
-              
-              {fields.map((field, index) => (
-                <Group key={field.id} mb="xs" align="flex-end">
-                  <TextInput
-                    placeholder="Enter file URL"
-                    {...register(`files.${index}.url`)}
-                    style={{ flex: 1 }}
-                    styles={{
-                      input: {
-                        backgroundColor: '#0d0d0d',
-                        borderColor: '#2b2b2b',
-                        color: '#ffffff',
-                        fontFamily: GeistMono.style.fontFamily,
-                      },
-                    }}
-                  />
-                  {fields.length > 1 && (
-                    <ActionIcon 
-                      variant="outline"
-                      color="red"
-                      onClick={() => handleRemoveFile(index)}
-                      styles={{
-                        root: {
-                          borderColor: '#2b2b2b',
-                        }
-                      }}
-                    >
-                      <Trash size={16} />
-                    </ActionIcon>
-                  )}
-                </Group>
-              ))}
-              
-              <Button
-                leftSection={<Plus size={16} />}
-                variant="outline"
-                size="xs"
-                onClick={handleAddFile}
-                mt="xs"
-                styles={{
-                  root: {
-                    borderColor: '#2b2b2b',
-                    color: '#a1a1a1',
-                    textTransform: 'uppercase',
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: '12px',
-                    '&:hover': {
-                      backgroundColor: '#2b2b2b',
-                    },
-                  },
-                }}
-              >
-                ADD MORE
-              </Button>
-            </Box>
-
-            {/* ADD A FILE */}
+            {/* Files Section - Restored from old version */}
             <Box>
               <Text size="sm" c="#a1a1a1" mb="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                ADD A FILE
+                FILES
               </Text>
+              
+              {/* File entries with tabs for link/upload */}
+              {fields.map((field, index) => (
+                <Box
+                  key={field.id}
+                  mb="md"
+                  p="md"
+                  style={{
+                    backgroundColor: '#0D0D0D',
+                    border: '0.5px solid #2B2B2B',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <Group justify="space-between" align="flex-start">
+                    <Box style={{ flex: 1 }}>
+                      {/* Type selector tabs */}
+                      <Tabs
+                        value={field.type}
+                        onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
+                        mb="sm"
+                        styles={{
+                          root: {
+                            width: 'auto'
+                          },
+                          list: {
+                            border: 'none',
+                          },
+                          tab: {
+                            padding: '8px',
+                            color: '#a1a1a1',
+                            '&[data-active="true"]': {
+                              color: '#F5A623',
+                              borderColor: '#F5A623',
+                            },
+                          },
+                        }}
+                      >
+                        <Tabs.List>
+                          <Tabs.Tab value="link">
+                            <LinkIcon size={16} />
+                          </Tabs.Tab>
+                          <Tabs.Tab value="upload">
+                            <Upload size={16} />
+                          </Tabs.Tab>
+                        </Tabs.List>
+                      </Tabs>
+
+                      {/* Content based on type */}
+                      {watch(`files.${index}.type`) === 'link' ? (
+                        <TextInput
+                          placeholder="Enter file URL"
+                          {...register(`files.${index}.url`)}
+                          onChange={(e) => {
+                            setValue(`files.${index}.url`, e.target.value);
+                            
+                            if (e.target.value) {
+                              try {
+                                const filename = e.target.value.split('/').pop() || '';
+                                setValue(`files.${index}.filename`, filename);
+                              } catch (error) {
+                                console.warn('Failed to extract filename from URL');
+                              }
+                            }
+                          }}
+                          styles={{
+                            input: {
+                              backgroundColor: '#0d0d0d',
+                              borderColor: '#2b2b2b',
+                              color: '#ffffff',
+                              fontFamily: GeistMono.style.fontFamily,
+                            },
+                          }}
+                        />
+                      ) : (
+                        <Box>
+                          {!watch(`files.${index}.url`) ? (
+                            <FileUpload 
+                              onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)}
+                            />
+                          ) : (
+                            <Group 
+                              p="sm" 
+                              style={{ 
+                                border: '1px solid #2b2b2b', 
+                                borderRadius: '4px', 
+                                backgroundColor: '#0d0d0d'
+                              }}
+                              wrap="nowrap"
+                            >
+                              <FileText size={16} />
+                              <Box style={{ flex: 1, overflow: 'hidden' }}>
+                                <Text size="sm" truncate>
+                                  {watch(`files.${index}.filename`) || 'Uploaded file'}
+                                </Text>
+                                {watch(`files.${index}.size`) && (
+                                  <Text size="xs" c="dimmed">
+                                    {formatFileSize(watch(`files.${index}.size`) as number)}
+                                  </Text>
+                                )}
+                              </Box>
+                              <Button 
+                                size="xs" 
+                                variant="light" 
+                                color="gray"
+                                onClick={() => {
+                                  setValue(`files.${index}.url`, '');
+                                  setValue(`files.${index}.filename`, '');
+                                  setValue(`files.${index}.size`, undefined);
+                                }}
+                              >
+                                Change
+                              </Button>
+                            </Group>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Remove button */}
+                    {fields.length > 1 && (
+                      <Tooltip label="Remove">
+                        <ActionIcon 
+                          variant="subtle"
+                          color="red"
+                          onClick={() => handleRemoveFile(index)}
+                          ml="sm"
+                        >
+                          <Trash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </Group>
+                </Box>
+              ))}
+
+              {/* Add file button */}
               <Button
                 leftSection={<Plus size={16} />}
                 variant="outline"
                 fullWidth
-                onClick={() => {
-                  console.log('Add file clicked - file upload functionality would go here');
-                }}
+                onClick={handleAddFile}
                 styles={{
                   root: {
                     borderColor: '#2b2b2b',
-                    color: '#a1a1a1',
-                    height: '44px',
-                    justifyContent: 'flex-start',
-                    paddingLeft: '16px',
+                    color: '#f5a623',
                     '&:hover': {
-                      backgroundColor: '#2b2b2b',
+                      backgroundColor: 'rgba(245, 166, 35, 0.1)',
                     },
                   },
                 }}
               >
-                <Text size="sm" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                  FILENAME.EXT
-                </Text>
+                Add File
               </Button>
             </Box>
 
