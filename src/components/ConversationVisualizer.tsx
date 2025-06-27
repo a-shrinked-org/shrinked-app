@@ -11,115 +11,219 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
   files, 
   isActive = false 
 }) => {
-  const [animationData, setAnimationData] = useState<number[][]>([]);
+  const [frequencyData, setFrequencyData] = useState<number[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [currentFrame, setCurrentFrame] = useState(0);
+  
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const animationRef = useRef<number>();
 
-  // Grid configuration - made dots bigger and more spaced
+  // Grid configuration
   const COLS = 48;
   const ROWS = 8;
-  const DOT_SIZE = 3; // Increased from 2.5
-  const DOT_GAP = 7; // Increased from 6
+  const DOT_SIZE = 3;
+  const DOT_GAP = 7;
   const GRID_WIDTH = COLS * (DOT_SIZE + DOT_GAP);
   const GRID_HEIGHT = ROWS * (DOT_SIZE + DOT_GAP);
 
-  // Generate more dramatic conversation-like data patterns
-  const generateConversationPattern = () => {
-    const patterns = [];
-    const numFrames = 180; // 3 seconds at 60fps - longer loop
-    
-    for (let frame = 0; frame < numFrames; frame++) {
-      const frameData = [];
+  // Initialize audio analysis
+  const initializeAudioAnalysis = async (audioUrl: string) => {
+    try {
+      setIsAnalyzing(true);
+      setAudioError(null);
+
+      // Create audio context
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+
+      // Create audio element
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current.remove();
+      }
+
+      audioElementRef.current = new Audio();
+      audioElementRef.current.crossOrigin = 'anonymous';
+      audioElementRef.current.src = audioUrl;
+
+      // Create analyser
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      analyserRef.current.smoothingTimeConstant = 0.8;
+
+      // Connect audio source to analyser
+      const source = audioContextRef.current.createMediaElementSource(audioElementRef.current);
+      source.connect(analyserRef.current);
+      analyserRef.current.connect(audioContextRef.current.destination);
+
+      // Start playing audio (muted for analysis)
+      audioElementRef.current.volume = 0; // Mute for visualization only
+      audioElementRef.current.loop = true;
       
-      for (let col = 0; col < COLS; col++) {
-        const time = frame * 0.08; // Slower animation
-        const position = col / COLS;
+      await audioElementRef.current.play();
+      
+      // Start frequency analysis
+      startFrequencyAnalysis();
+      
+    } catch (error) {
+      console.error('Audio analysis error:', error);
+      setAudioError('Failed to analyze audio file');
+      // Fall back to simulated data
+      generateSimulatedData();
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Real-time frequency analysis
+  const startFrequencyAnalysis = () => {
+    if (!analyserRef.current) return;
+
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const analyze = () => {
+      if (!analyserRef.current) return;
+
+      analyserRef.current.getByteFrequencyData(dataArray);
+      
+      // Sample data to match our column count
+      const sampledData = [];
+      const sampleRate = Math.floor(bufferLength / COLS);
+      
+      for (let i = 0; i < COLS; i++) {
+        const startIndex = i * sampleRate;
+        const endIndex = Math.min(startIndex + sampleRate, bufferLength);
+        let sum = 0;
+        let count = 0;
         
-        // Create more dramatic conversation segments
+        for (let j = startIndex; j < endIndex; j++) {
+          sum += dataArray[j];
+          count++;
+        }
+        
+        const average = count > 0 ? sum / count : 0;
+        sampledData.push(average / 255); // Normalize to 0-1
+      }
+      
+      setFrequencyData(sampledData);
+      
+      if (isActive) {
+        animationRef.current = requestAnimationFrame(analyze);
+      }
+    };
+
+    analyze();
+  };
+
+  // Fallback simulated data for when real audio analysis fails
+  const generateSimulatedData = () => {
+    const simulate = () => {
+      const data = [];
+      const time = Date.now() * 0.001;
+      
+      for (let i = 0; i < COLS; i++) {
+        const position = i / COLS;
+        
+        // Create conversation-like patterns
         let intensity = 0;
-        
-        // Multiple overlapping wave patterns for richer visualization
         const wave1 = Math.sin(time * 2 + position * 10) * 0.5 + 0.5;
         const wave2 = Math.sin(time * 1.3 + position * 8 + Math.PI/3) * 0.4 + 0.4;
         const wave3 = Math.sin(time * 0.7 + position * 6 + Math.PI/2) * 0.6 + 0.6;
         
-        // Create speaking segments with more dramatic on/off
         const speakerA = Math.sin(time * 0.4) > 0.3 ? 1 : 0.1;
         const speakerB = Math.sin(time * 0.5 + Math.PI) > 0.2 ? 1 : 0.1;
         const overlap = Math.sin(time * 0.6 + Math.PI/4) > 0.4 ? 1 : 0.1;
         
-        // Assign different patterns to different zones
         if (position < 0.33) {
-          // Speaker A zone - Blue
           intensity = wave1 * speakerA;
         } else if (position < 0.67) {
-          // Overlap zone - Purple
           intensity = wave2 * overlap;
         } else {
-          // Speaker B zone - Cyan
           intensity = wave3 * speakerB;
         }
         
-        // Add some high-frequency variation for texture
-        const texture = Math.sin(time * 8 + position * 20) * 0.1;
-        intensity += texture;
-        
-        // Add occasional "bursts" for emphasis
-        const burst = Math.sin(time * 0.3 + position * 4) > 0.8 ? 0.3 : 0;
-        intensity += burst;
-        
-        // Ensure intensity stays in bounds but allow higher values
-        intensity = Math.max(0, Math.min(1.2, intensity)); // Allow up to 1.2 for brighter peaks
-        
-        frameData.push(intensity);
+        data.push(Math.max(0, Math.min(1, intensity)));
       }
       
-      patterns.push(frameData);
-    }
-    
-    return patterns;
+      setFrequencyData(data);
+      
+      if (isActive) {
+        animationRef.current = requestAnimationFrame(simulate);
+      }
+    };
+
+    simulate();
   };
 
-  // Initialize animation data when files change
-  useEffect(() => {
-    if (files.some(f => f.url.trim() !== '')) {
-      const patterns = generateConversationPattern();
-      setAnimationData(patterns);
-      setCurrentFrame(0);
-    } else {
-      setAnimationData([]);
-    }
-  }, [files]);
+  // Check if URL is a valid audio file
+  const isAudioFile = (url: string): boolean => {
+    const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+    const lowerUrl = url.toLowerCase();
+    return audioExtensions.some(ext => lowerUrl.includes(ext)) || 
+           lowerUrl.includes('audio') || 
+           lowerUrl.includes('sound');
+  };
 
-  // Animation loop - slower frame rate for smoother appearance
+  // Initialize when files change
   useEffect(() => {
-    if (isActive && animationData.length > 0) {
-      const animate = () => {
-        setCurrentFrame(prev => (prev + 1) % animationData.length);
-        animationRef.current = requestAnimationFrame(animate);
-      };
+    const validFiles = files.filter(f => f.url.trim() !== '');
+    
+    if (validFiles.length > 0) {
+      const firstFile = validFiles[0];
       
-      // Start animation with a slight delay
-      const timeoutId = setTimeout(() => {
-        animationRef.current = requestAnimationFrame(animate);
-      }, 100);
-      
-      return () => {
-        clearTimeout(timeoutId);
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-        }
-      };
+      // Check if it's likely an audio file
+      if (isAudioFile(firstFile.url)) {
+        initializeAudioAnalysis(firstFile.url);
+      } else {
+        // For non-audio files, use simulated conversation data
+        setAudioError('Non-audio file detected - showing simulated conversation data');
+        generateSimulatedData();
+      }
+    } else {
+      // No files - stop analysis
+      setFrequencyData([]);
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+      }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     }
-  }, [isActive, animationData.length]);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [files, isActive]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current.remove();
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
 
   const renderDots = () => {
     const dots = [];
     const hasData = files.some(f => f.url.trim() !== '');
-    const currentData = animationData[currentFrame] || new Array(COLS).fill(0);
     
     for (let col = 0; col < COLS; col++) {
-      const intensity = hasData ? currentData[col] : 0;
+      const intensity = hasData && frequencyData[col] ? frequencyData[col] : 0;
       const activeRows = Math.floor(intensity * ROWS);
       
       for (let row = 0; row < ROWS; row++) {
@@ -127,38 +231,32 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
         const y = (ROWS - 1 - row) * (DOT_SIZE + DOT_GAP) + DOT_SIZE / 2;
         const isActive = row < activeRows;
         
-        // Enhanced color scheme with better visibility
-        let color = '#1a1a1a'; // Default dim
+        let color = '#1a1a1a';
         let opacity = 0.2;
         
         if (hasData && isActive) {
           const rowIntensity = (row + 1) / ROWS;
-          const baseIntensity = Math.min(intensity, 1); // Cap at 1 for opacity calculation
+          const baseIntensity = intensity;
           
-          // Brighter, more vibrant colors
+          // Color zones based on frequency ranges
           if (col < COLS * 0.33) {
-            // Speaker A zone - Bright Blue
-            color = '#3b82f6'; // Brighter blue
-            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7); // Higher opacity range
+            // Low frequencies - Blue
+            color = '#3b82f6';
+            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
           } else if (col < COLS * 0.67) {
-            // Overlap zone - Bright Purple
-            color = '#a855f7'; // Brighter purple
+            // Mid frequencies - Purple
+            color = '#a855f7';
             opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
           } else {
-            // Speaker B zone - Bright Cyan
-            color = '#06b6d4'; // Keep cyan as is
+            // High frequencies - Cyan
+            color = '#06b6d4';
             opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
           }
-          
-          // Add extra brightness for peaks
-          if (intensity > 1) {
-            opacity = Math.min(1, opacity * 1.3);
-          }
         } else if (!hasData) {
-          // More visible static pattern when no data
+          // Static noise when no data
           const staticNoise = Math.random();
-          if (staticNoise > 0.92) { // More frequent static
-            color = '#404040'; // Brighter static
+          if (staticNoise > 0.95) {
+            color = '#404040';
             opacity = 0.3;
           }
         }
@@ -172,11 +270,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             height={DOT_SIZE}
             fill={color}
             fillOpacity={opacity}
-            rx={0.5} // Slightly rounded corners for better appearance
-            className={isActive && hasData ? 'animate-pulse' : ''}
-            style={{
-              transition: 'fill-opacity 0.1s ease-out'
-            }}
+            rx={0.5}
           />
         );
       }
@@ -189,6 +283,10 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
     const validFiles = files.filter(f => f.url.trim() !== '');
     if (validFiles.length === 0) {
       return 'NO DATA SOURCES';
+    } else if (isAnalyzing) {
+      return 'ANALYZING AUDIO...';
+    } else if (audioError) {
+      return 'SIMULATED DATA';
     } else if (validFiles.length === 1) {
       return `1 SOURCE LOADED`;
     } else {
@@ -203,7 +301,8 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
     return validFiles.map((file, index) => {
       const filename = file.filename || file.url.split('/').pop()?.split('?')[0] || 'UNKNOWN';
       const type = file.type.toUpperCase();
-      return `[${index + 1}] ${type}: ${filename.substring(0, 20)}${filename.length > 20 ? '...' : ''}`;
+      const audioType = isAudioFile(file.url) ? 'AUDIO' : 'OTHER';
+      return `[${index + 1}] ${type}/${audioType}: ${filename.substring(0, 20)}${filename.length > 20 ? '...' : ''}`;
     });
   };
 
@@ -277,6 +376,13 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
         </Box>
       )}
 
+      {/* Error message */}
+      {audioError && (
+        <Text size="xs" c="#ff6b6b" style={{ fontFamily: GeistMono.style.fontFamily, marginTop: '4px' }}>
+          {audioError}
+        </Text>
+      )}
+
       {/* Legend */}
       <Group gap="lg" mt="xs">
         <Group gap="xs">
@@ -284,13 +390,13 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             style={{ 
               width: '8px', 
               height: '8px', 
-              backgroundColor: '#3b82f6', // Updated to match new blue
+              backgroundColor: '#3b82f6',
               borderRadius: '1px',
               opacity: 0.8
             }} 
           />
           <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            SPEAKER_A
+            LOW_FREQ
           </Text>
         </Group>
         <Group gap="xs">
@@ -298,13 +404,13 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             style={{ 
               width: '8px', 
               height: '8px', 
-              backgroundColor: '#a855f7', // Updated to match new purple
+              backgroundColor: '#a855f7',
               borderRadius: '1px',
               opacity: 0.8
             }} 
           />
           <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            OVERLAP
+            MID_FREQ
           </Text>
         </Group>
         <Group gap="xs">
@@ -312,13 +418,13 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
             style={{ 
               width: '8px', 
               height: '8px', 
-              backgroundColor: '#06b6d4', 
+              backgroundColor: '#06b6d4',
               borderRadius: '1px',
               opacity: 0.8
             }} 
           />
           <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            SPEAKER_B
+            HIGH_FREQ
           </Text>
         </Group>
       </Group>
