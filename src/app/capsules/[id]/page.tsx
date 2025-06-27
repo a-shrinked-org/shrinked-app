@@ -1091,108 +1091,6 @@ export default function CapsuleView() {
         </Group>
       </Flex>
 
-      {/* Capsule Metadata Bar */}
-      <Box style={{ 
-        backgroundColor: '#000000', 
-        borderBottom: '1px solid #2b2b2b',
-        padding: '12px 24px'
-      }}>
-        <Text 
-          size="xs" 
-          c="dimmed" 
-          mb="xs"
-          style={{ 
-            fontFamily: GeistMono.style.fontFamily,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
-          }}
-        >
-          {record.name}
-        </Text>
-        <Text 
-          size="sm" 
-          c="dimmed" 
-          mb="md"
-          style={{ lineHeight: 1.4 }}
-        >
-          Your capsule ingests your documents & knowledge bases to create contextual summaries and insights uniquely suited to your needs.
-        </Text>
-        
-        <Flex gap="xl" style={{ fontSize: '14px' }}>
-          <Box>
-            <Text 
-              size="xs" 
-              c="dimmed" 
-              style={{ 
-                fontFamily: GeistMono.style.fontFamily,
-                textTransform: 'uppercase',
-                marginBottom: '4px'
-              }}
-            >
-              Created
-            </Text>
-            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
-              {new Date(record.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              }).toUpperCase()}
-            </Text>
-          </Box>
-          
-          <Box>
-            <Text 
-              size="xs" 
-              c="dimmed" 
-              style={{ 
-                fontFamily: GeistMono.style.fontFamily,
-                textTransform: 'uppercase',
-                marginBottom: '4px'
-              }}
-            >
-              Duration
-            </Text>
-            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
-              {formatDuration(record.createdAt, record.updatedAt)}
-            </Text>
-          </Box>
-          
-          <Box>
-            <Text 
-              size="xs" 
-              c="dimmed" 
-              style={{ 
-                fontFamily: GeistMono.style.fontFamily,
-                textTransform: 'uppercase',
-                marginBottom: '4px'
-              }}
-            >
-              Files
-            </Text>
-            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
-              {displayFiles.length}
-            </Text>
-          </Box>
-          
-          <Box>
-            <Text 
-              size="xs" 
-              c="dimmed" 
-              style={{ 
-                fontFamily: GeistMono.style.fontFamily,
-                textTransform: 'uppercase',
-                marginBottom: '4px'
-              }}
-            >
-              Purpose
-            </Text>
-            <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
-              {getCurrentPurposeName().toUpperCase()}
-            </Text>
-          </Box>
-        </Flex>
-      </Box>
-
       {/* Main Content */}
       <Flex style={{ flex: 1, overflow: 'hidden' }}>
         {/* Left Panel - Scrollable */}
@@ -1246,7 +1144,100 @@ export default function CapsuleView() {
               </Text>
             </Box>
 
-            {/* Tabs Section */}
+            {/* Capsule Parameters - Above Context Block */}
+            <Box mb="lg" style={{ maxWidth: '600px' }}>
+              <Text 
+                c="dimmed" 
+                mb="md" 
+                size="xs" 
+                style={{ 
+                  fontFamily: GeistMono.style.fontFamily,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                Capsule Parameters
+              </Text>
+              <Flex 
+                gap="xl"
+                style={{ fontSize: '14px' }}
+                wrap="wrap"
+              >
+                <Box>
+                  <Text 
+                    size="xs" 
+                    c="dimmed" 
+                    style={{ 
+                      fontFamily: GeistMono.style.fontFamily,
+                      textTransform: 'uppercase',
+                      marginBottom: '4px'
+                    }}
+                  >
+                    Created
+                  </Text>
+                  <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+                    {new Date(record.createdAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    }).toUpperCase()}
+                  </Text>
+                </Box>
+                
+                <Box>
+                  <Text 
+                    size="xs" 
+                    c="dimmed" 
+                    style={{ 
+                      fontFamily: GeistMono.style.fontFamily,
+                      textTransform: 'uppercase',
+                      marginBottom: '4px'
+                    }}
+                  >
+                    Duration
+                  </Text>
+                  <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+                    {formatDuration(record.createdAt, record.updatedAt)}
+                  </Text>
+                </Box>
+                
+                <Box>
+                  <Text 
+                    size="xs" 
+                    c="dimmed" 
+                    style={{ 
+                      fontFamily: GeistMono.style.fontFamily,
+                      textTransform: 'uppercase',
+                      marginBottom: '4px'
+                    }}
+                  >
+                    Files
+                  </Text>
+                  <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+                    {displayFiles.length}
+                  </Text>
+                </Box>
+                
+                <Box>
+                  <Text 
+                    size="xs" 
+                    c="dimmed" 
+                    style={{ 
+                      fontFamily: GeistMono.style.fontFamily,
+                      textTransform: 'uppercase',
+                      marginBottom: '4px'
+                    }}
+                  >
+                    Purpose
+                  </Text>
+                  <Text style={{ fontFamily: GeistMono.style.fontFamily }}>
+                    {getCurrentPurposeName().toUpperCase()}
+                  </Text>
+                </Box>
+              </Flex>
+            </Box>
+
+            {/* Tabs Section - Match Job Page Design */}
             <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
               <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
                 <Tabs.Tab 
@@ -1265,7 +1256,7 @@ export default function CapsuleView() {
                   Preview
                 </Tabs.Tab>
                 <Tabs.Tab 
-                  value="metadata"
+                  value="markdown"
                   styles={{
                     tab: {
                       backgroundColor: 'transparent',
@@ -1277,76 +1268,60 @@ export default function CapsuleView() {
                     },
                   }}
                 >
-                  Metadata
+                  Markdown
                 </Tabs.Tab>
               </Tabs.List>
               
               <Tabs.Panel value="preview" pt="md">
-                <Box style={{ 
-                  backgroundColor: '#131313', 
-                  minHeight: 'calc(100vh - 350px)', 
-                  maxHeight: 'calc(100vh - 350px)', 
-                  overflowY: 'auto', 
-                  border: '1px solid #2b2b2b', 
-                  borderRadius: '8px', 
-                  padding: '20px', 
-                  position: 'relative' 
-                }}>
-                  {isProcessing ? (
-                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', minHeight: '200px' }}>
-                      <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#131313', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                      <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
-                        Analyzing files and creating the capsule summary.
-                      </Text>
-                    </Stack>
-                  ) : hasContextSummary ? (
-                    <DocumentMarkdownWrapper 
-                      markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
-                    />
-                  ) : hasFiles ? (
-                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
-                      <Text ta="center" c="dimmed" mb="xl">
-                        Click the {"Regenerate"} button to analyze files and create the summary.
-                      </Text>
-                      <Button
-                        leftSection={<RefreshCw size={16} />}
-                        onClick={handleRegenerateCapsule}
-                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                        loading={isProcessing}
-                      >
-                        Generate Summary
-                      </Button>
-                    </Stack>
-                  ) : (
-                    <Stack align="center" justify="center" style={{ height: '100%', color: '#a0a0a0', padding: '20px', minHeight: '200px' }}>
-                      <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                      <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
-                      <Text ta="center" c="dimmed" mb="xl">
-                        Add files to your capsule to generate a summary.
-                      </Text>
-                      <Button
-                        leftSection={<Plus size={16} />}
-                        onClick={handleAddFile}
-                        styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
-                        disabled={isProcessing}
-                      >
-                        Add Files
-                      </Button>
-                    </Stack>
-                  )}
-                </Box>
+                {isProcessing ? (
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
+                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
+                    <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                      Analyzing files and creating the capsule summary.
+                    </Text>
+                  </Stack>
+                ) : hasContextSummary ? (
+                  <DocumentMarkdownWrapper 
+                    markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                  />
+                ) : hasFiles ? (
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
+                      Click the {"Regenerate"} button to analyze files and create the summary.
+                    </Text>
+                    <Button
+                      leftSection={<RefreshCw size={16} />}
+                      onClick={handleRegenerateCapsule}
+                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                      loading={isProcessing}
+                    >
+                      Generate Summary
+                    </Button>
+                  </Stack>
+                ) : (
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
+                      Add files to your capsule to generate a summary.
+                    </Text>
+                    <Button
+                      leftSection={<Plus size={16} />}
+                      onClick={handleAddFile}
+                      styles={{ root: { backgroundColor: '#F5A623', color: '#000000', '&:hover': { backgroundColor: '#E09612' }}}}
+                      disabled={isProcessing}
+                    >
+                      Add Files
+                    </Button>
+                  </Stack>
+                )}
               </Tabs.Panel>
-
-              <Tabs.Panel value="metadata" pt="md">
-                <Box style={{ 
-                  backgroundColor: '#131313', 
-                  padding: '16px', 
-                  borderRadius: 8,
-                  border: '1px solid #2B2B2B'
-                }}>
+              
+              <Tabs.Panel value="markdown" pt="md">
+                {hasContextSummary ? (
                   <Code
                     block
                     style={{
@@ -1355,7 +1330,6 @@ export default function CapsuleView() {
                       padding: '16px',
                       borderRadius: '8px',
                       overflow: 'auto',
-                      maxHeight: '70vh',
                       fontSize: '0.9rem',
                       fontFamily: 'monospace',
                       lineHeight: 1.5,
@@ -1366,18 +1340,22 @@ export default function CapsuleView() {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {JSON.stringify(record, null, 2)}
+                    {enrichedContent || extractContextSummary(record.summaryContext) || 'No markdown content available'}
                   </Code>
-                </Box>
+                ) : (
+                  <Text c="dimmed" ta="center" mt="xl">
+                    No markdown content available yet
+                  </Text>
+                )}
               </Tabs.Panel>
             </Tabs>
           </Box>
         </Box>
 
-        {/* Right Panel - Capsule Details */}
+        {/* Right Panel - Simplified */}
         <Box style={{ 
-          width: '384px', 
-          borderLeft: '1px solid #2B2B2B', 
+          width: '384px',
+          borderLeft: '1px solid #2B2B2B',
           padding: '1.5rem',
           backgroundColor: '#000000',
           position: 'sticky',
@@ -1385,48 +1363,39 @@ export default function CapsuleView() {
           height: '100vh',
           overflowY: 'auto'
         }}>
-          {/* Capsule Stats */}
-          <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-            <Box>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Files
-              </Text>
-              <Text>{displayFiles.length}</Text>
-            </Box>
-            <Box>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Version
-              </Text>
-              <Text>v{record.__v || 0}</Text>
-            </Box>
-            <Box>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Total Size
-              </Text>
-              <Text>
-                {formatFileSize(displayFiles.reduce((total, file) => total + (file.size || 0), 0))}
-              </Text>
-            </Box>
-            <Box>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Purpose
-              </Text>
-              <Text style={{ fontSize: '12px' }}>{getCurrentPurposeName()}</Text>
-            </Box>
-            <Box style={{ gridColumn: 'span 2' }}>
-              <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Last Updated
-              </Text>
-              <Text>
-                {new Date(record.updatedAt).toLocaleString(undefined, {
-                  timeZone: "UTC",
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </Text>
+          {/* Capsule Status */}
+          <Box style={{ marginBottom: '2rem' }}>
+            <Text 
+              c="dimmed" 
+              mb="md" 
+              size="xs" 
+              style={{ 
+                fontFamily: GeistMono.style.fontFamily,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
+              Status
+            </Text>
+            <Box style={{ 
+              backgroundColor: '#0a0a0a',
+              border: '1px solid #2B2B2B',
+              borderRadius: '4px',
+              padding: '12px'
+            }}>
+              <Flex align="center" gap="xs">
+                <Box style={{ 
+                  width: '8px', 
+                  height: '8px', 
+                  borderRadius: '50%',
+                  backgroundColor: isProcessing ? '#F5A623' : 
+                                  record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? '#3DC28B' : 
+                                  record.status?.toLowerCase() === 'failed' ? '#FF4F56' : '#F5A623'
+                }} />
+                <Text size="sm" style={{ textTransform: 'capitalize' }}>
+                  {isProcessing ? 'Processing' : record.status || 'Unknown'}
+                </Text>
+              </Flex>
             </Box>
           </Box>
 
@@ -1508,88 +1477,6 @@ export default function CapsuleView() {
                 Add source documents to your capsule using the button above.
               </Alert>
             )}
-          </Box>
-
-          {/* Capsule Properties */}
-          <Box style={{ marginTop: '2rem' }}>
-            <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              Properties
-            </Text>
-            <Stack gap="md">
-              <Box style={{ 
-                backgroundColor: '#0a0a0a',
-                border: '1px solid #2B2B2B',
-                borderRadius: '4px',
-                padding: '12px'
-              }}>
-                <Text 
-                  style={{ 
-                    fontFamily: GeistMono.style.fontFamily, 
-                    fontSize: '14px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '4px'
-                  }}
-                >
-                  Capsule ID
-                </Text>
-                <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', fontSize: '11px' }}>
-                  {record._id}
-                </Text>
-              </Box>
-
-              <Box style={{ 
-                backgroundColor: '#0a0a0a',
-                border: '1px solid #2B2B2B',
-                borderRadius: '4px',
-                padding: '12px'
-              }}>
-                <Text 
-                  style={{ 
-                    fontFamily: GeistMono.style.fontFamily, 
-                    fontSize: '14px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '4px'
-                  }}
-                >
-                  Status
-                </Text>
-                <Flex align="center" gap="xs">
-                  <Box style={{ 
-                    width: '8px', 
-                    height: '8px', 
-                    borderRadius: '50%',
-                    backgroundColor: isProcessing ? '#F5A623' : 
-                                    record.status?.toLowerCase() === 'completed' || record.status?.toLowerCase() === 'ready' ? '#3DC28B' : 
-                                    record.status?.toLowerCase() === 'failed' ? '#FF4F56' : '#F5A623'
-                  }} />
-                  <Text size="sm" style={{ textTransform: 'capitalize' }}>
-                    {isProcessing ? 'Processing' : record.status || 'Unknown'}
-                  </Text>
-                </Flex>
-              </Box>
-
-              <Box style={{ 
-                backgroundColor: '#0a0a0a',
-                border: '1px solid #2B2B2B',
-                borderRadius: '4px',
-                padding: '12px'
-              }}>
-                <Text 
-                  style={{ 
-                    fontFamily: GeistMono.style.fontFamily, 
-                    fontSize: '14px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    marginBottom: '4px'
-                  }}
-                >
-                  Access Level
-                </Text>
-                <Text size="sm" c="dimmed">Private</Text>
-              </Box>
-            </Stack>
           </Box>
         </Box>
       </Flex>
