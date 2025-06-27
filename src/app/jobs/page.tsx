@@ -27,6 +27,7 @@ import { useAuth, authUtils, API_CONFIG } from "@/utils/authUtils";
 import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { GeistMono } from 'geist/font/mono';
+import JobCreateModal from '@/components/JobCreateModal'; // Import your modal component
 
 interface Identity {
   token?: string;
@@ -150,8 +151,11 @@ export default function JobList() {
   // Add refresh counter state
   const [refreshCounter, setRefreshCounter] = useState(0);
   
+  // Add state for the job creation modal
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
-  const { show, create } = useNavigation();
+  const { show } = useNavigation(); // Remove create from navigation since we're using modal
   const { getAuthHeaders, refreshToken, fetchWithAuth } = useAuth();
 
   // Debug user identity and auth state
@@ -224,9 +228,19 @@ export default function JobList() {
     show("jobs", doc._id); // Navigate to /jobs/show/:id
   };
 
+  // Updated to open modal instead of navigating to create page
   const handleCreateJob = () => {
-    create("jobs");
+    setIsCreateModalOpen(true);
   };
+
+  // Handle successful job creation
+  const handleJobCreated = useCallback(() => {
+    // Refresh the jobs list after creation
+    setRefreshCounter(prev => prev + 1);
+    authUtils.ensureValidToken().then(() => {
+      refetch();
+    });
+  }, [refetch]);
 
   // Fixed refresh handler
   const handleRefresh = useCallback(() => {
@@ -325,7 +339,7 @@ export default function JobList() {
         error={error}
         title={`JOBS LIST [${data?.data?.length || 0}]`}
         extraColumns={extraColumns}
-        onAddNew={handleCreateJob}
+        onAddNew={handleCreateJob} // This will now open the modal
       />
       
       {/* Pagination controls - using a more subtle style that doesn't interfere with the main table design */}
@@ -376,6 +390,14 @@ export default function JobList() {
         </Box>
       )}
 
+      {/* Job Creation Modal */}
+      <JobCreateModal
+        opened={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleJobCreated}
+      />
+
+      {/* Server Status Modal */}
       <Modal
         opened={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
