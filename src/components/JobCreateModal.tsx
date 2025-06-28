@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { useGetIdentity } from "@refinedev/core";
 import { useForm, useFieldArray } from "react-hook-form";
-import { 
+import {
   Modal,
-  TextInput, 
-  Button, 
-  Stack, 
-  Group, 
-  Box, 
+  TextInput,
+  Button,
+  Stack,
+  Group,
+  Box,
   Alert,
   Text,
   ActionIcon,
@@ -17,27 +17,25 @@ import {
   Collapse,
   Select,
   Tabs,
-  Progress
-} from '@mantine/core';
-import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-import { showNotification } from '@mantine/notifications';
-import { 
-  AlertCircle, 
-  Plus, 
-  Trash, 
+  Progress,
+} from "@mantine/core";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { showNotification } from "@mantine/notifications";
+import {
+  AlertCircle,
+  Plus,
+  Trash,
   Info,
   ChevronDown,
   ChevronUp,
-  LinkIcon,
-  Upload,
   FileText,
-  Edit
-} from 'lucide-react';
+  Edit,
+} from "lucide-react";
 import { useAuth } from "@/utils/authUtils";
-import { FileUpload } from '@/components/FileUpload';
-import { GeistMono } from 'geist/font/mono';
-import { GeistSans } from 'geist/font/sans';
-import ConversationVisualizer from './ConversationVisualizer';
+import { FileUpload } from "@/components/FileUpload";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
+import ConversationVisualizer from "./ConversationVisualizer";
 
 interface Identity {
   token?: string;
@@ -46,7 +44,7 @@ interface Identity {
 }
 
 interface FileItem {
-  type: 'link' | 'upload';
+  type: "link" | "upload";
   url: string;
   filename?: string;
   size?: number;
@@ -69,29 +67,32 @@ interface JobCreateModalProps {
   onSuccess?: () => void;
 }
 
-const JobCreateModal: React.FC<JobCreateModalProps> = ({ 
-  opened, 
-  onClose, 
-  onSuccess 
+const JobCreateModal: React.FC<JobCreateModalProps> = ({
+  opened,
+  onClose,
+  onSuccess,
 }) => {
   const { data: identity } = useGetIdentity<Identity>();
   const { fetchWithAuth, handleAuthError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logicOpened, { toggle: toggleLogic }] = useDisclosure(false);
   const [isEditingJobName, setIsEditingJobName] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   // Generate data structuring job name similar to asst_5Xbp1xcveMM2YLa1jthBA8gp
   const generateJobName = (): string => {
-    const prefixes = ['struct', 'parse', 'conv', 'xform', 'proc'];
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    
+    const prefixes = ["struct", "parse", "conv", "xform", "proc"];
+    const characters =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
     // Generate random string similar to OpenAI assistant IDs
-    let randomString = '';
+    let randomString = "";
     for (let i = 0; i < 25; i++) {
-      randomString += characters.charAt(Math.floor(Math.random() * characters.length));
+      randomString += characters.charAt(
+        Math.floor(Math.random() * characters.length)
+      );
     }
-    
+
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
     return `${prefix}_${randomString}`;
   };
@@ -101,32 +102,32 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       jobName: generateJobName(),
       isPublic: false,
       createPage: false,
-      lang: 'en',
-      scenario: 'SINGLE_FILE_DEFAULT',
-      files: [{ type: 'link', url: '', isLoading: false, progress: 0 }]
-    }
+      lang: "en",
+      scenario: "SINGLE_FILE_DEFAULT",
+      files: [{ type: "link", url: "", isLoading: false, progress: 0 }],
+    },
   });
 
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors }, 
-    setValue, 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
     control,
     watch,
     setError,
-    reset
+    reset,
   } = form;
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "files"
+    name: "files",
   });
 
   // Regenerate job name when modal opens
   useEffect(() => {
     if (opened) {
-      setValue('jobName', generateJobName());
+      setValue("jobName", generateJobName());
     }
   }, [opened, setValue]);
 
@@ -152,7 +153,8 @@ The resulting data structure should enable context-aware AI analysis with comple
   const formatFileSize = (size: number): string => {
     if (size < 1024) return `${size} bytes`;
     else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-    else if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    else if (size < 1024 * 1024 * 1024)
+      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
@@ -161,7 +163,7 @@ The resulting data structure should enable context-aware AI analysis with comple
     // Simulate loading process
     setValue(`files.${index}.isLoading`, true);
     setValue(`files.${index}.progress`, 0);
-    
+
     // Simulate progress
     const progressInterval = setInterval(() => {
       const currentProgress = watch(`files.${index}.progress`) || 0;
@@ -171,24 +173,24 @@ The resulting data structure should enable context-aware AI analysis with comple
         clearInterval(progressInterval);
         setValue(`files.${index}.isLoading`, false);
         setValue(`files.${index}.url`, fileUrl);
-        
+
         // Extract filename from URL for display purposes only
-        const urlParts = fileUrl.split('/');
+        const urlParts = fileUrl.split("/");
         const filenameWithParams = urlParts[urlParts.length - 1];
-        const filename = filenameWithParams.split('?')[0];
+        const filename = filenameWithParams.split("?")[0];
         setValue(`files.${index}.filename`, filename);
-        
+
         showNotification({
-          title: 'Success',
-          message: 'File URL has been added',
-          color: 'green',
+          title: "Success",
+          message: "File URL has been added",
+          color: "green",
         });
       }
     }, 200);
   };
 
   const handleAddFile = () => {
-    append({ type: 'link', url: '', isLoading: false, progress: 0 });
+    append({ type: "link", url: "", isLoading: false, progress: 0 });
   };
 
   const handleRemoveFile = (index: number) => {
@@ -212,11 +214,11 @@ The resulting data structure should enable context-aware AI analysis with comple
   };
 
   const handleJobNameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       setIsEditingJobName(false);
     }
-    if (e.key === 'Escape') {
-      setValue('jobName', generateJobName());
+    if (e.key === "Escape") {
+      setValue("jobName", generateJobName());
       setIsEditingJobName(false);
     }
   };
@@ -226,17 +228,20 @@ The resulting data structure should enable context-aware AI analysis with comple
     try {
       if (!navigator.onLine) {
         showNotification({
-          title: 'Error',
-          message: 'You appear to be offline. Please check your internet connection.',
-          color: 'red',
-          icon: <AlertCircle size={16} />
+          title: "Error",
+          message: "You appear to be offline. Please check your internet connection.",
+          color: "red",
+          icon: <AlertCircle size={16} />,
         });
         return;
       }
 
-      const validFiles = data.files.filter(file => file.url.trim() !== '');
+      const validFiles = data.files.filter((file) => file.url.trim() !== "");
       if (validFiles.length === 0) {
-        setError('root', { type: 'manual', message: 'Please provide at least one file link or upload a file' });
+        setError("root", {
+          type: "manual",
+          message: "Please provide at least one file link or upload a file",
+        });
         return;
       }
 
@@ -245,31 +250,37 @@ The resulting data structure should enable context-aware AI analysis with comple
         apiData = {
           jobName: data.jobName,
           scenario: data.scenario,
-          email: identity?.email || '',
+          email: identity?.email || "",
           lang: data.lang,
           isPublic: data.isPublic,
           createPage: data.createPage,
-          link: validFiles[0].url
+          link: validFiles[0].url,
         };
       } else {
         apiData = {
           jobName: data.jobName,
           scenario: data.scenario,
-          email: identity?.email || '',
+          email: identity?.email || "",
           lang: data.lang,
           isPublic: data.isPublic,
           createPage: data.createPage,
-          links: validFiles.map(file => file.url)
+          links: validFiles.map((file) => file.url),
         };
       }
 
       const response = await fetchWithAuth(`/api/jobs-proxy`, {
-        method: 'POST',
-        body: JSON.stringify(apiData)
+        method: "POST",
+        body: JSON.stringify(apiData),
       });
 
-      if (response.status === 521 || response.status === 522 || response.status === 523) {
-        throw new Error('The server is currently unreachable. Please try again later.');
+      if (
+        response.status === 521 ||
+        response.status === 522 ||
+        response.status === 523
+      ) {
+        throw new Error(
+          "The server is currently unreachable. Please try again later."
+        );
       }
 
       if (!response.ok) {
@@ -284,27 +295,26 @@ The resulting data structure should enable context-aware AI analysis with comple
       }
 
       showNotification({
-        title: 'Success',
-        message: 'Job created successfully',
-        color: 'green'
+        title: "Success",
+        message: "Job created successfully",
+        color: "green",
       });
 
       reset();
       setIsEditingJobName(false);
       onClose();
-      
+
       if (onSuccess) {
         onSuccess();
       }
-      
     } catch (error) {
       console.error("Create job error:", error);
       handleAuthError(error);
       showNotification({
-        title: 'Error',
-        message: error instanceof Error ? error.message : 'Failed to create job',
-        color: 'red',
-        icon: <AlertCircle size={16} />
+        title: "Error",
+        message: error instanceof Error ? error.message : "Failed to create job",
+        color: "red",
+        icon: <AlertCircle size={16} />,
       });
     } finally {
       setIsSubmitting(false);
@@ -320,22 +330,22 @@ The resulting data structure should enable context-aware AI analysis with comple
       centered
       size={isMobile ? "lg" : "xl"}
       styles={{
-        header: { 
-          display: 'none',
+        header: {
+          display: "none",
         },
-        body: { 
-          backgroundColor: '#000000', 
-          color: '#ffffff',
-          padding: isMobile ? '16px 20px' : '24px 30px',
+        body: {
+          backgroundColor: "#000000",
+          color: "#ffffff",
+          padding: isMobile ? "16px 20px" : "24px 30px",
         },
         inner: {
           padding: 0,
         },
         content: {
-          maxWidth: isMobile ? '95vw' : '800px',
-          borderRadius: '10px',
-          border: '0.5px solid #2B2B2B',
-          overflow: 'hidden',
+          maxWidth: isMobile ? "95vw" : "800px",
+          borderRadius: "10px",
+          border: "0.5px solid #2B2B2B",
+          overflow: "hidden",
         },
       }}
     >
@@ -345,46 +355,46 @@ The resulting data structure should enable context-aware AI analysis with comple
           <Group align="center" gap="xs">
             {isEditingJobName ? (
               <TextInput
-                value={watch('jobName')}
-                onChange={(e) => setValue('jobName', e.target.value)}
+                value={watch("jobName")}
+                onChange={(e) => setValue("jobName", e.target.value)}
                 onBlur={handleJobNameBlur}
                 onKeyDown={handleJobNameKeyDown}
                 autoFocus
                 styles={{
                   input: {
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    color: '#ffffff',
+                    backgroundColor: "transparent",
+                    border: "none",
+                    color: "#ffffff",
                     fontFamily: GeistMono.style.fontFamily,
-                    fontSize: isMobile ? '14px' : '16px',
+                    fontSize: isMobile ? "14px" : "16px",
                     fontWeight: 500,
-                    padding: '0',
-                    '&:focus': {
-                      outline: 'none',
+                    padding: "0",
+                    "&:focus": {
+                      outline: "none",
                     },
                   },
                   wrapper: {
-                    width: 'auto',
-                    minWidth: '200px',
-                  }
+                    width: "auto",
+                    minWidth: "200px",
+                  },
                 }}
               />
             ) : (
-              <Text 
-                fw={500} 
-                size={isMobile ? "sm" : "md"} 
-                style={{ 
+              <Text
+                fw={500}
+                size={isMobile ? "sm" : "md"}
+                style={{
                   fontFamily: GeistMono.style.fontFamily,
-                  cursor: 'pointer',
+                  cursor: "pointer",
                 }}
                 onClick={handleJobNameClick}
               >
-                {watch('jobName')}
+                {watch("jobName")}
               </Text>
             )}
             <Tooltip label="Click to edit job name">
-              <ActionIcon 
-                variant="transparent" 
+              <ActionIcon
+                variant="transparent"
                 size="sm"
                 onClick={handleJobNameClick}
                 style={{ opacity: 0.6 }}
@@ -395,7 +405,9 @@ The resulting data structure should enable context-aware AI analysis with comple
           </Group>
           <Group>
             {!isMobile && (
-              <Text size="sm" c="#a1a1a1">Claude 3.5 Sonnet</Text>
+              <Text size="sm" c="#a1a1a1">
+                Claude 3.5 Sonnet
+              </Text>
             )}
             <Group gap="xs">
               <Button
@@ -409,7 +421,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                     textTransform: "uppercase",
                     fontFamily: GeistMono.style.fontFamily,
                     fontSize: "12px",
-                    '&:hover': {
+                    "&:hover": {
                       backgroundColor: "#2b2b2b",
                     },
                   },
@@ -428,7 +440,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                     textTransform: "uppercase",
                     fontFamily: GeistMono.style.fontFamily,
                     fontSize: "12px",
-                    '&:hover': {
+                    "&:hover": {
                       backgroundColor: "#E09612",
                     },
                   },
@@ -442,24 +454,21 @@ The resulting data structure should enable context-aware AI analysis with comple
 
         {/* Conversation Data Visualization */}
         <Box mb="xl">
-          <ConversationVisualizer 
-            files={watch('files')} 
-            isActive={true}
-          />
+          <ConversationVisualizer files={watch("files")} isActive={true} />
         </Box>
 
         <form onSubmit={onSubmit}>
           {errors?.root?.message && (
-            <Alert 
+            <Alert
               icon={<AlertCircle size={16} />}
-              color="red" 
+              color="red"
               title="Error"
               mb="md"
               styles={{
                 root: {
-                  backgroundColor: 'rgba(244, 67, 54, 0.1)', 
-                  border: '1px solid rgba(244, 67, 54, 0.3)',
-                }
+                  backgroundColor: "rgba(244, 67, 54, 0.1)",
+                  border: "1px solid rgba(244, 67, 54, 0.3)",
+                },
               }}
             >
               {errors.root.message}
@@ -471,38 +480,44 @@ The resulting data structure should enable context-aware AI analysis with comple
             <Box>
               {/* File entries */}
               {fields.map((field, index) => {
-                const hasUrl = watch(`files.${index}.url`)?.trim() !== '';
+                const hasUrl = watch(`files.${index}.url`)?.trim() !== "";
                 const isLoading = watch(`files.${index}.isLoading`);
                 const progress = watch(`files.${index}.progress`) || 0;
                 const fileType = watch(`files.${index}.type`);
-                
+
                 return (
                   <Box
                     key={field.id}
                     mb="sm"
                     style={{
-                      backgroundColor: '#0D0D0D',
-                      border: '0.5px solid #2B2B2B',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      minHeight: '80px',
-                      transition: 'all 0.3s ease-in-out',
+                      backgroundColor: "#000000",
+                      border: "0.5px solid #2B2B2B",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
                     }}
                   >
                     {/* Main content area */}
-                    <Box style={{ position: 'relative', height: '100%' }}>
-                      {/* Remove file button - positioned in top right */}
+                    <Box
+                      style={{
+                        padding: "20px 16px",
+                        flexGrow: 1,
+                        position: "relative",
+                      }}
+                    >
+                      {/* Remove file button */}
                       {fields.length > 1 && (
                         <Box
                           style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
+                            position: "absolute",
+                            top: "12px",
+                            right: "12px",
                             zIndex: 10,
                           }}
                         >
                           <Tooltip label="Remove">
-                            <ActionIcon 
+                            <ActionIcon
                               variant="subtle"
                               color="red"
                               onClick={() => handleRemoveFile(index)}
@@ -514,278 +529,239 @@ The resulting data structure should enable context-aware AI analysis with comple
                         </Box>
                       )}
 
-                      {/* Content area */}
-                      <Box
-                        style={{
-                          padding: '12px',
-                          minHeight: '80px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {/* Status text when loading/has content */}
-                        {(isLoading || hasUrl) && (
-                          <Group justify="space-between" align="center" mb="xs">
-                            <Text 
-                              size="sm" 
-                              style={{ 
-                                fontFamily: GeistMono.style.fontFamily,
-                                color: '#ffffff'
-                              }}
-                            >
-                              {watch(`files.${index}.filename`) || 'FILENAME.EXT'}
-                            </Text>
-                            {isLoading && (
-                              <Text 
-                                size="xs" 
-                                c="#a1a1a1" 
-                                style={{ fontFamily: GeistMono.style.fontFamily }}
-                              >
-                                Loading a library
-                              </Text>
-                            )}
-                          </Group>
-                        )}
-
-                        {/* Content based on type */}
-                        {fileType === 'link' ? (
-                          <TextInput
-                            placeholder="URL TO A SOURCE AUDIO OR VIDEO"
-                            {...register(`files.${index}.url`)}
-                            onChange={(e) => {
-                              setValue(`files.${index}.url`, e.target.value);
-                              
-                              if (e.target.value) {
-                                try {
-                                  const filename = e.target.value.split('/').pop() || '';
-                                  setValue(`files.${index}.filename`, filename);
-                                } catch (error) {
-                                  console.warn('Failed to extract filename from URL');
-                                }
+                      {/* Content based on type */}
+                      {fileType === "link" ? (
+                        <TextInput
+                          variant="unstyled"
+                          placeholder="URL TO A SOURCE AUDIO OR VIDEO"
+                          {...register(`files.${index}.url`)}
+                          onChange={(e) => {
+                            setValue(`files.${index}.url`, e.target.value);
+                            if (e.target.value) {
+                              try {
+                                const filename =
+                                  e.target.value.split("/").pop() || "";
+                                setValue(`files.${index}.filename`, filename);
+                              } catch (error) {
+                                console.warn(
+                                  "Failed to extract filename from URL"
+                                );
                               }
-                            }}
-                            styles={{
-                              input: {
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                color: '#ffffff',
-                                fontFamily: GeistMono.style.fontFamily,
-                                fontSize: '14px',
-                                padding: '0',
-                                '&:focus': {
-                                  outline: 'none',
-                                },
-                                '&::placeholder': {
-                                  color: '#666',
-                                },
-                              },
-                              wrapper: {
-                                width: '100%'
-                              }
-                            }}
-                          />
-                        ) : (
-                          <Box style={{ width: '100%', height: '100%' }}>
-                            {!watch(`files.${index}.url`) ? (
-                              <FileUpload 
-                                onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)}
-                              />
-                            ) : (
-                              <Group 
-                                style={{ 
-                                  padding: '8px 0',
-                                }}
-                                wrap="nowrap"
-                              >
-                                <FileText size={16} />
-                                <Box style={{ flex: 1, overflow: 'hidden' }}>
-                                  <Text size="sm" truncate>
-                                    {watch(`files.${index}.filename`) || 'Uploaded file'}
-                                  </Text>
-                                  {watch(`files.${index}.size`) && (
-                                    <Text size="xs" c="dimmed">
-                                      {formatFileSize(watch(`files.${index}.size`) as number)}
-                                    </Text>
-                                  )}
-                                </Box>
-                                <Button 
-                                  size="xs" 
-                                  variant="light" 
-                                  color="gray"
-                                  onClick={() => {
-                                    setValue(`files.${index}.url`, '');
-                                    setValue(`files.${index}.filename`, '');
-                                    setValue(`files.${index}.size`, undefined);
-                                  }}
-                                >
-                                  Change
-                                </Button>
-                              </Group>
-                            )}
-                          </Box>
-                        )}
-                      </Box>
-
-                      {/* Progress bar - at the bottom */}
-                      {(isLoading || hasUrl) && (
-                        <Box
-                          style={{
-                            borderTop: '0.5px solid #2B2B2B',
-                            height: '4px',
-                            backgroundColor: 'transparent',
+                            }
                           }}
-                        >
-                          <Progress
-                            value={isLoading ? progress : 100}
-                            size="xs"
-                            color="#F5A623"
-                            styles={{
-                              root: {
-                                backgroundColor: 'transparent',
-                                height: '4px',
+                          styles={{
+                            input: {
+                              backgroundColor: "transparent",
+                              border: "none",
+                              color: "#ffffff",
+                              fontFamily: GeistMono.style.fontFamily,
+                              fontSize: "14px",
+                              padding: "0",
+                              "&::placeholder": {
+                                color: "#666",
                               },
-                              section: {
-                                backgroundColor: '#F5A623',
-                                transition: 'width 0.2s ease',
-                              },
-                            }}
-                          />
+                            },
+                          }}
+                        />
+                      ) : (
+                        <Box style={{ width: "100%", height: "100%" }}>
+                          {!watch(`files.${index}.url`) ? (
+                            <FileUpload
+                              onFileUploaded={(fileUrl) =>
+                                handleFileUploaded(fileUrl, index)
+                              }
+                            />
+                          ) : (
+                            <Group style={{ padding: "8px 0" }} wrap="nowrap">
+                              <FileText size={16} />
+                              <Box style={{ flex: 1, overflow: "hidden" }}>
+                                <Text size="sm" truncate>
+                                  {watch(`files.${index}.filename`) ||
+                                    "Uploaded file"}
+                                </Text>
+                                {watch(`files.${index}.size`) && (
+                                  <Text size="xs" c="dimmed">
+                                    {formatFileSize(
+                                      watch(`files.${index}.size`) as number
+                                    )}
+                                  </Text>
+                                )}
+                              </Box>
+                              <Button
+                                size="xs"
+                                variant="light"
+                                color="gray"
+                                onClick={() => {
+                                  setValue(`files.${index}.url`, "");
+                                  setValue(`files.${index}.filename`, "");
+                                  setValue(`files.${index}.size`, undefined);
+                                }}
+                              >
+                                Change
+                              </Button>
+                            </Group>
+                          )}
                         </Box>
                       )}
+                    </Box>
 
-                      {/* Bottom bar with Tabs and Info */}
-                              <Box
-                                style={{
-                                  borderTop: "0.5px solid #2B2B2B",
-                                  padding: "8px 12px",
-                                  backgroundColor: "#000000",
-                                }}
-                              >
-                                <Group justify="space-between" align="center">
-                                  <Tabs
-                                    value={fileType}
-                                    onChange={(value) =>
-                                      setValue(
-                                        `files.${index}.type`,
-                                        value as "link" | "upload"
-                                      )
-                                    }
-                                    variant="unstyled"
-                                    styles={{
-                                      list: {
-                                        border: "1px solid #2a2a2a",
-                                        borderRadius: "6px",
-                                        padding: "2px",
-                                        gap: "2px",
-                                      },
-                                      tab: {
-                                        padding: "4px 12px",
-                                        color: "#888888",
-                                        fontSize: "11px",
-                                        fontFamily: GeistMono.style.fontFamily,
-                                        textTransform: "uppercase",
-                                        minHeight: "auto",
-                                        backgroundColor: "transparent",
-                                        borderRadius: "4px",
-                                        transition: "all 0.2s ease",
-                                        "&[data-active]": {
-                                          color: "#ffffff",
-                                          backgroundColor: "#2a2a2a",
-                                        },
-                                        "&:hover:not([data-active])": {
-                                          backgroundColor: "#1c1c1c",
-                                          color: "#bbbbbb",
-                                        },
-                                        "&[disabled]": {
-                                          color: "#555555",
-                                        },
-                                      },
-                                    }}
-                                  >
-                                    <Tabs.List>
-                                      <Tabs.Tab value="link">URL</Tabs.Tab>
-                                      <Tabs.Tab value="upload">UPLOAD A FILE</Tabs.Tab>
-                                      <Tabs.Tab value="emails" disabled>
-                                        EMAILS
-                                      </Tabs.Tab>
-                                    </Tabs.List>
-                                  </Tabs>
-                      
-                                  <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
-                                    <Info
-                                      size={16}
-                                      style={{ color: "#a1a1a1", cursor: "help" }}
-                                    />
-                                  </Tooltip>
-                                </Group>
-                              </Box>
-                            </Box>
-                          );
-                        })}
-                      
-                        {/* Add more button */}
-                        <Button
-                          leftSection={<Plus size={20} />}
-                          fullWidth
-                          onClick={handleAddFile}
+                    {/* Progress bar */}
+                    {(isLoading || hasUrl) && (
+                      <Progress
+                        value={isLoading ? progress : 100}
+                        size="xs"
+                        color="#F5A623"
+                        styles={{
+                          root: { backgroundColor: "transparent" },
+                          section: { transition: "width 0.2s ease" },
+                        }}
+                      />
+                    )}
+
+                    {/* Bottom bar with Tabs and Info */}
+                    <Box
+                      style={{
+                        borderTop: "0.5px solid #2B2B2B",
+                        padding: "8px 12px",
+                        backgroundColor: "#000000",
+                      }}
+                    >
+                      <Group justify="space-between" align="center">
+                        <Tabs
+                          value={fileType}
+                          onChange={(value) =>
+                            setValue(
+                              `files.${index}.type`,
+                              value as "link" | "upload"
+                            )
+                          }
+                          variant="unstyled"
                           styles={{
-                            root: {
-                              backgroundColor: "#000000",
-                              border: "1px solid #2B2B2B",
-                              color: "#a1a1a1",
-                              height: "48px",
+                            list: {
+                              border: "1px solid #2a2a2a",
+                              borderRadius: "6px",
+                              padding: "2px",
+                              gap: "2px",
+                            },
+                            tab: {
+                              padding: "4px 12px",
+                              color: "#888888",
+                              fontSize: "11px",
                               fontFamily: GeistMono.style.fontFamily,
-                              fontSize: "12px",
                               textTransform: "uppercase",
-                              justifyContent: "flex-start",
-                              gap: "12px",
-                              padding: "0 16px",
-                              "&:hover": {
-                                backgroundColor: "#0A0A0A",
-                                borderColor: "#333333",
+                              minHeight: "auto",
+                              backgroundColor: "transparent",
+                              borderRadius: "4px",
+                              transition: "all 0.2s ease",
+                              "&[data-active]": {
+                                color: "#ffffff",
+                                backgroundColor: "#2a2a2a",
+                              },
+                              "&:hover:not([data-active])": {
+                                backgroundColor: "#1c1c1c",
+                                color: "#bbbbbb",
+                              },
+                              "&[disabled]": {
+                                color: "#555555",
                               },
                             },
                           }}
                         >
-                          ADD MORE DATA
-                        </Button>
-                      </Box>
+                          <Tabs.List>
+                            <Tabs.Tab value="link">URL</Tabs.Tab>
+                            <Tabs.Tab value="upload">UPLOAD A FILE</Tabs.Tab>
+                            <Tabs.Tab value="emails" disabled>
+                              EMAILS
+                            </Tabs.Tab>
+                          </Tabs.List>
+                        </Tabs>
+
+                        <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
+                          <Info
+                            size={16}
+                            style={{ color: "#a1a1a1", cursor: "help" }}
+                          />
+                        </Tooltip>
+                      </Group>
+                    </Box>
+                  </Box>
+                );
+              })}
+
+              {/* Add more button */}
+              <Button
+                leftSection={<Plus size={20} />}
+                fullWidth
+                onClick={handleAddFile}
+                styles={{
+                  root: {
+                    backgroundColor: "#000000",
+                    border: "1px solid #2B2B2B",
+                    color: "#a1a1a1",
+                    height: "48px",
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    justifyContent: "flex-start",
+                    gap: "12px",
+                    padding: "0 16px",
+                    "&:hover": {
+                      backgroundColor: "#0A0A0A",
+                      borderColor: "#333333",
+                    },
+                  },
+                }}
+              >
+                ADD MORE DATA
+              </Button>
+            </Box>
 
             {/* FOLLOW THIS LOGIC */}
             <Box>
-              <Group 
-                align="center" 
-                mb="xs" 
+              <Group
+                align="center"
+                mb="xs"
                 onClick={toggleLogic}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
-                <Text size="sm" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                <Text
+                  size="sm"
+                  c="#a1a1a1"
+                  style={{ fontFamily: GeistMono.style.fontFamily }}
+                >
                   FOLLOW THIS LOGIC
                 </Text>
-                <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                <Text
+                  size="xs"
+                  c="#666"
+                  style={{ fontFamily: GeistMono.style.fontFamily }}
+                >
                   DEFAULT FILE SOMETHING
                 </Text>
                 <ActionIcon variant="transparent" size="sm">
-                  {logicOpened ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  {logicOpened ? (
+                    <ChevronUp size={14} />
+                  ) : (
+                    <ChevronDown size={14} />
+                  )}
                 </ActionIcon>
               </Group>
-              
+
               <Collapse in={logicOpened}>
                 <Box
                   p="md"
                   style={{
-                    backgroundColor: '#0a0a0a',
-                    border: '0.5px solid #2B2B2B',
-                    borderRadius: '6px',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
+                    backgroundColor: "#0a0a0a",
+                    border: "0.5px solid #2B2B2B",
+                    borderRadius: "6px",
+                    maxHeight: "200px",
+                    overflowY: "auto",
                   }}
                 >
-                  <Text 
-                    size="xs" 
-                    style={{ 
-                      whiteSpace: 'pre-wrap',
+                  <Text
+                    size="xs"
+                    style={{
+                      whiteSpace: "pre-wrap",
                       fontFamily: GeistSans.style.fontFamily,
                       lineHeight: 1.4,
                     }}
@@ -798,30 +774,40 @@ The resulting data structure should enable context-aware AI analysis with comple
 
             {/* Language Selection */}
             <Box>
-              <Text size="sm" c="#a1a1a1" mb="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+              <Text
+                size="sm"
+                c="#a1a1a1"
+                mb="xs"
+                style={{ fontFamily: GeistMono.style.fontFamily }}
+              >
                 LANGUAGE
               </Text>
               <Select
                 value="English"
-                data={['English']}
+                data={["English"]}
                 disabled
                 styles={{
                   input: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
-                    color: '#ffffff',
+                    backgroundColor: "#0d0d0d",
+                    borderColor: "#2b2b2b",
+                    color: "#ffffff",
                     fontFamily: GeistMono.style.fontFamily,
                   },
                   dropdown: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
+                    backgroundColor: "#0d0d0d",
+                    borderColor: "#2b2b2b",
                   },
                 }}
               />
             </Box>
 
             {/* Footer info */}
-            <Text size="xs" c="#666" ta="right" style={{ fontFamily: GeistMono.style.fontFamily }}>
+            <Text
+              size="xs"
+              c="#666"
+              ta="right"
+              style={{ fontFamily: GeistMono.style.fontFamily }}
+            >
               formats supported, any limitations
             </Text>
           </Stack>
