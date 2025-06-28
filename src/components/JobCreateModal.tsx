@@ -70,15 +70,14 @@ interface JobCreateModalProps {
   onSuccess?: () => void;
 }
 
-// URL validation function
 const validateMediaUrl = async (url: string): Promise<{ isValid: boolean; error?: string }> => {
   try {
     // Basic URL validation
     new URL(url);
     
-    // Check file extension first (fastest check)
-    const audioVideoExtensions = /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)(\?.*)?$/i;
-    if (audioVideoExtensions.test(url)) {
+    // Check file extension first (fastest check) - be more strict
+    const audioVideoExtensions = /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)$/i;
+    if (audioVideoExtensions.test(url.split('?')[0])) { // Remove query params before checking
       return { isValid: true };
     }
     
@@ -89,32 +88,44 @@ const validateMediaUrl = async (url: string): Promise<{ isValid: boolean; error?
     }
     
     // Check for other streaming platforms
-    const streamingPlatforms = /(?:vimeo\.com|dailymotion\.com|twitch\.tv|soundcloud\.com)/i;
+    const streamingPlatforms = /(?:vimeo\.com\/\d+|dailymotion\.com\/video\/|twitch\.tv\/videos\/|soundcloud\.com\/[\w-]+\/[\w-]+)/i;
     if (streamingPlatforms.test(url)) {
       return { isValid: true };
     }
     
-    // HEAD request to check Content-Type (more thorough but slower)
+    // HEAD request to check Content-Type - be more strict about response
     try {
       const response = await fetch(url, { 
         method: 'HEAD',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: AbortSignal.timeout(5000)
       });
+      
+      if (!response.ok) {
+        return { 
+          isValid: false, 
+          error: `Server returned ${response.status} - file may not exist or be accessible` 
+        };
+      }
       
       const contentType = response.headers.get('Content-Type');
       if (contentType && (contentType.startsWith('audio/') || contentType.startsWith('video/'))) {
         return { isValid: true };
       }
       
+      // Check Content-Disposition for downloadable files
+      const contentDisposition = response.headers.get('Content-Disposition');
+      if (contentDisposition && audioVideoExtensions.test(contentDisposition)) {
+        return { isValid: true };
+      }
+      
       return { 
         isValid: false, 
-        error: 'URL does not appear to contain audio or video content' 
+        error: 'URL does not contain audio or video content. Please provide a direct link to a media file.' 
       };
     } catch (fetchError) {
-      // If HEAD request fails, we'll allow it but warn the user
       return { 
-        isValid: true, 
-        error: 'Could not verify file type - please ensure the URL contains audio or video content' 
+        isValid: false, 
+        error: 'Could not access the URL - please check if the link is valid and publicly accessible' 
       };
     }
     
@@ -853,38 +864,38 @@ The resulting data structure should enable context-aware AI analysis with comple
                           }
                           styles={{
                             list: {
-                              borderRadius: "6px",
-                              padding: "2px",
-                              gap: "2px",
-                              backgroundColor: "#0A0A0A",
-                              border: "none",
-                            },
-                            tab: {
-                              padding: "4px 12px",
-                              color: "#888888",
-                              fontSize: "11px",
-                              fontFamily: GeistMono.style.fontFamily,
-                              textTransform: "uppercase",
-                              minHeight: "auto",
-                              backgroundColor: "transparent",
-                              borderRadius: "4px",
-                              transition: "all 0.2s ease",
-                              border: "none",
-                              // Fixed the active tab styling
-                              '&[data-active="true"]': {
-                                color: "#ffffff",
-                                backgroundColor: "#202020",
+                                borderRadius: "6px",
+                                padding: "2px",
+                                gap: "2px",
+                                backgroundColor: "#0A0A0A",
+                                border: "none",
                               },
-                              "&:hover:not([data-active])": {
-                                backgroundColor: "#1c1c1c",
-                                color: "#bbbbbb",
+                              tab: {
+                                padding: "4px 12px",
+                                color: "#888888",
+                                fontSize: "11px",
+                                fontFamily: GeistMono.style.fontFamily,
+                                textTransform: "uppercase",
+                                minHeight: "auto",
+                                backgroundColor: "transparent",
+                                borderRadius: "4px",
+                                transition: "all 0.2s ease",
+                                border: "none",
+                                "&:hover:not([data-active])": {
+                                  backgroundColor: "#1c1c1c",
+                                  color: "#bbbbbb",
+                                },
+                                "&[disabled]": {
+                                  color: "#555555",
+                                  opacity: 0.5,
+                                },
                               },
-                              "&[disabled]": {
-                                color: "#555555",
-                                opacity: 0.5,
+                              // Add separate active tab styling
+                              tabActive: {
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
                               },
-                            },
-                          }}
+                            }}
                         >
                           <Tabs.List>
                             <Tabs.Tab value="link">URL</Tabs.Tab>
