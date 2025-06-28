@@ -633,44 +633,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             </Text>{" "}
             conversation data from the attached sources following this logic{" "}
             <Text component="span" fw={500} c="#ffffff" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px" }}>
-              LOGIC NAME :{" "}
-              <Select
-                value={watch("selectedLogic")}
-                onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
-                data={logicOptions}
-                variant="unstyled"
-                size="sm"
-                comboboxProps={{ withinPortal: true }}
-                styles={{
-                  input: {
-                    backgroundColor: "transparent",
-                    border: "none",
-                    color: "#ffffff",
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: "14px",
-                    fontWeight: 500,
-                    padding: "0",
-                    minHeight: "auto",
-                    display: "inline",
-                    width: "auto",
-                  },
-                  dropdown: {
-                    backgroundColor: "#000000",
-                    border: "1px solid #2b2b2b",
-                  },
-                  option: {
-                    color: "#ffffff",
-                    fontSize: "14px",
-                    fontFamily: GeistMono.style.fontFamily,
-                    "&[data-selected]": {
-                      backgroundColor: "#202020",
-                    },
-                    "&:hover": {
-                      backgroundColor: "#1c1c1c",
-                    },
-                  },
-                }}
-              />
+              DEFAULT
             </Text>{" "}
             in{" "}
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
@@ -681,6 +644,49 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               {identity?.email?.toUpperCase() || "USER@EXAMPLE.COM"}
             </Text>
           </Text>
+        </Box>
+
+        {/* Logic Selection Dropdown */}
+        <Box mb="lg">
+          <Select
+            value={watch("selectedLogic")}
+            onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
+            data={logicOptions.map((option, index) => ({
+              ...option,
+              disabled: index !== 0, // Only first option is clickable
+            }))}
+            placeholder="Select logic template"
+            size="sm"
+            styles={{
+              input: {
+                backgroundColor: "#0d0d0d",
+                borderColor: "#2b2b2b",
+                color: "#ffffff",
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: "14px",
+              },
+              dropdown: {
+                backgroundColor: "#000000",
+                border: "1px solid #2b2b2b",
+              },
+              option: {
+                color: "#ffffff",
+                fontSize: "14px",
+                fontFamily: GeistMono.style.fontFamily,
+                "&[data-selected]": {
+                  backgroundColor: "#202020",
+                },
+                "&:hover:not([data-disabled])": {
+                  backgroundColor: "#1c1c1c",
+                },
+                "&[data-disabled]": {
+                  color: "#555555",
+                  opacity: 0.5,
+                  cursor: "not-allowed",
+                },
+              },
+            }}
+          />
         </Box>
 
         {/* Conversation Data Visualization */}
