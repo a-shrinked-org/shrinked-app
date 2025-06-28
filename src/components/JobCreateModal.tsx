@@ -672,32 +672,33 @@ The resulting data structure should enable context-aware AI analysis with comple
                               },
                               list: {
                                 border: 'none',
-                                gap: '1px',
-                                backgroundColor: '#0A0A0A',
-                                borderRadius: '3px',
-                                padding: '1px',
+                                gap: '2px',
+                                backgroundColor: '#1a1a1a',
+                                borderRadius: '4px',
+                                padding: '2px',
                               },
                               tab: {
-                                padding: '4px 8px',
-                                color: '#757575',
-                                fontSize: '10px',
+                                padding: '6px 12px',
+                                color: '#666',
+                                fontSize: '11px',
                                 fontFamily: GeistMono.style.fontFamily,
+                                textTransform: 'uppercase',
                                 minHeight: 'auto',
                                 backgroundColor: 'transparent',
                                 border: 'none',
-                                borderRadius: '2px',
+                                borderRadius: '3px',
                                 transition: 'all 0.2s ease',
                                 '&[data-active="true"]': {
                                   color: '#ffffff',
-                                  backgroundColor: '#202020',
+                                  backgroundColor: '#2a2a2a',
                                 },
                                 '&:hover': {
-                                  backgroundColor: '#191919',
+                                  backgroundColor: '#222',
                                 },
                                 '&:disabled': {
-                                  backgroundColor: '#232323',
-                                  color: '#757575',
-                                  opacity: 0.5,
+                                  backgroundColor: 'transparent',
+                                  color: '#666',
+                                  opacity: 0.3,
                                 }
                               },
                             }}
@@ -710,7 +711,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                               </Tabs.Tab>
                             </Tabs.List>
                           </Tabs>
-
+                      
                           <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
                             <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
                           </Tooltip>
@@ -722,35 +723,41 @@ The resulting data structure should enable context-aware AI analysis with comple
               })}
 
               {/* Add more button */}
-              <Group justify="space-between" align="center">
-                <Text 
-                  size="xs" 
-                  c="#a1a1a1" 
-                  style={{ 
+              <Button
+                leftSection={<Plus size={24} />}
+                variant="outline"
+                fullWidth
+                onClick={handleAddFile}
+                styles={{
+                  root: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2b2b2b',
+                    color: '#a1a1a1',
+                    height: '44px',
                     fontFamily: GeistMono.style.fontFamily,
-                    textTransform: 'uppercase'
-                  }}
-                >
-                  ADD MORE
-                </Text>
-                <ActionIcon
-                  variant="outline"
-                  onClick={handleAddFile}
-                  size="lg"
-                  styles={{
-                    root: {
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    justifyContent: 'space-between',
+                    paddingLeft: '16px',
+                    paddingRight: '16px',
+                    '&:hover': {
+                      backgroundColor: '#0A0A0A',
+                      color: '#f5a623',
                       borderColor: '#2b2b2b',
-                      color: '#a1a1a1',
-                      '&:hover': {
-                        backgroundColor: 'rgba(245, 166, 35, 0.1)',
-                        color: '#f5a623',
-                      },
                     },
-                  }}
-                >
-                  <Plus size={20} />
-                </ActionIcon>
-              </Group>
+                  },
+                  section: {
+                    marginLeft: 'auto',
+                    marginRight: '0',
+                  },
+                  label: {
+                    flex: 1,
+                    textAlign: 'left',
+                  }
+                }}
+              >
+                ADD MORE DATA
+              </Button>
             </Box>
 
             {/* FOLLOW THIS LOGIC */}
