@@ -851,7 +851,6 @@ The resulting data structure should enable context-aware AI analysis with comple
                               fontFamily: GeistMono.style.fontFamily,
                               textTransform: "none",
                               minHeight: "auto",
-                              backgroundColor: "transparent",
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
