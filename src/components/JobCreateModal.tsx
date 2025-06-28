@@ -501,7 +501,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                     {/* Main content area */}
                     <Box
                       style={{
-                        padding: "20px 16px",
+                        padding: "10px 10px 40px 20px",
                         flexGrow: 1,
                         position: "relative",
                       }}
@@ -622,7 +622,6 @@ The resulting data structure should enable context-aware AI analysis with comple
                             <Box
                               style={{
                                 // 3. Kept borderTop for visual separation as in image
-                                borderTop: "0.5px solid #2B2B2B",
                                 padding: "8px 12px",
                                 backgroundColor: "#000000",
                               }}
@@ -640,10 +639,10 @@ The resulting data structure should enable context-aware AI analysis with comple
                                   styles={{
                                     // 3. No outline on the list itself
                                     list: {
-                                      border: "1px solid #2a2a2a",
                                       borderRadius: "6px",
                                       padding: "2px",
                                       gap: "2px",
+                                      backgroundColor: "#0A0A0A",
                                     },
                                     tab: {
                                       padding: "4px 12px",
