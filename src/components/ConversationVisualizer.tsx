@@ -24,7 +24,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
   // Grid configuration
   const COLS = 48;
   const ROWS = 8;
-  const DOT_SIZE = 3;
+  const DOT_SIZE = 5; // Made dots bigger
   const DOT_GAP = 7;
   const GRID_WIDTH = COLS * (DOT_SIZE + DOT_GAP);
   const GRID_HEIGHT = ROWS * (DOT_SIZE + DOT_GAP);
@@ -185,14 +185,8 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
         generateSimulatedData();
       }
     } else {
-      // No files - stop analysis
-      setFrequencyData([]);
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      // No files - show simulated data
+      generateSimulatedData();
     }
 
     return () => {
@@ -309,125 +303,25 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({
   return (
     <Box
       style={{
-        backgroundColor: '#0a0a0a',
-        border: '0.5px solid #2B2B2B',
+        backgroundColor: '#0A0A0A',
         borderRadius: '6px',
-        padding: '16px',
         position: 'relative',
         overflow: 'hidden',
+        width: '100%',
+        height: '100%',
       }}
     >
-      {/* Header */}
-      <Group justify="space-between" mb="sm">
-        <Text 
-          size="xs" 
-          c="#666" 
-          style={{ 
-            fontFamily: GeistMono.style.fontFamily,
-            letterSpacing: '0.5px'
-          }}
-        >
-          CONVERSATION DATA VISUALIZATION
-        </Text>
-        <Text 
-          size="xs" 
-          c={files.some(f => f.url.trim() !== '') ? "#3b82f6" : "#666"}
-          style={{ 
-            fontFamily: GeistMono.style.fontFamily,
-            letterSpacing: '0.5px'
-          }}
-        >
-          {getStatusText()}
-        </Text>
-      </Group>
-
-      {/* SVG Grid */}
-      <Box style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-        <svg
-          width={GRID_WIDTH}
-          height={GRID_HEIGHT}
-          style={{ 
-            background: 'transparent',
-            overflow: 'visible'
-          }}
-        >
-          {renderDots()}
-        </svg>
-      </Box>
-
-      {/* File Info */}
-      {getFileInfo() && (
-        <Box>
-          {getFileInfo()?.map((info, index) => (
-            <Text 
-              key={index}
-              size="xs" 
-              c="#888" 
-              style={{ 
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: '10px',
-                lineHeight: 1.3,
-                marginBottom: '2px'
-              }}
-            >
-              {info}
-            </Text>
-          ))}
-        </Box>
-      )}
-
-      {/* Error message */}
-      {audioError && (
-        <Text size="xs" c="#ff6b6b" style={{ fontFamily: GeistMono.style.fontFamily, marginTop: '4px' }}>
-          {audioError}
-        </Text>
-      )}
-
-      {/* Legend */}
-      <Group gap="lg" mt="xs">
-        <Group gap="xs">
-          <Box 
-            style={{ 
-              width: '8px', 
-              height: '8px', 
-              backgroundColor: '#3b82f6',
-              borderRadius: '1px',
-              opacity: 0.8
-            }} 
-          />
-          <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            LOW_FREQ
-          </Text>
-        </Group>
-        <Group gap="xs">
-          <Box 
-            style={{ 
-              width: '8px', 
-              height: '8px', 
-              backgroundColor: '#a855f7',
-              borderRadius: '1px',
-              opacity: 0.8
-            }} 
-          />
-          <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            MID_FREQ
-          </Text>
-        </Group>
-        <Group gap="xs">
-          <Box 
-            style={{ 
-              width: '8px', 
-              height: '8px', 
-              backgroundColor: '#06b6d4',
-              borderRadius: '1px',
-              opacity: 0.8
-            }} 
-          />
-          <Text size="xs" c="#666" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            HIGH_FREQ
-          </Text>
-        </Group>
-      </Group>
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${GRID_WIDTH} ${GRID_HEIGHT}`}
+        preserveAspectRatio="xMidYMid slice"
+        style={{ 
+          background: 'transparent',
+        }}
+      >
+        {renderDots()}
+      </svg>
     </Box>
   );
 };
