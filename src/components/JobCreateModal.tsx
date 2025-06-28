@@ -81,18 +81,19 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [isEditingJobName, setIsEditingJobName] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // Generate nerdy terminal-style job name
+  // Generate data structuring job name similar to asst_5Xbp1xcveMM2YLa1jthBA8gp
   const generateJobName = (): string => {
-    const prefixes = ['PROC', 'CONV', 'PARSE', 'XFORM', 'DIGEST'];
-    const operations = ['AUDIO', 'VIDEO', 'STREAM', 'DATA', 'MEDIA'];
-    const suffixes = ['TASK', 'JOB', 'EXEC', 'RUN', 'PROC'];
+    const prefixes = ['struct', 'parse', 'conv', 'xform', 'proc'];
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     
-    const timestamp = Date.now().toString(36).toUpperCase();
+    // Generate random string similar to OpenAI assistant IDs
+    let randomString = '';
+    for (let i = 0; i < 25; i++) {
+      randomString += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-    const operation = operations[Math.floor(Math.random() * operations.length)];
-    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-    
-    return `${prefix}_${operation}_${suffix}_${timestamp}`;
+    return `${prefix}_${randomString}`;
   };
 
   const form = useForm<JobCreateForm>({
@@ -484,7 +485,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                       border: '0.5px solid #2B2B2B',
                       borderRadius: '6px',
                       overflow: 'hidden',
-                      minHeight: hasUrl || isLoading ? 'auto' : '120px',
+                      minHeight: '80px',
                       transition: 'all 0.3s ease-in-out',
                     }}
                   >
@@ -495,8 +496,8 @@ The resulting data structure should enable context-aware AI analysis with comple
                         <Box
                           style={{
                             position: 'absolute',
-                            top: '16px',
-                            right: '16px',
+                            top: '12px',
+                            right: '12px',
                             zIndex: 10,
                           }}
                         >
@@ -516,14 +517,14 @@ The resulting data structure should enable context-aware AI analysis with comple
                       {/* Content area */}
                       <Box
                         style={{
-                          padding: hasUrl || isLoading ? '16px' : '48px 16px 16px 16px',
-                          minHeight: hasUrl || isLoading ? 'auto' : '120px',
+                          padding: '12px',
+                          minHeight: '80px',
                           display: 'flex',
                           flexDirection: 'column',
-                          justifyContent: hasUrl || isLoading ? 'flex-start' : 'center',
+                          justifyContent: 'center',
                         }}
                       >
-                        {/* Status text on the right when loading/has content */}
+                        {/* Status text when loading/has content */}
                         {(isLoading || hasUrl) && (
                           <Group justify="space-between" align="center" mb="xs">
                             <Text 
@@ -657,7 +658,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                       <Box
                         style={{
                           borderTop: '0.5px solid #2B2B2B',
-                          padding: '12px',
+                          padding: '8px 12px',
                           backgroundColor: '#0a0a0a',
                         }}
                       >
@@ -671,36 +672,40 @@ The resulting data structure should enable context-aware AI analysis with comple
                               },
                               list: {
                                 border: 'none',
-                                gap: '2px',
-                                backgroundColor: '#1a1a1a',
-                                borderRadius: '4px',
-                                padding: '2px',
+                                gap: '1px',
+                                backgroundColor: '#0A0A0A',
+                                borderRadius: '3px',
+                                padding: '1px',
                               },
                               tab: {
-                                padding: '6px 12px',
-                                color: '#666',
-                                fontSize: '11px',
+                                padding: '4px 8px',
+                                color: '#757575',
+                                fontSize: '10px',
                                 fontFamily: GeistMono.style.fontFamily,
-                                textTransform: 'uppercase',
                                 minHeight: 'auto',
                                 backgroundColor: 'transparent',
                                 border: 'none',
-                                borderRadius: '3px',
+                                borderRadius: '2px',
                                 transition: 'all 0.2s ease',
                                 '&[data-active="true"]': {
                                   color: '#ffffff',
-                                  backgroundColor: '#2a2a2a',
+                                  backgroundColor: '#202020',
                                 },
                                 '&:hover': {
-                                  backgroundColor: '#222',
+                                  backgroundColor: '#191919',
                                 },
+                                '&:disabled': {
+                                  backgroundColor: '#232323',
+                                  color: '#757575',
+                                  opacity: 0.5,
+                                }
                               },
                             }}
                           >
                             <Tabs.List>
                               <Tabs.Tab value="link">Url</Tabs.Tab>
                               <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                              <Tabs.Tab value="emails" disabled style={{ opacity: 0.3 }}>
+                              <Tabs.Tab value="emails" disabled>
                                 Emails
                               </Tabs.Tab>
                             </Tabs.List>
@@ -717,28 +722,35 @@ The resulting data structure should enable context-aware AI analysis with comple
               })}
 
               {/* Add more button */}
-              <Button
-                leftSection={<Plus size={16} />}
-                variant="outline"
-                fullWidth
-                onClick={handleAddFile}
-                styles={{
-                  root: {
-                    borderColor: '#2b2b2b',
-                    color: '#a1a1a1',
-                    height: '44px',
+              <Group justify="space-between" align="center">
+                <Text 
+                  size="xs" 
+                  c="#a1a1a1" 
+                  style={{ 
                     fontFamily: GeistMono.style.fontFamily,
-                    fontSize: '12px',
-                    textTransform: 'uppercase',
-                    '&:hover': {
-                      backgroundColor: 'rgba(245, 166, 35, 0.1)',
-                      color: '#f5a623',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  ADD MORE
+                </Text>
+                <ActionIcon
+                  variant="outline"
+                  onClick={handleAddFile}
+                  size="lg"
+                  styles={{
+                    root: {
+                      borderColor: '#2b2b2b',
+                      color: '#a1a1a1',
+                      '&:hover': {
+                        backgroundColor: 'rgba(245, 166, 35, 0.1)',
+                        color: '#f5a623',
+                      },
                     },
-                  },
-                }}
-              >
-                ADD MORE
-              </Button>
+                  }}
+                >
+                  <Plus size={20} />
+                </ActionIcon>
+              </Group>
             </Box>
 
             {/* FOLLOW THIS LOGIC */}
