@@ -70,69 +70,46 @@ interface JobCreateModalProps {
   onSuccess?: () => void;
 }
 
-const validateMediaUrl = async (url: string): Promise<{ isValid: boolean; error?: string }> => {
+// URL validation function (simplified to avoid CORS)
+const validateMediaUrl = async (
+  url: string
+): Promise<{ isValid: boolean; error?: string }> => {
   try {
-    // Basic URL validation
-    new URL(url);
-    
-    // Check file extension first (fastest check) - be more strict
-    const audioVideoExtensions = /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)$/i;
-    if (audioVideoExtensions.test(url.split('?')[0])) { // Remove query params before checking
-      return { isValid: true };
-    }
-    
-    // Check for YouTube URLs
-    const youtubeRegex = /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})(?:\S+)?$/i;
+    // Basic URL format validation
+    const parsedUrl = new URL(url);
+
+    // 1. Check for YouTube URLs
+    const youtubeRegex =
+      /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))/i;
     if (youtubeRegex.test(url)) {
       return { isValid: true };
     }
-    
-    // Check for other streaming platforms
-    const streamingPlatforms = /(?:vimeo\.com\/\d+|dailymotion\.com\/video\/|twitch\.tv\/videos\/|soundcloud\.com\/[\w-]+\/[\w-]+)/i;
+
+    // 2. Check for other common streaming platforms
+    const streamingPlatforms =
+      /(?:vimeo\.com|dailymotion\.com|twitch\.tv|soundcloud\.com)/i;
     if (streamingPlatforms.test(url)) {
       return { isValid: true };
     }
-    
-    // HEAD request to check Content-Type - be more strict about response
-    try {
-      const response = await fetch(url, { 
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000)
-      });
-      
-      if (!response.ok) {
-        return { 
-          isValid: false, 
-          error: `Server returned ${response.status} - file may not exist or be accessible` 
-        };
-      }
-      
-      const contentType = response.headers.get('Content-Type');
-      if (contentType && (contentType.startsWith('audio/') || contentType.startsWith('video/'))) {
-        return { isValid: true };
-      }
-      
-      // Check Content-Disposition for downloadable files
-      const contentDisposition = response.headers.get('Content-Disposition');
-      if (contentDisposition && audioVideoExtensions.test(contentDisposition)) {
-        return { isValid: true };
-      }
-      
-      return { 
-        isValid: false, 
-        error: 'URL does not contain audio or video content. Please provide a direct link to a media file.' 
-      };
-    } catch (fetchError) {
-      return { 
-        isValid: false, 
-        error: 'Could not access the URL - please check if the link is valid and publicly accessible' 
-      };
+
+    // 3. Check for direct media file extensions in the pathname
+    const audioVideoExtensions =
+      /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)$/i;
+    // Use pathname to ignore query strings
+    if (audioVideoExtensions.test(parsedUrl.pathname)) {
+      return { isValid: true };
     }
-    
+
+    // If none of the above, it's not a valid media URL for our purposes
+    return {
+      isValid: false,
+      error:
+        "URL must be a direct link to a media file (e.g., .mp3, .mp4).",
+    };
   } catch (error) {
-    return { 
-      isValid: false, 
-      error: 'Invalid URL format' 
+    return {
+      isValid: false,
+      error: "Invalid URL format",
     };
   }
 };
@@ -864,38 +841,38 @@ The resulting data structure should enable context-aware AI analysis with comple
                           }
                           styles={{
                             list: {
-                                borderRadius: "6px",
-                                padding: "2px",
-                                gap: "2px",
-                                backgroundColor: "#0A0A0A",
-                                border: "none",
-                              },
-                              tab: {
-                                padding: "4px 12px",
-                                color: "#888888",
-                                fontSize: "11px",
-                                fontFamily: GeistMono.style.fontFamily,
-                                textTransform: "uppercase",
-                                minHeight: "auto",
-                                backgroundColor: "transparent",
-                                borderRadius: "4px",
-                                transition: "all 0.2s ease",
-                                border: "none",
-                                "&:hover:not([data-active])": {
-                                  backgroundColor: "#1c1c1c",
-                                  color: "#bbbbbb",
-                                },
-                                "&[disabled]": {
-                                  color: "#555555",
-                                  opacity: 0.5,
-                                },
-                              },
-                              // Add separate active tab styling
-                              tabActive: {
+                              borderRadius: "6px",
+                              padding: "2px",
+                              gap: "2px",
+                              backgroundColor: "#0A0A0A",
+                              border: "none",
+                            },
+                            tab: {
+                              padding: "4px 12px",
+                              color: "#888888",
+                              fontSize: "11px",
+                              fontFamily: GeistMono.style.fontFamily,
+                              textTransform: "uppercase",
+                              minHeight: "auto",
+                              backgroundColor: "transparent",
+                              borderRadius: "4px",
+                              transition: "all 0.2s ease",
+                              border: "none",
+                              // Fixed the active tab styling
+                              '&[data-active="true"]': {
                                 color: "#ffffff !important",
                                 backgroundColor: "#202020 !important",
                               },
-                            }}
+                              "&:hover:not([data-active])": {
+                                backgroundColor: "#1c1c1c",
+                                color: "#bbbbbb",
+                              },
+                              "&[disabled]": {
+                                color: "#555555",
+                                opacity: 0.5,
+                              },
+                            },
+                          }}
                         >
                           <Tabs.List>
                             <Tabs.Tab value="link">URL</Tabs.Tab>
