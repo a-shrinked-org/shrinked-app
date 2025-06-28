@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGetIdentity } from "@refinedev/core";
 import { useForm, useFieldArray } from "react-hook-form";
 import { 
@@ -30,7 +30,8 @@ import {
   ChevronUp,
   LinkIcon,
   Upload,
-  FileText
+  FileText,
+  Edit
 } from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from '@/components/FileUpload';
@@ -77,10 +78,26 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const { fetchWithAuth, handleAuthError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logicOpened, { toggle: toggleLogic }] = useDisclosure(false);
+  const [isEditingJobName, setIsEditingJobName] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  // Generate nerdy terminal-style job name
+  const generateJobName = (): string => {
+    const prefixes = ['PROC', 'CONV', 'PARSE', 'XFORM', 'DIGEST'];
+    const operations = ['AUDIO', 'VIDEO', 'STREAM', 'DATA', 'MEDIA'];
+    const suffixes = ['TASK', 'JOB', 'EXEC', 'RUN', 'PROC'];
+    
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const operation = operations[Math.floor(Math.random() * operations.length)];
+    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    
+    return `${prefix}_${operation}_${suffix}_${timestamp}`;
+  };
 
   const form = useForm<JobCreateForm>({
     defaultValues: {
+      jobName: generateJobName(),
       isPublic: false,
       createPage: false,
       lang: 'en',
@@ -104,6 +121,13 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
     control,
     name: "files"
   });
+
+  // Regenerate job name when modal opens
+  useEffect(() => {
+    if (opened) {
+      setValue('jobName', generateJobName());
+    }
+  }, [opened, setValue]);
 
   // Default logic instructions
   const defaultLogicInstructions = `I want to transform raw conversational data into structured JSON with precise attribution and relationships.
@@ -174,7 +198,26 @@ The resulting data structure should enable context-aware AI analysis with comple
 
   const handleClose = () => {
     reset();
+    setIsEditingJobName(false);
     onClose();
+  };
+
+  const handleJobNameClick = () => {
+    setIsEditingJobName(true);
+  };
+
+  const handleJobNameBlur = () => {
+    setIsEditingJobName(false);
+  };
+
+  const handleJobNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      setIsEditingJobName(false);
+    }
+    if (e.key === 'Escape') {
+      setValue('jobName', generateJobName());
+      setIsEditingJobName(false);
+    }
   };
 
   const onSubmit = handleSubmit(async (data: JobCreateForm) => {
@@ -246,6 +289,7 @@ The resulting data structure should enable context-aware AI analysis with comple
       });
 
       reset();
+      setIsEditingJobName(false);
       onClose();
       
       if (onSuccess) {
@@ -295,11 +339,59 @@ The resulting data structure should enable context-aware AI analysis with comple
       }}
     >
       <Box>
-        {/* Header */}
+        {/* Header with editable job name */}
         <Group justify="space-between" align="center" mb="lg">
-          <Text fw={500} size={isMobile ? "sm" : "md"} style={{ fontFamily: GeistMono.style.fontFamily }}>
-            DEFAULT JOB NAME
-          </Text>
+          <Group align="center" gap="xs">
+            {isEditingJobName ? (
+              <TextInput
+                value={watch('jobName')}
+                onChange={(e) => setValue('jobName', e.target.value)}
+                onBlur={handleJobNameBlur}
+                onKeyDown={handleJobNameKeyDown}
+                autoFocus
+                styles={{
+                  input: {
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: 500,
+                    padding: '0',
+                    '&:focus': {
+                      outline: 'none',
+                    },
+                  },
+                  wrapper: {
+                    width: 'auto',
+                    minWidth: '200px',
+                  }
+                }}
+              />
+            ) : (
+              <Text 
+                fw={500} 
+                size={isMobile ? "sm" : "md"} 
+                style={{ 
+                  fontFamily: GeistMono.style.fontFamily,
+                  cursor: 'pointer',
+                }}
+                onClick={handleJobNameClick}
+              >
+                {watch('jobName')}
+              </Text>
+            )}
+            <Tooltip label="Click to edit job name">
+              <ActionIcon 
+                variant="transparent" 
+                size="sm"
+                onClick={handleJobNameClick}
+                style={{ opacity: 0.6 }}
+              >
+                <Edit size={12} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
           <Group>
             {!isMobile && (
               <Text size="sm" c="#a1a1a1">Claude 3.5 Sonnet</Text>
@@ -374,33 +466,8 @@ The resulting data structure should enable context-aware AI analysis with comple
           )}
 
           <Stack gap="lg">
-            {/* Job Name Input */}
-            <Box>
-              <Text size="sm" c="#a1a1a1" mb="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                JOB NAME
-              </Text>
-              <TextInput
-                placeholder="Enter job name"
-                required
-                error={errors?.jobName?.message}
-                {...register('jobName', { required: 'Job name is required' })}
-                styles={{
-                  input: {
-                    backgroundColor: '#0d0d0d',
-                    borderColor: '#2b2b2b',
-                    color: '#ffffff',
-                    fontFamily: GeistMono.style.fontFamily,
-                  },
-                }}
-              />
-            </Box>
-
             {/* Files Section */}
             <Box>
-              <Text size="sm" c="#a1a1a1" mb="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                URL TO A SOURCE AUDIO OR VIDEO
-              </Text>
-              
               {/* File entries */}
               {fields.map((field, index) => {
                 const hasUrl = watch(`files.${index}.url`)?.trim() !== '';
@@ -423,87 +490,28 @@ The resulting data structure should enable context-aware AI analysis with comple
                   >
                     {/* Main content area */}
                     <Box style={{ position: 'relative', height: '100%' }}>
-                      {/* Tabs - positioned in top left corner */}
-                      <Box
-                        style={{
-                          position: 'absolute',
-                          top: '12px',
-                          left: '12px',
-                          zIndex: 10,
-                        }}
-                      >
-                        <Tabs
-                          value={fileType}
-                          onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
-                          styles={{
-                            root: {
-                              width: 'auto'
-                            },
-                            list: {
-                              border: 'none',
-                              gap: '2px',
-                              backgroundColor: '#1a1a1a',
-                              borderRadius: '4px',
-                              padding: '2px',
-                            },
-                            tab: {
-                              padding: '6px 12px',
-                              color: '#666',
-                              fontSize: '11px',
-                              fontFamily: GeistMono.style.fontFamily,
-                              textTransform: 'uppercase',
-                              minHeight: 'auto',
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              borderRadius: '3px',
-                              transition: 'all 0.2s ease',
-                              '&[data-active="true"]': {
-                                color: '#ffffff',
-                                backgroundColor: '#2a2a2a',
-                              },
-                              '&:hover': {
-                                backgroundColor: '#222',
-                              },
-                            },
+                      {/* Remove file button - positioned in top right */}
+                      {fields.length > 1 && (
+                        <Box
+                          style={{
+                            position: 'absolute',
+                            top: '16px',
+                            right: '16px',
+                            zIndex: 10,
                           }}
                         >
-                          <Tabs.List>
-                            <Tabs.Tab value="link">Url</Tabs.Tab>
-                            <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                            <Tabs.Tab value="emails" disabled style={{ opacity: 0.3 }}>
-                              Emails
-                            </Tabs.Tab>
-                          </Tabs.List>
-                        </Tabs>
-                      </Box>
-
-                      {/* Info icon - positioned in top right */}
-                      <Box
-                        style={{
-                          position: 'absolute',
-                          top: '16px',
-                          right: '16px',
-                          zIndex: 10,
-                        }}
-                      >
-                        <Group gap="xs">
-                          <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
-                            <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
+                          <Tooltip label="Remove">
+                            <ActionIcon 
+                              variant="subtle"
+                              color="red"
+                              onClick={() => handleRemoveFile(index)}
+                              size="sm"
+                            >
+                              <Trash size={14} />
+                            </ActionIcon>
                           </Tooltip>
-                          {fields.length > 1 && (
-                            <Tooltip label="Remove">
-                              <ActionIcon 
-                                variant="subtle"
-                                color="red"
-                                onClick={() => handleRemoveFile(index)}
-                                size="sm"
-                              >
-                                <Trash size={14} />
-                              </ActionIcon>
-                            </Tooltip>
-                          )}
-                        </Group>
-                      </Box>
+                        </Box>
+                      )}
 
                       {/* Content area */}
                       <Box
@@ -542,7 +550,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                         {/* Content based on type */}
                         {fileType === 'link' ? (
                           <TextInput
-                            placeholder="Enter file URL"
+                            placeholder="URL TO A SOURCE AUDIO OR VIDEO"
                             {...register(`files.${index}.url`)}
                             onChange={(e) => {
                               setValue(`files.${index}.url`, e.target.value);
@@ -644,6 +652,65 @@ The resulting data structure should enable context-aware AI analysis with comple
                           />
                         </Box>
                       )}
+
+                      {/* Tabs and info - positioned at the bottom */}
+                      <Box
+                        style={{
+                          borderTop: '0.5px solid #2B2B2B',
+                          padding: '12px',
+                          backgroundColor: '#0a0a0a',
+                        }}
+                      >
+                        <Group justify="space-between" align="center">
+                          <Tabs
+                            value={fileType}
+                            onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
+                            styles={{
+                              root: {
+                                width: 'auto'
+                              },
+                              list: {
+                                border: 'none',
+                                gap: '2px',
+                                backgroundColor: '#1a1a1a',
+                                borderRadius: '4px',
+                                padding: '2px',
+                              },
+                              tab: {
+                                padding: '6px 12px',
+                                color: '#666',
+                                fontSize: '11px',
+                                fontFamily: GeistMono.style.fontFamily,
+                                textTransform: 'uppercase',
+                                minHeight: 'auto',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                borderRadius: '3px',
+                                transition: 'all 0.2s ease',
+                                '&[data-active="true"]': {
+                                  color: '#ffffff',
+                                  backgroundColor: '#2a2a2a',
+                                },
+                                '&:hover': {
+                                  backgroundColor: '#222',
+                                },
+                              },
+                            }}
+                          >
+                            <Tabs.List>
+                              <Tabs.Tab value="link">Url</Tabs.Tab>
+                              <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
+                              <Tabs.Tab value="emails" disabled style={{ opacity: 0.3 }}>
+                                Emails
+                              </Tabs.Tab>
+                            </Tabs.List>
+                          </Tabs>
+
+                          <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
+                            <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
+                          </Tooltip>
+                        </Group>
+                      </Box>
                     </Box>
                   </Box>
                 );
