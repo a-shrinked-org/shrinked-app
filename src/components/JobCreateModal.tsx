@@ -833,14 +833,8 @@ The resulting data structure should enable context-aware AI analysis with comple
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onChange={(value) =>
-                            setValue(
-                              `files.${index}.type`,
-                              value as "link" | "upload"
-                            )
-                          }
-                          // Replace the old 'styles' object with this new function
-                          styles={(theme, props, { active }) => ({
+                          onChange={...}
+                          styles={{
                             list: {
                               borderRadius: "6px",
                               padding: "2px",
@@ -859,24 +853,20 @@ The resulting data structure should enable context-aware AI analysis with comple
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
-                        
-                              // Use the 'active' boolean from context to apply styles
-                              ...
-                              '&[data-active="true"]': {
-                                color: '#ffffff',
-                                backgroundColor: '#202020',
+                              '&[data-active]': {
+                                color: "#ffffff",
+                                backgroundColor: "#202020",
                               },
-                        
-                              "&:hover:not([data-disabled])": {
+                              "&:hover:not([data-active])": {
                                 backgroundColor: "#1c1c1c",
                                 color: "#bbbbbb",
                               },
-                              "&[data-disabled]": {
+                              "&[disabled]": {
                                 color: "#555555",
                                 opacity: 0.5,
                               },
                             },
-                          })}
+                          }}
                         >
                           <Tabs.List>
                             <Tabs.Tab value="link">URL</Tabs.Tab>
