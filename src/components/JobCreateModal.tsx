@@ -839,7 +839,8 @@ The resulting data structure should enable context-aware AI analysis with comple
                               value as "link" | "upload"
                             )
                           }
-                          styles={{
+                          // Replace the old 'styles' object with this new function
+                          styles={(theme, props, { active }) => ({
                             list: {
                               borderRadius: "6px",
                               padding: "2px",
@@ -858,21 +859,23 @@ The resulting data structure should enable context-aware AI analysis with comple
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
-                              // Fixed the active tab styling
-                              '&[data-active="true"]': {
-                                color: "#ffffff !important",
-                                backgroundColor: "#202020 !important",
-                              },
-                              "&:hover:not([data-active])": {
+                        
+                              // Use the 'active' boolean from context to apply styles
+                              ...(active && {
+                                color: "#ffffff",
+                                backgroundColor: "#202020",
+                              }),
+                        
+                              "&:hover:not([data-disabled])": {
                                 backgroundColor: "#1c1c1c",
                                 color: "#bbbbbb",
                               },
-                              "&[disabled]": {
+                              "&[data-disabled]": {
                                 color: "#555555",
                                 opacity: 0.5,
                               },
                             },
-                          }}
+                          })}
                         >
                           <Tabs.List>
                             <Tabs.Tab value="link">URL</Tabs.Tab>
