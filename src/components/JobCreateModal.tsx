@@ -14,9 +14,7 @@ import {
   Text,
   ActionIcon,
   Tooltip,
-  Collapse,
   Select,
-  Tabs,
   Progress,
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
@@ -26,8 +24,6 @@ import {
   Plus,
   Trash,
   Info,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Edit,
   CheckCircle,
@@ -63,6 +59,7 @@ interface JobCreateForm {
   isPublic: boolean;
   createPage: boolean;
   files: FileItem[];
+  selectedLogic: string;
 }
 
 interface JobCreateModalProps {
@@ -70,6 +67,15 @@ interface JobCreateModalProps {
   onClose: () => void;
   onSuccess?: () => void;
 }
+
+// Logic options from the logic page
+const logicOptions = [
+  { value: "structured-conversation-protocol", label: "Structured Conversation Protocol" },
+  { value: "timeline-analysis-protocol", label: "Timeline Analysis Protocol" },
+  { value: "multi-source-merge-protocol", label: "Multi-Source Merge Protocol" },
+  { value: "topic-centered-merge-protocol", label: "Topic-Centered Merge Protocol" },
+  { value: "decision-extraction-protocol", label: "Decision Extraction Protocol" },
+];
 
 // URL validation function (simplified to avoid CORS)
 const validateMediaUrl = async (
@@ -123,7 +129,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const { data: identity } = useGetIdentity<Identity>();
   const { fetchWithAuth, handleAuthError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [logicOpened, { toggle: toggleLogic }] = useDisclosure(false);
   const [isEditingJobName, setIsEditingJobName] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isDragging, setIsDragging] = useState(false);
@@ -160,6 +165,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       lang: "en",
       scenario: "SINGLE_FILE_DEFAULT",
       files: [{ type: "link", url: "", isLoading: false, progress: 0 }],
+      selectedLogic: "structured-conversation-protocol", // Default to first option
     },
   });
 
@@ -252,24 +258,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       }
     }
   };
-
-  // Default logic instructions
-  const defaultLogicInstructions = `I want to transform raw conversational data into structured JSON with precise attribution and relationships.
-
-## Processing steps
-1. Extract multi-speaker dialogues with speaker identification and exact timestamps
-2. Segment conversations into semantic blocks based on topic transitions
-3. Generate standardized JSON with \`conversation_id\`, \`speaker\`, \`timestamp\`, and nested \`content\` fields
-4. Apply metadata tagging for topic classification, priority, and action items
-5. Create cross-references between related statements using \`references\` and \`connections\` arrays
-6. Output to standardized docStore format optimized for Claude-3-7-Sonnet analysis
-
-## Input sources
-1. Raw conversational content: {{meeting_type}}
-2. Audio/video formats: {{file_format}}
-3. Speaker identification requirements: {{speaker_identification}}
-
-The resulting data structure should enable context-aware AI analysis with complete traceability to source statements, supporting both comprehensive research generation and targeted information retrieval.`;
 
   // Format file size for display
   const formatFileSize = (size: number): string => {
@@ -619,6 +607,82 @@ The resulting data structure should enable context-aware AI analysis with comple
           </Group>
         </Group>
 
+        {/* Structured Prompt Block */}
+        <Box
+          mb="xl"
+          p="md"
+          style={{
+            backgroundColor: "#0A0A0A",
+            borderRadius: "8px",
+          }}
+        >
+          <Text
+            size="sm"
+            style={{
+              fontFamily: GeistMono.style.fontFamily,
+              fontSize: "14px",
+              lineHeight: 1.4,
+              color: "#757575",
+            }}
+          >
+            <Text component="span" fw={700} c="#A1A1A1">
+              >
+            </Text>{" "}
+            <Text component="span" fw={700} c="#A1A1A1">
+              Structure
+            </Text>{" "}
+            conversation data from the attached sources following this logic{" "}
+            <Text component="span" fw={500} c="#ffffff" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px" }}>
+              LOGIC NAME :{" "}
+              <Select
+                value={watch("selectedLogic")}
+                onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
+                data={logicOptions}
+                variant="unstyled"
+                size="sm"
+                comboboxProps={{ withinPortal: true }}
+                styles={{
+                  input: {
+                    backgroundColor: "transparent",
+                    border: "none",
+                    color: "#ffffff",
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    padding: "0",
+                    minHeight: "auto",
+                    display: "inline",
+                    width: "auto",
+                  },
+                  dropdown: {
+                    backgroundColor: "#000000",
+                    border: "1px solid #2b2b2b",
+                  },
+                  option: {
+                    color: "#ffffff",
+                    fontSize: "14px",
+                    fontFamily: GeistMono.style.fontFamily,
+                    "&[data-selected]": {
+                      backgroundColor: "#202020",
+                    },
+                    "&:hover": {
+                      backgroundColor: "#1c1c1c",
+                    },
+                  },
+                }}
+              />
+            </Text>{" "}
+            in{" "}
+            <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
+              ENGLISH
+            </Text>{" "}
+            and output as pdf to{" "}
+            <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
+              {identity?.email?.toUpperCase() || "USER@EXAMPLE.COM"}
+            </Text>
+          </Text>
+        </Box>
+
         {/* Conversation Data Visualization */}
         <Box mb="xl">
           <ConversationVisualizer files={watch("files")} isActive={true} />
@@ -840,62 +904,69 @@ The resulting data structure should enable context-aware AI analysis with comple
                       }}
                     >
                       <Group justify="space-between" align="center">
-                        <Tabs
-                          value={fileType}
-                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
-                          variant="pills"
-                          color="rgba(32, 32, 32, 1)"
-                          styles={{
-                            list: {
-                              borderRadius: "6px",
-                              padding: "2px",
-                              gap: "2px",
-                              backgroundColor: "#0A0A0A",
-                              border: "none",
-                            },
-                            tab: {
-                              padding: "4px 12px",
-                              color: "#888888",
-                              fontSize: "11px",
-                              fontFamily: GeistMono.style.fontFamily,
-                              textTransform: "none",
-                              minHeight: "auto",
-                              borderRadius: "4px",
-                              transition: "all 0.2s ease",
-                              border: "none",
-                              
-                              // Hover state
-                              "&:hover": {
-                                backgroundColor: "#1c1c1c !important",
-                                color: "#bbbbbb !important",
+                        <Group gap="xs">
+                          <Button
+                            variant={fileType === "link" ? "filled" : "outline"}
+                            size="xs"
+                            onClick={() => setValue(`files.${index}.type`, "link")}
+                            styles={{
+                              root: {
+                                backgroundColor: fileType === "link" ? "#202020" : "transparent",
+                                borderColor: "#2b2b2b",
+                                color: fileType === "link" ? "#ffffff" : "#888888",
+                                fontSize: "11px",
+                                fontFamily: GeistMono.style.fontFamily,
+                                textTransform: "none",
+                                padding: "4px 12px",
+                                "&:hover": {
+                                  backgroundColor: fileType === "link" ? "#202020" : "#1c1c1c",
+                                },
                               },
-
-                              // Active state for Mantine Tabs
-                              "&[data-active]": {
-                                color: "#ffffff !important",
-                                backgroundColor: "#202020 !important",
+                            }}
+                          >
+                            Url
+                          </Button>
+                          <Button
+                            variant={fileType === "upload" ? "filled" : "outline"}
+                            size="xs"
+                            onClick={() => setValue(`files.${index}.type`, "upload")}
+                            styles={{
+                              root: {
+                                backgroundColor: fileType === "upload" ? "#202020" : "transparent",
+                                borderColor: "#2b2b2b",
+                                color: fileType === "upload" ? "#ffffff" : "#888888",
+                                fontSize: "11px",
+                                fontFamily: GeistMono.style.fontFamily,
+                                textTransform: "none",
+                                padding: "4px 12px",
+                                "&:hover": {
+                                  backgroundColor: fileType === "upload" ? "#202020" : "#1c1c1c",
+                                },
                               },
-                              
-                              // Disabled state
-                              "&:disabled": {
+                            }}
+                          >
+                            Upload a file
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            disabled
+                            styles={{
+                              root: {
+                                borderColor: "#2b2b2b",
                                 color: "#555555",
+                                fontSize: "11px",
+                                fontFamily: GeistMono.style.fontFamily,
+                                textTransform: "none",
+                                padding: "4px 12px",
                                 opacity: 0.5,
                               },
-                            },
-                            tabLabel: {
-                              textTransform: "none",
-                            },
-                          }}
-                        >
-                          <Tabs.List>
-                            <Tabs.Tab value="link">Url</Tabs.Tab>
-                            <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                            <Tabs.Tab value="emails" disabled>
-                              Emails
-                            </Tabs.Tab>
-                          </Tabs.List>
-                        </Tabs>
-                    
+                            }}
+                          >
+                            Emails
+                          </Button>
+                        </Group>
+
                         <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
                           <Info
                             size={16}
@@ -936,101 +1007,6 @@ The resulting data structure should enable context-aware AI analysis with comple
                 ADD MORE DATA
               </Button>
             </Box>
-
-            {/* FOLLOW THIS LOGIC */}
-            <Box>
-              <Group
-                align="center"
-                mb="xs"
-                onClick={toggleLogic}
-                style={{ cursor: "pointer" }}
-              >
-                <Text
-                  size="sm"
-                  c="#a1a1a1"
-                  style={{ fontFamily: GeistMono.style.fontFamily }}
-                >
-                  FOLLOW THIS LOGIC
-                </Text>
-                <Text
-                  size="xs"
-                  c="#666"
-                  style={{ fontFamily: GeistMono.style.fontFamily }}
-                >
-                  DEFAULT FILE SOMETHING
-                </Text>
-                <ActionIcon variant="transparent" size="sm">
-                  {logicOpened ? (
-                    <ChevronUp size={14} />
-                  ) : (
-                    <ChevronDown size={14} />
-                  )}
-                </ActionIcon>
-              </Group>
-
-              <Collapse in={logicOpened}>
-                <Box
-                  p="md"
-                  style={{
-                    backgroundColor: "#0a0a0a",
-                    border: "0.5px solid #2B2B2B",
-                    borderRadius: "6px",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                  }}
-                >
-                  <Text
-                    size="xs"
-                    style={{
-                      whiteSpace: "pre-wrap",
-                      fontFamily: GeistSans.style.fontFamily,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {defaultLogicInstructions}
-                  </Text>
-                </Box>
-              </Collapse>
-            </Box>
-
-            {/* Language Selection */}
-            <Box>
-              <Text
-                size="sm"
-                c="#a1a1a1"
-                mb="xs"
-                style={{ fontFamily: GeistMono.style.fontFamily }}
-              >
-                LANGUAGE
-              </Text>
-              <Select
-                value="English"
-                data={["English"]}
-                disabled
-                styles={{
-                  input: {
-                    backgroundColor: "#0d0d0d",
-                    borderColor: "#2b2b2b",
-                    color: "#ffffff",
-                    fontFamily: GeistMono.style.fontFamily,
-                  },
-                  dropdown: {
-                    backgroundColor: "#0d0d0d",
-                    borderColor: "#2b2b2b",
-                  },
-                }}
-              />
-            </Box>
-
-            {/* Footer info */}
-            <Text
-              size="xs"
-              c="#666"
-              ta="right"
-              style={{ fontFamily: GeistMono.style.fontFamily }}
-            >
-              formats supported, any limitations
-            </Text>
           </Stack>
         </form>
       </Box>
