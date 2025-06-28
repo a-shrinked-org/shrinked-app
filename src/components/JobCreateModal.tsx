@@ -861,17 +861,11 @@ The resulting data structure should enable context-aware AI analysis with comple
                                 backgroundColor: "#1c1c1c",
                                 color: "#bbbbbb",
                               },
-                              
-                              // Active state - use the correct selector for Mantine v7+
-                              "&[data-active='true']": {
-                                color: "#ffffff !important",
-                                backgroundColor: "#202020 !important",
-                              },
-                              
-                              // Alternative active selector (try this if the above doesn't work)
-                              "&[aria-selected='true']": {
-                                color: "#ffffff !important",
-                                backgroundColor: "#202020 !important",
+
+                              // Active state for Mantine Tabs
+                              "&[data-active]": {
+                                color: "#ffffff",
+                                backgroundColor: "#202020",
                               },
                               
                               // Disabled state
