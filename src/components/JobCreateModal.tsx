@@ -854,16 +854,22 @@ The resulting data structure should enable context-aware AI analysis with comple
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
-                              '&[data-active]': {
-                                color: "#ffffff",
-                                backgroundColor: "#202020",
+                              
+                              // Active state
+                              '&[data-active="true"]': {
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
                               },
+                              
+                              // Hover state (not active)
                               "&:hover:not([data-active])": {
                                 backgroundColor: "#1c1c1c",
                                 color: "#bbbbbb",
                               },
+                              
+                              // Disabled state
                               "&[disabled]": {
-                                color: "#555555",
+                                color: "#555555 !important",
                                 opacity: 0.5,
                               },
                             },
