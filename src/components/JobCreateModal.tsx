@@ -30,6 +30,9 @@ import {
   ChevronUp,
   FileText,
   Edit,
+  CheckCircle,
+  XCircle,
+  Loader,
 } from "lucide-react";
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from "@/components/FileUpload";
@@ -67,6 +70,62 @@ interface JobCreateModalProps {
   onSuccess?: () => void;
 }
 
+// URL validation function
+const validateMediaUrl = async (url: string): Promise<{ isValid: boolean; error?: string }> => {
+  try {
+    // Basic URL validation
+    new URL(url);
+    
+    // Check file extension first (fastest check)
+    const audioVideoExtensions = /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)(\?.*)?$/i;
+    if (audioVideoExtensions.test(url)) {
+      return { isValid: true };
+    }
+    
+    // Check for YouTube URLs
+    const youtubeRegex = /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})(?:\S+)?$/i;
+    if (youtubeRegex.test(url)) {
+      return { isValid: true };
+    }
+    
+    // Check for other streaming platforms
+    const streamingPlatforms = /(?:vimeo\.com|dailymotion\.com|twitch\.tv|soundcloud\.com)/i;
+    if (streamingPlatforms.test(url)) {
+      return { isValid: true };
+    }
+    
+    // HEAD request to check Content-Type (more thorough but slower)
+    try {
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && (contentType.startsWith('audio/') || contentType.startsWith('video/'))) {
+        return { isValid: true };
+      }
+      
+      return { 
+        isValid: false, 
+        error: 'URL does not appear to contain audio or video content' 
+      };
+    } catch (fetchError) {
+      // If HEAD request fails, we'll allow it but warn the user
+      return { 
+        isValid: true, 
+        error: 'Could not verify file type - please ensure the URL contains audio or video content' 
+      };
+    }
+    
+  } catch (error) {
+    return { 
+      isValid: false, 
+      error: 'Invalid URL format' 
+    };
+  }
+};
+
 const JobCreateModal: React.FC<JobCreateModalProps> = ({
   opened,
   onClose,
@@ -78,6 +137,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [logicOpened, { toggle: toggleLogic }] = useDisclosure(false);
   const [isEditingJobName, setIsEditingJobName] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
+
+  // URL validation states
+  const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
+  const [isValidating, setIsValidating] = useState<{[key: number]: boolean}>({});
+  const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
+  const [validationTimeouts, setValidationTimeouts] = useState<{[key: number]: NodeJS.Timeout}>({});
 
   // Generate data structuring job name similar to asst_5Xbp1xcveMM2YLa1jthBA8gp
   const generateJobName = (): string => {
@@ -130,6 +195,73 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       setValue("jobName", generateJobName());
     }
   }, [opened, setValue]);
+
+  // Cleanup validation timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(validationTimeouts).forEach(timeout => clearTimeout(timeout));
+    };
+  }, [validationTimeouts]);
+
+  // Handle URL validation
+  const handleUrlValidation = async (url: string, index: number) => {
+    // Clear existing timeout
+    if (validationTimeouts[index]) {
+      clearTimeout(validationTimeouts[index]);
+    }
+
+    if (!url.trim()) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[index];
+        return newErrors;
+      });
+      setValidationSuccess(prev => {
+        const newSuccess = { ...prev };
+        delete newSuccess[index];
+        return newSuccess;
+      });
+      return;
+    }
+
+    setIsValidating(prev => ({ ...prev, [index]: true }));
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      return newErrors;
+    });
+    setValidationSuccess(prev => {
+      const newSuccess = { ...prev };
+      delete newSuccess[index];
+      return newSuccess;
+    });
+
+    // Add minimum 1.5 second delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const validation = await validateMediaUrl(url);
+    
+    setIsValidating(prev => {
+      const newState = { ...prev };
+      delete newState[index];
+      return newState;
+    });
+
+    if (!validation.isValid) {
+      setValidationErrors(prev => ({ ...prev, [index]: validation.error || 'Invalid URL' }));
+    } else {
+      setValidationSuccess(prev => ({ ...prev, [index]: true }));
+      
+      if (validation.error) {
+        // Show warning for uncertain validation
+        showNotification({
+          title: 'Warning',
+          message: validation.error,
+          color: 'yellow',
+        });
+      }
+    }
+  };
 
   // Default logic instructions
   const defaultLogicInstructions = `I want to transform raw conversational data into structured JSON with precise attribution and relationships.
@@ -195,6 +327,26 @@ The resulting data structure should enable context-aware AI analysis with comple
 
   const handleRemoveFile = (index: number) => {
     if (fields.length > 1) {
+      // Clear validation states for this index
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[index];
+        return newErrors;
+      });
+      setIsValidating(prev => {
+        const newState = { ...prev };
+        delete newState[index];
+        return newState;
+      });
+      setValidationSuccess(prev => {
+        const newSuccess = { ...prev };
+        delete newSuccess[index];
+        return newSuccess;
+      });
+      if (validationTimeouts[index]) {
+        clearTimeout(validationTimeouts[index]);
+      }
+      
       remove(index);
     }
   };
@@ -202,6 +354,11 @@ The resulting data structure should enable context-aware AI analysis with comple
   const handleClose = () => {
     reset();
     setIsEditingJobName(false);
+    setValidationErrors({});
+    setIsValidating({});
+    setValidationSuccess({});
+    Object.values(validationTimeouts).forEach(timeout => clearTimeout(timeout));
+    setValidationTimeouts({});
     onClose();
   };
 
@@ -232,6 +389,26 @@ The resulting data structure should enable context-aware AI analysis with comple
           message: "You appear to be offline. Please check your internet connection.",
           color: "red",
           icon: <AlertCircle size={16} />,
+        });
+        return;
+      }
+
+      // Check for validation errors
+      const hasValidationErrors = Object.keys(validationErrors).length > 0;
+      if (hasValidationErrors) {
+        setError('root', { 
+          type: 'manual', 
+          message: 'Please fix URL validation errors before submitting' 
+        });
+        return;
+      }
+
+      // Check if any URLs are still being validated
+      const isStillValidating = Object.keys(isValidating).length > 0;
+      if (isStillValidating) {
+        setError('root', { 
+          type: 'manual', 
+          message: 'Please wait for URL validation to complete' 
         });
         return;
       }
@@ -531,38 +708,78 @@ The resulting data structure should enable context-aware AI analysis with comple
 
                       {/* Content based on type */}
                       {fileType === "link" ? (
-                        <TextInput
-                          variant="unstyled"
-                          placeholder="URL TO A SOURCE AUDIO OR VIDEO"
-                          {...register(`files.${index}.url`)}
-                          onChange={(e) => {
-                            setValue(`files.${index}.url`, e.target.value);
-                            if (e.target.value) {
-                              try {
-                                const filename =
-                                  e.target.value.split("/").pop() || "";
-                                setValue(`files.${index}.filename`, filename);
-                              } catch (error) {
-                                console.warn(
-                                  "Failed to extract filename from URL"
-                                );
+                        <Box>
+                          <TextInput
+                            variant="unstyled"
+                            placeholder="URL TO A SOURCE AUDIO OR VIDEO"
+                            {...register(`files.${index}.url`)}
+                            onChange={(e) => {
+                              setValue(`files.${index}.url`, e.target.value);
+                              
+                              // Clear existing timeout
+                              if (validationTimeouts[index]) {
+                                clearTimeout(validationTimeouts[index]);
                               }
-                            }
-                          }}
-                          styles={{
-                            input: {
-                              backgroundColor: "transparent",
-                              border: "none",
-                              color: "#ffffff",
-                              fontFamily: GeistMono.style.fontFamily,
-                              fontSize: "14px",
-                              padding: "0",
-                              "&::placeholder": {
-                                color: "#666",
+                              
+                              // Set new timeout for validation
+                              const timeoutId = setTimeout(() => {
+                                handleUrlValidation(e.target.value, index);
+                              }, 1000);
+                              
+                              setValidationTimeouts(prev => ({ ...prev, [index]: timeoutId }));
+                              
+                              if (e.target.value) {
+                                try {
+                                  const filename = e.target.value.split("/").pop() || "";
+                                  setValue(`files.${index}.filename`, filename);
+                                } catch (error) {
+                                  console.warn("Failed to extract filename from URL");
+                                }
+                              }
+                            }}
+                            styles={{
+                              input: {
+                                backgroundColor: "transparent",
+                                border: "none",
+                                color: "#ffffff",
+                                fontFamily: GeistMono.style.fontFamily,
+                                fontSize: "14px",
+                                padding: "0",
+                                "&::placeholder": {
+                                  color: "#666",
+                                },
                               },
-                            },
-                          }}
-                        />
+                            }}
+                          />
+                          
+                          {/* Validation feedback */}
+                          {isValidating[index] && (
+                            <Group gap="xs" mt="xs">
+                              <Loader size={12} style={{ color: "#a1a1a1" }} />
+                              <Text size="xs" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                                Validating URL...
+                              </Text>
+                            </Group>
+                          )}
+                          
+                          {validationSuccess[index] && !isValidating[index] && (
+                            <Group gap="xs" mt="xs">
+                              <CheckCircle size={12} style={{ color: "#4ade80" }} />
+                              <Text size="xs" c="#4ade80" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                                Valid media URL
+                              </Text>
+                            </Group>
+                          )}
+                          
+                          {validationErrors[index] && !isValidating[index] && (
+                            <Group gap="xs" mt="xs">
+                              <XCircle size={12} style={{ color: "#ef4444" }} />
+                              <Text size="xs" c="#ef4444" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                                {validationErrors[index]}
+                              </Text>
+                            </Group>
+                          )}
+                        </Box>
                       ) : (
                         <Box style={{ width: "100%", height: "100%" }}>
                           {!watch(`files.${index}.url`) ? (
@@ -619,106 +836,105 @@ The resulting data structure should enable context-aware AI analysis with comple
                     )}
 
                     {/* Bottom bar with Tabs and Info */}
-                            <Box
-                              style={{
-                                // 3. Kept borderTop for visual separation as in image
-                                padding: "8px 12px",
-                                backgroundColor: "#000000",
-                              }}
-                            >
-                              <Group justify="space-between" align="center">
-                                <Tabs
-                                  value={fileType}
-                                  onChange={(value) =>
-                                    setValue(
-                                      `files.${index}.type`,
-                                      value as "link" | "upload"
-                                    )
-                                  }
-                                  variant="unstyled"
-                                  styles={{
-                                    // 3. No outline on the list itself
-                                    list: {
-                                      borderRadius: "6px",
-                                      padding: "2px",
-                                      gap: "2px",
-                                      backgroundColor: "#0A0A0A",
-                                    },
-                                    tab: {
-                                      padding: "4px 12px",
-                                      color: "#888888",
-                                      fontSize: "11px",
-                                      fontFamily: GeistMono.style.fontFamily,
-                                      textTransform: "uppercase",
-                                      minHeight: "auto",
-                                      backgroundColor: "transparent",
-                                      borderRadius: "4px",
-                                      transition: "all 0.2s ease",
-                                      // 4. Style for the active tab
-                                      "&[data-active]": {
-                                        color: "#ffffff",
-                                        backgroundColor: "#202020",
-                                      },
-                                      "&:hover:not([data-active])": {
-                                        backgroundColor: "#1c1c1c",
-                                        color: "#bbbbbb",
-                                      },
-                                      "&[disabled]": {
-                                        color: "#555555",
-                                      },
-                                    },
-                                  }}
-                                >
-                                  <Tabs.List>
-                                    <Tabs.Tab value="link">URL</Tabs.Tab>
-                                    <Tabs.Tab value="upload">UPLOAD A FILE</Tabs.Tab>
-                                    <Tabs.Tab value="emails" disabled>
-                                      EMAILS
-                                    </Tabs.Tab>
-                                  </Tabs.List>
-                                </Tabs>
-                    
-                                <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
-                                  <Info
-                                    size={16}
-                                    style={{ color: "#a1a1a1", cursor: "help" }}
-                                  />
-                                </Tooltip>
-                              </Group>
-                            </Box>
-                          </Box>
-                        );
-                      })}
-                    
-                      {/* Add more button */}
-                      <Button
-                        rightSection={<Plus size={20} />} // 5. Icon on the right
-                        fullWidth
-                        onClick={handleAddFile}
-                        styles={{
-                          root: {
-                            backgroundColor: "#0A0A0A", // 5. Set background
-                            border: "1px solid #2B2B2B",
-                            color: "#a1a1a1",
-                            height: "48px",
-                            fontFamily: GeistMono.style.fontFamily,
-                            fontSize: "12px",
-                            textTransform: "uppercase",
-                            padding: "0 16px",
-                            "&:hover": {
-                              backgroundColor: "#1c1c1c",
-                              borderColor: "#333333",
+                    <Box
+                      style={{
+                        padding: "8px 12px",
+                        backgroundColor: "#000000",
+                      }}
+                    >
+                      <Group justify="space-between" align="center">
+                        <Tabs
+                          value={fileType}
+                          onChange={(value) =>
+                            setValue(
+                              `files.${index}.type`,
+                              value as "link" | "upload"
+                            )
+                          }
+                          styles={{
+                            list: {
+                              borderRadius: "6px",
+                              padding: "2px",
+                              gap: "2px",
+                              backgroundColor: "#0A0A0A",
+                              border: "none",
                             },
-                          },
-                          // 5. Push text left and icon right
-                          inner: {
-                            justifyContent: "space-between",
-                          },
-                        }}
-                      >
-                        ADD MORE DATA
-                      </Button>
+                            tab: {
+                              padding: "4px 12px",
+                              color: "#888888",
+                              fontSize: "11px",
+                              fontFamily: GeistMono.style.fontFamily,
+                              textTransform: "uppercase",
+                              minHeight: "auto",
+                              backgroundColor: "transparent",
+                              borderRadius: "4px",
+                              transition: "all 0.2s ease",
+                              border: "none",
+                              // Fixed the active tab styling
+                              '&[data-active="true"]': {
+                                color: "#ffffff",
+                                backgroundColor: "#202020",
+                              },
+                              "&:hover:not([data-active])": {
+                                backgroundColor: "#1c1c1c",
+                                color: "#bbbbbb",
+                              },
+                              "&[disabled]": {
+                                color: "#555555",
+                                opacity: 0.5,
+                              },
+                            },
+                          }}
+                        >
+                          <Tabs.List>
+                            <Tabs.Tab value="link">URL</Tabs.Tab>
+                            <Tabs.Tab value="upload">UPLOAD A FILE</Tabs.Tab>
+                            <Tabs.Tab value="emails" disabled>
+                              EMAILS
+                            </Tabs.Tab>
+                          </Tabs.List>
+                        </Tabs>
+
+                        <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
+                          <Info
+                            size={16}
+                            style={{ color: "#a1a1a1", cursor: "help" }}
+                          />
+                        </Tooltip>
+                      </Group>
                     </Box>
+                  </Box>
+                );
+              })}
+
+              {/* Add more button */}
+              <Button
+                rightSection={<Plus size={20} />}
+                fullWidth
+                onClick={handleAddFile}
+                styles={{
+                  root: {
+                    backgroundColor: "#0A0A0A",
+                    border: "1px solid #2B2B2B",
+                    color: "#a1a1a1",
+                    height: "48px",
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    padding: "0 16px",
+                    "&:hover": {
+                      backgroundColor: "#1c1c1c",
+                      borderColor: "#333333",
+                    },
+                  },
+                  inner: {
+                    justifyContent: "space-between",
+                  },
+                }}
+              >
+                ADD MORE DATA
+              </Button>
+            </Box>
 
             {/* FOLLOW THIS LOGIC */}
             <Box>
