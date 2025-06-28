@@ -30,8 +30,7 @@ import {
   ChevronUp,
   LinkIcon,
   Upload,
-  FileText,
-  Mail
+  FileText
 } from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from '@/components/FileUpload';
@@ -132,7 +131,7 @@ The resulting data structure should enable context-aware AI analysis with comple
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Handle file upload success
+  // Handle file upload success - RESTORED ORIGINAL LOGIC
   const handleFileUploaded = (fileUrl: string, index: number = 0) => {
     // Simulate loading process
     setValue(`files.${index}.isLoading`, true);
@@ -396,7 +395,7 @@ The resulting data structure should enable context-aware AI analysis with comple
               />
             </Box>
 
-            {/* Files Section - New Design */}
+            {/* Files Section - RESTORED WITH PROGRESS */}
             <Box>
               <Text size="sm" c="#a1a1a1" mb="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
                 URL TO A SOURCE AUDIO OR VIDEO
@@ -434,7 +433,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                         <Group justify="space-between" align="flex-start">
                           {/* Left side - Type selector and content */}
                           <Box style={{ flex: 1 }}>
-                            {/* Type selector tabs - positioned in top left */}
+                            {/* Type selector tabs */}
                             <Group mb={hasUrl || isLoading ? "xs" : "md"}>
                               <Tabs
                                 value={field.type}
@@ -468,11 +467,6 @@ The resulting data structure should enable context-aware AI analysis with comple
                                   <Tabs.Tab value="upload">
                                     <Text size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
                                       Upload a file
-                                    </Text>
-                                  </Tabs.Tab>
-                                  <Tabs.Tab value="email" disabled>
-                                    <Text size="xs" style={{ fontFamily: GeistMono.style.fontFamily, opacity: 0.5 }}>
-                                      emails
                                     </Text>
                                   </Tabs.Tab>
                                 </Tabs.List>
@@ -583,7 +577,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                         </Group>
                       </Box>
 
-                      {/* Progress bar - only show when loading or has content */}
+                      {/* Progress bar - RESTORED */}
                       {(isLoading || hasUrl) && (
                         <Box
                           style={{
@@ -601,7 +595,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                                 backgroundColor: 'transparent',
                                 height: '4px',
                               },
-                              bar: {
+                              section: {
                                 backgroundColor: '#F5A623',
                                 transition: 'width 0.2s ease',
                               },
