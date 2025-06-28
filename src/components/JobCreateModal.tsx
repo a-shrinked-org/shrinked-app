@@ -131,7 +131,7 @@ The resulting data structure should enable context-aware AI analysis with comple
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Handle file upload success - RESTORED ORIGINAL LOGIC
+  // Handle file upload success
   const handleFileUploaded = (fileUrl: string, index: number = 0) => {
     // Simulate loading process
     setValue(`files.${index}.isLoading`, true);
@@ -395,7 +395,7 @@ The resulting data structure should enable context-aware AI analysis with comple
               />
             </Box>
 
-            {/* Files Section - RESTORED WITH PROGRESS */}
+            {/* Files Section */}
             <Box>
               <Text size="sm" c="#a1a1a1" mb="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
                 URL TO A SOURCE AUDIO OR VIDEO
@@ -406,6 +406,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                 const hasUrl = watch(`files.${index}.url`)?.trim() !== '';
                 const isLoading = watch(`files.${index}.isLoading`);
                 const progress = watch(`files.${index}.progress`) || 0;
+                const fileType = watch(`files.${index}.type`);
                 
                 return (
                   <Box
@@ -416,174 +417,214 @@ The resulting data structure should enable context-aware AI analysis with comple
                       border: '0.5px solid #2B2B2B',
                       borderRadius: '6px',
                       overflow: 'hidden',
+                      minHeight: hasUrl || isLoading ? 'auto' : '120px',
                       transition: 'all 0.3s ease-in-out',
                     }}
                   >
                     {/* Main content area */}
-                    <Box
-                      style={{
-                        height: hasUrl || isLoading ? 'auto' : isMobile ? '80px' : '120px',
-                        transition: 'height 0.3s ease-in-out',
-                        display: 'flex',
-                        flexDirection: 'column',
-                      }}
-                    >
-                      {/* Top section with tabs and content */}
-                      <Box style={{ flex: 1, padding: '16px' }}>
-                        <Group justify="space-between" align="flex-start">
-                          {/* Left side - Type selector and content */}
-                          <Box style={{ flex: 1 }}>
-                            {/* Type selector tabs */}
-                            <Group mb={hasUrl || isLoading ? "xs" : "md"}>
-                              <Tabs
-                                value={field.type}
-                                onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
-                                styles={{
-                                  root: {
-                                    width: 'auto'
-                                  },
-                                  list: {
-                                    border: 'none',
-                                    gap: '4px',
-                                  },
-                                  tab: {
-                                    padding: '6px 8px',
-                                    color: '#a1a1a1',
-                                    fontSize: '12px',
-                                    minHeight: 'auto',
-                                    '&[data-active="true"]': {
-                                      color: '#F5A623',
-                                      borderColor: '#F5A623',
-                                    },
-                                  },
-                                }}
+                    <Box style={{ position: 'relative', height: '100%' }}>
+                      {/* Tabs - positioned in top left corner */}
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          top: '12px',
+                          left: '12px',
+                          zIndex: 10,
+                        }}
+                      >
+                        <Tabs
+                          value={fileType}
+                          onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
+                          styles={{
+                            root: {
+                              width: 'auto'
+                            },
+                            list: {
+                              border: 'none',
+                              gap: '2px',
+                              backgroundColor: '#1a1a1a',
+                              borderRadius: '4px',
+                              padding: '2px',
+                            },
+                            tab: {
+                              padding: '6px 12px',
+                              color: '#666',
+                              fontSize: '11px',
+                              fontFamily: GeistMono.style.fontFamily,
+                              textTransform: 'uppercase',
+                              minHeight: 'auto',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '3px',
+                              transition: 'all 0.2s ease',
+                              '&[data-active="true"]': {
+                                color: '#ffffff',
+                                backgroundColor: '#2a2a2a',
+                              },
+                              '&:hover': {
+                                backgroundColor: '#222',
+                              },
+                            },
+                          }}
+                        >
+                          <Tabs.List>
+                            <Tabs.Tab value="link">Url</Tabs.Tab>
+                            <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
+                            <Tabs.Tab value="emails" disabled style={{ opacity: 0.3 }}>
+                              Emails
+                            </Tabs.Tab>
+                          </Tabs.List>
+                        </Tabs>
+                      </Box>
+
+                      {/* Info icon - positioned in top right */}
+                      <Box
+                        style={{
+                          position: 'absolute',
+                          top: '16px',
+                          right: '16px',
+                          zIndex: 10,
+                        }}
+                      >
+                        <Group gap="xs">
+                          <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
+                            <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
+                          </Tooltip>
+                          {fields.length > 1 && (
+                            <Tooltip label="Remove">
+                              <ActionIcon 
+                                variant="subtle"
+                                color="red"
+                                onClick={() => handleRemoveFile(index)}
+                                size="sm"
                               >
-                                <Tabs.List>
-                                  <Tabs.Tab value="link">
-                                    <Text size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                                      Url
-                                    </Text>
-                                  </Tabs.Tab>
-                                  <Tabs.Tab value="upload">
-                                    <Text size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                                      Upload a file
-                                    </Text>
-                                  </Tabs.Tab>
-                                </Tabs.List>
-                              </Tabs>
-                              
-                              {/* Info icon */}
-                              <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
-                                <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
-                              </Tooltip>
-                            </Group>
-
-                            {/* Content based on type */}
-                            {watch(`files.${index}.type`) === 'link' ? (
-                              <TextInput
-                                placeholder="Enter file URL"
-                                {...register(`files.${index}.url`)}
-                                onChange={(e) => {
-                                  setValue(`files.${index}.url`, e.target.value);
-                                  
-                                  if (e.target.value) {
-                                    try {
-                                      const filename = e.target.value.split('/').pop() || '';
-                                      setValue(`files.${index}.filename`, filename);
-                                    } catch (error) {
-                                      console.warn('Failed to extract filename from URL');
-                                    }
-                                  }
-                                }}
-                                styles={{
-                                  input: {
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    color: '#ffffff',
-                                    fontFamily: GeistMono.style.fontFamily,
-                                    fontSize: hasUrl || isLoading ? '14px' : '16px',
-                                    padding: hasUrl || isLoading ? '8px 0' : '12px 0',
-                                    '&:focus': {
-                                      outline: 'none',
-                                    },
-                                  },
-                                  wrapper: {
-                                    width: '100%'
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <Box>
-                                {!watch(`files.${index}.url`) ? (
-                                  <FileUpload 
-                                    onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)}
-                                  />
-                                ) : (
-                                  <Group 
-                                    style={{ 
-                                      padding: '8px 0',
-                                    }}
-                                    wrap="nowrap"
-                                  >
-                                    <FileText size={16} />
-                                    <Box style={{ flex: 1, overflow: 'hidden' }}>
-                                      <Text size="sm" truncate>
-                                        {watch(`files.${index}.filename`) || 'Uploaded file'}
-                                      </Text>
-                                      {watch(`files.${index}.size`) && (
-                                        <Text size="xs" c="dimmed">
-                                          {formatFileSize(watch(`files.${index}.size`) as number)}
-                                        </Text>
-                                      )}
-                                    </Box>
-                                    <Button 
-                                      size="xs" 
-                                      variant="light" 
-                                      color="gray"
-                                      onClick={() => {
-                                        setValue(`files.${index}.url`, '');
-                                        setValue(`files.${index}.filename`, '');
-                                        setValue(`files.${index}.size`, undefined);
-                                      }}
-                                    >
-                                      Change
-                                    </Button>
-                                  </Group>
-                                )}
-                              </Box>
-                            )}
-                          </Box>
-
-                          {/* Right side - Remove button and status */}
-                          <Group align="flex-start" gap="xs">
-                            {isLoading && (
-                              <Text size="xs" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                                Loading a library
-                              </Text>
-                            )}
-                            {fields.length > 1 && (
-                              <Tooltip label="Remove">
-                                <ActionIcon 
-                                  variant="subtle"
-                                  color="red"
-                                  onClick={() => handleRemoveFile(index)}
-                                  size="sm"
-                                >
-                                  <Trash size={14} />
-                                </ActionIcon>
-                              </Tooltip>
-                            )}
-                          </Group>
+                                <Trash size={14} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
                         </Group>
                       </Box>
 
-                      {/* Progress bar - RESTORED */}
+                      {/* Content area */}
+                      <Box
+                        style={{
+                          padding: hasUrl || isLoading ? '16px' : '48px 16px 16px 16px',
+                          minHeight: hasUrl || isLoading ? 'auto' : '120px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: hasUrl || isLoading ? 'flex-start' : 'center',
+                        }}
+                      >
+                        {/* Status text on the right when loading/has content */}
+                        {(isLoading || hasUrl) && (
+                          <Group justify="space-between" align="center" mb="xs">
+                            <Text 
+                              size="sm" 
+                              style={{ 
+                                fontFamily: GeistMono.style.fontFamily,
+                                color: '#ffffff'
+                              }}
+                            >
+                              {watch(`files.${index}.filename`) || 'FILENAME.EXT'}
+                            </Text>
+                            {isLoading && (
+                              <Text 
+                                size="xs" 
+                                c="#a1a1a1" 
+                                style={{ fontFamily: GeistMono.style.fontFamily }}
+                              >
+                                Loading a library
+                              </Text>
+                            )}
+                          </Group>
+                        )}
+
+                        {/* Content based on type */}
+                        {fileType === 'link' ? (
+                          <TextInput
+                            placeholder="Enter file URL"
+                            {...register(`files.${index}.url`)}
+                            onChange={(e) => {
+                              setValue(`files.${index}.url`, e.target.value);
+                              
+                              if (e.target.value) {
+                                try {
+                                  const filename = e.target.value.split('/').pop() || '';
+                                  setValue(`files.${index}.filename`, filename);
+                                } catch (error) {
+                                  console.warn('Failed to extract filename from URL');
+                                }
+                              }
+                            }}
+                            styles={{
+                              input: {
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                color: '#ffffff',
+                                fontFamily: GeistMono.style.fontFamily,
+                                fontSize: '14px',
+                                padding: '0',
+                                '&:focus': {
+                                  outline: 'none',
+                                },
+                                '&::placeholder': {
+                                  color: '#666',
+                                },
+                              },
+                              wrapper: {
+                                width: '100%'
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Box style={{ width: '100%', height: '100%' }}>
+                            {!watch(`files.${index}.url`) ? (
+                              <FileUpload 
+                                onFileUploaded={(fileUrl) => handleFileUploaded(fileUrl, index)}
+                              />
+                            ) : (
+                              <Group 
+                                style={{ 
+                                  padding: '8px 0',
+                                }}
+                                wrap="nowrap"
+                              >
+                                <FileText size={16} />
+                                <Box style={{ flex: 1, overflow: 'hidden' }}>
+                                  <Text size="sm" truncate>
+                                    {watch(`files.${index}.filename`) || 'Uploaded file'}
+                                  </Text>
+                                  {watch(`files.${index}.size`) && (
+                                    <Text size="xs" c="dimmed">
+                                      {formatFileSize(watch(`files.${index}.size`) as number)}
+                                    </Text>
+                                  )}
+                                </Box>
+                                <Button 
+                                  size="xs" 
+                                  variant="light" 
+                                  color="gray"
+                                  onClick={() => {
+                                    setValue(`files.${index}.url`, '');
+                                    setValue(`files.${index}.filename`, '');
+                                    setValue(`files.${index}.size`, undefined);
+                                  }}
+                                >
+                                  Change
+                                </Button>
+                              </Group>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+
+                      {/* Progress bar - at the bottom */}
                       {(isLoading || hasUrl) && (
                         <Box
                           style={{
                             borderTop: '0.5px solid #2B2B2B',
-                            padding: '0',
                             height: '4px',
+                            backgroundColor: 'transparent',
                           }}
                         >
                           <Progress
