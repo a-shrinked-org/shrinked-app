@@ -654,111 +654,103 @@ The resulting data structure should enable context-aware AI analysis with comple
                         </Box>
                       )}
 
-                      {/* Tabs and info - positioned at the bottom */}
-                      <Box
-                        style={{
-                          borderTop: '0.5px solid #2B2B2B',
-                          padding: '8px 12px',
-                          backgroundColor: '#0a0a0a',
-                        }}
-                      >
-                        <Group justify="space-between" align="center">
-                          <Tabs
-                            value={fileType}
-                            onChange={(value) => setValue(`files.${index}.type`, value as 'link' | 'upload')}
-                            styles={{
-                              root: {
-                                width: 'auto'
-                              },
-                              list: {
-                                border: 'none',
-                                gap: '2px',
-                                backgroundColor: '#1a1a1a',
-                                borderRadius: '4px',
-                                padding: '2px',
-                              },
-                              tab: {
-                                padding: '6px 12px',
-                                color: '#666',
-                                fontSize: '11px',
-                                fontFamily: GeistMono.style.fontFamily,
-                                textTransform: 'uppercase',
-                                minHeight: 'auto',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                borderRadius: '3px',
-                                transition: 'all 0.2s ease',
-                                '&[data-active="true"]': {
-                                  color: '#ffffff',
-                                  backgroundColor: '#2a2a2a',
-                                },
-                                '&:hover': {
-                                  backgroundColor: '#222',
-                                },
-                                '&:disabled': {
-                                  backgroundColor: 'transparent',
-                                  color: '#666',
-                                  opacity: 0.3,
-                                }
-                              },
-                            }}
-                          >
-                            <Tabs.List>
-                              <Tabs.Tab value="link">Url</Tabs.Tab>
-                              <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                              <Tabs.Tab value="emails" disabled>
-                                Emails
-                              </Tabs.Tab>
-                            </Tabs.List>
-                          </Tabs>
+                      {/* Bottom bar with Tabs and Info */}
+                              <Box
+                                style={{
+                                  borderTop: "0.5px solid #2B2B2B",
+                                  padding: "8px 12px",
+                                  backgroundColor: "#000000",
+                                }}
+                              >
+                                <Group justify="space-between" align="center">
+                                  <Tabs
+                                    value={fileType}
+                                    onChange={(value) =>
+                                      setValue(
+                                        `files.${index}.type`,
+                                        value as "link" | "upload"
+                                      )
+                                    }
+                                    variant="unstyled"
+                                    styles={{
+                                      list: {
+                                        border: "1px solid #2a2a2a",
+                                        borderRadius: "6px",
+                                        padding: "2px",
+                                        gap: "2px",
+                                      },
+                                      tab: {
+                                        padding: "4px 12px",
+                                        color: "#888888",
+                                        fontSize: "11px",
+                                        fontFamily: GeistMono.style.fontFamily,
+                                        textTransform: "uppercase",
+                                        minHeight: "auto",
+                                        backgroundColor: "transparent",
+                                        borderRadius: "4px",
+                                        transition: "all 0.2s ease",
+                                        "&[data-active]": {
+                                          color: "#ffffff",
+                                          backgroundColor: "#2a2a2a",
+                                        },
+                                        "&:hover:not([data-active])": {
+                                          backgroundColor: "#1c1c1c",
+                                          color: "#bbbbbb",
+                                        },
+                                        "&[disabled]": {
+                                          color: "#555555",
+                                        },
+                                      },
+                                    }}
+                                  >
+                                    <Tabs.List>
+                                      <Tabs.Tab value="link">URL</Tabs.Tab>
+                                      <Tabs.Tab value="upload">UPLOAD A FILE</Tabs.Tab>
+                                      <Tabs.Tab value="emails" disabled>
+                                        EMAILS
+                                      </Tabs.Tab>
+                                    </Tabs.List>
+                                  </Tabs>
                       
-                          <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
-                            <Info size={14} style={{ color: '#a1a1a1', cursor: 'help' }} />
-                          </Tooltip>
-                        </Group>
+                                  <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
+                                    <Info
+                                      size={16}
+                                      style={{ color: "#a1a1a1", cursor: "help" }}
+                                    />
+                                  </Tooltip>
+                                </Group>
+                              </Box>
+                            </Box>
+                          );
+                        })}
+                      
+                        {/* Add more button */}
+                        <Button
+                          leftSection={<Plus size={20} />}
+                          fullWidth
+                          onClick={handleAddFile}
+                          styles={{
+                            root: {
+                              backgroundColor: "#000000",
+                              border: "1px solid #2B2B2B",
+                              color: "#a1a1a1",
+                              height: "48px",
+                              fontFamily: GeistMono.style.fontFamily,
+                              fontSize: "12px",
+                              textTransform: "uppercase",
+                              justifyContent: "flex-start",
+                              gap: "12px",
+                              padding: "0 16px",
+                              "&:hover": {
+                                backgroundColor: "#0A0A0A",
+                                borderColor: "#333333",
+                              },
+                            },
+                          }}
+                        >
+                          ADD MORE DATA
+                        </Button>
                       </Box>
-                    </Box>
-                  </Box>
-                );
-              })}
-
-              {/* Add more button */}
-              <Button
-                leftSection={<Plus size={24} />}
-                variant="outline"
-                fullWidth
-                onClick={handleAddFile}
-                styles={{
-                  root: {
-                    backgroundColor: '#000000',
-                    borderColor: '#2b2b2b',
-                    color: '#a1a1a1',
-                    height: '44px',
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: '12px',
-                    textTransform: 'uppercase',
-                    justifyContent: 'space-between',
-                    paddingLeft: '16px',
-                    paddingRight: '16px',
-                    '&:hover': {
-                      backgroundColor: '#0A0A0A',
-                      color: '#f5a623',
-                      borderColor: '#2b2b2b',
-                    },
-                  },
-                  section: {
-                    marginLeft: 'auto',
-                    marginRight: '0',
-                  },
-                  label: {
-                    flex: 1,
-                    textAlign: 'left',
-                  }
-                }}
-              >
-                ADD MORE DATA
-              </Button>
-            </Box>
 
             {/* FOLLOW THIS LOGIC */}
             <Box>
