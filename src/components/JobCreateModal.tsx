@@ -861,10 +861,11 @@ The resulting data structure should enable context-aware AI analysis with comple
                               border: "none",
                         
                               // Use the 'active' boolean from context to apply styles
-                              ...(active && {
-                                color: "#ffffff",
-                                backgroundColor: "#202020",
-                              }),
+                              ...
+                              '&[data-active="true"]': {
+                                color: '#ffffff',
+                                backgroundColor: '#202020',
+                              },
                         
                               "&:hover:not([data-disabled])": {
                                 backgroundColor: "#1c1c1c",
