@@ -39,6 +39,7 @@ import { FileUpload } from "@/components/FileUpload";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import ConversationVisualizer from "./ConversationVisualizer";
+import "@/styles/file-upload-styles.css";
 
 interface Identity {
   token?: string;
@@ -125,6 +126,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [logicOpened, { toggle: toggleLogic }] = useDisclosure(false);
   const [isEditingJobName, setIsEditingJobName] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const [isDragging, setIsDragging] = useState(false);
 
   // URL validation states
   const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
@@ -666,7 +668,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                     {/* Main content area */}
                     <Box
                       style={{
-                        padding: "10px 10px 40px 20px",
+                        padding: fileType === 'link' ? "10px 10px 40px 20px" : "0px",
                         flexGrow: 1,
                         position: "relative",
                       }}
@@ -771,11 +773,18 @@ The resulting data structure should enable context-aware AI analysis with comple
                       ) : (
                         <Box style={{ width: "100%", height: "100%" }}>
                           {!watch(`files.${index}.url`) ? (
-                            <FileUpload
-                              onFileUploaded={(fileUrl) =>
-                                handleFileUploaded(fileUrl, index)
-                              }
-                            />
+                            <div
+                              onDragEnter={() => setIsDragging(true)}
+                              onDragLeave={() => setIsDragging(false)}
+                              onDrop={() => setIsDragging(false)}
+                            >
+                              <FileUpload
+                                onFileUploaded={(fileUrl) =>
+                                  handleFileUploaded(fileUrl, index)
+                                }
+                                isDragging={isDragging}
+                              />
+                            </div>
                           ) : (
                             <Group style={{ padding: "8px 0" }} wrap="nowrap">
                               <FileText size={16} />
@@ -824,7 +833,6 @@ The resulting data structure should enable context-aware AI analysis with comple
                     )}
 
                     {/* Bottom bar with Tabs and Info */}
-                    {/* Bottom bar with Tabs and Info */}
                     <Box
                       style={{
                         padding: "8px 12px",
@@ -836,6 +844,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                           value={fileType}
                           onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
                           variant="pills"
+                          color="rgba(32, 32, 32, 1)"
                           styles={{
                             list: {
                               borderRadius: "6px",

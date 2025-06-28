@@ -1,0 +1,15 @@
+.dropzone-active {
+  background-color: #2B2B2B;
+}
+
+.dropzone-idle {
+  background-color: transparent;
+}
+
+.dropzone-text-active {
+  color: #AAAAAA;
+}
+
+.dropzone-text-idle {
+  color: #666;
+}

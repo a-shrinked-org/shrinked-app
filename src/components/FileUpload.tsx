@@ -15,12 +15,14 @@ interface FileUploadProps {
   onFileUploaded: (fileUrl: string) => void;
   maxSizeMB?: number;
   acceptedFileTypes?: Record<string, string[]>;
+  isDragging?: boolean;
 }
 
 export function FileUpload({
   onFileUploaded,
   maxSizeMB,
   acceptedFileTypes,
+  isDragging,
 }: FileUploadProps) {
   const theme = useMantineTheme();
   const [file, setFile] = useState<FileWithPath | null>(null);
@@ -275,6 +277,7 @@ export function FileUpload({
           maxSize={maxSizeMB ? maxSizeMB * 1024 * 1024 : undefined}
           accept={acceptedFileTypes || defaultAcceptedTypes}
           loading={uploading || ffmpegLoading}
+          className={isDragging ? 'dropzone-active' : 'dropzone-idle'}
         >
           <Group justify="center" style={{ minHeight: rem(140), pointerEvents: 'none' }}>
             <Dropzone.Accept>
@@ -287,7 +290,9 @@ export function FileUpload({
               <Upload size={50} />
             </Dropzone.Idle>
             <div>
-              <Text size="xl" inline>Drag file here or click to select</Text>
+              <Text size="xl" inline className={isDragging ? 'dropzone-text-active' : 'dropzone-text-idle'}>
+                {isDragging ? 'Drop it here' : 'Drag file here or click to select'}
+              </Text>
               <Text size="sm" color="dimmed" inline mt={7}>
                 MP3 files upload directly. Others will be converted to MP3.
               </Text>
