@@ -858,14 +858,14 @@ The resulting data structure should enable context-aware AI analysis with comple
                               
                               // Hover state
                               "&:hover": {
-                                backgroundColor: "#1c1c1c",
-                                color: "#bbbbbb",
+                                backgroundColor: "#1c1c1c !important",
+                                color: "#bbbbbb !important",
                               },
 
                               // Active state for Mantine Tabs
                               "&[data-active]": {
-                                color: "#ffffff",
-                                backgroundColor: "#202020",
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
                               },
                               
                               // Disabled state
