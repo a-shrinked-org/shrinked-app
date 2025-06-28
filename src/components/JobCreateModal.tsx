@@ -15,6 +15,7 @@ import {
   ActionIcon,
   Tooltip,
   Select,
+  Tabs,
   Progress,
 } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
@@ -29,6 +30,7 @@ import {
   CheckCircle,
   XCircle,
   Loader,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from "@/components/FileUpload";
@@ -610,17 +612,17 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         {/* Structured Prompt Block */}
         <Box
           mb="xl"
-          p="md"
+          p={isMobile ? "sm" : "md"}
           style={{
             backgroundColor: "#0A0A0A",
             borderRadius: "8px",
           }}
         >
           <Text
-            size="sm"
+            size={isMobile ? "xs" : "sm"}
             style={{
               fontFamily: GeistMono.style.fontFamily,
-              fontSize: "14px",
+              fontSize: isMobile ? "12px" : "14px",
               lineHeight: 1.4,
               color: "#757575",
             }}
@@ -632,9 +634,61 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               Structure
             </Text>{" "}
             conversation data from the attached sources following this logic{" "}
-            <Text component="span" fw={500} c="#ffffff" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px" }}>
-              DEFAULT
-            </Text>{" "}
+            <Box component="span" style={{ position: "relative", display: "inline-block" }}>
+              <Select
+                value={watch("selectedLogic")}
+                onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
+                data={logicOptions.map((option, index) => ({
+                  ...option,
+                  disabled: index !== 0, // Only first option is clickable
+                }))}
+                variant="unstyled"
+                size="sm"
+                rightSection={<ChevronDown size={12} />}
+                comboboxProps={{ withinPortal: true }}
+                styles={{
+                  input: {
+                    backgroundColor: "#202020",
+                    border: "none",
+                    color: "#ffffff",
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: isMobile ? "12px" : "14px",
+                    fontWeight: 500,
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    minHeight: "auto",
+                    display: "inline-block",
+                    width: "auto",
+                    minWidth: "80px",
+                  },
+                  section: {
+                    color: "#ffffff",
+                  },
+                  dropdown: {
+                    backgroundColor: "#000000",
+                    border: "1px solid #2b2b2b",
+                  },
+                  option: {
+                    color: "#ffffff",
+                    fontSize: isMobile ? "12px" : "14px",
+                    fontFamily: GeistMono.style.fontFamily,
+                    "&[data-selected]": {
+                      backgroundColor: "#202020",
+                    },
+                    "&:hover:not([data-disabled])": {
+                      backgroundColor: "#1c1c1c",
+                    },
+                    "&[data-disabled]": {
+                      color: "#555555",
+                      opacity: 0.5,
+                      cursor: "not-allowed",
+                    },
+                  },
+                }}
+              >
+                DEFAULT
+              </Select>
+            </Box>{" "}
             in{" "}
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
               ENGLISH
@@ -644,49 +698,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               {identity?.email?.toUpperCase() || "USER@EXAMPLE.COM"}
             </Text>
           </Text>
-        </Box>
-
-        {/* Logic Selection Dropdown */}
-        <Box mb="lg">
-          <Select
-            value={watch("selectedLogic")}
-            onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
-            data={logicOptions.map((option, index) => ({
-              ...option,
-              disabled: index !== 0, // Only first option is clickable
-            }))}
-            placeholder="Select logic template"
-            size="sm"
-            styles={{
-              input: {
-                backgroundColor: "#0d0d0d",
-                borderColor: "#2b2b2b",
-                color: "#ffffff",
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: "14px",
-              },
-              dropdown: {
-                backgroundColor: "#000000",
-                border: "1px solid #2b2b2b",
-              },
-              option: {
-                color: "#ffffff",
-                fontSize: "14px",
-                fontFamily: GeistMono.style.fontFamily,
-                "&[data-selected]": {
-                  backgroundColor: "#202020",
-                },
-                "&:hover:not([data-disabled])": {
-                  backgroundColor: "#1c1c1c",
-                },
-                "&[data-disabled]": {
-                  color: "#555555",
-                  opacity: 0.5,
-                  cursor: "not-allowed",
-                },
-              },
-            }}
-          />
         </Box>
 
         {/* Conversation Data Visualization */}
@@ -738,7 +749,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     {/* Main content area */}
                     <Box
                       style={{
-                        padding: fileType === 'link' ? "10px 10px 40px 20px" : "0px",
+                        padding: fileType === 'link' ? (isMobile ? "10px 10px 30px 15px" : "10px 10px 40px 20px") : (isMobile ? "10px" : "15px"),
                         flexGrow: 1,
                         position: "relative",
                       }}
@@ -748,8 +759,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                         <Box
                           style={{
                             position: "absolute",
-                            top: "12px",
-                            right: "12px",
+                            top: isMobile ? "8px" : "12px",
+                            right: isMobile ? "8px" : "12px",
                             zIndex: 10,
                           }}
                         >
@@ -803,7 +814,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                                 border: "none",
                                 color: "#ffffff",
                                 fontFamily: GeistMono.style.fontFamily,
-                                fontSize: "14px",
+                                fontSize: isMobile ? "12px" : "14px",
                                 padding: "0",
                                 "&::placeholder": {
                                   color: "#666",
@@ -856,7 +867,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               />
                             </div>
                           ) : (
-                            <Group style={{ padding: "8px 0" }} wrap="nowrap">
+                            <Group style={{ padding: isMobile ? "4px 0" : "8px 0" }} wrap="nowrap">
                               <FileText size={16} />
                               <Box style={{ flex: 1, overflow: "hidden" }}>
                                 <Text size="sm" truncate>
@@ -905,77 +916,69 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     {/* Bottom bar with Tabs and Info */}
                     <Box
                       style={{
-                        padding: "8px 12px",
+                        padding: isMobile ? "6px 10px" : "8px 12px",
                         backgroundColor: "#000000",
                       }}
                     >
                       <Group justify="space-between" align="center">
-                        <Group gap="xs">
-                          <Button
-                            variant={fileType === "link" ? "filled" : "outline"}
-                            size="xs"
-                            onClick={() => setValue(`files.${index}.type`, "link")}
-                            styles={{
-                              root: {
-                                backgroundColor: fileType === "link" ? "#202020" : "transparent",
-                                borderColor: "#2b2b2b",
-                                color: fileType === "link" ? "#ffffff" : "#888888",
-                                fontSize: "11px",
-                                fontFamily: GeistMono.style.fontFamily,
-                                textTransform: "none",
-                                padding: "4px 12px",
-                                "&:hover": {
-                                  backgroundColor: fileType === "link" ? "#202020" : "#1c1c1c",
-                                },
+                        <Tabs
+                          value={fileType}
+                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          variant="pills"
+                          styles={{
+                            list: {
+                              borderRadius: "6px",
+                              padding: "2px",
+                              gap: "2px",
+                              backgroundColor: "#0A0A0A",
+                              border: "none",
+                            },
+                            tab: {
+                              padding: isMobile ? "3px 8px" : "4px 12px",
+                              color: "#888888",
+                              fontSize: isMobile ? "10px" : "11px",
+                              fontFamily: GeistMono.style.fontFamily,
+                              textTransform: "none",
+                              minHeight: "auto",
+                              borderRadius: "4px",
+                              transition: "all 0.2s ease",
+                              border: "none",
+                              
+                              // Active state for Mantine Tabs
+                              "&[data-active]": {
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
                               },
-                            }}
-                          >
-                            Url
-                          </Button>
-                          <Button
-                            variant={fileType === "upload" ? "filled" : "outline"}
-                            size="xs"
-                            onClick={() => setValue(`files.${index}.type`, "upload")}
-                            styles={{
-                              root: {
-                                backgroundColor: fileType === "upload" ? "#202020" : "transparent",
-                                borderColor: "#2b2b2b",
-                                color: fileType === "upload" ? "#ffffff" : "#888888",
-                                fontSize: "11px",
-                                fontFamily: GeistMono.style.fontFamily,
-                                textTransform: "none",
-                                padding: "4px 12px",
-                                "&:hover": {
-                                  backgroundColor: fileType === "upload" ? "#202020" : "#1c1c1c",
-                                },
+                              
+                              // Hover state
+                              "&:hover": {
+                                backgroundColor: "#1c1c1c !important",
+                                color: "#bbbbbb !important",
                               },
-                            }}
-                          >
-                            Upload a file
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="xs"
-                            disabled
-                            styles={{
-                              root: {
-                                borderColor: "#2b2b2b",
+                              
+                              // Disabled state
+                              "&:disabled": {
                                 color: "#555555",
-                                fontSize: "11px",
-                                fontFamily: GeistMono.style.fontFamily,
-                                textTransform: "none",
-                                padding: "4px 12px",
                                 opacity: 0.5,
                               },
-                            }}
-                          >
-                            Emails
-                          </Button>
-                        </Group>
+                            },
+                            tabLabel: {
+                              textTransform: "none",
+                            },
+                          }}
+                        >
+                          <Tabs.List>
+                            <Tabs.Tab value="link">Url</Tabs.Tab>
+                            <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
+                            <Tabs.Tab value="emails" disabled>
+                              Emails
+                            </Tabs.Tab>
+                          </Tabs.List>
+                        </Tabs>
 
                         <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
                           <Info
-                            size={16}
+                            size={isMobile ? 14 : 16}
                             style={{ color: "#a1a1a1", cursor: "help" }}
                           />
                         </Tooltip>
@@ -987,7 +990,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
               {/* Add more button */}
               <Button
-                rightSection={<Plus size={20} />}
+                rightSection={<Plus size={isMobile ? 16 : 20} />}
                 fullWidth
                 onClick={handleAddFile}
                 styles={{
@@ -995,11 +998,11 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     backgroundColor: "#0A0A0A",
                     border: "1px solid #2B2B2B",
                     color: "#a1a1a1",
-                    height: "48px",
+                    height: isMobile ? "40px" : "48px",
                     fontFamily: GeistMono.style.fontFamily,
-                    fontSize: "12px",
+                    fontSize: isMobile ? "10px" : "12px",
                     textTransform: "uppercase",
-                    padding: "0 16px",
+                    padding: isMobile ? "0 12px" : "0 16px",
                     "&:hover": {
                       backgroundColor: "#1c1c1c",
                       borderColor: "#333333",
