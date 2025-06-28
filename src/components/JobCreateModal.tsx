@@ -835,6 +835,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                         <Tabs
                           value={fileType}
                           onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          variant="pills" // Use pills variant for better styling control
                           styles={{
                             list: {
                               borderRadius: "6px",
@@ -848,38 +849,41 @@ The resulting data structure should enable context-aware AI analysis with comple
                               color: "#888888",
                               fontSize: "11px",
                               fontFamily: GeistMono.style.fontFamily,
-                              textTransform: "uppercase",
+                              textTransform: "none", // Remove uppercase
                               minHeight: "auto",
                               backgroundColor: "transparent",
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
                               
-                              // Active state
-                              '&[data-active="true"]': {
-                                color: "#ffffff !important",
-                                backgroundColor: "#202020 !important",
+                              // Active state - use the correct Mantine selector
+                              '&[data-active]': {
+                                color: "#ffffff",
+                                backgroundColor: "#202020",
                               },
                               
-                              // Hover state (not active)
-                              "&:hover:not([data-active])": {
+                              // Hover state
+                              "&:hover": {
                                 backgroundColor: "#1c1c1c",
                                 color: "#bbbbbb",
                               },
                               
                               // Disabled state
-                              "&[disabled]": {
-                                color: "#555555 !important",
+                              "&:disabled": {
+                                color: "#555555",
                                 opacity: 0.5,
                               },
+                            },
+                            tabLabel: {
+                              textTransform: "none", // Ensure label text is not uppercase
                             },
                           }}
                         >
                           <Tabs.List>
-                            <Tabs.Tab value="link">URL</Tabs.Tab>
-                            <Tabs.Tab value="upload">UPLOAD A FILE</Tabs.Tab>
+                            <Tabs.Tab value="link">Url</Tabs.Tab>
+                            <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
                             <Tabs.Tab value="emails" disabled>
-                              EMAILS
+                              Emails
                             </Tabs.Tab>
                           </Tabs.List>
                         </Tabs>
