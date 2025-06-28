@@ -835,7 +835,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                         <Tabs
                           value={fileType}
                           onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
-                          variant="pills" // Use pills variant for better styling control
+                          variant="pills"
                           styles={{
                             list: {
                               borderRadius: "6px",
@@ -849,23 +849,29 @@ The resulting data structure should enable context-aware AI analysis with comple
                               color: "#888888",
                               fontSize: "11px",
                               fontFamily: GeistMono.style.fontFamily,
-                              textTransform: "none", // Remove uppercase
+                              textTransform: "none",
                               minHeight: "auto",
                               backgroundColor: "transparent",
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
                               
-                              // Active state - use the correct Mantine selector
-                              '&[data-active]': {
-                                color: "#ffffff",
-                                backgroundColor: "#202020",
-                              },
-                              
                               // Hover state
                               "&:hover": {
                                 backgroundColor: "#1c1c1c",
                                 color: "#bbbbbb",
+                              },
+                              
+                              // Active state - use the correct selector for Mantine v7+
+                              "&[data-active='true']": {
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
+                              },
+                              
+                              // Alternative active selector (try this if the above doesn't work)
+                              "&[aria-selected='true']": {
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
                               },
                               
                               // Disabled state
@@ -875,7 +881,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                               },
                             },
                             tabLabel: {
-                              textTransform: "none", // Ensure label text is not uppercase
+                              textTransform: "none",
                             },
                           }}
                         >
