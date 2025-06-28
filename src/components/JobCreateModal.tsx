@@ -824,6 +824,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                     )}
 
                     {/* Bottom bar with Tabs and Info */}
+                    {/* Bottom bar with Tabs and Info */}
                     <Box
                       style={{
                         padding: "8px 12px",
@@ -833,7 +834,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onChange={...}
+                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
                           styles={{
                             list: {
                               borderRadius: "6px",
@@ -876,7 +877,7 @@ The resulting data structure should enable context-aware AI analysis with comple
                             </Tabs.Tab>
                           </Tabs.List>
                         </Tabs>
-
+                    
                         <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
                           <Info
                             size={16}
