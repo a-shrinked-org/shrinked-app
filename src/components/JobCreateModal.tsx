@@ -626,7 +626,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             }}
           >
             <Text component="span" fw={700} c="#A1A1A1">
-              >
+              {'>'}
             </Text>{" "}
             <Text component="span" fw={700} c="#A1A1A1">
               Structure
