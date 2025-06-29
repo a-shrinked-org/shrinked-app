@@ -26,13 +26,8 @@ import {
   Plus,
   Trash,
   Info,
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  Edit,
-  CheckCircle,
-  XCircle,
   Loader,
+  ChevronsUpDown,
 } from "lucide-react";
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from "@/components/FileUpload";
@@ -647,7 +642,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               data={logicOptions.map((option, index) => ({...option, disabled: index !== 0}))}
               variant="unstyled"
               size="sm"
-              rightSection={logicDropdownOpened ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              rightSection={<ChevronsUpDown size={12} />}
+              onDropdownOpen={toggleLogicDropdown}
+              onDropdownClose={toggleLogicDropdown}
               comboboxProps={{
                 withinPortal: true,
               }}
