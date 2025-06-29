@@ -260,20 +260,23 @@ function DocumentMarkdocRenderer({
     
     // Format chapters properly
     if (data?.chapters && data.chapters.length > 0) {
-      md += `## Chapters\n`;
-      md += data.chapters
-        .map((chapter: { title: string }) => {
-          const title = chapter.title.trim();
-          const timestampMatch = title.match(/\[(\d+)\]$/);
-          if (timestampMatch) {
-            const tsNum = timestampMatch[1];
-            const cleanTitle = title.replace(/\[\d+\]$/, '').trim();
-            return `- ${cleanTitle} [[${tsNum}](#ts-${tsNum})]`;
-          }
-          return `- ${title}`;
-        })
-        .join('\n');
-      md += '\n\n';
+      const filteredChapters = data.chapters.filter(chapter => chapter.title.trim() !== '');
+      if (filteredChapters.length > 0) {
+        md += `## Chapters\n`;
+        md += filteredChapters
+          .map((chapter: { title: string }) => {
+            const title = chapter.title.trim();
+            const timestampMatch = title.match(/\[(\d+)\]$/);
+            if (timestampMatch) {
+              const tsNum = timestampMatch[1];
+              const cleanTitle = title.replace(/\[\d+\]$/, '').trim();
+              return `- ${cleanTitle} [[${tsNum}](#ts-${tsNum})]`;
+            }
+            return `- ${title}`;
+          })
+          .join('\n');
+        md += '\n\n';
+      }
     }
 
     if (data?.introduction) md += `## Introduction\n${data.introduction}\n\n`;
@@ -293,7 +296,14 @@ function DocumentMarkdocRenderer({
       md += '\n\n';
     }
 
-    if (data?.conclusion) md += `## Conclusion\n${data.conclusion}\n\n`;
+    if (data?.conclusion) {
+      let cleanConclusion = data.conclusion;
+      // Remove "## Conclusion" if it's at the start of the string
+      if (cleanConclusion.startsWith('## Conclusion')) {
+        cleanConclusion = cleanConclusion.substring('## Conclusion'.length).trim();
+      }
+      md += `## Conclusion\n${cleanConclusion}\n\n`;
+    }
     
     if (data?.references && data.references.length > 0) {
       md += `## References\n`;

@@ -32,6 +32,7 @@ import { useDisclosure } from '@mantine/hooks';
 import ShareDialog from "@/components/ShareDialog"; 
 import { GeistMono } from 'geist/font/mono';
 import { debounce } from 'lodash';
+import '@/styles/blink.css';
 
 interface Identity {
   token?: string;
@@ -112,7 +113,22 @@ export default function JobShow() {
   const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
   
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
-  
+
+  const getProcessingStatus = useCallback(() => {
+    const processingStep = queryResult.data?.data?.steps?.find(step => 
+      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
+    );
+    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
+  }, [queryResult.data, processingDoc]);
+
+  const pollingInterval = useMemo(() => {
+    const status = getProcessingStatus();
+    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
+      return 3000; // Poll every 3 seconds if job is processing
+    }
+    return false; // Stop polling otherwise
+  }, [getProcessingStatus]);
+
   // Move queryResult up
   const { queryResult } = useShow<Job>({
     resource: "jobs",
@@ -120,6 +136,7 @@ export default function JobShow() {
     queryOptions: {
       enabled: !!jobId && !!identity?.token,
       staleTime: 30000,
+      refetchInterval: pollingInterval, // Apply conditional polling
       onSuccess: (data) => {
         console.log("Show query success:", data);
         const resultId = extractResultId(data.data);
@@ -127,8 +144,8 @@ export default function JobShow() {
           console.log("Found resultId:", resultId);
           setProcessingDocId(resultId);
         } else {
-          console.log("No resultId found");
-          setErrorMessage("No processing document ID found in job data.");
+          console.log("No resultId found for job:", data.data?.jobName);
+          // Do not set error message here, let renderPreviewContent handle it based on status
         }
         const uploadStep = data.data?.steps?.find(step => 
           step.name === "UPLOAD_FILE" || 
@@ -167,6 +184,7 @@ export default function JobShow() {
   const [uploadFileLink, setUploadFileLink] = useState<string | null>(null);
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
+  const [liveDuration, setLiveDuration] = useState<number>(0);
   
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
@@ -291,7 +309,7 @@ export default function JobShow() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
 
-      const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${documentId}`, {
+      const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${documentId}?includeReferences=true`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -314,10 +332,29 @@ export default function JobShow() {
   }, [documentId, ensureValidToken, fetchWithAuth]);
 
   useEffect(() => {
-    if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId) && !isFetchingProcessingDoc.current) {
-      getProcessingDocument();
+    let interval: NodeJS.Timeout | undefined;
+    const processingStep = record?.steps?.find(step => 
+      step.status?.toLowerCase() === 'processing' || 
+      step.status?.toLowerCase() === 'in_progress' ||
+      step.status?.toLowerCase() === 'pending'
+    );
+
+    if (processingStep && processingStep.startTime) {
+      const startTime = new Date(processingStep.startTime).getTime();
+      setLiveDuration(Date.now() - startTime);
+      interval = setInterval(() => {
+        setLiveDuration(Date.now() - startTime);
+      }, 1000);
+    } else {
+      setLiveDuration(0);
     }
-  }, [processingDocId, isLoadingDoc, processingDoc, getProcessingDocument]);
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [record?.steps]);
 
   useEffect(() => {
     const processingStep = queryResult.data?.data?.steps?.find(step => 
@@ -575,7 +612,7 @@ export default function JobShow() {
   }, [documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]);
 
   const formatDuration = (durationInMs?: number) => {
-    if (!durationInMs) return "N/A";
+    if (durationInMs === undefined || durationInMs === null) return "N/A";
     const totalSeconds = Math.floor(durationInMs / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -1045,13 +1082,9 @@ export default function JobShow() {
                   backgroundColor: '#2B2B2B' 
                 }} />
                 {record?.steps?.map((step, index) => {
-                  const isCompleted = step.status?.toLowerCase() === 'completed';
-                  const isError = step.status?.toLowerCase().includes('error') || 
-                                  step.status?.toLowerCase().includes('failed');
-                  const isProcessing = step.name === "PROCESSING" || step.name === "PLATOGRAM_PROCESSING";
-                  const isCollapsible = isProcessing && step.data && Object.keys(step.data).length > 0;
-                  const isLastStep = index === (record?.steps?.length || 0) - 1;
-                  
+                  const isProcessingStep = step.status?.toLowerCase() === 'processing' || step.status?.toLowerCase() === 'in_progress' || step.status?.toLowerCase() === 'pending';
+                  const displayDuration = isProcessingStep ? liveDuration : step.totalDuration;
+
                   return (
                     <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
                       <Box style={{ 
@@ -1106,24 +1139,23 @@ export default function JobShow() {
                             {formatText(step.name)}
                           </Text>
                           <Group gap="sm">
-                            {step.totalDuration && (
-                              <Text 
-                                style={{ 
-                                  color: '#2B2B2B', 
-                                  fontSize: '12px',
-                                  fontFamily: GeistMono.style.fontFamily,
-                                }}
-                              >
-                                {formatDuration(step.totalDuration)}
-                              </Text>
-                            )}
+                            <Text 
+                              style={{ 
+                                color: '#2B2B2B', 
+                                fontSize: '12px',
+                                fontFamily: GeistMono.style.fontFamily,
+                              }}
+                            >
+                              {formatDuration(displayDuration)}
+                            </Text>
                             <Box style={{ 
                               width: '8px', 
                               height: '8px', 
                               borderRadius: '50%',
                               backgroundColor: isCompleted ? '#3DC28B' : 
                                               isError ? '#FF4F56' : 
-                                              '#F5A623'
+                                              '#F5A623',
+                              animation: isProcessingStep ? 'blink 1s infinite' : 'none',
                             }} />
                           </Group>
                         </Flex>
