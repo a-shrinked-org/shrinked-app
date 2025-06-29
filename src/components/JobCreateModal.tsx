@@ -646,6 +646,45 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 size="sm"
                 rightSection={<ChevronDown size={12} />}
                 comboboxProps={{ withinPortal: true }}
+                styles={{
+                  input: {
+                    backgroundColor: "#202020",
+                    border: "none",
+                    color: "#ffffff",
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: isMobile ? "12px" : "14px",
+                    fontWeight: 500,
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    minHeight: "auto",
+                    display: "inline-block",
+                    width: "auto",
+                    minWidth: "80px",
+                  },
+                  section: {
+                    color: "#ffffff",
+                  },
+                  dropdown: {
+                    backgroundColor: "#000000",
+                    border: "1px solid #2b2b2b",
+                  },
+                  option: {
+                    color: "#ffffff",
+                    fontSize: isMobile ? "12px" : "14px",
+                    fontFamily: GeistMono.style.fontFamily,
+                    "&[data-selected]": {
+                      backgroundColor: "#202020",
+                    },
+                    "&:hover:not([data-disabled])": {
+                      backgroundColor: "#1c1c1c",
+                    },
+                    "&[data-disabled]": {
+                      color: "#555555",
+                      opacity: 0.5,
+                      cursor: "not-allowed",
+                    },
+                  },
+                }}
             </Box>{" "}
             in{" "}
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
