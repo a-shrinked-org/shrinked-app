@@ -1056,7 +1056,7 @@ export default function JobShow() {
             <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               <Box>
                 <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                  Duration
+                  Processing Time
                 </Text>
                 <Text>{formatDuration(record?.totalDuration)}</Text>
               </Box>
