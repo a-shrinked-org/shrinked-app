@@ -140,6 +140,9 @@ export default function JobShow() {
           console.log("No resultId found for job:", data.data?.jobName);
           // Do not set error message here, let renderPreviewContent handle it based on status
         }
+        if (data.data?.link) {
+          setUploadFileLink(data.data.link);
+        }
       },
       onError: (error) => {
         console.error("Show query error:", error);
@@ -499,13 +502,7 @@ export default function JobShow() {
   const renderPreviewContent = () => {
     const status = getProcessingStatus();
 
-    if (isDocLoading) {
-      return (
-        <Box style={{ position: 'relative', minHeight: '300px' }}>
-          <LoadingOverlay visible={true} />
-        </Box>
-      );
-    }
+    
 
     if (errorMessage) {
       return (
@@ -544,7 +541,7 @@ export default function JobShow() {
     if (status === 'processing' || status === 'in_progress' || status === 'pending') {
       return (
         <DocumentMarkdownRenderer 
-          isLoading={false}
+          isLoading={true}
           errorMessage={null}
           onRefresh={manualRefetch}
           processingStatus={status}
@@ -1051,7 +1048,7 @@ export default function JobShow() {
             <Box style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               <Box>
                 <Text c="dimmed" mb="xs" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                  Duration
+                  Processing Time
                 </Text>
                 <Text>{formatDuration(record?.totalDuration)}</Text>
               </Box>
@@ -1077,14 +1074,14 @@ export default function JobShow() {
             
             <Box style={{ marginTop: '2rem' }}>
               <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Logic steps / events
+                Logic
               </Text>
-              <Box style={{ position: 'relative' }}>
+              <Box style={{ position: 'relative', paddingTop: '16px', paddingBottom: '16px' }}>
                 <Box style={{ 
                   position: 'absolute', 
                   left: '24px', 
-                  top: '24px', 
-                  bottom: record?.steps && record.steps.length > 0 ? '24px' : '0', 
+                  top: '12px', 
+                  bottom: '12px', 
                   width: '1px', 
                   backgroundColor: '#2B2B2B' 
                 }} />
@@ -1117,7 +1114,7 @@ export default function JobShow() {
                         <Box style={{ 
                           position: 'absolute',
                           left: '-24px',
-                          top: '50%',
+                          top: '12px',
                           transform: 'translate(-50%, -50%)',
                           width: '8px',
                           height: '8px',
@@ -1126,18 +1123,7 @@ export default function JobShow() {
                           border: '1px solid #2B2B2B',
                           zIndex: 2
                         }} />
-                        {!isLastStep && (
-                          <Box style={{ 
-                            position: 'absolute',
-                            left: '-24px',
-                            top: 'calc(50% + 4px)',
-                            height: '48px',
-                            width: '1px',
-                            backgroundColor: '#2B2B2B',
-                            transform: 'translateX(-50%)',
-                            zIndex: 1
-                          }} />
-                        )}
+                        
                         <Flex justify="space-between" align="center">
                           <Text 
                             style={{ 
@@ -1209,7 +1195,7 @@ export default function JobShow() {
                       <Box style={{ 
                         position: 'absolute',
                         left: '-48px',
-                        top: '50%',
+                        top: '12px',
                         transform: 'translateY(-50%)',
                         width: '8px',
                         height: '8px',

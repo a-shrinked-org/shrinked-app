@@ -299,9 +299,8 @@ function DocumentMarkdocRenderer({
     if (data?.conclusion) {
       let cleanConclusion = data.conclusion;
       // Remove "## Conclusion" if it's at the start of the string
-      if (cleanConclusion.startsWith('## Conclusion')) {
-        cleanConclusion = cleanConclusion.substring('## Conclusion'.length).trim();
-      }
+      // Remove any existing '## Conclusion' heading, case-insensitive, with optional spaces
+      cleanConclusion = cleanConclusion.replace(/^\s*##\s*Conclusion\s*/i, '').trim();
       md += `## Conclusion\n${cleanConclusion}\n\n`;
     }
     
