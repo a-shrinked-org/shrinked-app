@@ -679,6 +679,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 dropdown: {
                   backgroundColor: "#000000",
                   border: "1px solid #2b2b2b",
+                  width: "auto", // Allow dropdown to expand
+                  minWidth: "max-content", // Ensure it's at least as wide as its content
                 },
                 option: {
                   color: "#ffffff",

@@ -70,10 +70,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
         let color = '#1a1a1a'; // Default background color for inactive dots
         let opacity = 0.2;
         
-        if (isActiveDot) {
-          const baseIntensity = intensity;
-          
-          if (currentHasFiles) { // Use the passed parameter
+        if (currentHasFiles) { // If files are present, use colored logic for active dots
+          if (isActiveDot) {
+            const baseIntensity = intensity;
             // Color zones based on frequency ranges (for active dots)
             if (col < COLS * 0.33) {
               color = '#3b82f6'; // Blue
@@ -86,14 +85,20 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
               opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
             }
           } else {
+            // Inactive dots when files are present (subtle grey)
+            color = '#404040';
+            opacity = 0.1;
+          }
+        } else { // If no files are present, all dots are shades of grey
+          if (isActiveDot) {
             // Active dots, but no files, so grey shades
             color = '#404040'; // A slightly darker grey for active dots
-            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7); // Still vary opacity based on intensity
+            opacity = Math.min(0.9, 0.3 + intensity * 0.7); // Vary opacity based on intensity
+          } else {
+            // Inactive dots when no files are present (very subtle grey)
+            color = '#404040';
+            opacity = 0.05;
           }
-        } else {
-          // Inactive dots always grey
-          color = '#404040';
-          opacity = 0.1; // Make inactive dots very subtle
         }
         
         dots.push(
