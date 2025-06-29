@@ -650,8 +650,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               rightSection={logicDropdownOpened ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               comboboxProps={{
                 withinPortal: true,
-                onDropdownOpen: toggleLogicDropdown,
-                onDropdownClose: toggleLogicDropdown,
               }}
               styles={{
                 input: {
