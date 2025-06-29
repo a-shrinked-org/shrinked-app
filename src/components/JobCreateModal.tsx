@@ -514,7 +514,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           <Group align="center" gap="xs">
             {isEditingJobName ? (
               <TextInput
-                value={watch("jobName")}
+                value={watch("jobName") || ""}
                 onChange={(e) => setValue("jobName", e.target.value)}
                 onBlur={handleJobNameBlur}
                 onKeyDown={handleJobNameKeyDown}
@@ -548,7 +548,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 }}
                 onClick={handleJobNameClick}
               >
-                {watch("jobName")}
+                {watch("jobName") || "Loading..."}
               </Text>
             )}
             <Tooltip label="Click to edit job name">
@@ -614,17 +614,17 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         {/* Structured Prompt Block */}
         <Box
           mb="xl"
-          p="md"
+          p={isMobile ? "sm" : "md"}
           style={{
             backgroundColor: "#0A0A0A",
             borderRadius: "8px",
           }}
         >
           <Text
-            size="sm"
+            size={isMobile ? "xs" : "sm"}
             style={{
               fontFamily: GeistMono.style.fontFamily,
-              fontSize: "14px",
+              fontSize: isMobile ? "12px" : "14px",
               lineHeight: 1.4,
               color: "#757575",
             }}
@@ -639,7 +639,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             <Text component="span" fw={500} c="#ffffff" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px" }}>
               LOGIC NAME :{" "}
               <Select
-                value={watch("selectedLogic")}
+                value={watch("selectedLogic") || "structured-conversation-protocol"}
                 onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
                 data={logicOptions}
                 variant="unstyled"
@@ -651,7 +651,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     border: "none",
                     color: "#ffffff",
                     fontFamily: GeistMono.style.fontFamily,
-                    fontSize: "14px",
+                    fontSize: isMobile ? "12px" : "14px",
                     fontWeight: 500,
                     padding: "0",
                     minHeight: "auto",
@@ -664,7 +664,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                   },
                   option: {
                     color: "#ffffff",
-                    fontSize: "14px",
+                    fontSize: isMobile ? "12px" : "14px",
                     fontFamily: GeistMono.style.fontFamily,
                     "&[data-selected]": {
                       backgroundColor: "#202020",
@@ -689,7 +689,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
         {/* Conversation Data Visualization */}
         <Box mb="xl">
-          <ConversationVisualizer files={watch("files")} isActive={true} />
+          <ConversationVisualizer files={watch("files") || []} isActive={true} />
         </Box>
 
         <form onSubmit={onSubmit}>
@@ -718,7 +718,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 const hasUrl = watch(`files.${index}.url`)?.trim() !== "";
                 const isLoading = watch(`files.${index}.isLoading`);
                 const progress = watch(`files.${index}.progress`) || 0;
-                const fileType = watch(`files.${index}.type`);
+                const fileType = watch(`files.${index}.type`) || "link";
 
                 return (
                   <Box
@@ -736,7 +736,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     {/* Main content area */}
                     <Box
                       style={{
-                        padding: fileType === 'link' ? "10px 10px 40px 20px" : "0px",
+                        padding: fileType === 'link' ? (isMobile ? "10px 10px 30px 15px" : "10px 10px 40px 20px") : (isMobile ? "10px" : "15px"),
                         flexGrow: 1,
                         position: "relative",
                       }}
@@ -746,8 +746,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                         <Box
                           style={{
                             position: "absolute",
-                            top: "12px",
-                            right: "12px",
+                            top: isMobile ? "8px" : "12px",
+                            right: isMobile ? "8px" : "12px",
                             zIndex: 10,
                           }}
                         >
@@ -801,7 +801,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                                 border: "none",
                                 color: "#ffffff",
                                 fontFamily: GeistMono.style.fontFamily,
-                                fontSize: "14px",
+                                fontSize: isMobile ? "12px" : "14px",
                                 padding: "0",
                                 "&::placeholder": {
                                   color: "#666",
@@ -854,7 +854,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               />
                             </div>
                           ) : (
-                            <Group style={{ padding: "8px 0" }} wrap="nowrap">
+                            <Group style={{ padding: isMobile ? "4px 0" : "8px 0" }} wrap="nowrap">
                               <FileText size={16} />
                               <Box style={{ flex: 1, overflow: "hidden" }}>
                                 <Text size="sm" truncate>
@@ -900,56 +900,84 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       />
                     )}
 
-                    transition: "all 0.2s ease",
-                                    border: "none",
-                                    
-                                    // Hover state
-                                    "&:hover": {
-                                      backgroundColor: "#1c1c1c !important",
-                                      color: "#bbbbbb !important",
-                                    },
-                    
-                                    // Active state for Mantine Tabs
-                                    "&[data-active]": {
-                                      color: "#ffffff !important",
-                                      backgroundColor: "#202020 !important",
-                                    },
-                                    
-                                    // Disabled state
-                                    "&:disabled": {
-                                      color: "#555555",
-                                      opacity: 0.5,
-                                    },
-                                  },
-                                  tabLabel: {
-                                    textTransform: "none",
-                                  },
-                                }}
-                              >
-                                <Tabs.List>
-                                  <Tabs.Tab value="link">Url</Tabs.Tab>
-                                  <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                                  <Tabs.Tab value="emails" disabled>
-                                    Emails
-                                  </Tabs.Tab>
-                                </Tabs.List>
-                              </Tabs>
-                          
-                              <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
-                                <Info
-                                  size={16}
-                                  style={{ color: "#a1a1a1", cursor: "help" }}
-                                />
-                              </Tooltip>
-                            </Group>
-                          </Box>
-                        </Box>
-                      );
-                    })}
+                    {/* Bottom bar with Tabs and Info */}
+                    <Box
+                      style={{
+                        padding: isMobile ? "6px 10px" : "8px 12px",
+                        backgroundColor: "#000000",
+                      }}
+                    >
+                      <Group justify="space-between" align="center">
+                        <Tabs
+                          value={fileType}
+                          onTabChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          variant="pills"
+                          styles={{
+                            list: {
+                              borderRadius: "6px",
+                              padding: "2px",
+                              gap: "2px",
+                              backgroundColor: "#0A0A0A",
+                              border: "none",
+                            },
+                            tab: {
+                              padding: isMobile ? "3px 8px" : "4px 12px",
+                              color: "#888888",
+                              fontSize: isMobile ? "10px" : "11px",
+                              fontFamily: GeistMono.style.fontFamily,
+                              textTransform: "none",
+                              minHeight: "auto",
+                              borderRadius: "4px",
+                              transition: "all 0.2s ease",
+                              border: "none",
+                              
+                              // Active state for Mantine Tabs
+                              "&[data-active]": {
+                                color: "#ffffff !important",
+                                backgroundColor: "#202020 !important",
+                              },
+                              
+                              // Hover state
+                              "&:hover": {
+                                backgroundColor: "#1c1c1c !important",
+                                color: "#bbbbbb !important",
+                              },
+                              
+                              // Disabled state
+                              "&:disabled": {
+                                color: "#555555",
+                                opacity: 0.5,
+                              },
+                            },
+                            tabLabel: {
+                              textTransform: "none",
+                            },
+                          }}
+                        >
+                          <Tabs.List>
+                            <Tabs.Tab value="link">Url</Tabs.Tab>
+                            <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
+                            <Tabs.Tab value="emails" disabled>
+                              Emails
+                            </Tabs.Tab>
+                          </Tabs.List>
+                        </Tabs>
+
+                        <Tooltip label="Supported formats: MP3, MP4, WAV, YouTube links">
+                          <Info
+                            size={isMobile ? 14 : 16}
+                            style={{ color: "#a1a1a1", cursor: "help" }}
+                          />
+                        </Tooltip>
+                      </Group>
+                    </Box>
+                  </Box>
+                );
+              })}
 
               {/* Add more button */}
               <Button
-                rightSection={<Plus size={20} />}
+                rightSection={<Plus size={isMobile ? 16 : 20} />}
                 fullWidth
                 onClick={handleAddFile}
                 styles={{
@@ -957,11 +985,11 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     backgroundColor: "#0A0A0A",
                     border: "1px solid #2B2B2B",
                     color: "#a1a1a1",
-                    height: "48px",
+                    height: isMobile ? "40px" : "48px",
                     fontFamily: GeistMono.style.fontFamily,
-                    fontSize: "12px",
+                    fontSize: isMobile ? "10px" : "12px",
                     textTransform: "uppercase",
-                    padding: "0 16px",
+                    padding: isMobile ? "0 12px" : "0 16px",
                     "&:hover": {
                       backgroundColor: "#1c1c1c",
                       borderColor: "#333333",
