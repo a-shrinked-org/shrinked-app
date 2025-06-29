@@ -877,61 +877,51 @@ export default function JobShow() {
       </Flex>
 
       {isDocLoading ? renderSkeletonLoader() : (
-        <Flex style={{ flex: 1, overflow: 'hidden' }}>
+      <Flex style={{ flex: 1, overflow: 'hidden' }}>
+        <Box style={{ 
+          flex: 1, 
+          overflowY: 'auto', 
+          overflowX: 'hidden',
+          backgroundColor: '#0a0a0a'
+        }}>
           <Box style={{ 
-            flex: 1, 
-            overflowY: 'auto', 
-            overflowX: 'hidden',
-            backgroundColor: '#0a0a0a'
+            maxWidth: '750px', 
+            margin: '0 auto', 
+            padding: '24px' 
           }}>
-            <Box style={{ 
-              maxWidth: '750px', 
-              margin: '0 auto', 
-              padding: '24px' 
-            }}>
-              <Box mb="lg">
-                <Badge 
-                  size="sm"
-                  variant="filled"
-                  styles={{
-                    root: {
-                      backgroundColor: '#2B2B2B',
-                      color: '#A1A1A1',
-                      textTransform: 'uppercase',
-                      fontSize: '11px',
-                      fontFamily: GeistMono.style.fontFamily,
-                      marginBottom: '8px',
-                    }
-                  }}
-                >
-                  {record?.isPublic ? 'Public' : 'Private'}
-                </Badge>
-                <Text 
-                  size="28px" 
-                  fw={600} 
-                  style={{ 
-                    fontFamily: 'Geist, sans-serif',
-                    lineHeight: 1.2
-                  }}
-                >
-                  {processingDoc?.title || record?.jobName || 'Untitled Job'}
-                </Text>
-                <Text c="dimmed" mt="xs" size="sm">
-                  {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
-                   record?.link ? getFilenameFromLink(record.link) : 
-                   'No source file'}
-                </Text>
-                {uploadFileMode && (
-                  <Text c="dimmed" size="xs">
-                    Mode: {uploadFileMode}
-                  </Text>
-                )}
-                {uploadFileLink && (
-                  <Text c="dimmed" size="xs">
-                    Link: <a href={uploadFileLink} target="_blank" rel="noopener noreferrer" style={{ color: '#F5A623', textDecoration: 'underline' }}>{uploadFileLink}</a>
-                  </Text>
-                )}
-              </Box>
+            <Box mb="lg">
+              <Badge 
+                size="sm"
+                variant="filled"
+                styles={{
+                  root: {
+                    backgroundColor: '#2B2B2B',
+                    color: '#A1A1A1',
+                    textTransform: 'uppercase',
+                    fontSize: '11px',
+                    fontFamily: GeistMono.style.fontFamily,
+                    marginBottom: '8px',
+                  }
+                }}
+              >
+                {record?.isPublic ? 'Public' : 'Private'}
+              </Badge>
+              <Text 
+                size="28px" 
+                fw={600} 
+                style={{ 
+                  fontFamily: 'Geist, sans-serif',
+                  lineHeight: 1.2
+                }}
+              >
+                {processingDoc?.title || record?.jobName || 'Untitled Job'}
+              </Text>
+              <Text c="dimmed" mt="xs" size="sm">
+                {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
+                 record?.link ? getFilenameFromLink(record.link) : 
+                 'No source file'}
+              </Text>
+            </Box>
 
               <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
                 <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
@@ -1096,86 +1086,93 @@ export default function JobShow() {
                   return (
                     <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
                       <Box style={{ 
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B',
+                      borderRadius: '4px',
+                      padding: '12px',
+                      marginLeft: '48px',
+                      position: 'relative'
+                      }}>
+                      <Box style={{ 
+                        position: 'absolute',
+                        left: '-24px',
+                        top: '50%',
+                        width: '24px',
+                        height: '1px',
+                        backgroundColor: '#2B2B2B'
+                      }} />
+                      <Box style={{ 
+                        position: 'absolute',
+                        left: '-24px',
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
                         backgroundColor: '#000000',
                         border: '1px solid #2B2B2B',
-                        borderRadius: '4px',
-                        padding: '12px',
-                        marginLeft: '48px',
-                        position: 'relative'
-                      }}>
+                        zIndex: 2
+                      }} />
+                      {!isLastStep && (
                         <Box style={{ 
-                          position: 'absolute',
-                          left: '-24px',
-                          top: '50%',
-                          width: '24px',
-                          height: '1px',
-                          backgroundColor: '#2B2B2B'
+                        position: 'absolute',
+                        left: '-24px',
+                        top: 'calc(50% + 4px)',
+                        height: '48px',
+                        width: '1px',
+                        backgroundColor: '#2B2B2B',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1
                         }} />
-                        <Box style={{ 
-                          position: 'absolute',
-                          left: '-24px',
-                          top: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: '#000000',
-                          border: '1px solid #2B2B2B',
-                          zIndex: 2
-                        }} />
-                        
-                        <Flex justify="space-between" align="center">
+                      )}
+                      <Flex justify="space-between" align="center">
+                        <Text 
+                        style={{ 
+                          fontFamily: GeistMono.style.fontFamily, 
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                        >
+                        {formatText(step.name)}
+                        </Text>
+                        <Group gap="sm">
+                        {step.totalDuration && (
                           <Text 
-                            style={{ 
-                              fontFamily: GeistMono.style.fontFamily, 
-                              fontSize: '14px',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}
+                          style={{ 
+                            color: '#2B2B2B', 
+                            fontSize: '12px',
+                            fontFamily: GeistMono.style.fontFamily,
+                          }}
                           >
-                            {formatText(step.name)}
+                          {formatDuration(step.totalDuration)}
                           </Text>
-                          <Group gap="sm">
-                            <Text 
-                              style={{ 
-                                color: '#2B2B2B', 
-                                fontSize: '12px',
-                                fontFamily: GeistMono.style.fontFamily,
-                              }}
-                            >
-                              {formatDuration(displayDuration)}
-                            </Text>
-                            <Box style={{ 
-                              width: '8px', 
-                              height: '8px', 
-                              borderRadius: '50%',
-                              backgroundColor: isCompleted ? '#3DC28B' : 
-                                              isError ? '#FF4F56' : 
-                                              isProcessingStep ? '#FFFFFF' : '#F5A623',
-                              animation: isProcessingStep ? 'blink 1s infinite' : 'none',
-                            }} />
-                          </Group>
-                        </Flex>
-                        {isCollapsible && (
-                          <Collapse in={true}>
-                            <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
-                              <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
-                                {JSON.stringify(step.data, (key, value) => {
-                                  if (key === 'link' || key === 'mode') {
-                                    return undefined;
-                                  }
-                                  return value;
-                                }, 2)}
-                              </Text>
-                            </Box>
-                          </Collapse>
                         )}
+                        <Box style={{ 
+                          width: '8px', 
+                          height: '8px', 
+                          borderRadius: '50%',
+                          backgroundColor: isCompleted ? '#3DC28B' : 
+                                  isError ? '#FF4F56' : 
+                                  '#F5A623'
+                        }} />
+                        </Group>
+                      </Flex>
+                      {isCollapsible && (
+                        <Collapse in={true}>
+                        <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
+                          <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
+                          {JSON.stringify(step.data, null, 2)}
+                          </Text>
+                        </Box>
+                        </Collapse>
+                      )}
                       </Box>
                     </Box>
-                  );
-                })}
-                {(!record?.steps || record.steps.length === 0) && (
-                  <Box style={{ marginBottom: '1rem', position: 'relative' }}>
+                    );
+                  })}
+                  {(!record?.steps || record.steps.length === 0) && (
+                    <Box style={{ marginBottom: '1rem', position: 'relative' }}>
                     <Box style={{ 
                       backgroundColor: '#000000',
                       border: '1px solid #2B2B2B',
@@ -1185,43 +1182,43 @@ export default function JobShow() {
                       position: 'relative'
                     }}>
                       <Box style={{ 
-                        position: 'absolute',
-                        left: '-48px',
-                        top: '50%',
-                        width: '48px',
-                        height: '1px',
-                        backgroundColor: '#2B2B2B'
+                      position: 'absolute',
+                      left: '-48px',
+                      top: '50%',
+                      width: '48px',
+                      height: '1px',
+                      backgroundColor: '#2B2B2B'
                       }} />
                       <Box style={{ 
-                        position: 'absolute',
-                        left: '-48px',
-                        top: '12px',
-                        transform: 'translateY(-50%)',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: '#000000',
-                        border: '1px solid #2B2B2B'
+                      position: 'absolute',
+                      left: '-48px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B'
                       }} />
                       <Box style={{ 
-                        position: 'absolute',
-                        left: '-1px',
-                        top: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: '#000000',
-                        border: '1px solid #2B2B2B'
+                      position: 'absolute',
+                      left: '-1px',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#000000',
+                      border: '1px solid #2B2B2B'
                       }} />
                       <Text 
-                        style={{ 
-                          fontFamily: GeistMono.style.fontFamily, 
-                          fontSize: '14px',
-                          color: '#A1A1A1',
-                        }}
+                      style={{ 
+                        fontFamily: GeistMono.style.fontFamily, 
+                        fontSize: '14px',
+                        color: '#A1A1A1',
+                      }}
                       >
-                        No steps available
+                      No steps available
                       </Text>
                     </Box>
                   </Box>
