@@ -136,6 +136,8 @@ export default function JobShow() {
         if (resultId) {
           console.log("Found resultId:", resultId);
           setProcessingDocId(resultId);
+          getProcessingDocument();
+          fetchMarkdownContent();
         } else {
           console.log("No resultId found for job:", data.data?.jobName);
           // Do not set error message here, let renderPreviewContent handle it based on status
@@ -317,14 +319,7 @@ export default function JobShow() {
 
   const isDocLoading = isLoading || isLoadingDoc;
 
-  useEffect(() => {
-    if (processingDocId) {
-      setDocumentId(processingDocId);
-      // Also trigger fetching of processing document and markdown content
-      getProcessingDocument();
-      fetchMarkdownContent();
-    }
-  }, [processingDocId, getProcessingDocument, fetchMarkdownContent]);
+  
 
   const handleDownloadPDF = useCallback(async () => {
     if (!documentId) return;
@@ -944,16 +939,6 @@ export default function JobShow() {
                    record?.link ? getFilenameFromLink(record.link) : 
                    'No source file'}
                 </Text>
-                {uploadFileMode && (
-                  <Text c="dimmed" size="xs">
-                    Mode: {uploadFileMode}
-                  </Text>
-                )}
-                {uploadFileLink && (
-                  <Text c="dimmed" size="xs">
-                    Link: <a href={uploadFileLink} target="_blank" rel="noopener noreferrer" style={{ color: '#F5A623', textDecoration: 'underline' }}>{uploadFileLink}</a>
-                  </Text>
-                )}
               </Box>
 
               <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
