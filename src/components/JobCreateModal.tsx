@@ -621,6 +621,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           }}
         >
           <Text
+            component="span"
             size={isMobile ? "xs" : "sm"}
             style={{
               fontFamily: GeistMono.style.fontFamily,
@@ -649,6 +650,15 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 withinPortal: true,
               }}
               styles={{
+                root: {
+                  display: "inline-block",
+                  verticalAlign: "middle",
+                },
+                wrapper: {
+                  display: "inline-block",
+                  verticalAlign: "middle",
+                  margin: "0 4px",
+                },
                 input: {
                   backgroundColor: "#202020",
                   border: "none",
@@ -659,9 +669,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                   padding: "2px 8px",
                   borderRadius: "4px",
                   minHeight: "auto",
-                  display: "inline-block",
-                  width: "auto",
-                  minWidth: "80px",
+                  height: "auto", // Ensure height adjusts to content
+                  lineHeight: 1, // Adjust line height to prevent extra space
                 },
                 section: {
                   color: "#ffffff",
