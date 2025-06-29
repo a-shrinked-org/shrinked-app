@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 // List of files we want to proxy
 const FFMPEG_FILES = [
   'ffmpeg-core.js',

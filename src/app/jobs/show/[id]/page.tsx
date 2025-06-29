@@ -41,6 +41,24 @@ interface Identity {
   id?: string;
 }
 
+interface JobStep {
+  name: string;
+  status: string;
+  startTime?: string;
+  endTime?: string;
+  duration?: number;
+  totalDuration?: number;
+  data?: {
+    resultId?: string;
+    link?: string;
+    output?: {
+      link?: string;
+    };
+    [key: string]: any;
+  };
+  _id?: string;
+}
+
 interface Job {
   _id: string;
   jobName: string;
@@ -51,23 +69,7 @@ interface Job {
   link: string;
   status: string;
   createdAt: string;
-  steps?: Array<{
-    name: string;
-    status: string;
-    startTime?: string;
-    endTime?: string;
-    duration?: number;
-    totalDuration?: number;
-    data?: {
-      resultId?: string;
-      link?: string;
-      output?: {
-        link?: string;
-      };
-      [key: string]: any;
-    };
-    _id?: string;
-  }>;
+  steps?: JobStep[];
   endTime?: string;
   startTime?: string;
   totalDuration?: number;
@@ -114,29 +116,12 @@ export default function JobShow() {
   
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
 
-  const getProcessingStatus = useCallback(() => {
-    const processingStep = queryResult.data?.data?.steps?.find(step => 
-      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
-    );
-    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
-  }, [queryResult.data, processingDoc]);
-
-  const pollingInterval = useMemo(() => {
-    const status = getProcessingStatus();
-    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
-      return 3000; // Poll every 3 seconds if job is processing
-    }
-    return false; // Stop polling otherwise
-  }, [getProcessingStatus]);
-
-  // Move queryResult up
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
     queryOptions: {
       enabled: !!jobId && !!identity?.token,
       staleTime: 30000,
-      refetchInterval: pollingInterval, // Apply conditional polling
       onSuccess: (data) => {
         console.log("Show query success:", data);
         const resultId = extractResultId(data.data);
@@ -147,7 +132,7 @@ export default function JobShow() {
           console.log("No resultId found for job:", data.data?.jobName);
           // Do not set error message here, let renderPreviewContent handle it based on status
         }
-        const uploadStep = data.data?.steps?.find(step => 
+        const uploadStep = data.data?.steps?.find((step: JobStep) => 
           step.name === "UPLOAD_FILE" || 
           step.name === "FILE_UPLOAD" || 
           step.name === "CONVERT_FILE" ||
@@ -171,8 +156,9 @@ export default function JobShow() {
       headers: { 'Authorization': `Bearer ${getAccessToken() || identity?.token || ''}` }
     }
   });
-  
-  // Extract these variables early
+
+  const { refetch } = queryResult;
+
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
   
@@ -185,6 +171,25 @@ export default function JobShow() {
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [liveDuration, setLiveDuration] = useState<number>(0);
+  
+  const getProcessingStatusDefinition = (): string | undefined => {
+    const processingStep = queryResult.data?.data?.steps?.find((step: JobStep) => 
+      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
+    );
+    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
+  };
+
+  const getProcessingStatus: () => string | undefined = useCallback(getProcessingStatusDefinition, [queryResult.data, processingDoc]);
+
+  useEffect(() => {
+    const status = getProcessingStatus();
+    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
+      const interval = setInterval(() => {
+        refetch();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [getProcessingStatus, refetch]);
   
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
@@ -366,13 +371,6 @@ export default function JobShow() {
       fetchMarkdownContent();
     }
   }, [documentId, queryResult.data, processingDoc, markdownContent, fetchMarkdownContent]);
-
-  const getProcessingStatus = () => {
-    const processingStep = queryResult.data?.data?.steps?.find(step => 
-      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
-    );
-    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
-  };
   
   const handleShareDocument = useCallback(async () => {
     if (!processingDocId) {
@@ -1084,6 +1082,10 @@ export default function JobShow() {
                 {record?.steps?.map((step, index) => {
                   const isProcessingStep = step.status?.toLowerCase() === 'processing' || step.status?.toLowerCase() === 'in_progress' || step.status?.toLowerCase() === 'pending';
                   const displayDuration = isProcessingStep ? liveDuration : step.totalDuration;
+                  const isLastStep = index === (record?.steps?.length || 0) - 1;
+                  const isCompleted = step.status?.toLowerCase() === 'completed';
+                  const isError = step.status?.toLowerCase() === 'error' || step.status?.toLowerCase() === 'failed';
+                  const isCollapsible = step.data && Object.keys(step.data).length > 0;
 
                   return (
                     <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>

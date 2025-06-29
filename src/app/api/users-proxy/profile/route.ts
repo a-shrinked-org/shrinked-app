@@ -1,6 +1,8 @@
 // app/api/users-proxy/profile/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 const IS_DEV = process.env.NODE_ENV === 'development';
 
