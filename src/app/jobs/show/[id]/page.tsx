@@ -288,7 +288,13 @@ export default function JobShow() {
     if (!documentId) return;
     try {
       console.log('Attempting to download PDF with ID:', documentId);
-      const response = await fetch(`/api/pdf/${documentId}/pdf?includeReferences=true`);
+      const token = await ensureValidToken();
+      if (!token) throw new Error('Authentication failed - unable to get valid token');
+
+      const response = await fetch(`/api/pdf/${documentId}/pdf?includeReferences=true`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
       if (!response.ok) throw new Error(`PDF download failed with status: ${response.status}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -304,7 +310,7 @@ export default function JobShow() {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [documentId]);
+  }, [documentId, ensureValidToken]);
 
   useEffect(() => {
     if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId) && !isFetchingProcessingDoc.current) {
