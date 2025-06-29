@@ -113,6 +113,12 @@ export default function JobShow() {
   const jobId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   
   const { data: identity, refetch: identityRefetch } = useGetIdentity<Identity>();
+
+  useEffect(() => {
+    if (!identity) {
+      identityRefetch();
+    }
+  }, [identity, identityRefetch]);
   
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
 
@@ -122,6 +128,8 @@ export default function JobShow() {
     queryOptions: {
       enabled: !!jobId && !!identity?.token,
       staleTime: 30000,
+      retry: 1, // Retry once on failure
+      retryDelay: 1000, // Wait 1 second before retrying
       onSuccess: (data) => {
         console.log("Show query success:", data);
         const resultId = extractResultId(data.data);
@@ -139,11 +147,18 @@ export default function JobShow() {
           step.name === "AUDIO_TRANSCRIPTION"
         );
         const foundLink = uploadStep?.data?.output?.link || uploadStep?.data?.link || data.data?.link;
+        const foundMode = uploadStep?.data?.mode;
         if (foundLink) {
           console.log("Found upload file link:", foundLink);
           setUploadFileLink(foundLink);
         } else {
           console.log("No upload file link found");
+        }
+        if (foundMode) {
+          console.log("Found upload file mode:", foundMode);
+          setUploadFileMode(foundMode);
+        } else {
+          console.log("No upload file mode found");
         }
       },
       onError: (error) => {
@@ -168,49 +183,11 @@ export default function JobShow() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingDoc, setProcessingDoc] = useState<ProcessingDocument | null>(null);
   const [uploadFileLink, setUploadFileLink] = useState<string | null>(null);
+  const [uploadFileMode, setUploadFileMode] = useState<string | null>(null);
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [liveDuration, setLiveDuration] = useState<number>(0);
   
-  const getProcessingStatusDefinition = (): string | undefined => {
-    const processingStep = queryResult.data?.data?.steps?.find((step: JobStep) => 
-      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
-    );
-    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
-  };
-
-  const getProcessingStatus: () => string | undefined = useCallback(getProcessingStatusDefinition, [queryResult.data, processingDoc]);
-
-  useEffect(() => {
-    const status = getProcessingStatus();
-    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
-      const interval = setInterval(() => {
-        refetch();
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [getProcessingStatus, refetch]);
-  
-  const isLoadingMarkdown = useRef(false);
-  const isFetchingProcessingDoc = useRef(false);
-  
-  const [shareDialogOpened, { open: openShareDialog, close: closeShareDialog }] = useDisclosure(false);
-  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
-  const [isSharing, setIsSharing] = useState(false);
-
-  // Calculate combinedData using useMemo to avoid dependency issues
-  const combinedData = React.useMemo(() => {
-    return processingDoc?.output || record?.output || {};
-  }, [processingDoc, record]);
-
-  const isDocLoading = isLoading || isLoadingDoc;
-
-  useEffect(() => {
-    if (processingDocId) {
-      setDocumentId(processingDocId);
-    }
-  }, [processingDocId]);
-
   const extractResultId = useCallback((jobData: Job | null) => {
     if (!jobData) return null;
     const processingStep = jobData.steps?.find(step => 
@@ -306,6 +283,48 @@ export default function JobShow() {
       isFetchingProcessingDoc.current = false;
     }
   }, [processingDocId]);
+
+  const getProcessingStatusDefinition = (): string | undefined => {
+    const processingStep = queryResult.data?.data?.steps?.find((step: JobStep) => 
+      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
+    );
+    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
+  };
+
+  const getProcessingStatus: () => string | undefined = useCallback(getProcessingStatusDefinition, [queryResult.data, processingDoc]);
+
+  useEffect(() => {
+    const status = getProcessingStatus();
+    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
+      const interval = setInterval(() => {
+        refetch();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [getProcessingStatus, refetch]);
+  
+  const isLoadingMarkdown = useRef(false);
+  const isFetchingProcessingDoc = useRef(false);
+  
+  const [shareDialogOpened, { open: openShareDialog, close: closeShareDialog }] = useDisclosure(false);
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
+  // Calculate combinedData using useMemo to avoid dependency issues
+  const combinedData = React.useMemo(() => {
+    return processingDoc?.output || record?.output || {};
+  }, [processingDoc, record]);
+
+  const isDocLoading = isLoading || isLoadingDoc;
+
+  useEffect(() => {
+    if (processingDocId) {
+      setDocumentId(processingDocId);
+      // Also trigger fetching of processing document and markdown content
+      getProcessingDocument();
+      fetchMarkdownContent();
+    }
+  }, [processingDocId, getProcessingDocument, fetchMarkdownContent]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!documentId) return;
@@ -925,6 +944,16 @@ export default function JobShow() {
                    record?.link ? getFilenameFromLink(record.link) : 
                    'No source file'}
                 </Text>
+                {uploadFileMode && (
+                  <Text c="dimmed" size="xs">
+                    Mode: {uploadFileMode}
+                  </Text>
+                )}
+                {uploadFileLink && (
+                  <Text c="dimmed" size="xs">
+                    Link: <a href={uploadFileLink} target="_blank" rel="noopener noreferrer" style={{ color: '#F5A623', textDecoration: 'underline' }}>{uploadFileLink}</a>
+                  </Text>
+                )}
               </Box>
 
               <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
@@ -1156,7 +1185,7 @@ export default function JobShow() {
                               borderRadius: '50%',
                               backgroundColor: isCompleted ? '#3DC28B' : 
                                               isError ? '#FF4F56' : 
-                                              '#F5A623',
+                                              isProcessingStep ? '#FFFFFF' : '#F5A623',
                               animation: isProcessingStep ? 'blink 1s infinite' : 'none',
                             }} />
                           </Group>
@@ -1165,7 +1194,12 @@ export default function JobShow() {
                           <Collapse in={true}>
                             <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
                               <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
-                                {JSON.stringify(step.data, null, 2)}
+                                {JSON.stringify(step.data, (key, value) => {
+                                  if (key === 'link' || key === 'mode') {
+                                    return undefined;
+                                  }
+                                  return value;
+                                }, 2)}
                               </Text>
                             </Box>
                           </Collapse>
