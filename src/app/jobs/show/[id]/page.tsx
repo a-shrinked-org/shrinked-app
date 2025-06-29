@@ -291,7 +291,8 @@ export default function JobShow() {
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
 
-      const response = await fetch(`/api/pdf/${documentId}/pdf?includeReferences=true`, {
+      const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${documentId}`, {
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
@@ -310,7 +311,7 @@ export default function JobShow() {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [documentId, ensureValidToken]);
+  }, [documentId, ensureValidToken, fetchWithAuth]);
 
   useEffect(() => {
     if (processingDocId && !isLoadingDoc && (!processingDoc || processingDoc._id !== processingDocId) && !isFetchingProcessingDoc.current) {
@@ -1032,7 +1033,7 @@ export default function JobShow() {
             
             <Box style={{ marginTop: '2rem' }}>
               <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Logic steps / events
+                Logic
               </Text>
               <Box style={{ position: 'relative' }}>
                 <Box style={{ 
