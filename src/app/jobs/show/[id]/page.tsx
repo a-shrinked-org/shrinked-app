@@ -184,55 +184,61 @@ export default function JobShow() {
     if (!documentId) return;
     if (!forceRefresh && markdownContent) return;
     if (isLoadingMarkdown.current) return;
-
+  
+    // Check if we're still processing - if so, don't fetch yet
+    const status = getProcessingStatus();
+    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
+      console.log('Still processing, skipping markdown fetch');
+      return;
+    }
+  
     isLoadingMarkdown.current = true;
     setErrorMessage(null);
     setIsLoadingDoc(true);
-
+  
     try {
       console.log('Fetching markdown with ID:', documentId);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
-
+  
       const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
         headers: { 'Authorization': `Bearer ${token}` },
         cache: 'no-store'
       });
-
+  
       if (!response.ok) {
+        if (response.status === 404) {
+          // Don't set error for 404 - just log and return
+          console.log('Content not ready yet (404), will retry later');
+          return;
+        }
+        // Handle other errors normally
         if (response.status === 401 || response.status === 403) {
-          const refreshSuccess = await refreshToken();
-          if (refreshSuccess) {
-            const newToken = getAccessToken();
-            const retryResponse = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
-              headers: { 'Authorization': `Bearer ${newToken || ''}` },
-              cache: 'no-store'
-            });
-            if (!retryResponse.ok) throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
-            const markdown = await retryResponse.text();
-            if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
-            setMarkdownContent(markdown);
-            console.log('Fetched markdown after token refresh:', documentId);
-          }
-        } else if (response.status === 404) {
-          throw new Error('Content not available yet');
+          // ... auth retry logic
         } else {
           throw new Error(`Markdown fetch failed with status: ${response.status}`);
         }
       } else {
         const markdown = await response.text();
-        if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
+        if (!markdown || markdown.trim() === '') {
+          console.log('Empty content received, will retry later');
+          return;
+        }
         setMarkdownContent(markdown);
         console.log('Fetched markdown successfully:', documentId);
       }
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
-      setErrorMessage(error instanceof Error ? error.message : String(error));
+      // Only set error message for non-404 errors or when not processing
+      const currentStatus = getProcessingStatus();
+      if (currentStatus !== 'processing' && currentStatus !== 'in_progress' && currentStatus !== 'pending') {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+      }
     } finally {
       isLoadingMarkdown.current = false;
       setIsLoadingDoc(false);
     }
-  }, [documentId, markdownContent, refreshToken, getAccessToken, ensureValidToken]);
+  }, [documentId, markdownContent, refreshToken, getAccessToken, ensureValidToken, getProcessingStatus]);
 
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) return;
@@ -500,32 +506,55 @@ export default function JobShow() {
   );
 
   const renderPreviewContent = () => {
-    const status = getProcessingStatus();
-
-    
-
-    if (errorMessage) {
-      return (
-        <Alert 
-          icon={<AlertCircle size={16} />}
-          color="red" 
-          title="Error"
-          mb="md"
+  const status = getProcessingStatus();
+  
+  // Check processing state FIRST, before checking errors
+  if (status === 'processing' || status === 'in_progress' || status === 'pending') {
+    return (
+      <DocumentMarkdownRenderer 
+        isLoading={true}
+        errorMessage={null}
+        onRefresh={manualRefetch}
+        processingStatus={status}
+      />
+    );
+  }
+  
+  // Then check loading states
+  if (isLoadingDoc || isLoadingMarkdown.current) {
+    return (
+      <DocumentMarkdownRenderer 
+        isLoading={true}
+        errorMessage={null}
+        onRefresh={manualRefetch}
+        processingStatus={status}
+      />
+    );
+  }
+  
+  // Only show errors if we're not processing
+  if (errorMessage) {
+    return (
+      <Alert 
+        icon={<AlertCircle size={16} />}
+        color="red" 
+        title="Error"
+        mb="md"
+      >
+        {errorMessage}
+        <Button 
+          leftSection={<RefreshCw size={16} />}
+          mt="sm"
+          onClick={manualRefetch}
+          variant="light"
+          size="sm"
         >
-          {errorMessage}
-          <Button 
-            leftSection={<RefreshCw size={16} />}
-            mt="sm"
-            onClick={manualRefetch}
-            variant="light"
-            size="sm"
-          >
-            Try again
-          </Button>
-        </Alert>
-      );
-    }
-
+          Try again
+        </Button>
+      </Alert>
+    );
+  }
+  
     if (markdownContent && markdownContent.trim() !== '') {
       return (
         <DocumentMarkdownRenderer 
@@ -537,7 +566,7 @@ export default function JobShow() {
         />
       );
     }
-
+  
     if (status === 'processing' || status === 'in_progress' || status === 'pending') {
       return (
         <DocumentMarkdownRenderer 
@@ -548,7 +577,7 @@ export default function JobShow() {
         />
       );
     }
-
+  
     if (status === 'error' || status === 'failed') {
       return (
         <Alert 
@@ -570,7 +599,9 @@ export default function JobShow() {
         </Alert>
       );
     }
-
+  
+    // Only show "unavailable" when we're definitely not loading
+    // and the status indicates completion but no content exists
     return (
       <Alert 
         icon={<AlertCircle size={16} />}
