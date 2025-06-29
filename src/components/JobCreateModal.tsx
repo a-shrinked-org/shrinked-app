@@ -635,11 +635,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             <Text component="span" fw={700} c="#A1A1A1">
               Structure
             </Text>{" "}
-            conversation data from the attached sources following this logic{" "}
-            <Text component="span" fw={700} c="#A1A1A1">
-              Structure
-            </Text>{" "}
-            conversation data from the attached sources following this logic{" "}
+            conversation data from the attached sources following this logic template {" "}
             <Select
               value={watch("selectedLogic") || "structured-conversation-protocol"}
               onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
