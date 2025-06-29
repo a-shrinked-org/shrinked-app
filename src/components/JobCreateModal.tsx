@@ -512,7 +512,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           <Group align="center" gap="xs">
             {isEditingJobName ? (
               <TextInput
-                value={watch("jobName")}
+                value={watch("jobName") || ""}
                 onChange={(e) => setValue("jobName", e.target.value)}
                 onBlur={handleJobNameBlur}
                 onKeyDown={handleJobNameKeyDown}
@@ -546,7 +546,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 }}
                 onClick={handleJobNameClick}
               >
-                {watch("jobName")}
+                {watch("jobName") || "Loading..."}
               </Text>
             )}
             <Tooltip label="Click to edit job name">
@@ -636,7 +636,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             conversation data from the attached sources following this logic{" "}
             <Box component="span" style={{ position: "relative", display: "inline-block" }}>
               <Select
-                value={watch("selectedLogic")}
+                value={watch("selectedLogic") || "structured-conversation-protocol"}
                 onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
                 data={logicOptions.map((option, index) => ({
                   ...option,
@@ -685,6 +685,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     },
                   },
                 }}
+              />
             </Box>{" "}
             in{" "}
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
@@ -699,7 +700,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
         {/* Conversation Data Visualization */}
         <Box mb="xl">
-          <ConversationVisualizer files={watch("files")} isActive={true} />
+          <ConversationVisualizer files={watch("files") || []} isActive={true} />
         </Box>
 
         <form onSubmit={onSubmit}>
@@ -728,7 +729,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 const hasUrl = watch(`files.${index}.url`)?.trim() !== "";
                 const isLoading = watch(`files.${index}.isLoading`);
                 const progress = watch(`files.${index}.progress`) || 0;
-                const fileType = watch(`files.${index}.type`);
+                const fileType = watch(`files.${index}.type`) || "link";
 
                 return (
                   <Box
@@ -920,7 +921,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          onTabChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
                           variant="pills"
                           styles={{
                             list: {
