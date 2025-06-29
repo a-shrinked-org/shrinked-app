@@ -636,46 +636,58 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               Structure
             </Text>{" "}
             conversation data from the attached sources following this logic{" "}
-            <Text component="span" fw={500} c="#ffffff" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px" }}>
-              LOGIC NAME :{" "}
-              <Select
-                value={watch("selectedLogic") || "structured-conversation-protocol"}
-                onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
-                data={logicOptions}
-                variant="unstyled"
-                size="sm"
-                comboboxProps={{ withinPortal: true }}
-                styles={{
-                  input: {
-                    backgroundColor: "transparent",
-                    border: "none",
-                    color: "#ffffff",
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: isMobile ? "12px" : "14px",
-                    fontWeight: 500,
-                    padding: "0",
-                    minHeight: "auto",
-                    display: "inline",
-                    width: "auto",
-                  },
-                  dropdown: {
-                    backgroundColor: "#000000",
-                    border: "1px solid #2b2b2b",
-                  },
-                  option: {
-                    color: "#ffffff",
-                    fontSize: isMobile ? "12px" : "14px",
-                    fontFamily: GeistMono.style.fontFamily,
-                    "&[data-selected]": {
-                      backgroundColor: "#202020",
-                    },
-                    "&:hover": {
-                      backgroundColor: "#1c1c1c",
-                    },
-                  },
-                }}
-              />
+            <Text component="span" fw={700} c="#A1A1A1">
+              Structure
             </Text>{" "}
+            conversation data from the attached sources following this logic{" "}
+            <Select
+              value={watch("selectedLogic") || "structured-conversation-protocol"}
+              onChange={(value) => setValue("selectedLogic", value || "structured-conversation-protocol")}
+              data={logicOptions.map((option, index) => ({...option, disabled: index !== 0}))}
+              variant="unstyled"
+              size="sm"
+              rightSection={<ChevronDown size={12} />}
+              comboboxProps={{ withinPortal: true }}
+              styles={{
+                input: {
+                  backgroundColor: "#202020",
+                  border: "none",
+                  color: "#ffffff",
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: isMobile ? "12px" : "14px",
+                  fontWeight: 500,
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                  minHeight: "auto",
+                  display: "inline-block",
+                  width: "auto",
+                  minWidth: "80px",
+                },
+                section: {
+                  color: "#ffffff",
+                },
+                dropdown: {
+                  backgroundColor: "#000000",
+                  border: "1px solid #2b2b2b",
+                },
+                option: {
+                  color: "#ffffff",
+                  fontSize: isMobile ? "12px" : "14px",
+                  fontFamily: GeistMono.style.fontFamily,
+                  "&[data-selected]": {
+                    backgroundColor: "#202020",
+                  },
+                  "&:hover:not([data-disabled])": {
+                    backgroundColor: "#1c1c1c",
+                  },
+                  "&[data-disabled]": {
+                    color: "#555555",
+                    opacity: 0.5,
+                    cursor: "not-allowed",
+                  },
+                },
+              }}
+            />{" "}
             in{" "}
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
               ENGLISH
