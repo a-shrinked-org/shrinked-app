@@ -2,50 +2,56 @@ import React, { useState, useEffect } from 'react';
 import { Box } from '@mantine/core';
 
 interface ConversationVisualizerProps {
-  // Props are kept for API compatibility but are no longer used.
   files: Array<{ url: string; filename?: string; type: 'link' | 'upload' }>;
   isActive?: boolean;
 }
 
-const ConversationVisualizer: React.FC<ConversationVisualizerProps> = () => {
+const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }) => {
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
 
   // Grid configuration
-  const COLS = 48;
+  const COLS = 49;
   const ROWS = 8;
   const DOT_SIZE = 5;
   const DOT_GAP = 7;
   const GRID_WIDTH = COLS * (DOT_SIZE + DOT_GAP);
   const GRID_HEIGHT = ROWS * (DOT_SIZE + DOT_GAP);
 
-  // Generate a static, random pattern once on mount
+  // Generate a static pattern once on mount or when files change
   useEffect(() => {
     const data = [];
+    const hasFiles = files && files.length > 0 && files.some(f => f.url.trim() !== '');
+
     for (let i = 0; i < COLS; i++) {
       const position = i / COLS;
-      
-      // Create random conversation-like patterns
       let intensity = 0;
-      const wave1 = Math.sin(Math.random() * 2 + position * 10) * 0.5 + 0.5;
-      const wave2 = Math.sin(Math.random() * 1.3 + position * 8) * 0.4 + 0.4;
-      const wave3 = Math.sin(Math.random() * 0.7 + position * 6) * 0.6 + 0.6;
-      
-      const speakerA = Math.random() > 0.3 ? 1 : 0.1;
-      const speakerB = Math.random() > 0.2 ? 1 : 0.1;
-      const overlap = Math.random() > 0.4 ? 1 : 0.1;
-      
-      if (position < 0.33) {
-        intensity = wave1 * speakerA;
-      } else if (position < 0.67) {
-        intensity = wave2 * overlap;
+
+      if (hasFiles) {
+        // Generate colored pattern
+        const wave1 = Math.sin(Math.random() * 2 + position * 10) * 0.5 + 0.5;
+        const wave2 = Math.sin(Math.random() * 1.3 + position * 8) * 0.4 + 0.4;
+        const wave3 = Math.sin(Math.random() * 0.7 + position * 6) * 0.6 + 0.6;
+        
+        const speakerA = Math.random() > 0.3 ? 1 : 0.1;
+        const speakerB = Math.random() > 0.2 ? 1 : 0.1;
+        const overlap = Math.random() > 0.4 ? 1 : 0.1;
+        
+        if (position < 0.33) {
+          intensity = wave1 * speakerA;
+        } else if (position < 0.67) {
+          intensity = wave2 * overlap;
+        } else {
+          intensity = wave3 * speakerB;
+        }
       } else {
-        intensity = wave3 * speakerB;
+        // Generate grey pattern
+        intensity = Math.random() * 0.3 + 0.1; // Low intensity grey
       }
       
       data.push(Math.max(0, Math.min(1, intensity)));
     }
     setFrequencyData(data);
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, [files]); // Dependency array includes files
 
   const renderDots = () => {
     const dots = [];
@@ -57,15 +63,15 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = () => {
       for (let row = 0; row < ROWS; row++) {
         const x = col * (DOT_SIZE + DOT_GAP) + DOT_SIZE / 2;
         const y = (ROWS - 1 - row) * (DOT_SIZE + DOT_GAP) + DOT_SIZE / 2;
-        const isActive = row < activeRows;
+        const isActiveDot = row < activeRows;
         
-        let color = '#1a1a1a';
+        let color = '#1a1a1a'; // Default background color for inactive dots
         let opacity = 0.2;
         
-        if (isActive) {
+        if (isActiveDot) {
           const baseIntensity = intensity;
           
-          // Color zones based on frequency ranges
+          // Color zones based on frequency ranges (for active dots)
           if (col < COLS * 0.33) {
             color = '#3b82f6'; // Blue
             opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
@@ -77,12 +83,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = () => {
             opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
           }
         } else {
-          // Deterministic static noise for inactive dots
-          const staticNoise = ((col * 5 + row * 3) % 100) / 100;
-          if (staticNoise > 0.95) {
-            color = '#404040';
-            opacity = 0.3;
-          }
+          // Inactive dots always grey
+          color = '#404040';
+          opacity = 0.1; // Make inactive dots very subtle
         }
         
         dots.push(
@@ -113,6 +116,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = () => {
         width: '100%',
         height: '100%',
         padding: '10px',
+        display: 'flex', // Add flexbox to center content
+        justifyContent: 'center', // Center horizontally
+        alignItems: 'center', // Center vertically
       }}
     >
       <svg

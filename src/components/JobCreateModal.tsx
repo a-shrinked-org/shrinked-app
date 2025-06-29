@@ -657,6 +657,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 wrapper: {
                   display: "inline-block",
                   verticalAlign: "middle",
+                  width: "105px",
                   margin: "0 4px",
                 },
                 input: {
