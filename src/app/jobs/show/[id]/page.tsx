@@ -781,7 +781,7 @@ export default function JobShow() {
   }
   
   return (
-    <Box style={{ 
+    <div style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       height: '100vh', 
@@ -924,16 +924,6 @@ export default function JobShow() {
                    record?.link ? getFilenameFromLink(record.link) : 
                    'No source file'}
                 </Text>
-                {uploadFileMode && (
-                  <Text c="dimmed" size="xs">
-                    Mode: {uploadFileMode}
-                  </Text>
-                )}
-                {uploadFileLink && (
-                  <Text c="dimmed" size="xs">
-                    Link: <a href={uploadFileLink} target="_blank" rel="noopener noreferrer" style={{ color: '#F5A623', textDecoration: 'underline' }}>{uploadFileLink}</a>
-                  </Text>
-                )}
                 {uploadFileMode && (
                   <Text c="dimmed" size="xs">
                     Mode: {uploadFileMode}
@@ -1190,11 +1180,6 @@ export default function JobShow() {
                                   }
                                   return value;
                                 }, 2)}
-                                  if (key === 'link' || key === 'mode') {
-                                    return undefined;
-                                  }
-                                  return value;
-                                }, 2)}
                               </Text>
                             </Box>
                           </Collapse>
@@ -1266,6 +1251,6 @@ export default function JobShow() {
         shareUrl={sharedUrl}
         documentTitle={processingDoc?.title || record?.jobName || 'Untitled Document'}
       />
-    </Box>
+    </div>
   );
 }
