@@ -910,7 +910,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onTabChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
                           variant="pills"
                           styles={{
                             list: {
