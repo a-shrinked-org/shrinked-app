@@ -122,6 +122,82 @@ function DocumentMarkdocRenderer({
     );
   }
 
+  // Universal function to remove duplicate headers and clean content
+  const cleanContent = (content: string, expectedHeader: string): string => {
+    if (!content) return '';
+    
+    // Create a regex that matches the header at various levels (##, ###, etc.) with case-insensitive matching
+    const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'gmi');
+    
+    // Split content into lines
+    const lines = content.split('\n');
+    const cleanedLines: string[] = [];
+    let i = 0;
+    
+    while (i < lines.length) {
+      const line = lines[i];
+      
+      // Check if current line is a duplicate header
+      if (headerPattern.test(line.trim())) {
+        // Skip this header line
+        i++;
+        
+        // Also skip any immediately following empty lines
+        while (i < lines.length && lines[i].trim() === '') {
+          i++;
+        }
+        
+        // Check if the next non-empty line is also a duplicate header
+        if (i < lines.length && headerPattern.test(lines[i].trim())) {
+          // Skip this duplicate too
+          continue;
+        } else if (i < lines.length) {
+          // Add the content after the removed header
+          cleanedLines.push(lines[i]);
+          i++;
+        }
+      } else {
+        cleanedLines.push(line);
+        i++;
+      }
+    }
+    
+    return cleanedLines.join('\n').trim();
+  };
+
+  // Universal function to remove empty sections
+  const removeEmptySections = (content: string): string => {
+    if (!content) return '';
+    
+    // Split by double newlines to get sections
+    const sections = content.split('\n\n');
+    const cleanedSections: string[] = [];
+    
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i].trim();
+      
+      // Skip empty sections
+      if (!section) continue;
+      
+      // Check if section is just a header with no content
+      const lines = section.split('\n').map(line => line.trim()).filter(line => line);
+      
+      if (lines.length === 1 && lines[0].match(/^#{1,6}\s+/)) {
+        // This is a standalone header, check if next section has content
+        const nextSection = sections[i + 1];
+        if (nextSection && nextSection.trim() && !nextSection.trim().match(/^#{1,6}\s+/)) {
+          // Next section has content, combine them
+          cleanedSections.push(section);
+        }
+        // If next section is also a header or empty, skip this standalone header
+      } else {
+        cleanedSections.push(section);
+      }
+    }
+    
+    return cleanedSections.join('\n\n');
+  };
+
   const processReferences = (html: string): string => {
     let processed = html;
   
@@ -155,6 +231,9 @@ function DocumentMarkdocRenderer({
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
     
+    // Remove empty sections first
+    processed = removeEmptySections(processed);
+    
     // CRITICAL: Don't process reference links here - let them pass through to Markdoc naturally
     // The *[306](url)* format should be handled by Markdoc, not preprocessed
     
@@ -179,6 +258,7 @@ function DocumentMarkdocRenderer({
         return `## Chapters\n${formattedChapters}`;
       }
     );
+    
     // Ensure passages have proper sub-headers
     processed = processed.replace(
       /## Passages\n([\s\S]+?)(?=\n##|$)/g,
@@ -199,6 +279,7 @@ function DocumentMarkdocRenderer({
         return `## Passages\n${formattedPassages}`;
       }
     );
+    
     return processed;
   };
 
@@ -207,8 +288,6 @@ function DocumentMarkdocRenderer({
     let result = html;
     
     // Clean up reference entries with numbered timestamp links
-    // This very specific pattern matches the structure you shared:
-    // <li><ol start="289"><li><a href="None#t=1350">00:22:30</a>: Probably more.</li></ol></li>
     result = result.replace(/<li><ol\s+start="\d+"><li>(.*?)<\/li><\/ol><\/li>/g, '<li>$1</li>');
     
     // Fix general nested list items (simple case)
@@ -279,26 +358,37 @@ function DocumentMarkdocRenderer({
       }
     }
 
-    if (data?.introduction) md += `## Introduction\n${data.introduction}\n\n`;
+    if (data?.introduction) {
+      const cleanIntroduction = cleanContent(data.introduction, 'Introduction');
+      if (cleanIntroduction) {
+        md += `## Introduction\n${cleanIntroduction}\n\n`;
+      }
+    }
     
     // Format passages with sub-headers
     if (data?.passages && data.passages.trim() && data.passages.trim() !== 'No passages provided') {
-      md += `## Passages\n`;
-      const passagesSections = data.passages.split('\n\n').filter((section: string) => section.trim());
-      md += passagesSections
-        .map((section: string) => {
-          const lines = section.split('\n');
-          const header = lines[0].trim();
-          const content = lines.slice(1).join('\n').trim();
-          return `### ${header}\n${content}`;
-        })
-        .join('\n\n');
-      md += '\n\n';
+      const cleanPassages = cleanContent(data.passages, 'Passages');
+      if (cleanPassages) {
+        md += `## Passages\n`;
+        const passagesSections = cleanPassages.split('\n\n').filter((section: string) => section.trim());
+        md += passagesSections
+          .map((section: string) => {
+            const lines = section.split('\n');
+            const header = lines[0].trim();
+            const content = lines.slice(1).join('\n').trim();
+            return `### ${header}\n${content}`;
+          })
+          .join('\n\n');
+        md += '\n\n';
+      }
     }
 
     if (data?.conclusion) {
-      let cleanConclusion = data.conclusion.replace(/##\s*Conclusion/gi, '').trim();
-      md += `## Conclusion\n${cleanConclusion}\n\n`;
+      // Use the universal cleaning function for conclusion
+      const cleanConclusion = cleanContent(data.conclusion, 'Conclusion');
+      if (cleanConclusion) {
+        md += `## Conclusion\n${cleanConclusion}\n\n`;
+      }
     }
     
     if (data?.references && data.references.length > 0) {

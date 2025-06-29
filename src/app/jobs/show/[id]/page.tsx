@@ -168,7 +168,7 @@ export default function JobShow() {
   const [uploadFileLink, setUploadFileLink] = useState<string | null>(null);
   const [uploadFileMode, setUploadFileMode] = useState<string | null>(null);
   const [markdownContent, setMarkdownContent] = useState<string | null>(null);
-  const [documentId, setDocumentId] = useState<string | null>(null);
+  
   const [liveDuration, setLiveDuration] = useState<number>(0);
   
   const extractResultId = useCallback((jobData: Job | null) => {
@@ -191,64 +191,58 @@ export default function JobShow() {
   const getProcessingStatus: () => string | undefined = useCallback(getProcessingStatusDefinition, [queryResult.data, processingDoc]);
 
   const fetchMarkdownContent = useCallback(async (forceRefresh = false) => {
-    if (!documentId) return;
+    if (!processingDocId) return;
     if (!forceRefresh && markdownContent) return;
     if (isLoadingMarkdown.current) return;
-  
-    // Check if we're still processing - if so, don't fetch yet
-    const status = getProcessingStatus();
-    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
-      console.log('Still processing, skipping markdown fetch');
-      return;
-    }
-  
+
     isLoadingMarkdown.current = true;
     setErrorMessage(null);
     setIsLoadingDoc(true);
-  
+
     try {
-      console.log('Fetching markdown with ID:', documentId);
+      console.log('Fetching markdown with ID:', processingDocId);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
-  
-      const response = await fetch(`/api/pdf/${documentId}/markdown?includeReferences=true`, {
+
+      const response = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
         headers: { 'Authorization': `Bearer ${token}` },
         cache: 'no-store'
       });
-  
+
       if (!response.ok) {
-        if (response.status === 404) {
-          // Don't set error for 404 - just log and return
-          console.log('Content not ready yet (404), will retry later');
-          return;
-        }
-        // Handle other errors normally
         if (response.status === 401 || response.status === 403) {
-          // ... auth retry logic
+          const refreshSuccess = await refreshToken();
+          if (refreshSuccess) {
+            const newToken = getAccessToken();
+            const retryResponse = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
+              headers: { 'Authorization': `Bearer ${newToken || ''}` },
+              cache: 'no-store'
+            });
+            if (!retryResponse.ok) throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
+            const markdown = await retryResponse.text();
+            if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
+            setMarkdownContent(markdown);
+            console.log('Fetched markdown after token refresh:', processingDocId);
+          }
+        } else if (response.status === 404) {
+          throw new Error('Content not available yet');
         } else {
           throw new Error(`Markdown fetch failed with status: ${response.status}`);
         }
       } else {
         const markdown = await response.text();
-        if (!markdown || markdown.trim() === '') {
-          console.log('Empty content received, will retry later');
-          return;
-        }
+        if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
         setMarkdownContent(markdown);
-        console.log('Fetched markdown successfully:', documentId);
+        console.log('Fetched markdown successfully:', processingDocId);
       }
     } catch (error) {
       console.error("Failed to fetch markdown:", error);
-      // Only set error message for non-404 errors or when not processing
-      const currentStatus = getProcessingStatus();
-      if (currentStatus !== 'processing' && currentStatus !== 'in_progress' && currentStatus !== 'pending') {
-        setErrorMessage(error instanceof Error ? error.message : String(error));
-      }
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       isLoadingMarkdown.current = false;
       setIsLoadingDoc(false);
     }
-  }, [documentId, markdownContent, refreshToken, getAccessToken, ensureValidToken, getProcessingStatus]);
+  }, [processingDocId, markdownContent, refreshToken, getAccessToken, ensureValidToken]);
 
   const getProcessingDocument = useCallback(async () => {
     if (!processingDocId) return;
@@ -309,21 +303,19 @@ export default function JobShow() {
 
   useEffect(() => {
     if (processingDocId) {
-      setDocumentId(processingDocId);
-      // Also trigger fetching of processing document and markdown content
       getProcessingDocument();
       fetchMarkdownContent();
     }
   }, [processingDocId, getProcessingDocument, fetchMarkdownContent]);
 
   const handleDownloadPDF = useCallback(async () => {
-    if (!documentId) return;
+    if (!processingDocId) return;
     try {
-      console.log('Attempting to download PDF with ID:', documentId);
+      console.log('Attempting to download PDF with ID:', processingDocId);
       const token = await ensureValidToken();
       if (!token) throw new Error('Authentication failed - unable to get valid token');
 
-      const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${documentId}?includeReferences=true`, {
+      const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${processingDocId}?includeReferences=true`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -333,17 +325,17 @@ export default function JobShow() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `document-${documentId}.pdf`;
+      link.download = `document-${processingDocId}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      console.log('Downloaded PDF successfully:', documentId);
+      console.log('Downloaded PDF successfully:', processingDocId);
     } catch (error) {
       console.error("Failed to download PDF:", error);
       setErrorMessage(`Error downloading PDF: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [documentId, ensureValidToken, fetchWithAuth]);
+  }, [processingDocId, ensureValidToken, fetchWithAuth]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
@@ -375,11 +367,11 @@ export default function JobShow() {
       step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
     );
     const status = processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
-    if (documentId && status === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
+    if (processingDocId && status === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
       console.log("Processing complete, fetching markdown content on mount");
       fetchMarkdownContent();
     }
-  }, [documentId, queryResult.data, processingDoc, markdownContent, fetchMarkdownContent]);
+  }, [processingDocId, queryResult.data, processingDoc, markdownContent, fetchMarkdownContent]);
   
   const handleShareDocument = useCallback(async () => {
     if (!processingDocId) {
@@ -631,11 +623,11 @@ export default function JobShow() {
       console.log("Manual refresh: fetching processing document");
       getProcessingDocument();
     }
-    if (documentId) {
+    if (processingDocId) {
       console.log("Manual refresh: fetching markdown content");
       fetchMarkdownContent(true);
     }
-  }, [documentId, processingDocId, getProcessingDocument, fetchMarkdownContent]);
+  }, [processingDocId, getProcessingDocument, fetchMarkdownContent]);
 
   const formatDuration = (durationInMs?: number) => {
     if (durationInMs === undefined || durationInMs === null) return "N/A";
