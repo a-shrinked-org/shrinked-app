@@ -180,6 +180,16 @@ export default function JobShow() {
     return processingStep?.data?.resultId || jobData.output?.resultId || jobData.resultId || null;
   }, []);
 
+  // Move getProcessingStatus functions up before they're used
+  const getProcessingStatusDefinition = (): string | undefined => {
+    const processingStep = queryResult.data?.data?.steps?.find((step: JobStep) => 
+      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
+    );
+    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
+  };
+
+  const getProcessingStatus: () => string | undefined = useCallback(getProcessingStatusDefinition, [queryResult.data, processingDoc]);
+
   const fetchMarkdownContent = useCallback(async (forceRefresh = false) => {
     if (!documentId) return;
     if (!forceRefresh && markdownContent) return;
@@ -272,15 +282,6 @@ export default function JobShow() {
       isFetchingProcessingDoc.current = false;
     }
   }, [processingDocId]);
-
-  const getProcessingStatusDefinition = (): string | undefined => {
-    const processingStep = queryResult.data?.data?.steps?.find((step: JobStep) => 
-      step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING"
-    );
-    return processingStep?.status?.toLowerCase() || processingDoc?.status?.toLowerCase() || queryResult.data?.data?.status?.toLowerCase();
-  };
-
-  const getProcessingStatus: () => string | undefined = useCallback(getProcessingStatusDefinition, [queryResult.data, processingDoc]);
 
   useEffect(() => {
     const status = getProcessingStatus();
@@ -673,7 +674,7 @@ export default function JobShow() {
       </Box>
     );
   }
-
+  
   if (isLoading) {
     return (
       <Box style={{ 
