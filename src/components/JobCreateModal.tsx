@@ -26,6 +26,10 @@ import {
   Plus,
   Trash,
   Info,
+  FileText,
+  Edit,
+  CheckCircle,
+  XCircle,
   Loader,
   ChevronsUpDown,
 } from "lucide-react";
