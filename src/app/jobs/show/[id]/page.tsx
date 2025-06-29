@@ -1080,8 +1080,8 @@ export default function JobShow() {
                 <Box style={{ 
                   position: 'absolute', 
                   left: '24px', 
-                  top: '12px', 
-                  bottom: '12px', 
+                  top: '32px', 
+                  bottom: '32px', 
                   width: '1px', 
                   backgroundColor: '#2B2B2B' 
                 }} />
@@ -1114,7 +1114,7 @@ export default function JobShow() {
                         <Box style={{ 
                           position: 'absolute',
                           left: '-24px',
-                          top: '12px',
+                          top: '50%',
                           transform: 'translate(-50%, -50%)',
                           width: '8px',
                           height: '8px',
