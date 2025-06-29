@@ -127,6 +127,11 @@ function DocumentMarkdocRenderer({
     if (!content) return '';
     
     // Create a regex that matches the header at various levels (##, ###, etc.) with case-insensitive matching
+    const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\  // Universal function to remove duplicate headers and clean content
+  const cleanContent = (content: string, expectedHeader: string): string => {
+    if (!content) return '';
+    
+    // Create a regex that matches the header at various levels (##, ###, etc.) with case-insensitive matching
     const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'gmi');
     
     // Split content into lines
@@ -163,6 +168,184 @@ function DocumentMarkdocRenderer({
     }
     
     return cleanedLines.join('\n').trim();
+  };')}\\s*import React from 'react';
+import { Box, Text, Paper, Loader, Alert, Button, Progress, Title, Stack } from '@mantine/core';
+import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
+import Markdoc from '@markdoc/markdoc';
+
+interface DocumentMarkdocRendererProps {
+  data?: {
+    title?: string;
+    abstract?: string;
+    contributors?: string;
+    introduction?: string;
+    conclusion?: string;
+    passages?: string;
+    references?: Array<{ item: string }>;
+    chapters?: Array<{ title: string }>;
+  } | null;
+  markdown?: string | null;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRefresh: () => void;
+  processingStatus?: string;
+}
+
+function DocumentMarkdocRenderer({
+  data,
+  markdown,
+  isLoading,
+  errorMessage,
+  onRefresh,
+  processingStatus
+}: DocumentMarkdocRendererProps) {
+  const status = processingStatus?.toLowerCase();
+
+  const isProcessing = status === 'processing' || status === 'in_progress' || status === 'pending';
+  const isFailed = status === 'error' || status === 'failed';
+  const isCompleted = status === 'completed';
+
+  if (isLoading) {
+    return (
+      <Box style={{ display: 'flex', justifyContent: 'center', padding: '50px' }}>
+        <Loader size="lg" />
+      </Box>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <Alert 
+        color="red" 
+        title="Error loading document" 
+        icon={<AlertCircle size={16} />}
+      >
+        {errorMessage}
+        <Button 
+          variant="light" 
+          size="sm" 
+          mt="md" 
+          leftSection={<RefreshCw size={16} />}
+          onClick={onRefresh}
+        >
+          Try again
+        </Button>
+      </Alert>
+    );
+  }
+
+  if (isProcessing) {
+    return (
+      <Paper p="xl" style={{ 
+        backgroundColor: '#1a1a1a', 
+        color: '#ffffff', 
+        borderRadius: '8px',
+        position: 'relative',
+        textAlign: 'center',
+        padding: '50px 20px'
+      }}>
+        <Box style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <Clock size={48} style={{ opacity: 0.7, margin: '0 auto 20px' }} />
+          <Text size="xl" fw={600} mb="md">Your document is being processed</Text>
+          <Text size="sm" c="dimmed" mb="lg">
+            We&apos;re analyzing your content and generating a comprehensive document. 
+            This may take a few minutes depending on the file size and complexity.
+          </Text>
+          <Progress 
+            size="sm"
+            radius="xl"
+            value={75}
+            animated
+            style={{ maxWidth: '300px', margin: '0 auto 20px' }}
+          />
+          <Button 
+            variant="light" 
+            size="sm"
+            leftSection={<RefreshCw size={16} />}
+            onClick={onRefresh}
+          >
+            Check Status
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
+
+  if (isFailed) {
+    return (
+      <Alert 
+        color="red" 
+        title="Processing Failed" 
+        icon={<AlertCircle size={16} />}
+      >
+        The document processing failed. Please try again or contact support.
+        <Button 
+          variant="light" 
+          size="sm" 
+          mt="md" 
+          leftSection={<RefreshCw size={16} />}
+          onClick={onRefresh}
+        >
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
+
+, 'gmi');
+    
+    // Split content into lines
+    const lines = content.split('\n');
+    const cleanedLines: string[] = [];
+    let i = 0;
+    
+    while (i < lines.length) {
+      const line = lines[i];
+      
+      // Check if current line is a duplicate header
+      if (headerPattern.test(line.trim())) {
+        // Look ahead to see if there's actual content after this header
+        let hasContentAfter = false;
+        let j = i + 1;
+        
+        // Skip empty lines after header
+        while (j < lines.length && lines[j].trim() === '') {
+          j++;
+        }
+        
+        // Check if there's non-header content after the empty lines
+        if (j < lines.length && !headerPattern.test(lines[j].trim())) {
+          hasContentAfter = true;
+        }
+        
+        if (hasContentAfter) {
+          // This header has content after it, so we need to preserve it
+          // But we'll skip it here since we'll add it as a proper section header in generateMarkdown
+          i++;
+          // Skip empty lines after header
+          while (i < lines.length && lines[i].trim() === '') {
+            i++;
+          }
+          // Add the content that follows
+          while (i < lines.length && !headerPattern.test(lines[i].trim())) {
+            cleanedLines.push(lines[i]);
+            i++;
+          }
+        } else {
+          // This is an empty header with no content, skip it entirely
+          i++;
+          // Skip any empty lines after the empty header
+          while (i < lines.length && lines[i].trim() === '') {
+            i++;
+          }
+        }
+      } else {
+        cleanedLines.push(line);
+        i++;
+      }
+    }
+    
+    return cleanedLines.join('\n').trim();
   };
 
   // Universal function to remove empty sections
@@ -176,23 +359,39 @@ function DocumentMarkdocRenderer({
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i].trim();
       
-      // Skip empty sections
+      // Skip completely empty sections
       if (!section) continue;
       
-      // Check if section is just a header with no content
+      // Check if section is just a standalone header with no content
       const lines = section.split('\n').map(line => line.trim()).filter(line => line);
       
       if (lines.length === 1 && lines[0].match(/^#{1,6}\s+/)) {
-        // This is a standalone header, check if next section has content
-        const nextSection = sections[i + 1];
-        if (nextSection && nextSection.trim() && !nextSection.trim().match(/^#{1,6}\s+/)) {
-          // Next section has content, combine them
-          cleanedSections.push(section);
+        // This is a standalone header
+        // Check if there's a following section with actual content (not another header)
+        let hasFollowingContent = false;
+        for (let j = i + 1; j < sections.length; j++) {
+          const nextSection = sections[j].trim();
+          if (nextSection) {
+            // If next section doesn't start with a header, it has content
+            const nextLines = nextSection.split('\n').map(line => line.trim()).filter(line => line);
+            if (nextLines.length > 0 && !nextLines[0].match(/^#{1,6}\s+/)) {
+              hasFollowingContent = true;
+              break;
+            }
+            // If next section starts with a header but has more content, it's valid
+            if (nextLines.length > 1) {
+              break;
+            }
+          }
         }
-        // If next section is also a header or empty, skip this standalone header
-      } else {
-        cleanedSections.push(section);
+        
+        if (!hasFollowingContent) {
+          // Skip this standalone empty header
+          continue;
+        }
       }
+      
+      cleanedSections.push(section);
     }
     
     return cleanedSections.join('\n\n');

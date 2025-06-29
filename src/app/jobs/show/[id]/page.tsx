@@ -122,14 +122,24 @@ export default function JobShow() {
   
   const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
 
+  // Add this helper function to extract the upload file link
+  const extractUploadFileLink = useCallback((jobData: Job | null) => {
+    if (!jobData) return null;
+    
+    // Look for the UPLOAD_FILE step and extract the link from its data
+    const uploadStep = jobData.steps?.find(step => step.name === "UPLOAD_FILE");
+    return uploadStep?.data?.link || uploadStep?.data?.output?.link || null;
+  }, []);
+  
+  // Update your useShow query's onSuccess callback
   const { queryResult } = useShow<Job>({
     resource: "jobs",
     id: jobId,
     queryOptions: {
       enabled: !!jobId && !!identity?.token,
       staleTime: 30000,
-      retry: 1, // Retry once on failure
-      retryDelay: 1000, // Wait 1 second before retrying
+      retry: 1,
+      retryDelay: 1000,
       onSuccess: (data) => {
         console.log("Show query success:", data);
         const resultId = extractResultId(data.data);
@@ -138,10 +148,15 @@ export default function JobShow() {
           setProcessingDocId(resultId);
         } else {
           console.log("No resultId found for job:", data.data?.jobName);
-          // Do not set error message here, let renderPreviewContent handle it based on status
         }
-        if (data.data?.link) {
-          setUploadFileLink(data.data.link);
+        
+        // Extract upload file link from UPLOAD_FILE step
+        const uploadLink = extractUploadFileLink(data.data);
+        if (uploadLink) {
+          setUploadFileLink(uploadLink);
+          console.log("Found upload file link:", uploadLink);
+        } else {
+          console.log("No upload file link found");
         }
       },
       onError: (error) => {
