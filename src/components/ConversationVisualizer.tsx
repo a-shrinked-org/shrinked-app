@@ -17,16 +17,18 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
   const GRID_WIDTH = COLS * (DOT_SIZE + DOT_GAP);
   const GRID_HEIGHT = ROWS * (DOT_SIZE + DOT_GAP);
 
+  // Derive hasFiles here, as it's used in useEffect and renderDots
+  const hasFiles = files && files.length > 0 && files.some(f => f.url.trim() !== '');
+
   // Generate a static pattern once on mount or when files change
   useEffect(() => {
     const data = [];
-    const hasFiles = files && files.length > 0 && files.some(f => f.url.trim() !== '');
 
     for (let i = 0; i < COLS; i++) {
       const position = i / COLS;
       let intensity = 0;
 
-      if (hasFiles) {
+      if (hasFiles) { // Use the derived hasFiles
         // Generate colored pattern
         const wave1 = Math.sin(Math.random() * 2 + position * 10) * 0.5 + 0.5;
         const wave2 = Math.sin(Math.random() * 1.3 + position * 8) * 0.4 + 0.4;
@@ -51,9 +53,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
       data.push(Math.max(0, Math.min(1, intensity)));
     }
     setFrequencyData(data);
-  }, [files]); // Dependency array includes files
+  }, [files, hasFiles]); // Add hasFiles to dependency array
 
-  const renderDots = () => {
+  const renderDots = (currentHasFiles: boolean) => { // Accept hasFiles as parameter
     const dots = [];
     
     for (let col = 0; col < COLS; col++) {
@@ -71,16 +73,22 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
         if (isActiveDot) {
           const baseIntensity = intensity;
           
-          // Color zones based on frequency ranges (for active dots)
-          if (col < COLS * 0.33) {
-            color = '#3b82f6'; // Blue
-            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
-          } else if (col < COLS * 0.67) {
-            color = '#a855f7'; // Purple
-            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
+          if (currentHasFiles) { // Use the passed parameter
+            // Color zones based on frequency ranges (for active dots)
+            if (col < COLS * 0.33) {
+              color = '#3b82f6'; // Blue
+              opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
+            } else if (col < COLS * 0.67) {
+              color = '#a855f7'; // Purple
+              opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
+            } else {
+              color = '#06b6d4'; // Cyan
+              opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
+            }
           } else {
-            color = '#06b6d4'; // Cyan
-            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
+            // Active dots, but no files, so grey shades
+            color = '#404040'; // A slightly darker grey for active dots
+            opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7); // Still vary opacity based on intensity
           }
         } else {
           // Inactive dots always grey
@@ -130,7 +138,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
           background: 'transparent',
         }}
       >
-        {renderDots()}
+        {renderDots(hasFiles)} {/* Pass hasFiles to renderDots */}
       </svg>
     </Box>
   );
