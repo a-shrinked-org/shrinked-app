@@ -140,26 +140,6 @@ export default function JobShow() {
           console.log("No resultId found for job:", data.data?.jobName);
           // Do not set error message here, let renderPreviewContent handle it based on status
         }
-        const uploadStep = data.data?.steps?.find((step: JobStep) => 
-          step.name === "UPLOAD_FILE" || 
-          step.name === "FILE_UPLOAD" || 
-          step.name === "CONVERT_FILE" ||
-          step.name === "AUDIO_TRANSCRIPTION"
-        );
-        const foundLink = uploadStep?.data?.output?.link || uploadStep?.data?.link || data.data?.link;
-        const foundMode = uploadStep?.data?.mode;
-        if (foundLink) {
-          console.log("Found upload file link:", foundLink);
-          setUploadFileLink(foundLink);
-        } else {
-          console.log("No upload file link found");
-        }
-        if (foundMode) {
-          console.log("Found upload file mode:", foundMode);
-          setUploadFileMode(foundMode);
-        } else {
-          console.log("No upload file mode found");
-        }
       },
       onError: (error) => {
         console.error("Show query error:", error);
@@ -954,6 +934,16 @@ export default function JobShow() {
                     Link: <a href={uploadFileLink} target="_blank" rel="noopener noreferrer" style={{ color: '#F5A623', textDecoration: 'underline' }}>{uploadFileLink}</a>
                   </Text>
                 )}
+                {uploadFileMode && (
+                  <Text c="dimmed" size="xs">
+                    Mode: {uploadFileMode}
+                  </Text>
+                )}
+                {uploadFileLink && (
+                  <Text c="dimmed" size="xs">
+                    Link: <a href={uploadFileLink} target="_blank" rel="noopener noreferrer" style={{ color: '#F5A623', textDecoration: 'underline' }}>{uploadFileLink}</a>
+                  </Text>
+                )}
               </Box>
 
               <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
@@ -1097,7 +1087,7 @@ export default function JobShow() {
             
             <Box style={{ marginTop: '2rem' }}>
               <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                Logic
+                Logic steps / events
               </Text>
               <Box style={{ position: 'relative' }}>
                 <Box style={{ 
@@ -1195,6 +1185,11 @@ export default function JobShow() {
                             <Box mt="md" pl="md" style={{ borderLeft: '1px solid #2B2B2B' }}>
                               <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>
                                 {JSON.stringify(step.data, (key, value) => {
+                                  if (key === 'link' || key === 'mode') {
+                                    return undefined;
+                                  }
+                                  return value;
+                                }, 2)}
                                   if (key === 'link' || key === 'mode') {
                                     return undefined;
                                   }
