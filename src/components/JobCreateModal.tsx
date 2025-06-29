@@ -74,7 +74,7 @@ interface JobCreateModalProps {
 
 // Logic options from the logic page
 const logicOptions = [
-  { value: "structured-conversation-protocol", label: "Structured Conversation Protocol" },
+  { value: "structured-conversation-protocol", label: "DEFAULT" },
   { value: "timeline-analysis-protocol", label: "Timeline Analysis Protocol" },
   { value: "multi-source-merge-protocol", label: "Multi-Source Merge Protocol" },
   { value: "topic-centered-merge-protocol", label: "Topic-Centered Merge Protocol" },
@@ -136,6 +136,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [isEditingJobName, setIsEditingJobName] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isDragging, setIsDragging] = useState(false);
+  const [logicDropdownOpened, { toggle: toggleLogicDropdown }] = useDisclosure(false);
 
   // URL validation states
   const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
@@ -646,8 +647,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
               data={logicOptions.map((option, index) => ({...option, disabled: index !== 0}))}
               variant="unstyled"
               size="sm"
-              rightSection={<ChevronDown size={12} />}
-              comboboxProps={{ withinPortal: true }}
+              rightSection={logicDropdownOpened ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              comboboxProps={{
+                withinPortal: true,
+                onDropdownOpen: toggleLogicDropdown,
+                onDropdownClose: toggleLogicDropdown,
+              }}
               styles={{
                 input: {
                   backgroundColor: "#202020",
@@ -924,6 +929,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           value={fileType}
                           onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
                           variant="pills"
+                          color="rgba(32, 32, 32, 1)"
                           styles={{
                             list: {
                               borderRadius: "6px",
