@@ -14,7 +14,7 @@ async function handleRequest(
 	const pathSuffix = pathSegments.join('/');
 
 	if (IS_DEV) {
-	  console.log(`[Admin Proxy] ${method} request for path: ${pathSuffix}`);
+	  console.log(`[Admin Proxy] Received request - Method: ${method}, Path: /api/admin/${pathSuffix}`);
 	}
 
 	const authHeader = request.headers.get('authorization');
