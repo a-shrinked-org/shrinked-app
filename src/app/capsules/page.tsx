@@ -155,76 +155,103 @@ export default function CapsuleDirectPage() {
 
   // Main Content Area
   return (
-    <Box style={{
-      backgroundColor: '#0a0a0a',
-      minHeight: '100vh',
-      padding: '24px'
-    }}>
-      <Title order={2} mb="xl" style={{
-        fontFamily: GeistMono.style.fontFamily,
-        fontWeight: 500,
-        fontSize: '20px',
-        letterSpacing: '0.5px'
-      }}>
+    <Box
+      style={{
+        backgroundColor: '#0a0a0a',
+        minHeight: '100vh',
+        padding: '24px',
+      }}
+    >
+      <Title
+        order={2}
+        mb="xl"
+        style={{
+          fontFamily: GeistMono.style.fontFamily,
+          fontWeight: 500,
+          fontSize: '20px',
+          letterSpacing: '0.5px',
+        }}
+      >
         CAPSULE
       </Title>
-
-      {errorMessage && !shouldShowCreateCard && (
-         <Alert
-          icon={<AlertCircle size={16} />}
-          color="red"
-          title="Error"
-          mb="xl"
-          onClose={() => setErrorMessage(null)}
-          withCloseButton
-        >
-          {errorMessage}
-        </Alert>
+  
+      {(isLoading || identityLoading) && (
+        <Box style={{ position: 'relative', minHeight: '300px', padding: '24px' }}>
+          <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+          <Text ta="center" pt="xl" c="dimmed">
+            Loading capsule information...
+          </Text>
+        </Box>
       )}
-
-      {shouldShowCreateCard && (
-         <Card p="xl" radius="md" style={{
+  
+      {!isLoading && !identityLoading && !identity?.token && (
+        <Box style={{ padding: '24px' }}>
+          <Alert
+            icon={<AlertCircle size={16} />}
+            color="red"
+            title="Authentication Required"
+          >
+            Please log in to manage your capsules.
+          </Alert>
+        </Box>
+      )}
+  
+      {!isLoading && !identityLoading && identity?.token && showCreateUI && (
+        <Card
+          p="xl"
+          radius="md"
+          style={{
             backgroundColor: '#131313',
             border: '1px solid #2b2b2b',
             maxWidth: '600px',
-            margin: '40px auto'
-          }}>
-            <Stack gap="lg" align="center">
-              <Text ta="center" size="lg" mb="md">Create your first Capsule</Text>
-              <Text ta="center" c="dimmed" mb="xl">
-                A capsule helps you organize and analyze multiple documents together.
-              </Text>
-              {errorMessage && (
-                 <Alert color="red" title="Creation Failed" mb="md" icon={<AlertCircle size={16}/>}>
-                     {errorMessage}
-                 </Alert>
-              )}
-              <Button
-                leftSection={<Plus size={16} />}
-                onClick={handleCreateCapsule}
-                loading={isCreating}
-                size="md"
-                styles={{
-                  root: {
-                    backgroundColor: '#F5A623',
-                    color: '#000000',
-                    '&:hover': {
-                      backgroundColor: '#E09612',
-                    },
-                  },
-                }}
+            margin: '40px auto',
+          }}
+        >
+          <Stack gap="lg" align="center">
+            <Text ta="center" size="lg" mb="md">
+              Create your first Capsule
+            </Text>
+            <Text ta="center" c="dimmed" mb="xl">
+              A capsule helps you organize and analyze multiple documents together.
+            </Text>
+            {errorMessage && (
+              <Alert
+                color="red"
+                title="Creation Failed"
+                mb="md"
+                icon={<AlertCircle size={16} />}
               >
-                Create Capsule
-              </Button>
-            </Stack>
-          </Card>
+                {errorMessage}
+              </Alert>
+            )}
+            <Button
+              leftSection={<Plus size={16} />}
+              onClick={handleCreateCapsule}
+              loading={isCreating}
+              size="md"
+              styles={{
+                root: {
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              Create Capsule
+            </Button>
+          </Stack>
+        </Card>
       )}
-
-      {!isLoading && !identityLoading && !showCreateUI && !errorMessage && (
-          <Box style={{ padding: '24px', textAlign: 'center' }}>
-            <Text c="dimmed">Loading your capsule...</Text>
-          </Box>
+  
+      {!isLoading && !identityLoading && identity?.token && !showCreateUI && (
+        <Box style={{ position: 'relative', minHeight: '300px', padding: '24px' }}>
+          <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+          <Text ta="center" pt="xl" c="dimmed">
+            Loading capsule information...
+          </Text>
+        </Box>
       )}
     </Box>
   );
-}

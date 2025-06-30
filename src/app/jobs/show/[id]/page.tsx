@@ -146,6 +146,10 @@ export default function JobShow() {
         if (resultId) {
           console.log("Found resultId:", resultId);
           setProcessingDocId(resultId);
+          // If job is already completed, try to fetch markdown immediately
+          if (data.data?.status?.toLowerCase() === 'completed') {
+            fetchMarkdownContent(); // Call without forceRefresh, as it's a new resultId
+          }
         } else {
           console.log("No resultId found for job:", data.data?.jobName);
         }
@@ -318,14 +322,17 @@ export default function JobShow() {
 
   useEffect(() => {
     if (processingDocId) {
-      getProcessingDocument();
-      const status = getProcessingStatus();
-      if (status === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
-        console.log("Processing complete, fetching markdown content");
+      // Only fetch processing document if it's not already loaded or its ID doesn't match
+      if (!processingDoc || processingDoc._id !== processingDocId) {
+        getProcessingDocument();
+      }
+      // Only fetch markdown content if the job is completed and markdown isn't already loaded
+      const currentJobStatus = queryResult.data?.data?.status?.toLowerCase();
+      if (currentJobStatus === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
         fetchMarkdownContent();
       }
     }
-  }, [processingDocId, getProcessingDocument, fetchMarkdownContent, markdownContent, getProcessingStatus]);
+  }, [processingDocId, getProcessingDocument, fetchMarkdownContent, markdownContent, queryResult.data]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!processingDocId) return;
@@ -1174,7 +1181,7 @@ export default function JobShow() {
                                 {formatDuration(displayDuration)}
                               </Text>
                             )}
-                            <Box style={{ 
+                            <Box className={isProcessingStep ? 'blink-animation' : ''} style={{ 
                               width: '8px', 
                               height: '8px', 
                               borderRadius: '50%',
