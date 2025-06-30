@@ -319,9 +319,13 @@ export default function JobShow() {
   useEffect(() => {
     if (processingDocId) {
       getProcessingDocument();
-      fetchMarkdownContent();
+      const status = getProcessingStatus();
+      if (status === 'completed' && !markdownContent && !isLoadingMarkdown.current) {
+        console.log("Processing complete, fetching markdown content");
+        fetchMarkdownContent();
+      }
     }
-  }, [processingDocId, getProcessingDocument, fetchMarkdownContent]);
+  }, [processingDocId, getProcessingDocument, fetchMarkdownContent, markdownContent, getProcessingStatus]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!processingDocId) return;
@@ -518,6 +522,19 @@ export default function JobShow() {
   const renderPreviewContent = () => {
     const status = getProcessingStatus();
 
+    // If markdown content is available, display it immediately
+    if (markdownContent && markdownContent.trim() !== '') {
+      return (
+        <DocumentMarkdownRenderer 
+          markdown={markdownContent}
+          isLoading={false}
+          errorMessage={null}
+          onRefresh={manualRefetch}
+          processingStatus={status}
+        />
+      );
+    }
+
     // Show loading state if processing or fetching content
     if (status === 'processing' || status === 'in_progress' || status === 'pending' || isLoadingDoc || isLoadingMarkdown.current) {
       return (
@@ -550,19 +567,6 @@ export default function JobShow() {
             Try again
           </Button>
         </Alert>
-      );
-    }
-
-    // Show markdown content if available
-    if (markdownContent && markdownContent.trim() !== '') {
-      return (
-        <DocumentMarkdownRenderer 
-          markdown={markdownContent}
-          isLoading={false}
-          errorMessage={null}
-          onRefresh={manualRefetch}
-          processingStatus={status}
-        />
       );
     }
 
@@ -1090,7 +1094,7 @@ export default function JobShow() {
                 
                 {record?.steps?.map((step, index) => {
                   const isProcessingStep = step.status?.toLowerCase() === 'processing' || step.status?.toLowerCase() === 'in_progress' || step.status?.toLowerCase() === 'pending';
-                  const displayDuration = isProcessingStep ? liveDuration : step.totalDuration;
+                  const displayDuration = isProcessingStep ? liveDuration : (step.totalDuration || 0);
                   const isLastStep = index === (record?.steps?.length || 0) - 1;
                   const isFirstStep = index === 0;
                   const isCompleted = step.status?.toLowerCase() === 'completed';
@@ -1132,7 +1136,7 @@ export default function JobShow() {
                         }} />
                         
                         {/* Circle at the connection point */}
-                        <Box style={{ 
+                        <Box className={isProcessingStep ? 'blink-animation' : ''} style={{ 
                           position: 'absolute',
                           left: '-28px', // Position circle on the vertical line
                           top: '50%',
@@ -1140,7 +1144,9 @@ export default function JobShow() {
                           width: '8px',
                           height: '8px',
                           borderRadius: '50%',
-                          backgroundColor: '#000000',
+                          backgroundColor: isCompleted ? '#3DC28B' : 
+                                              isError ? '#FF4F56' : 
+                                              '#F5A623',
                           border: '1px solid #2B2B2B',
                           zIndex: 2
                         }} />
@@ -1157,7 +1163,7 @@ export default function JobShow() {
                             {formatText(step.name)}
                           </Text>
                           <Group gap="sm">
-                            {step.totalDuration && (
+                            {(displayDuration !== undefined && displayDuration !== null) && (
                               <Text 
                                 style={{ 
                                   color: '#2B2B2B', 
@@ -1165,7 +1171,7 @@ export default function JobShow() {
                                   fontFamily: GeistMono.style.fontFamily,
                                 }}
                               >
-                                {formatDuration(step.totalDuration)}
+                                {formatDuration(displayDuration)}
                               </Text>
                             )}
                             <Box style={{ 
