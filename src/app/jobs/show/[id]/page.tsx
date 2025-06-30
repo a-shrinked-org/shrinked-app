@@ -1209,11 +1209,11 @@ export default function JobShow() {
                             <Box mt="md" style={{ paddingLeft: '12px' }}>
                               {step.name === "UPLOAD_FILE" ? (
                                 <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
-                                  Details hidden for this step.
+                                  {JSON.stringify(Object.fromEntries(Object.entries(step.data || {}).filter(([key]) => key !== 'link' && key !== 'mode')), null, 2)}
                                 </Text>
                               ) : (
                                 <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
-                                  {JSON.stringify(step.data, null, 2)}
+                                  {JSON.stringify(Object.fromEntries(Object.entries(step.data || {}).filter(([key]) => key !== 'link' && key !== 'mode')), null, 2)}
                                 </Text>
                               )}
                             </Box>
