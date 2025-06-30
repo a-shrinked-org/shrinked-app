@@ -1510,7 +1510,7 @@ export default function CapsuleView() {
                       Analyzing files and creating the capsule summary.
                     </Text>
                   </Stack>
-                ) : hasContextSummary ? (
+                ) : hasContentForDisplay ? (
                   <DocumentMarkdownWrapper 
                     markdown={(enrichedContent || extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext)) ?? ""} 
                   />
@@ -1550,7 +1550,7 @@ export default function CapsuleView() {
               </Tabs.Panel>
               
               <Tabs.Panel value="markdown" pt="md">
-                {hasContextSummary ? (
+                {hasContentForDisplay ? (
                   <Code
                     block
                     style={{
@@ -1569,7 +1569,7 @@ export default function CapsuleView() {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {enrichedContent || extractContextSummary(record.summaryContext) || 'No markdown content available'}
+                    {enrichedContent || extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext) || 'No markdown content available'}
                   </Code>
                 ) : (
                   <Text c="dimmed" ta="center" mt="xl">
