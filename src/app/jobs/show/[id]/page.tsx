@@ -1130,96 +1130,163 @@ export default function JobShow() {
                   const isCollapsible = step.data && Object.keys(step.data).length > 0;
             
                   return (
-                   <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
-                     {/* Vertical line segment for this step */}
-                     {record?.steps && record.steps.length > 1 && !isLastStep && (
-                       <Box style={{ 
-                         position: 'absolute',
-                         left: '24px',
-                         top: '50%', // Start from middle of current card
-                         height: 'calc(100% + 1rem)', // Extend to next card (including marginBottom)
-                         width: '1px',
-                         backgroundColor: '#2B2B2B',
-                         zIndex: 1
-                       }} />
-                     )}
-                     
-                     <Box style={{ 
-                       backgroundColor: '#000000',
-                       border: '1px solid #2B2B2B',
-                       borderRadius: '4px',
-                       padding: '12px',
-                       marginLeft: '48px',
-                       position: 'relative'
-                     }}>
-                       {/* Horizontal connector line from vertical line to circle */}
-                       <Box style={{ 
-                         position: 'absolute',
-                         left: '-24px',
-                         top: '50%',
-                         width: '24px',
-                         height: '1px',
-                         backgroundColor: '#2B2B2B',
-                         transform: 'translateY(-50%)'
-                       }} />
+                   <Box style={{ marginTop: '2rem' }}>
+                     <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                       Logic
+                     </Text>
+                     <Box style={{ position: 'relative', paddingTop: '16px', paddingBottom: '16px' }}>
+                       {record?.steps?.map((step, index) => {
+                         const isProcessingStep = step.status?.toLowerCase() === 'processing' || step.status?.toLowerCase() === 'in_progress' || step.status?.toLowerCase() === 'pending';
+                         const displayDuration = isProcessingStep ? liveDuration : step.totalDuration;
+                         const isLastStep = index === (record?.steps?.length || 0) - 1;
+                         const isFirstStep = index === 0;
+                         const isCompleted = step.status?.toLowerCase() === 'completed';
+                         const isError = step.status?.toLowerCase() === 'error' || step.status?.toLowerCase() === 'failed';
+                         const isCollapsible = step.data && Object.keys(step.data).length > 0;
+                   
+                         return (
+                          <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
+                            {/* Vertical line segment for this step - only if not the last step */}
+                            {!isLastStep && (
+                              <Box style={{ 
+                                position: 'absolute',
+                                left: '24px',
+                                top: '50%', // Start from middle of current card (circle position)
+                                height: 'calc(100% + 1rem)', // Extend to next card (including marginBottom)
+                                width: '1px',
+                                backgroundColor: '#2B2B2B',
+                                zIndex: 1
+                              }} />
+                            )}
+                            
+                            <Box style={{ 
+                              backgroundColor: '#000000',
+                              border: '1px solid #2B2B2B',
+                              borderRadius: '4px',
+                              padding: '12px',
+                              marginLeft: '48px',
+                              position: 'relative'
+                            }}>
+                              {/* Horizontal connector line from vertical line to circle */}
+                              <Box style={{ 
+                                position: 'absolute',
+                                left: '-24px',
+                                top: '50%',
+                                width: '24px',
+                                height: '1px',
+                                backgroundColor: '#2B2B2B',
+                                transform: 'translateY(-50%)'
+                              }} />
+                              
+                              {/* Circle at the connection point */}
+                              <Box style={{ 
+                                position: 'absolute',
+                                left: '-28px', // Position circle on the vertical line
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                backgroundColor: '#000000',
+                                border: '1px solid #2B2B2B',
+                                zIndex: 2
+                              }} />
+                              
+                              <Flex justify="space-between" align="center">
+                                <Text 
+                                  style={{ 
+                                    fontFamily: GeistMono.style.fontFamily, 
+                                    fontSize: '14px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px'
+                                  }}
+                                >
+                                  {formatText(step.name)}
+                                </Text>
+                                <Group gap="sm">
+                                  {step.totalDuration && (
+                                    <Text 
+                                      style={{ 
+                                        color: '#2B2B2B', 
+                                        fontSize: '12px',
+                                        fontFamily: GeistMono.style.fontFamily,
+                                      }}
+                                    >
+                                      {formatDuration(step.totalDuration)}
+                                    </Text>
+                                  )}
+                                  <Box style={{ 
+                                    width: '8px', 
+                                    height: '8px', 
+                                    borderRadius: '50%',
+                                    backgroundColor: isCompleted ? '#3DC28B' : 
+                                                    isError ? '#FF4F56' : 
+                                                    '#F5A623'
+                                  }} />
+                                </Group>
+                              </Flex>
+                              
+                              {/* Collapsible content - NO internal borders */}
+                              {isCollapsible && (
+                                <Collapse in={true}>
+                                  <Box mt="md" style={{ paddingLeft: '12px' }}>
+                                    <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
+                                      {JSON.stringify(step.data, null, 2)}
+                                    </Text>
+                                  </Box>
+                                </Collapse>
+                              )}
+                            </Box>
+                          </Box>
+                         );
+                       })}
                        
-                       {/* Circle at the connection point */}
-                       <Box style={{ 
-                         position: 'absolute',
-                         left: '-28px', // Position circle on the vertical line
-                         top: '50%',
-                         transform: 'translateY(-50%)',
-                         width: '8px',
-                         height: '8px',
-                         borderRadius: '50%',
-                         backgroundColor: '#000000',
-                         border: '1px solid #2B2B2B',
-                         zIndex: 2
-                       }} />
-                       
-                       <Flex justify="space-between" align="center">
-                         <Text 
-                           style={{ 
-                             fontFamily: GeistMono.style.fontFamily, 
-                             fontSize: '14px',
-                             textTransform: 'uppercase',
-                             letterSpacing: '0.5px'
-                           }}
-                         >
-                           {formatText(step.name)}
-                         </Text>
-                         <Group gap="sm">
-                           {step.totalDuration && (
+                       {/* Fallback for no steps */}
+                       {(!record?.steps || record.steps.length === 0) && (
+                         <Box style={{ marginBottom: '1rem', position: 'relative' }}>
+                           <Box style={{ 
+                             backgroundColor: '#000000',
+                             border: '1px solid #2B2B2B',
+                             borderRadius: '4px',
+                             padding: '12px',
+                             marginLeft: '48px',
+                             position: 'relative'
+                           }}>
+                             {/* Single horizontal line for no steps case */}
+                             <Box style={{ 
+                               position: 'absolute',
+                               left: '-24px',
+                               top: '50%',
+                               width: '24px',
+                               height: '1px',
+                               backgroundColor: '#2B2B2B',
+                               transform: 'translateY(-50%)'
+                             }} />
+                             
+                             {/* Circle for no steps case */}
+                             <Box style={{ 
+                               position: 'absolute',
+                               left: '-28px',
+                               top: '50%',
+                               transform: 'translateY(-50%)',
+                               width: '8px',
+                               height: '8px',
+                               borderRadius: '50%',
+                               backgroundColor: '#000000',
+                               border: '1px solid #2B2B2B'
+                             }} />
+                             
                              <Text 
                                style={{ 
-                                 color: '#2B2B2B', 
-                                 fontSize: '12px',
-                                 fontFamily: GeistMono.style.fontFamily,
+                                 fontFamily: GeistMono.style.fontFamily, 
+                                 fontSize: '14px',
+                                 color: '#A1A1A1',
                                }}
                              >
-                               {formatDuration(step.totalDuration)}
-                             </Text>
-                           )}
-                           <Box style={{ 
-                             width: '8px', 
-                             height: '8px', 
-                             borderRadius: '50%',
-                             backgroundColor: isCompleted ? '#3DC28B' : 
-                                             isError ? '#FF4F56' : 
-                                             '#F5A623'
-                           }} />
-                         </Group>
-                       </Flex>
-                       
-                       {/* Collapsible content - NO internal borders */}
-                       {isCollapsible && (
-                         <Collapse in={true}>
-                           <Box mt="md" style={{ paddingLeft: '12px' }}>
-                             <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
-                               {JSON.stringify(step.data, null, 2)}
+                               No steps available
                              </Text>
                            </Box>
-                         </Collapse>
+                         </Box>
                        )}
                      </Box>
                    </Box>
