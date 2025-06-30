@@ -332,7 +332,11 @@ export default function JobShow() {
 
       const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${processingDocId}?includeReferences=true`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) throw new Error(`PDF download failed with status: ${response.status}`);
@@ -960,6 +964,11 @@ export default function JobShow() {
                  record?.link ? getFilenameFromLink(record.link) : 
                  'No source file'}
               </Text>
+              <Text c="dimmed" mt="xs" size="sm">
+                {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
+                 record?.link ? getFilenameFromLink(record.link) : 
+                 'No source file'}
+              </Text>
             </Box>
 
               <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
@@ -1106,17 +1115,7 @@ export default function JobShow() {
                 Logic
               </Text>
               <Box style={{ position: 'relative', paddingTop: '16px', paddingBottom: '16px' }}>
-                {/* Main vertical line - only show if there are multiple steps */}
-                {record?.steps && record.steps.length > 1 && (
-                  <Box style={{ 
-                    position: 'absolute', 
-                    left: '24px', 
-                    top: '32px', // Start from middle of first card
-                    bottom: record.steps.length > 1 ? `${100 - ((record.steps.length - 1) * 100 / record.steps.length) - (50 / record.steps.length)}%` : '50%', // End at middle of last card
-                    width: '1px', 
-                    backgroundColor: '#2B2B2B' 
-                  }} />
-                )}
+                
                 
                 {record?.steps?.map((step, index) => {
                   const isProcessingStep = step.status?.toLowerCase() === 'processing' || step.status?.toLowerCase() === 'in_progress' || step.status?.toLowerCase() === 'pending';
@@ -1213,9 +1212,15 @@ export default function JobShow() {
                         {isCollapsible && (
                           <Collapse in={true}>
                             <Box mt="md" style={{ paddingLeft: '12px' }}>
-                              <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
-                                {JSON.stringify(step.data, null, 2)}
-                              </Text>
+                              {step.name === "UPLOAD_FILE" ? (
+                                <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
+                                  Details hidden for this step.
+                                </Text>
+                              ) : (
+                                <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
+                                  {JSON.stringify(step.data, null, 2)}
+                                </Text>
+                              )}
                             </Box>
                           </Collapse>
                         )}

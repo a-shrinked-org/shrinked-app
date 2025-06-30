@@ -90,6 +90,12 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
       clickable: true
     },
     { 
+      label: 'CAPSULES', 
+      href: '/capsules', 
+      active: pathname === '/capsules' || (pathname !== null && pathname.startsWith('/capsules/')),
+      clickable: true
+    },
+    { 
       label: 'DOC STORE', 
       href: '/output',
       active: pathname === '/output' || (pathname !== null && pathname.startsWith('/output/')),

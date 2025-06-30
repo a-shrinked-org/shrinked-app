@@ -428,6 +428,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
         notificationProvider={notificationProvider}
         resources={[
           { name: "jobs", list: "/jobs", create: "/jobs/create", edit: "/jobs/edit/:id", show: "/jobs/show/:id", meta: { canDelete: true } },
+          { name: "capsules", list: "/capsules", meta: { canDelete: true } },
           { name: "scheduled", list: "/scheduled", create: "/scheduled/create", edit: "/scheduled/edit/:id", show: "/scheduled/show/:id", meta: { canDelete: true } },
           { name: "output", list: "/output", show: "/output/show/:id", meta: { canDelete: true } },
           { name: "logic", list: "/logic", meta: { canDelete: false } },
