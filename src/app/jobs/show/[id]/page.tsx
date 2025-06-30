@@ -1209,7 +1209,7 @@ export default function JobShow() {
                           </Group>
                         </Flex>
                         
-                        {/* Collapsible content - NO internal borders */}
+                        {{/* Collapsible content - NO internal borders */}}
                         {isCollapsible && (
                           <Collapse in={true}>
                             <Box mt="md" style={{ paddingLeft: '12px' }}>
@@ -1221,58 +1221,6 @@ export default function JobShow() {
                         )}
                       </Box>
                     </Box>
-                  );
-                })}
-                
-                {/* Fallback for no steps */}
-                {(!record?.steps || record.steps.length === 0) && (
-                  <Box style={{ marginBottom: '1rem', position: 'relative' }}>
-                    <Box style={{ 
-                      backgroundColor: '#000000',
-                      border: '1px solid #2B2B2B',
-                      borderRadius: '4px',
-                      padding: '12px',
-                      marginLeft: '48px',
-                      position: 'relative'
-                    }}>
-                      {/* Single horizontal line for no steps case */}
-                      <Box style={{ 
-                        position: 'absolute',
-                        left: '-24px',
-                        top: '50%',
-                        width: '24px',
-                        height: '1px',
-                        backgroundColor: '#2B2B2B',
-                        transform: 'translateY(-50%)'
-                      }} />
-                      
-                      {/* Circle for no steps case */}
-                      <Box style={{ 
-                        position: 'absolute',
-                        left: '-28px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: '#000000',
-                        border: '1px solid #2B2B2B'
-                      }} />
-                      
-                      <Text 
-                        style={{ 
-                          fontFamily: GeistMono.style.fontFamily, 
-                          fontSize: '14px',
-                          color: '#A1A1A1',
-                        }}
-                      >
-                        No steps available
-                      </Text>
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            </Box>
                   );
                 })}
                 
