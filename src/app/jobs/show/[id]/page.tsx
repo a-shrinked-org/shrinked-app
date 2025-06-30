@@ -1111,7 +1111,7 @@ export default function JobShow() {
             </Box>
             
             <Box style={{ marginTop: '2rem' }}>
-              <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
+              <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, marginLeft: '-1rem', marginTop: '-0.5rem' }}>
                 Logic
               </Text>
               <Box style={{ position: 'relative', paddingTop: '16px', paddingBottom: '16px' }}>
@@ -1134,7 +1134,7 @@ export default function JobShow() {
                           position: 'absolute',
                           left: '24px',
                           top: '50%', // Start from middle of current card (circle position)
-                          height: 'calc(100% + 1rem)', // Extend to next card (including marginBottom)
+                          height: 'calc(100% + 3rem)', // Extend to next card (including marginBottom)
                           width: '1px',
                           backgroundColor: '#2B2B2B',
                           zIndex: 1
