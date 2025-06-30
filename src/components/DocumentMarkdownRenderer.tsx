@@ -122,114 +122,32 @@ function DocumentMarkdocRenderer({
     );
   }
 
-  // Universal function to remove duplicate headers and clean content
-  const cleanContent = (content: string, expectedHeader: string): string => {
+  // Universal function to clean duplicate headers
+  const cleanDuplicateHeaders = (content: string, expectedHeader: string): string => {
     if (!content) return '';
     
-    // Create a regex that matches the header at various levels (##, ###, etc.) with case-insensitive matching
+    // Create regex for the header (case-insensitive, various levels)
     const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'gmi');
     
-    // Split content into lines
     const lines = content.split('\n');
     const cleanedLines: string[] = [];
-    let i = 0;
+    let headerFound = false;
     
-    while (i < lines.length) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      // Check if current line is a duplicate header
       if (headerPattern.test(line.trim())) {
-        // Look ahead to see if there's actual content after this header
-        let hasContentAfter = false;
-        let j = i + 1;
-        
-        // Skip empty lines after header
-        while (j < lines.length && lines[j].trim() === '') {
-          j++;
+        if (!headerFound) {
+          // This is the first occurrence, skip it (we'll add proper header in generateMarkdown)
+          headerFound = true;
         }
-        
-        // Check if there's non-header content after the empty lines
-        if (j < lines.length && !headerPattern.test(lines[j].trim())) {
-          hasContentAfter = true;
-        }
-        
-        if (hasContentAfter) {
-          // This header has content after it, so we need to preserve it
-          // But we'll skip it here since we'll add it as a proper section header in generateMarkdown
-          i++;
-          // Skip empty lines after header
-          while (i < lines.length && lines[i].trim() === '') {
-            i++;
-          }
-          // Add the content that follows
-          while (i < lines.length && !headerPattern.test(lines[i].trim())) {
-            cleanedLines.push(lines[i]);
-            i++;
-          }
-        } else {
-          // This is an empty header with no content, skip it entirely
-          i++;
-          // Skip any empty lines after the empty header
-          while (i < lines.length && lines[i].trim() === '') {
-            i++;
-          }
-        }
+        // Skip all header occurrences since we control the header in generateMarkdown
       } else {
         cleanedLines.push(line);
-        i++;
       }
     }
     
     return cleanedLines.join('\n').trim();
-  };
-
-  // Universal function to remove empty sections
-  const removeEmptySections = (content: string): string => {
-    if (!content) return '';
-    
-    // Split by double newlines to get sections
-    const sections = content.split('\n\n');
-    const cleanedSections: string[] = [];
-    
-    for (let i = 0; i < sections.length; i++) {
-      const section = sections[i].trim();
-      
-      // Skip completely empty sections
-      if (!section) continue;
-      
-      // Check if section is just a standalone header with no content
-      const lines = section.split('\n').map(line => line.trim()).filter(line => line);
-      
-      if (lines.length === 1 && lines[0].match(/^#{1,6}\s+/)) {
-        // This is a standalone header
-        // Check if there's a following section with actual content (not another header)
-        let hasFollowingContent = false;
-        for (let j = i + 1; j < sections.length; j++) {
-          const nextSection = sections[j].trim();
-          if (nextSection) {
-            // If next section doesn't start with a header, it has content
-            const nextLines = nextSection.split('\n').map(line => line.trim()).filter(line => line);
-            if (nextLines.length > 0 && !nextLines[0].match(/^#{1,6}\s+/)) {
-              hasFollowingContent = true;
-              break;
-            }
-            // If next section starts with a header but has more content, it's valid
-            if (nextLines.length > 1) {
-              break;
-            }
-          }
-        }
-        
-        if (!hasFollowingContent) {
-          // Skip this standalone empty header
-          continue;
-        }
-      }
-      
-      cleanedSections.push(section);
-    }
-    
-    return cleanedSections.join('\n\n');
   };
 
   const processReferences = (html: string): string => {
@@ -265,9 +183,6 @@ function DocumentMarkdocRenderer({
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
     
-    // Remove empty sections first
-    processed = removeEmptySections(processed);
-    
     // CRITICAL: Don't process reference links here - let them pass through to Markdoc naturally
     // The *[306](url)* format should be handled by Markdoc, not preprocessed
     
@@ -292,7 +207,6 @@ function DocumentMarkdocRenderer({
         return `## Chapters\n${formattedChapters}`;
       }
     );
-    
     // Ensure passages have proper sub-headers
     processed = processed.replace(
       /## Passages\n([\s\S]+?)(?=\n##|$)/g,
@@ -313,7 +227,6 @@ function DocumentMarkdocRenderer({
         return `## Passages\n${formattedPassages}`;
       }
     );
-    
     return processed;
   };
 
@@ -322,6 +235,8 @@ function DocumentMarkdocRenderer({
     let result = html;
     
     // Clean up reference entries with numbered timestamp links
+    // This very specific pattern matches the structure you shared:
+    // <li><ol start="289"><li><a href="None#t=1350">00:22:30</a>: Probably more.</li></ol></li>
     result = result.replace(/<li><ol\s+start="\d+"><li>(.*?)<\/li><\/ol><\/li>/g, '<li>$1</li>');
     
     // Fix general nested list items (simple case)
@@ -393,36 +308,28 @@ function DocumentMarkdocRenderer({
     }
 
     if (data?.introduction) {
-      const cleanIntroduction = cleanContent(data.introduction, 'Introduction');
-      if (cleanIntroduction) {
-        md += `## Introduction\n${cleanIntroduction}\n\n`;
-      }
+      const cleanIntroduction = cleanDuplicateHeaders(data.introduction, 'Introduction');
+      md += `## Introduction\n${cleanIntroduction}\n\n`;
     }
     
     // Format passages with sub-headers
     if (data?.passages && data.passages.trim() && data.passages.trim() !== 'No passages provided') {
-      const cleanPassages = cleanContent(data.passages, 'Passages');
-      if (cleanPassages) {
-        md += `## Passages\n`;
-        const passagesSections = cleanPassages.split('\n\n').filter((section: string) => section.trim());
-        md += passagesSections
-          .map((section: string) => {
-            const lines = section.split('\n');
-            const header = lines[0].trim();
-            const content = lines.slice(1).join('\n').trim();
-            return `### ${header}\n${content}`;
-          })
-          .join('\n\n');
-        md += '\n\n';
-      }
+      md += `## Passages\n`;
+      const passagesSections = data.passages.split('\n\n').filter((section: string) => section.trim());
+      md += passagesSections
+        .map((section: string) => {
+          const lines = section.split('\n');
+          const header = lines[0].trim();
+          const content = lines.slice(1).join('\n').trim();
+          return `### ${header}\n${content}`;
+        })
+        .join('\n\n');
+      md += '\n\n';
     }
 
     if (data?.conclusion) {
-      // Use the universal cleaning function for conclusion
-      const cleanConclusion = cleanContent(data.conclusion, 'Conclusion');
-      if (cleanConclusion) {
-        md += `## Conclusion\n${cleanConclusion}\n\n`;
-      }
+      const cleanConclusion = cleanDuplicateHeaders(data.conclusion, 'Conclusion');
+      md += `## Conclusion\n${cleanConclusion}\n\n`;
     }
     
     if (data?.references && data.references.length > 0) {
