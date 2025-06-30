@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useShow, useGetIdentity } from "@refinedev/core";
+import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
 import {
   Text,
   Box,
@@ -34,8 +34,7 @@ import {
   Link2,
   Target,
   ChevronsUpDown,
-  Check,
-  Settings
+  Check
 } from 'lucide-react';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -46,7 +45,6 @@ import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 import CapsulePurposeModal from "@/components/CapsulePurposeModal";
-import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -137,7 +135,8 @@ const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
 export default function CapsuleView() {
   const params = useParams();
   const router = useRouter();
-  const capsuleId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : "";
+  useNavigation();
+  const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>({
     queryOptions: {
       staleTime: 5 * 60 * 1000,
@@ -171,7 +170,7 @@ export default function CapsuleView() {
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [optimisticPurposeId, setOptimisticPurposeId] = useState<string | null>(null);
 
   // Capsule dropdown state
   const [availableCapsules, setAvailableCapsules] = useState<{ value: string; label: string }[]>([]);
@@ -200,7 +199,7 @@ export default function CapsuleView() {
   const record = capsuleData?.data;
 
   // Debounced refetch
-  const debouncedRefetch = useMemo(() => debounce(refetch, 500), [refetch]);
+  const debouncedRefetch = useMemo(() => debounce(refetch, 500), []);
 
   // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = useMemo(() => [
@@ -752,43 +751,39 @@ export default function CapsuleView() {
 
   // Purpose selection handlers
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
-    setIsLoadingPrompts(true); // Use the existing loading state to disable buttons
+    const originalPurposeId = getCurrentPurposeId();
+    setOptimisticPurposeId(card.id);
+
     try {
-        const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                overridePrompt: card.id === 'summary' ? '' : card.prompt,
-            }),
-        });
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          overridePrompt: card.id === 'summary' ? null : card.prompt,
+        }),
+      });
 
-        if (!response.ok) {
-            throw new Error(`Failed to update purpose: ${response.status}`);
-        }
+      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
 
-        // Wait for the data to be refetched before closing the modal
-        await refetch();
-
-        notifications.show({
-            title: 'Purpose Updated',
-            message: `Capsule purpose set to: ${card.name}`,
-            color: 'green',
-        });
-
-        // Only close the modal on success
-        setIsPurposeModalOpen(false);
-
+      await refetch();
+      setIsPurposeModalOpen(false);
+      notifications.show({
+        title: 'Purpose Updated',
+        message: `Capsule purpose set to: ${card.name}`,
+        color: 'green',
+      });
     } catch (error) {
-        if (IS_DEV) console.error('Failed to update purpose:', error);
-        notifications.show({
-            title: 'Error',
-            message: formatErrorMessage(error),
-            color: 'red',
-        });
+      setOptimisticPurposeId(originalPurposeId); // Revert on error
+      if (IS_DEV) console.error('Failed to update purpose:', error);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
     } finally {
-        setIsLoadingPrompts(false);
+      setOptimisticPurposeId(null);
     }
-  }, [capsuleId, fetchWithAuth, refetch]);
+  }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId]);
 
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
@@ -843,7 +838,7 @@ export default function CapsuleView() {
   // Fetch all capsules for the dropdown
   useEffect(() => {
     const fetchAllCapsules = async () => {
-      if (!identity || !identity.id) return;
+      if (!identity?.id) return;
 
       setIsLoadingCapsules(true);
       try {
@@ -941,7 +936,7 @@ export default function CapsuleView() {
   };
 
   const handleCreateNewCapsule = useCallback(async () => {
-    if (!identity || !identity.id) {
+    if (!identity?.id) {
       notifications.show({
         title: 'Error',
         message: 'User not authenticated.',
@@ -1037,7 +1032,7 @@ export default function CapsuleView() {
     const exists = availableCapsules.some(cap => cap.value === capsuleId);
     return exists ? capsuleId : null;
   };
-  
+
   if (isError || !record) {
     return (
       <Box style={{ 
@@ -1056,7 +1051,7 @@ export default function CapsuleView() {
       </Box>
     );
   }
-  
+
   const displayFiles = record.files?.length ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
@@ -1071,8 +1066,7 @@ export default function CapsuleView() {
   } else {
     console.log('PAGE SUCCESS: Clean content being passed to renderer');
   }
-  
-  // Fixed return statement - ensure proper JSX structure
+
   return (
     <Box style={{ 
       display: 'flex', 
@@ -1103,16 +1097,16 @@ export default function CapsuleView() {
             <Plus size={20} />
           </ActionIcon>
           <Select
-            value={getSelectValue()}
+            value={capsuleId}
             onChange={handleCapsuleChange}
             data={availableCapsules}
             searchable={false}
-            readOnly={false}
+            readOnly={false} // Changed from readOnly to allow selection
             rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
             styles={{
               root: {
                 width: 'auto',
-                minWidth: '200px',
+                minWidth: '200px', // Increased for better visibility
               },
               wrapper: {
                 width: 'auto',
@@ -1130,7 +1124,7 @@ export default function CapsuleView() {
                 lineHeight: 1,
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase',
-                cursor: 'pointer',
+                cursor: 'pointer', // Added cursor pointer
                 '&:focus': {
                   outline: 'none',
                 },
@@ -1148,17 +1142,17 @@ export default function CapsuleView() {
                 border: '1px solid #2b2b2b',
                 width: 'auto',
                 minWidth: 'max-content',
-                maxHeight: '300px',
+                maxHeight: '300px', // Added max height for scrolling
                 overflowY: 'auto',
               },
               option: {
                 color: '#ffffff',
                 fontSize: '14px',
                 fontFamily: GeistMono.style.fontFamily,
-                padding: '8px 12px',
+                padding: '8px 12px', // Better padding
                 '&[data-selected]': {
                   backgroundColor: '#202020',
-                  color: '#F5A623',
+                  color: '#F5A623', // Highlight selected option
                 },
                 '&:hover:not([data-disabled])': {
                   backgroundColor: '#1c1c1c',
@@ -1167,6 +1161,7 @@ export default function CapsuleView() {
             }}
             placeholder={isLoadingCapsules ? "Loading..." : "Select Capsule"}
             disabled={isLoadingCapsules}
+            // Display current capsule name or fallback
             renderOption={({ option, checked }) => (
               <Group justify="space-between" style={{ width: '100%' }}>
                 <Text 
@@ -1186,9 +1181,9 @@ export default function CapsuleView() {
         <Group gap="xs">
           <Button 
             variant="subtle"
-            leftSection={<RefreshCw size={14} />}
-            onClick={handleRegenerateCapsule}
-            disabled={isProcessing}
+            leftSection={<Download size={14} />}
+            onClick={handleDownloadMarkdown}
+            disabled={!hasContentForDisplay || isProcessing}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
@@ -1205,7 +1200,7 @@ export default function CapsuleView() {
               },
             }}
           >
-            REGENERATE
+            DOWNLOAD
           </Button>
           <Button 
             variant="subtle"
@@ -1231,42 +1226,32 @@ export default function CapsuleView() {
             PURPOSE
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <>
-              <Button 
-                variant="subtle"
-                leftSection={<Link2 size={14} />}
-                onClick={() => {
-                  handleResetEnrichedContent();
-                  setIsReferenceModalOpen(true);
-                }}
-                disabled={!hasContentForDisplay || isProcessing}
-                styles={{
-                  root: {
-                    fontFamily: GeistMono.style.fontFamily,
-                    fontSize: '14px',
-                    fontWeight: 400,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    padding: '8px 16px',
-                    backgroundColor: 'transparent',
-                    color: '#ffffff',
-                    '&:hover': {
-                      backgroundColor: '#1a1a1a',
-                    },
+            <Button 
+              variant="subtle"
+              leftSection={<Link2 size={14} />}
+              onClick={() => {
+                handleResetEnrichedContent();
+                setIsReferenceModalOpen(true);
+              }}
+              disabled={!hasContentForDisplay || isProcessing}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
                   },
-                }}
-              >
-                REFS
-              </Button>
-              <ActionIcon
-                variant="subtle"
-                onClick={() => setIsSettingsModalOpen(true)}
-                disabled={isProcessing}
-                title="Capsule Settings"
-              >
-                <Settings size={18} />
-              </ActionIcon>
-            </>
+                },
+              }}
+            >
+              REFS
+            </Button>
           )}
           <Button 
             variant="filled"
@@ -1294,7 +1279,7 @@ export default function CapsuleView() {
           </Button>
         </Group>
       </Flex>
-  
+
       {/* Main Content */}
       <Flex style={{ flex: 1, overflow: 'hidden' }}>
         {/* Left Panel - Scrollable */}
@@ -1314,7 +1299,7 @@ export default function CapsuleView() {
                 {errorMessage}
               </Alert>
             )}
-  
+
             {/* Title Section */}
             <Box mb="lg">
               <Badge 
@@ -1347,7 +1332,7 @@ export default function CapsuleView() {
                 {record.slug}
               </Text>
             </Box>
-  
+
             {/* Capsule Parameters - Above Context Block */}
             <Box mb="lg" style={{ maxWidth: '600px' }}>
               <Text 
@@ -1440,55 +1425,42 @@ export default function CapsuleView() {
                 </Box>
               </Flex>
             </Box>
-  
+
             {/* Tabs Section - Match Job Page Design */}
-            <Box>
-              <Box>
-              <Flex justify="space-between" align="center">
-                <Tabs value={activeTab} onChange={(value: string | null) => setActiveTab(value ?? "preview")} style={{ flex: 1 }}>
-                  <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
-                    <Tabs.Tab 
-                      value="preview"
-                      styles={{
-                        tab: {
-                          backgroundColor: 'transparent',
-                          color: '#a1a1a1',
-                          '&[data-active]': {
-                            borderBottom: '2px solid #ffffff',
-                            color: '#ffffff',
-                          },
-                        },
-                      }}
-                    >
-                      Preview
-                    </Tabs.Tab>
-                    <Tabs.Tab 
-                      value="markdown"
-                      styles={{
-                        tab: {
-                          backgroundColor: 'transparent',
-                          color: '#a1a1a1',
-                          '&[data-active]': {
-                            borderBottom: '2px solid #ffffff',
-                            color: '#ffffff',
-                          },
-                        },
-                      }}
-                    >
-                      Markdown
-                    </Tabs.Tab>
-                  </Tabs.List>
-                </Tabs>
-                <ActionIcon
-                  variant="subtle"
-                  onClick={handleDownloadMarkdown}
-                  disabled={!hasContentForDisplay || isProcessing}
-                  title="Download Markdown"
+            <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
+              <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
+                <Tabs.Tab 
+                  value="preview"
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
                 >
-                  <Download size={18} />
-                </ActionIcon>
-              </Flex>
-  
+                  Preview
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="markdown"
+                  styles={{
+                    tab: {
+                      backgroundColor: 'transparent',
+                      color: '#a1a1a1',
+                      '&[data-active]': {
+                        borderBottom: '2px solid #ffffff',
+                        color: '#ffffff',
+                      },
+                    },
+                  }}
+                >
+                  Markdown
+                </Tabs.Tab>
+              </Tabs.List>
+              
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
@@ -1566,10 +1538,10 @@ export default function CapsuleView() {
                   </Text>
                 )}
               </Tabs.Panel>
-            </Box>
+            </Tabs>
           </Box>
         </Box>
-  
+
         {/* Right Panel - Simplified */}
         <Box style={{ 
           width: '384px',
@@ -1616,7 +1588,7 @@ export default function CapsuleView() {
               </Flex>
             </Box>
           </Box>
-  
+
           {/* Source Files */}
           <Box>
             <Text 
@@ -1720,7 +1692,7 @@ export default function CapsuleView() {
           </Box>
         </Box>
       </Flex>
-  
+
       {/* Modals */}
       <FileSelector
         opened={isFileSelectorOpen}
@@ -1739,18 +1711,16 @@ export default function CapsuleView() {
       />
       <CapsulePurposeModal
         isOpen={isPurposeModalOpen}
-        onClose={() => setIsPurposeModalOpen(false)}
+        onClose={() => {
+          setIsPurposeModalOpen(false);
+          setOptimisticPurposeId(null);
+        }}
         isLoading={isLoadingPrompts}
         summary={summaryPrompt}
         highlights={highlightsPrompt}
         testSummary={testSummaryPrompt}
         onPurposeSelect={handlePurposeSelect}
-        activePurpose={getCurrentPurposeId()}
-        capsuleId={capsuleId}
-      />
-      <CapsuleSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+        activePurpose={optimisticPurposeId || getCurrentPurposeId()}
         capsuleId={capsuleId}
       />
     </Box>
