@@ -14,6 +14,14 @@ import { X } from 'lucide-react';
 import { useAuth } from "@/utils/authUtils";
 import { notifications } from '@mantine/notifications';
 
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+  id?: string;
+  subscriptionPlan?: { name?: string };
+}
+
 interface CapsuleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,6 +33,7 @@ interface CapsuleSettingsModalProps {
   testSummaryPrompt: string;
   onUpdateSuccess: () => void;
   onPromptUpdateSuccess: () => void;
+  identity?: Identity;
 }
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -40,8 +49,9 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   testSummaryPrompt: initialTestSummaryPrompt,
   onUpdateSuccess,
   onPromptUpdateSuccess,
+  identity,
 }) => {
-  const { fetchWithAuth, handleAuthError, data: identity } = useAuth();
+  const { fetchWithAuth, handleAuthError } = useAuth();
   const [name, setName] = useState(capsuleName);
   const [slug, setSlug] = useState(capsuleSlug);
   const [summaryPrompt, setSummaryPrompt] = useState(initialSummaryPrompt);

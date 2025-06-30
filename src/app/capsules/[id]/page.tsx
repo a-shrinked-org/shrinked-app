@@ -1182,7 +1182,7 @@ export default function CapsuleView() {
           />
         </Group>
         <Group gap="xs">
-          <Button
+          <Button 
             variant="subtle"
             leftSection={<RefreshCw size={14} />}
             onClick={handleRegenerateCapsule}
@@ -1206,7 +1206,7 @@ export default function CapsuleView() {
           >
             REGENERATE
           </Button>
-          <Button
+          <Button 
             variant="subtle"
             leftSection={<Target size={14} />}
             onClick={handleOpenPurposeModal}
@@ -1230,7 +1230,7 @@ export default function CapsuleView() {
             PURPOSE
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button
+            <Button 
               variant="subtle"
               leftSection={<Link2 size={14} />}
               onClick={() => {
@@ -1258,7 +1258,7 @@ export default function CapsuleView() {
             </Button>
           )}
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button
+            <Button 
               variant="subtle"
               leftSection={<Settings size={14} />}
               onClick={() => setIsSettingsModalOpen(true)}
@@ -1282,7 +1282,7 @@ export default function CapsuleView() {
               SETTINGS
             </Button>
           )}
-          <Button
+          <Button 
             variant="filled"
             leftSection={<Plus size={14} />}
             onClick={handleAddFile}
@@ -1775,6 +1775,7 @@ export default function CapsuleView() {
         testSummaryPrompt={testSummaryPrompt}
         onUpdateSuccess={refetch}
         onPromptUpdateSuccess={loadPrompts}
+        identity={identity}
       />
     </Box>
   );
