@@ -96,9 +96,13 @@ async function handleRequest(
 
 	const contentType = res.headers.get("content-type") || "";
 	const text = await res.text();
-	const headersObj = Object.fromEntries(
-	  [...res.headers.entries()].filter(([k]) => !["content-encoding", "transfer-encoding"].includes(k))
-	);
+	
+	const headersObj: Record<string, string> = {};
+	res.headers.forEach((value, key) => {
+	  if (!["content-encoding", "transfer-encoding"].includes(key)) {
+		headersObj[key] = value;
+	  }
+	});
 
 	if (res.status === 204) return new NextResponse(null, { status: 204 });
 
