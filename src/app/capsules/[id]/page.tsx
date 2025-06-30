@@ -347,11 +347,8 @@ export default function CapsuleView() {
   
   const resetGeneratedContent = useCallback(() => {
     console.log('Main: Resetting generated content');
-    setSummary('');
-    setHighlights('');
-    setTestSummary('');
-    // Add any other content you need to reset
-  }, [setSummary, setHighlights, setTestSummary]);
+    setEnrichedContent('');
+  }, [setEnrichedContent]);
   
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
     // This is now just for any additional parent-specific logic
