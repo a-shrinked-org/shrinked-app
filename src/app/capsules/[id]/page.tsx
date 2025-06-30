@@ -170,7 +170,6 @@ export default function CapsuleView() {
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
-  const [optimisticPurposeId, setOptimisticPurposeId] = useState<string | null>(null);
 
   // Capsule dropdown state
   const [availableCapsules, setAvailableCapsules] = useState<{ value: string; label: string }[]>([]);
@@ -751,41 +750,43 @@ export default function CapsuleView() {
 
   // Purpose selection handlers
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
-    const originalPurposeId = getCurrentPurposeId();
-    setOptimisticPurposeId(card.id);
-
+    setIsLoadingPrompts(true); // Use the existing loading state to disable buttons
     try {
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          overridePrompt: card.id === 'summary' ? null : card.prompt,
-        }),
-      });
+        const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                overridePrompt: card.id === 'summary' ? '' : card.prompt,
+            }),
+        });
 
-      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Failed to update purpose: ${response.status}`);
+        }
 
-      await refetch();
-      setIsPurposeModalOpen(false);
+        // Wait for the data to be refetched before closing the modal
+        await refetch();
 
-      notifications.show({
-        title: 'Purpose Updated',
-        message: `Capsule purpose set to: ${card.name}`,
-        color: 'green',
-      });
+        notifications.show({
+            title: 'Purpose Updated',
+            message: `Capsule purpose set to: ${card.name}`,
+            color: 'green',
+        });
+
+        // Only close the modal on success
+        setIsPurposeModalOpen(false);
+
     } catch (error) {
-      setOptimisticPurposeId(originalPurposeId); // Revert on error
-      if (IS_DEV) console.error('Failed to update purpose:', error);
-      notifications.show({
-        title: 'Error',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
+        if (IS_DEV) console.error('Failed to update purpose:', error);
+        notifications.show({
+            title: 'Error',
+            message: formatErrorMessage(error),
+            color: 'red',
+        });
     } finally {
-      // Reset optimistic state after operation is complete
-      setOptimisticPurposeId(null);
+        setIsLoadingPrompts(false);
     }
-  }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId]);
+  }, [capsuleId, fetchWithAuth, refetch]);
 
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
@@ -1723,16 +1724,13 @@ export default function CapsuleView() {
       />
       <CapsulePurposeModal
         isOpen={isPurposeModalOpen}
-        onClose={() => {
-          setIsPurposeModalOpen(false);
-          setOptimisticPurposeId(null);
-        }}
+        onClose={() => setIsPurposeModalOpen(false)}
         isLoading={isLoadingPrompts}
         summary={summaryPrompt}
         highlights={highlightsPrompt}
         testSummary={testSummaryPrompt}
         onPurposeSelect={handlePurposeSelect}
-        activePurpose={optimisticPurposeId || getCurrentPurposeId()}
+        activePurpose={getCurrentPurposeId()}
         capsuleId={capsuleId}
       />
     </Box>
