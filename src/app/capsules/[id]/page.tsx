@@ -525,63 +525,89 @@ export default function CapsuleView() {
     setIsAddingFiles(true);
     setErrorMessage(null);
 
+    // Optimistically update UI
+    const optimisticNewFiles = fileIds.map(id => {
+      const fileInfo = fileData.find(f => f._id === id);
+      return {
+        _id: id,
+        title: fileInfo?.title || fileInfo?.output?.title || fileInfo?.fileName || `File ${id.slice(-6)}`,
+        createdAt: fileInfo?.createdAt || new Date().toISOString(),
+        fileName: fileInfo?.fileName || "",
+        output: fileInfo?.output || {},
+        size: fileInfo?.size || 0,
+        contentType: fileInfo?.contentType || 'application/octet-stream'
+      };
+    });
+
+    setLoadedFiles(prev => {
+      const existingIds = prev.map(file => file._id);
+      const filesToAdd = optimisticNewFiles.filter(file => !existingIds.includes(file._id));
+      return [...prev, ...filesToAdd];
+    });
+
+    setIsRegenerating(true);
+    startStatusMonitoring(); // Start monitoring immediately
+
     try {
-      setIsRegenerating(true);
-      startStatusMonitoring();
-
-      const optimisticNewFiles = fileIds.map(id => {
-        const fileInfo = fileData.find(f => f._id === id);
-        return {
-          _id: id,
-          title: fileInfo?.title || fileInfo?.output?.title || fileInfo?.fileName || `File ${id.slice(-6)}`,
-          createdAt: fileInfo?.createdAt || new Date().toISOString(),
-          fileName: fileInfo?.fileName || "",
-          output: fileInfo?.output || {},
-          size: fileInfo?.size || 0,
-          contentType: fileInfo?.contentType || 'application/octet-stream'
-        };
-      });
-
-      setLoadedFiles(prev => {
-        const existingIds = prev.map(file => file._id);
-        const filesToAdd = optimisticNewFiles.filter(file => !existingIds.includes(file._id));
-        return [...prev, ...filesToAdd];
-      });
-
+      // Send API calls without awaiting them to avoid blocking UI
+      const addFilePromises = [];
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
         const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
-        const response = await fetchWithAuth(`/api/capsule/${capsuleId}/files`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileIds: batch }),
-        });
-        if (!response.ok) throw new Error(`Failed to add batch: ${response.status}`);
-        await new Promise(resolve => setTimeout(resolve, 250));
+        addFilePromises.push(
+          fetchWithAuth(`/api/capsule/${capsuleId}/files`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileIds: batch }),
+          }).then(response => {
+            if (!response.ok) throw new Error(`Failed to add batch: ${response.status}`);
+          }).catch(error => {
+            if (IS_DEV) console.error("[CapsuleView] Failed to add files batch:", error);
+            notifications.show({
+              title: 'Error Adding Files',
+              message: formatErrorMessage(error),
+              color: 'red',
+            });
+            handleAuthError(error);
+          })
+        );
+        await new Promise(resolve => setTimeout(resolve, 250)); // Small delay between batches
       }
 
-      await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
-      refetch();
+      await Promise.all(addFilePromises); // Wait for all batches to be sent
 
-      notifications.show({
-        title: 'Files Added',
-        message: 'Files added and regeneration started.',
-        color: 'green',
-      });
+      // Trigger regeneration, but don't block on its response
+      fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' })
+        .then(response => {
+          if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
+          notifications.show({
+            title: 'Files Added',
+            message: 'Files added and regeneration started.',
+            color: 'green',
+          });
+        })
+        .catch(error => {
+          if (IS_DEV) console.error("[CapsuleView] Failed to trigger regeneration after adding files:", error);
+          notifications.show({
+            title: 'Error Triggering Regeneration',
+            message: formatErrorMessage(error),
+            color: 'red',
+          });
+          handleAuthError(error);
+        });
+
     } catch (error) {
-      if (IS_DEV) console.error("[CapsuleView] Failed to add files:", error);
+      // This catch block will primarily handle errors from optimistic updates or initial setup,
+      // as API call errors are now handled within their respective promises.
+      if (IS_DEV) console.error("[CapsuleView] General error in handleFileSelect:", error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
-      setIsRegenerating(false);
-      notifications.show({
-        title: 'Error Adding Files',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
+      setIsRegenerating(false); // Stop regenerating state if initial setup fails
     } finally {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
+      // No refetch here; status monitoring will handle it
     }
-  }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, startStatusMonitoring]);
+  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring]);
   
   const handleContentEnrichment = useCallback((enrichedContent: string) => {
     console.log('SETTING enriched content:', enrichedContent.substring(0, 200));
@@ -599,50 +625,74 @@ export default function CapsuleView() {
     setShowDeleteConfirm(null);
     setErrorMessage(null);
 
+    // Optimistically update UI
+    setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
+
+    setIsRegenerating(true);
+    startStatusMonitoring(); // Start monitoring immediately
+
     try {
-      setIsRegenerating(true);
-      startStatusMonitoring();
-
-      setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
-
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
+      // Send API calls without awaiting them to avoid blocking UI
+      fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
-      });
-      if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
+      })
+        .then(response => {
+          if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
+          notifications.show({
+            title: 'File Removed',
+            message: 'File removal initiated.',
+            color: 'green',
+          });
 
-      const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
-      if (remainingFiles.length > 0) {
-        await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
-      }
-      refetch();
+          // Trigger regeneration if files remain, but don't block
+          const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
+          if (remainingFiles.length > 0) {
+            fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' })
+              .then(regenResponse => {
+                if (!regenResponse.ok) throw new Error(`Failed to trigger regeneration: ${regenResponse.status}`);
+              })
+              .catch(regenError => {
+                if (IS_DEV) console.error("[CapsuleView] Failed to trigger regeneration after file removal:", regenError);
+                notifications.show({
+                  title: 'Regeneration Error',
+                  message: formatErrorMessage(regenError),
+                  color: 'red',
+                });
+                handleAuthError(regenError);
+              });
+          }
+        })
+        .catch(error => {
+          if (IS_DEV) console.error("[CapsuleView] Failed to remove file:", error);
+          // Revert optimistic update if API call fails
+          setLoadedFiles(prev => {
+            const file = record?.files?.find(f => f._id === fileId) || {
+              _id: fileId,
+              title: `File ${fileId.slice(-6)}`,
+              createdAt: new Date().toISOString(),
+              size: 0,
+              contentType: 'application/octet-stream'
+            };
+            return prev.some(f => f._id === fileId) ? prev : [...prev, file];
+          });
+          setErrorMessage(formatErrorMessage(error));
+          handleAuthError(error);
+          setIsRegenerating(false); // Stop regenerating state if initial setup fails
+          notifications.show({
+            title: 'Error Removing File',
+            message: formatErrorMessage(error),
+            color: 'red',
+          });
+        });
 
-      notifications.show({
-        title: 'File Removed',
-        message: 'File removed successfully.',
-        color: 'green',
-      });
     } catch (error) {
-      if (IS_DEV) console.error("[CapsuleView] Failed to remove file:", error);
-      setLoadedFiles(prev => {
-        const file = record?.files?.find(f => f._id === fileId) || {
-          _id: fileId,
-          title: `File ${fileId.slice(-6)}`,
-          createdAt: new Date().toISOString(),
-          size: 0,
-          contentType: 'application/octet-stream'
-        };
-        return prev.some(f => f._id === fileId) ? prev : [...prev, file];
-      });
+      // This catch block will primarily handle errors from optimistic updates or initial setup
+      if (IS_DEV) console.error("[CapsuleView] General error in handleRemoveFile:", error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
       setIsRegenerating(false);
-      notifications.show({
-        title: 'Error Removing File',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
     }
-  }, [capsuleId, fetchWithAuth, debouncedRefetch, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
+  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
 
   // Regeneration with immediate UI feedback
   const handleRegenerateCapsule = useCallback(async () => {
@@ -863,9 +913,14 @@ export default function CapsuleView() {
     return summaryMatch?.[1]?.trim() ?? summaryContext.trim();
   };
 
+  const extractHighlightsContent = (highlights?: Array<{ xml: string }>): string | null => {
+    if (!highlights || highlights.length === 0) return null;
+    return highlights.map(h => h.xml).join('\n\n');
+  };
+
   const handleDownloadMarkdown = useCallback(() => {
-    const summary = extractContextSummary(record?.summaryContext);
-    if (!summary || !record) return;
+    const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights);
+    if (!contentToDownload || !record) return;
 
     try {
       const blob = new Blob([summary], { type: 'text/markdown;charset=utf-8' });
@@ -1040,9 +1095,9 @@ export default function CapsuleView() {
   const displayFiles = record.files?.length ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
-  const hasContextSummary = !!extractContextSummary(record.summaryContext);
+  const hasContentForDisplay = !!(extractContextSummary(record.summaryContext) || extractHighlightsContent(record.highlights));
   
-  const debugContent = enrichedContent || extractContextSummary(record?.summaryContext);
+  const debugContent = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
   console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
   
   const malformedInPage = debugContent?.match(/\*{3,}\[/g);
@@ -1168,7 +1223,7 @@ export default function CapsuleView() {
             variant="subtle"
             leftSection={<Download size={14} />}
             onClick={handleDownloadMarkdown}
-            disabled={!hasContextSummary || isProcessing}
+            disabled={!hasContentForDisplay || isProcessing}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
@@ -1457,7 +1512,7 @@ export default function CapsuleView() {
                   </Stack>
                 ) : hasContextSummary ? (
                   <DocumentMarkdownWrapper 
-                    markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                    markdown={(enrichedContent || extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext)) ?? ""} 
                   />
                 ) : hasFiles ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
@@ -1690,7 +1745,7 @@ export default function CapsuleView() {
         onClose={() => {
           setIsReferenceModalOpen(false);
         }}
-        originalContent={extractContextSummary(record?.summaryContext) ?? ''}
+        originalContent={extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''}
         onContentUpdate={handleContentEnrichment}
       />
       <CapsulePurposeModal
