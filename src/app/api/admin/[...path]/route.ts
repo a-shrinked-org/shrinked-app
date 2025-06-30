@@ -94,20 +94,15 @@ async function handleRequest(
 	  
 	  if (IS_DEV) console.log(`[Admin Proxy] Standardized ${standardizedPrompts.length} prompts`);
 	  
-	  // If it was a single prompt, replace with a single standardized prompt
-	  // If it was an array, replace with an array of standardized prompts
-	  const requestBody = Array.isArray(body) ? standardizedPrompts : standardizedPrompts[0];
+	  // Always maintain the { prompts: [...] } structure that the API expects
+	  const requestBody = { prompts: standardizedPrompts };
 	  
-	  // Instead of creating a new Request (which doesn't work with NextRequest),
-	  // we'll just pass the standardized body directly to the fetch call
+	  // Convert to JSON for the fetch call
 	  const jsonBody = JSON.stringify(requestBody);
 	  
 	  if (IS_DEV) {
-		if (Array.isArray(requestBody)) {
-		  console.log(`[Admin Proxy] Prepared array of ${requestBody.length} standardized prompts for forwarding`);
-		} else {
-		  console.log("[Admin Proxy] Prepared standardized prompt for forwarding:", requestBody);
-		}
+		console.log(`[Admin Proxy] Prepared ${standardizedPrompts.length} standardized prompts for forwarding`);
+		console.log("[Admin Proxy] Request body structure:", requestBody);
 	  }
 	  
 	  const apiUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
