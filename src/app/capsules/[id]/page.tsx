@@ -767,6 +767,7 @@ export default function CapsuleView() {
 
       await refetch();
       setIsPurposeModalOpen(false);
+
       notifications.show({
         title: 'Purpose Updated',
         message: `Capsule purpose set to: ${card.name}`,
@@ -781,6 +782,7 @@ export default function CapsuleView() {
         color: 'red',
       });
     } finally {
+      // Reset optimistic state after operation is complete
       setOptimisticPurposeId(null);
     }
   }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId]);
@@ -1181,9 +1183,9 @@ export default function CapsuleView() {
         <Group gap="xs">
           <Button 
             variant="subtle"
-            leftSection={<Download size={14} />}
-            onClick={handleDownloadMarkdown}
-            disabled={!hasContentForDisplay || isProcessing}
+            leftSection={<RefreshCw size={14} />}
+            onClick={handleRegenerateCapsule}
+            disabled={isProcessing}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
@@ -1200,7 +1202,7 @@ export default function CapsuleView() {
               },
             }}
           >
-            DOWNLOAD
+            REGENERATE
           </Button>
           <Button 
             variant="subtle"
@@ -1427,42 +1429,52 @@ export default function CapsuleView() {
             </Box>
 
             {/* Tabs Section - Match Job Page Design */}
-            <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
-              <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
-                <Tabs.Tab 
-                  value="preview"
-                  styles={{
-                    tab: {
-                      backgroundColor: 'transparent',
-                      color: '#a1a1a1',
-                      '&[data-active]': {
-                        borderBottom: '2px solid #ffffff',
-                        color: '#ffffff',
+            <Flex justify="space-between" align="center">
+              <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
+                <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
+                  <Tabs.Tab 
+                    value="preview"
+                    styles={{
+                      tab: {
+                        backgroundColor: 'transparent',
+                        color: '#a1a1a1',
+                        '&[data-active]': {
+                          borderBottom: '2px solid #ffffff',
+                          color: '#ffffff',
+                        },
                       },
-                    },
-                  }}
-                >
-                  Preview
-                </Tabs.Tab>
-                <Tabs.Tab 
-                  value="markdown"
-                  styles={{
-                    tab: {
-                      backgroundColor: 'transparent',
-                      color: '#a1a1a1',
-                      '&[data-active]': {
-                        borderBottom: '2px solid #ffffff',
-                        color: '#ffffff',
+                    }}
+                  >
+                    Preview
+                  </Tabs.Tab>
+                  <Tabs.Tab 
+                    value="markdown"
+                    styles={{
+                      tab: {
+                        backgroundColor: 'transparent',
+                        color: '#a1a1a1',
+                        '&[data-active]': {
+                          borderBottom: '2px solid #ffffff',
+                          color: '#ffffff',
+                        },
                       },
-                    },
-                  }}
-                >
-                  Markdown
-                </Tabs.Tab>
-              </Tabs.List>
-              
-              <Tabs.Panel value="preview" pt="md">
-                {isProcessing ? (
+                    }}
+                  >
+                    Markdown
+                  </Tabs.Tab>
+                </Tabs.List>
+              </Tabs>
+              <ActionIcon
+                variant="subtle"
+                onClick={handleDownloadMarkdown}
+                disabled={!hasContentForDisplay || isProcessing}
+                title="Download Markdown"
+              >
+                <Download size={18} />
+              </ActionIcon>
+            </Flex>
+            <Tabs.Panel value="preview" pt="md">
+              {isProcessing ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
                     <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
