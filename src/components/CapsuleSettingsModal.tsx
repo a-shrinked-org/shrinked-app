@@ -120,31 +120,50 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, slug }),
       });
-
+  
       const promises = [capsuleUpdatePromise];
-
+  
       if (identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
-        const promptsToUpdate = [
-          { section: 'capsule.summary', prompt: summaryPrompt },
-          { section: 'capsule.highlights', prompt: highlightsPrompt },
-          { section: 'capsule.testSummary', prompt: testSummaryPrompt },
-        ];
-        promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompts: promptsToUpdate }),
-        }));
+        // Build prompts array only for non-empty prompts
+        const promptsToUpdate = [];
+        
+        // Add summary prompt if it has a value
+        const sanitizedSummaryPrompt = summaryPrompt.trim();
+        if (sanitizedSummaryPrompt) {
+          promptsToUpdate.push({ section: 'capsule.summary', prompt: sanitizedSummaryPrompt });
+        }
+  
+        // Add highlights prompt if it has a value (optional, include only if needed)
+        const sanitizedHighlightsPrompt = highlightsPrompt.trim();
+        if (sanitizedHighlightsPrompt) {
+          promptsToUpdate.push({ section: 'capsule.highlights', prompt: sanitizedHighlightsPrompt });
+        }
+  
+        // Add test summary prompt if it has a value (optional, include only if needed)
+        const sanitizedTestSummaryPrompt = testSummaryPrompt.trim();
+        if (sanitizedTestSummaryPrompt) {
+          promptsToUpdate.push({ section: 'capsule.testSummary', prompt: sanitizedTestSummaryPrompt });
+        }
+  
+        // Only send the prompts request if there are prompts to update
+        if (promptsToUpdate.length > 0) {
+          promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompts: promptsToUpdate }),
+          }));
+        }
       }
-
+  
       const responses = await Promise.all(promises);
-
+  
       for (const response of responses) {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.message || `Failed to update: ${response.status}`);
         }
       }
-
+  
       notifications.show({
         title: 'Settings Updated',
         message: 'Capsule settings and prompts saved successfully.',
@@ -163,7 +182,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       });
     } finally {
       setIsSaving(false);
-    }
+    };
   };
 
   return (
