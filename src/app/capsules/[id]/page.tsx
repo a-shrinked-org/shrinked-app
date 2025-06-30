@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
+import { useShow, useGetIdentity } from "@refinedev/core";
 import {
   Text,
   Box,
@@ -137,8 +137,7 @@ const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
 export default function CapsuleView() {
   const params = useParams();
   const router = useRouter();
-  useNavigation();
-  const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
+  const capsuleId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : "";
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>({
     queryOptions: {
       staleTime: 5 * 60 * 1000,
@@ -201,7 +200,7 @@ export default function CapsuleView() {
   const record = capsuleData?.data;
 
   // Debounced refetch
-  const debouncedRefetch = useMemo(() => debounce(refetch, 500), []);
+  const debouncedRefetch = useMemo(() => debounce(refetch, 500), [refetch]);
 
   // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = useMemo(() => [
@@ -844,7 +843,7 @@ export default function CapsuleView() {
   // Fetch all capsules for the dropdown
   useEffect(() => {
     const fetchAllCapsules = async () => {
-      if (!identity?.id) return;
+      if (!identity || !identity.id) return;
 
       setIsLoadingCapsules(true);
       try {
@@ -942,7 +941,7 @@ export default function CapsuleView() {
   };
 
   const handleCreateNewCapsule = useCallback(async () => {
-    if (!identity?.id) {
+    if (!identity || !identity.id) {
       notifications.show({
         title: 'Error',
         message: 'User not authenticated.',
@@ -1104,7 +1103,7 @@ export default function CapsuleView() {
             <Plus size={20} />
           </ActionIcon>
           <Select
-            value={capsuleId}
+            value={getSelectValue()}
             onChange={handleCapsuleChange}
             data={availableCapsules}
             searchable={false}
@@ -1446,7 +1445,7 @@ export default function CapsuleView() {
             <Box>
               <Box>
               <Flex justify="space-between" align="center">
-                <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")} style={{ flex: 1 }}>
+                <Tabs value={activeTab} onChange={(value: string | null) => setActiveTab(value ?? "preview")} style={{ flex: 1 }}>
                   <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
                     <Tabs.Tab 
                       value="preview"
@@ -1567,7 +1566,7 @@ export default function CapsuleView() {
                   </Text>
                 )}
               </Tabs.Panel>
-            </Tabs>
+            </Box>
           </Box>
         </Box>
   
@@ -1756,4 +1755,4 @@ export default function CapsuleView() {
       />
     </Box>
   );
-  }
+}
