@@ -745,7 +745,7 @@ export default function CapsuleView() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            overridePrompt: JSON.stringify(overrideData) // Store as JSON string
+            overridePrompt: card.prompt // Store only the prompt string
           })
         });
         

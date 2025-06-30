@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
 
 // POST request to export document as PDF
-export async function POST(
+export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -18,15 +18,15 @@ export async function POST(
 	// Parse URL to extract query parameters (like includeReferences)
 	const url = new URL(request.url);
 	const searchParams = url.searchParams.toString();
-	const apiUrl = `${API_URL}/exportdoc/${docId}${searchParams ? `?${searchParams}` : ''}`;
+	const apiUrl = `${API_URL}/pdf/${docId}/json${searchParams ? `?${searchParams}` : ''}`;
+
 
 	console.log("Exporting document:", apiUrl);
 
 	const response = await fetch(apiUrl, {
-	  method: "POST",
+	  method: "GET",
 	  headers: { 
 		'Authorization': authHeader,
-		'Content-Type': 'application/json'
 	  },
 	  credentials: 'omit',
 	});

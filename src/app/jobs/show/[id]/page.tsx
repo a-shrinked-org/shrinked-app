@@ -331,12 +331,10 @@ export default function JobShow() {
       if (!token) throw new Error('Authentication failed - unable to get valid token');
 
       const response = await fetchWithAuth(`/api/jobs-proxy/exportdoc/${processingDocId}?includeReferences=true`, {
-        method: 'POST',
+        method: 'GET',
         headers: { 
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({}),
       });
 
       if (!response.ok) throw new Error(`PDF download failed with status: ${response.status}`);
