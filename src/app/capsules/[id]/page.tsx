@@ -32,8 +32,11 @@ import {
   FileText,
   File,
   Link2,
-  Target
+  Target,
+  ChevronsUpDown
 } from 'lucide-react';
+import { Select } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { useParams } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
 import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
@@ -165,6 +168,11 @@ export default function CapsuleView() {
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
+
+  // Capsule dropdown state
+  const [availableCapsules, setAvailableCapsules] = useState<{ value: string; label: string }[]>([]);
+  const [isLoadingCapsules, setIsLoadingCapsules] = useState(false);
+  const [isCapsuleDropdownOpen, { toggle: toggleCapsuleDropdown }] = useDisclosure(false);
 
   // Capsule query
   const { queryResult } = useShow<Capsule>({
@@ -826,6 +834,36 @@ export default function CapsuleView() {
     };
   }, []);
 
+  // Fetch all capsules for the dropdown
+  useEffect(() => {
+    const fetchAllCapsules = async () => {
+      if (!identity?.id) return;
+
+      setIsLoadingCapsules(true);
+      try {
+        const response = await fetchWithAuth(`/api/capsules`);
+        if (!response.ok) throw new Error(`Failed to fetch capsules: ${response.status}`);
+        const data = await response.json();
+        const formattedCapsules = data.map((cap: any) => ({
+          value: cap._id,
+          label: cap.name,
+        }));
+        setAvailableCapsules(formattedCapsules);
+      } catch (error) {
+        if (IS_DEV) console.error("[CapsuleView] Failed to fetch all capsules:", error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load capsules list.',
+          color: 'red',
+        });
+      } finally {
+        setIsLoadingCapsules(false);
+      }
+    };
+
+    fetchAllCapsules();
+  }, [identity?.id, fetchWithAuth]);
+
   // Helpers
   const extractContextSummary = (summaryContext?: string): string | null => {
     if (!summaryContext) return null;
@@ -890,14 +928,61 @@ export default function CapsuleView() {
     return `${diffMinutes}M ${diffSeconds}S`;
   };
 
-  const handleCreateNewCapsule = useCallback(() => {
-    console.log("Create new capsule - to be implemented");
-    notifications.show({
-      title: 'Coming Soon',
-      message: 'Capsule creation will be available soon.',
-      color: 'blue',
-    });
-  }, []);
+  const generateNerdyCapsuleName = (): string => {
+    const adjectives = ["Quantum", "Nebula", "Binary", "Cosmic", "Galactic", "Astro", "Sonic", "Hyper", "Mega", "Nano"];
+    const nouns = ["Flux", "Core", "Nexus", "Matrix", "Vortex", "Beacon", "Cipher", "Engine", "Node", "Shard"];
+    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+    const randomNumber = Math.floor(1000 + Math.random() * 9000); // 4-digit number
+    return `CAPSULE-${randomAdjective.toUpperCase()}-${randomNoun.toUpperCase()}-${randomNumber}`;
+  };
+
+  const handleCreateNewCapsule = useCallback(async () => {
+    if (!identity?.id) {
+      notifications.show({
+        title: 'Error',
+        message: 'User not authenticated.',
+        color: 'red',
+      });
+      return;
+    }
+
+    const newCapsuleName = generateNerdyCapsuleName();
+    try {
+      const response = await fetchWithAuth(`/api/capsules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newCapsuleName }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create capsule: ${response.status}`);
+      }
+
+      const newCapsule = await response.json();
+      notifications.show({
+        title: 'Capsule Created',
+        message: `New capsule '${newCapsule.name}' created.`, 
+        color: 'green',
+      });
+      list("capsules", { id: newCapsule._id }); // Navigate to the new capsule
+    } catch (error) {
+      if (IS_DEV) console.error("[CapsuleView] Failed to create new capsule:", error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    }
+  }, [identity?.id, fetchWithAuth, handleAuthError, list]);
+
+  const handleCapsuleChange = useCallback((value: string | null) => {
+    if (value && value !== capsuleId) {
+      list("capsules", { id: value });
+    }
+  }, [capsuleId, list]);
 
   // Render
   if (isLoading || identityLoading) {
@@ -977,17 +1062,68 @@ export default function CapsuleView() {
           >
             <Plus size={20} />
           </ActionIcon>
-          <Text 
-            size="sm" 
-            fw={500} 
-            style={{ 
-              fontFamily: GeistMono.style.fontFamily, 
-              letterSpacing: '0.5px',
-              textTransform: 'uppercase'
+          <Select
+            value={capsuleId}
+            onChange={handleCapsuleChange}
+            data={availableCapsules}
+            searchable
+            nothingFound="No capsules found"
+            rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
+            onDropdownOpen={toggleCapsuleDropdown}
+            onDropdownClose={toggleCapsuleDropdown}
+            styles={{
+              root: {
+                width: 'auto',
+                minWidth: '150px',
+              },
+              wrapper: {
+                width: 'auto',
+              },
+              input: {
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: '#ffffff',
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 500,
+                padding: '0',
+                height: 'auto',
+                minHeight: 'auto',
+                lineHeight: 1,
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                '&:focus': {
+                  outline: 'none',
+                },
+                '&::placeholder': {
+                  color: '#a0a0a0',
+                },
+              },
+              section: {
+                color: '#a0a0a0',
+              },
+              dropdown: {
+                backgroundColor: '#000000',
+                border: '1px solid #2b2b2b',
+                width: 'auto',
+                minWidth: 'max-content',
+              },
+              option: {
+                color: '#ffffff',
+                fontSize: '14px',
+                fontFamily: GeistMono.style.fontFamily,
+                '&[data-selected]': {
+                  backgroundColor: '#202020',
+                },
+                '&:hover:not([data-disabled])': {
+                  backgroundColor: '#1c1c1c',
+                },
+              },
             }}
-          >
-            CAPSULE ID
-          </Text>
+            placeholder="Select Capsule"
+            disabled={isLoadingCapsules}
+            loading={isLoadingCapsules}
+          />
         </Group>
         <Group gap="xs">
           <Button 
