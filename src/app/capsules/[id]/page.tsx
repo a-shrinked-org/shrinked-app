@@ -170,6 +170,7 @@ export default function CapsuleView() {
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
+  const [optimisticPurposeId, setOptimisticPurposeId] = useState<string | null>(null);
 
   // Capsule dropdown state
   const [availableCapsules, setAvailableCapsules] = useState<{ value: string; label: string }[]>([]);
@@ -750,70 +751,29 @@ export default function CapsuleView() {
 
   // Purpose selection handlers
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
+    const originalPurposeId = getCurrentPurposeId();
+    setOptimisticPurposeId(card.id);
+
     try {
-      setIsLoadingPrompts(true);
-      
-      if (card.isDefault && card.id === 'summary') {
-        // For default summary, clear override by setting to null/empty
-        console.log('Clearing purpose override for default summary');
-        const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            overridePrompt: null // Clear the override
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to clear purpose override: ${response.status}`);
-        }
-        
-        notifications.show({
-          title: 'Purpose Updated',
-          message: 'Using default summary purpose.',
-          color: 'green',
-        });
-      } else {
-        // For prototype cards, set override with structured JSON data
-        console.log('Setting purpose override:', card.name);
-        
-        const overrideData = {
-          cardId: card.id,
-          cardName: card.name,
-          prompt: card.prompt,
-          section: card.section,
-          timestamp: new Date().toISOString()
-        };
-        
-        
-        
-        const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            overridePrompt: card.prompt // Store only the prompt string
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to set purpose override: ${response.status}`);
-        }
-        
-        notifications.show({
-          title: 'Purpose Updated',
-          message: `Capsule purpose set to: ${card.name}`,
-          color: 'green',
-        });
-      }
-      
-      // Refresh capsule data to get updated purpose
-      refetch();
-      
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          overridePrompt: card.id === 'summary' ? null : card.prompt,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
+
+      await refetch();
+      setIsPurposeModalOpen(false);
+      notifications.show({
+        title: 'Purpose Updated',
+        message: `Capsule purpose set to: ${card.name}`,
+        color: 'green',
+      });
     } catch (error) {
+      setOptimisticPurposeId(originalPurposeId); // Revert on error
       if (IS_DEV) console.error('Failed to update purpose:', error);
       notifications.show({
         title: 'Error',
@@ -821,9 +781,9 @@ export default function CapsuleView() {
         color: 'red',
       });
     } finally {
-      setIsLoadingPrompts(false);
+      setOptimisticPurposeId(null);
     }
-  }, [capsuleId, fetchWithAuth, refetch]);
+  }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId]);
 
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
@@ -1751,13 +1711,16 @@ export default function CapsuleView() {
       />
       <CapsulePurposeModal
         isOpen={isPurposeModalOpen}
-        onClose={() => setIsPurposeModalOpen(false)}
+        onClose={() => {
+          setIsPurposeModalOpen(false);
+          setOptimisticPurposeId(null);
+        }}
         isLoading={isLoadingPrompts}
         summary={summaryPrompt}
         highlights={highlightsPrompt}
         testSummary={testSummaryPrompt}
         onPurposeSelect={handlePurposeSelect}
-        activePurpose={getCurrentPurposeId()}
+        activePurpose={optimisticPurposeId || getCurrentPurposeId()}
         capsuleId={capsuleId}
       />
     </Box>
