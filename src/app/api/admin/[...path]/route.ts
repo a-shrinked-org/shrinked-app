@@ -32,7 +32,7 @@ async function handleRequest(
 
 	// Special case handling for prompts upsert
 	const isPromptsUpsert = pathSuffix === 'prompts/upsert';
-	if (isPromptsUpsert && method === 'POST') {
+	if (isPromptsUpsert && (method === 'POST' || method === 'PATCH')) {
 	  if (IS_DEV) console.log("[Admin Proxy] Detected prompts upsert request, performing validation");
 	  
 	  // Parse and validate request body for prompts

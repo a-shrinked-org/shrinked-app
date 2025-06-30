@@ -137,7 +137,7 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
     
     try {
       const payload = {
-        overridePrompt: card.id === 'summary' ? null : card.prompt,
+        overridePrompt: card.id === 'summary' ? '' : card.prompt,
       };
       console.log('Modal: Sending payload:', payload);
       
