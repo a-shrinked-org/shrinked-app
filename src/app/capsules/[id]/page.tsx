@@ -991,11 +991,10 @@ export default function CapsuleView() {
         </Group>
         <Group gap="xs">
           <Button 
-            variant="subtle" 
-            leftSection={<Plus size={14} />}
-            onClick={handleAddFile}
-            disabled={isProcessing}
-            loading={isAddingFiles}
+            variant="subtle"
+            leftSection={<Download size={14} />}
+            onClick={handleDownloadMarkdown}
+            disabled={!hasContextSummary || isProcessing}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
@@ -1012,7 +1011,7 @@ export default function CapsuleView() {
               },
             }}
           >
-            ADD CONTEXT
+            DOWNLOAD
           </Button>
           <Button 
             variant="subtle"
@@ -1067,9 +1066,10 @@ export default function CapsuleView() {
           )}
           <Button 
             variant="filled"
-            leftSection={<Download size={14} />}
-            onClick={handleDownloadMarkdown}
-            disabled={!hasContextSummary || isProcessing}
+            leftSection={<Plus size={14} />}
+            onClick={handleAddFile}
+            disabled={isProcessing}
+            loading={isAddingFiles}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
@@ -1086,7 +1086,7 @@ export default function CapsuleView() {
               },
             }}
           >
-            DOWNLOAD
+            ADD CONTEXT
           </Button>
         </Group>
       </Flex>
@@ -1468,10 +1468,32 @@ export default function CapsuleView() {
                 ))}
               </Stack>
             ) : isLoadingFiles ? (
-              <Box style={{ padding: '20px', textAlign: 'center' }}>
-                <LoadingOverlay visible={true} overlayProps={{ blur: 1 }} loaderProps={{ size: 'sm' }} />
-                <Text size="sm" c="dimmed">Loading file details...</Text>
-              </Box>
+              <Stack gap="sm" style={{ marginBottom: '1rem' }}>
+                {[...Array(3)].map((_, index) => (
+                  <Box
+                    key={index}
+                    style={{
+                      backgroundColor: '#0a0a0a',
+                      borderRadius: '6px',
+                      border: '1px solid #2b2b2b',
+                      overflow: 'hidden',
+                      padding: '12px',
+                    }}
+                  >
+                    <Group justify="space-between" align="center">
+                      <Group gap="xs" align="center">
+                        <Box style={{ width: '16px', height: '16px', backgroundColor: '#2b2b2b', borderRadius: '4px' }} />
+                        <Box style={{ width: '120px', height: '16px', backgroundColor: '#2b2b2b', borderRadius: '4px' }} />
+                      </Group>
+                      <Box style={{ width: '24px', height: '24px', backgroundColor: '#2b2b2b', borderRadius: '4px' }} />
+                    </Group>
+                    <Flex justify="space-between" align="center" mt="xs">
+                      <Box style={{ width: '60px', height: '12px', backgroundColor: '#2b2b2b', borderRadius: '4px' }} />
+                      <Box style={{ width: '80px', height: '12px', backgroundColor: '#2b2b2b', borderRadius: '4px' }} />
+                    </Flex>
+                  </Box>
+                ))}
+              </Stack>
             ) : (
               <Alert color="dark" variant="outline" title="No Files Added" icon={<FileText size={16} />} style={{ borderColor: '#2b2b2b', marginBottom: '1rem' }}>
                 Add source documents to your capsule using the button above.

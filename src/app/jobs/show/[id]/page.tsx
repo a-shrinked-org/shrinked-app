@@ -964,11 +964,6 @@ export default function JobShow() {
                  record?.link ? getFilenameFromLink(record.link) : 
                  'No source file'}
               </Text>
-              <Text c="dimmed" mt="xs" size="sm">
-                {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
-                 record?.link ? getFilenameFromLink(record.link) : 
-                 'No source file'}
-              </Text>
             </Box>
 
               <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
@@ -1111,10 +1106,10 @@ export default function JobShow() {
             </Box>
             
             <Box style={{ marginTop: '2rem' }}>
-              <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily, marginLeft: '-1rem', marginTop: '-0.5rem' }}>
+              <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
                 Logic
               </Text>
-              <Box style={{ position: 'relative', paddingTop: '16px', paddingBottom: '16px' }}>
+              <Box style={{ position: 'relative', paddingTop: '16px', paddingBottom: '16px', marginLeft: '-1rem', marginTop: '-0.5rem' }}>
                 
                 
                 {record?.steps?.map((step, index) => {
