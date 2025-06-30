@@ -328,23 +328,74 @@ export default function CapsuleView() {
   }, [record?.overridePrompt, parseOverridePrompt]);
 
   const getCurrentPurposeId = useCallback(() => {
+    console.log('getCurrentPurposeId called with:', {
+      overridePrompt: record?.overridePrompt,
+      overridePromptType: typeof record?.overridePrompt,
+      overridePromptLength: record?.overridePrompt?.length
+    });
+    
     const overrideData = parseOverridePrompt(record?.overridePrompt);
+    console.log('parseOverridePrompt result:', overrideData);
+    
     if (overrideData) {
+      console.log('Returning cardId:', overrideData.cardId);
       return overrideData.cardId;
     }
+    console.log('Returning default: summary');
     return 'summary'; // Default
   }, [record?.overridePrompt, parseOverridePrompt]);
-
-  // Helper to get the current prompt for display/debugging
-  const getCurrentPrompt = useCallback(() => {
-    const overrideData = parseOverridePrompt(record?.overridePrompt);
-    if (overrideData) {
-      return overrideData.prompt;
-    }
-    return summaryPrompt; // Default summary prompt
-  }, [record?.overridePrompt, parseOverridePrompt, summaryPrompt]);
-
   
+  const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
+    console.log('handlePurposeSelect called with:', {
+      cardId: card.id,
+      cardPrompt: card.prompt,
+      willSendOverridePrompt: card.id === 'summary' ? null : card.prompt
+    });
+    
+    const originalPurposeId = getCurrentPurposeId();
+    setOptimisticPurposeId(card.id);
+    
+    try {
+      const payload = {
+        overridePrompt: card.id === 'summary' ? null : card.prompt,
+      };
+      console.log('Sending payload:', payload);
+      
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
+      
+      console.log('Server response OK, refetching...');
+      await refetch();
+      
+      // Log the state after refetch
+      setTimeout(() => {
+        console.log('After refetch - record.overridePrompt:', record?.overridePrompt);
+        console.log('After refetch - getCurrentPurposeId():', getCurrentPurposeId());
+      }, 100);
+      
+      setIsPurposeModalOpen(false);
+      notifications.show({
+        title: 'Purpose Updated',
+        message: `Capsule purpose set to: ${card.name}`,
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Error in handlePurposeSelect:', error);
+      setOptimisticPurposeId(originalPurposeId);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    } finally {
+      setOptimisticPurposeId(null);
+    }
+  }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId, record?.overridePrompt]);
 
   // Status monitoring with improved logic
   const startStatusMonitoring = useCallback(() => {

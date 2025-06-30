@@ -52,7 +52,7 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
       id: 'summary',
       name: 'Summary',
       description: 'Generate a comprehensive summary of the provided documents',
-      prompt: summary || 'Generate a comprehensive summary of the provided documents',
+      prompt: '',
       section: 'capsule.summary',
       isDefault: true
     },
