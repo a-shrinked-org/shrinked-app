@@ -817,7 +817,7 @@ export default function JobShow() {
   }
   
   return (
-    <div style={{ 
+    <Box style={{ 
       display: 'flex', 
       flexDirection: 'column', 
       height: '100vh', 
