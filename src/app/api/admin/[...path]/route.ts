@@ -47,7 +47,12 @@ async function handleRequest(
 	  }
 	  
 	  // Check if we received an array of prompts or a single prompt
-	  const promptsArray = Array.isArray(body) ? body : [body];
+	  const promptsArray = body.prompts; // Expecting an object with a 'prompts' key
+
+	  if (!Array.isArray(promptsArray)) {
+		if (IS_DEV) console.error("[Admin Proxy] Invalid prompts format: expected an array under 'prompts' key", body);
+		return NextResponse.json({ error: "Invalid prompts format: expected an array under 'prompts' key" }, { status: 400 });
+	  }
 	  
 	  // Process each prompt in the array
 	  const standardizedPrompts = [];

@@ -79,11 +79,23 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
   // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = [
     {
-      id: 'rfp-response',
-      name: 'Answer RFP documentation',
-      description: 'Generate comprehensive responses to RFP requirements based on provided documentation',
-      prompt: 'Analyze the provided RFP documentation and generate detailed, compliant responses that address all requirements. Structure the response professionally with clear sections for technical approach, methodology, timeline, and deliverables.',
-      section: 'capsule.rfp-response'
+      id: 'narrative-analyst',
+      name: 'Narrative Analysis Summary',
+      description: 'Transform raw content into compelling, accessible narratives that reveal hidden patterns and counterintuitive insights through masterful storytelling',
+      prompt: `You are Malcolm Gladwell crafting a comprehensive summary that transforms raw content into compelling, accessible narratives. Your goal is to create a deeply engaging summary where every key point is anchored to specific moments in the source material using exact timestamp references.
+      Source Material: |<context_buffer> {{fullContext}} </context_buffer>
+      Create a Malcolm Gladwell-style summary with:
+      Title: [Provocative title that captures the unexpected angle or counterintuitive truth]
+      **"The Moment Everything Changed:" [Dynamic subtitle based on content]** Open with the single most pivotal moment or revelation from the content. Use Gladwell's signature approach of starting with a specific, almost mundane detail that reveals something profound. Weave in 4-5 specific timestamp references to ground the narrative. Create that "wait, what?" moment that hooks readers immediately and makes them reconsider what they thought they knew.
+      **"The Surface Story:" [Dynamic subtitle based on content]** Present the immediate, surface-level takeaways as stories worth telling. Frame 2-3 key developments as fascinating case studies using Gladwell's "thin-slicing" approach. Support each story with 5-6 timestamp references woven naturally into the narrative. Focus on the human elements and surprising patterns that emerge from the data. Make readers feel like they're discovering hidden truths.
+      **"The Hidden Patterns:" [Dynamic subtitle based on content]** Dive into what takes sustained attention to understand. Analyze 1-2 complex topics as interconnected systems using Gladwell's lens of examining context and environment. Integrate 6-8 timestamp references into compelling storytelling. Show how seemingly unrelated factors combine to create significant outcomes. Transform complexity into clarity through vivid analogies and real-world parallels.
+      **"What This Really Means:" [Dynamic subtitle based on content]** Reveal the counterintuitive implications and unexpected advantages hidden in the content. Explain how apparent disadvantages might be strengths, or how conventional wisdom might be wrong. Provide clear, actionable insights supported by 4-5 timestamp references. Connect today's insights to broader patterns of human behavior and societal change. Answer the "why should I care?" question with unexpected angles that stick in memory.
+      CRITICAL REQUIREMENTS:
+      EVERY paragraph must contain multiple specific timestamp references in the exact format they appear in the source document. Timestamps must flow naturally within the storytelling. When multiple references support a narrative point, include them all [[XX, YY, ZZ]]. Use minimum 20-25 total timestamp references throughout the summary.
+      Write in Malcolm Gladwell's distinctive voice throughout - think "Here's what's fascinating..." and "Consider this..." and "What if I told you..." Story-driven like "There's a moment when..." Pattern-seeking like "This is the same principle behind..." Accessible like "Think about it this way..." Always supported by specific evidence with timestamp anchoring.
+      Create a summary where facts become stories and analysis becomes revelation, avoiding bullet points or numbered lists in the main body. Focus on making the complex simple and the obvious surprising. Transform information into insight through the power of narrative and unexpected connections.
+      Target length: 1000-1400 words of narrative prose with clear section headers and natural timestamp integration. Go straight to the summary - do not include any preliminary analysis or meta-commentary.`,
+      section: 'capsule.narrative-analyst'
     },
     {
       id: 'competitor-analysis',
