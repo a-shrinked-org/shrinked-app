@@ -476,7 +476,7 @@ export default function CapsuleView() {
         return;
       }
 
-      response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}`);
+      response = await fetchWithAuth(`/api/capsule/${capsuleId}`);
       if (!response.ok) throw new Error(`Capsule fetch failed: ${response.status}`);
 
       let data = await response.json();
@@ -567,7 +567,7 @@ export default function CapsuleView() {
 
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
         const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
-        const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files`, {
+        const response = await fetchWithAuth(`/api/capsule/${capsuleId}/files`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileIds: batch }),
@@ -576,7 +576,7 @@ export default function CapsuleView() {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
-      await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { method: 'GET' });
+      await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
       refetch();
 
       notifications.show({
@@ -622,14 +622,14 @@ export default function CapsuleView() {
 
       setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
 
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files/${fileId}`, {
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
       });
       if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
 
       const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
       if (remainingFiles.length > 0) {
-        await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { method: 'GET' });
+        await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
       }
       refetch();
 
@@ -669,7 +669,7 @@ export default function CapsuleView() {
     setIsRegenerating(true);
 
     try {
-      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { method: 'GET' });
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
 
       startStatusMonitoring();
@@ -723,7 +723,7 @@ export default function CapsuleView() {
       if (card.isDefault && card.id === 'summary') {
         // For default summary, clear override by setting to null/empty
         console.log('Clearing purpose override for default summary');
-        const response = await fetchWithAuth(`/api/capsules/${capsuleId}`, {
+        const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -756,7 +756,7 @@ export default function CapsuleView() {
         
         if (IS_DEV) console.log('[CapsuleView] handlePurposeSelect: Sending overrideData:', overrideData);
         
-        const response = await fetchWithAuth(`/api/capsules/${capsuleId}`, {
+        const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
