@@ -34,7 +34,8 @@ import {
   Link2,
   Target,
   ChevronsUpDown,
-  Check
+  Check,
+  Settings
 } from 'lucide-react';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -45,6 +46,7 @@ import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 import CapsulePurposeModal from "@/components/CapsulePurposeModal";
+import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -171,6 +173,7 @@ export default function CapsuleView() {
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
   const [optimisticPurposeId, setOptimisticPurposeId] = useState<string | null>(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Capsule dropdown state
   const [availableCapsules, setAvailableCapsules] = useState<{ value: string; label: string }[]>([]);
@@ -1181,29 +1184,6 @@ export default function CapsuleView() {
         <Group gap="xs">
           <Button 
             variant="subtle"
-            leftSection={<Download size={14} />}
-            onClick={handleDownloadMarkdown}
-            disabled={!hasContentForDisplay || isProcessing}
-            styles={{
-              root: {
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: '14px',
-                fontWeight: 400,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                padding: '8px 16px',
-                backgroundColor: 'transparent',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#1a1a1a',
-                },
-              },
-            }}
-          >
-            DOWNLOAD
-          </Button>
-          <Button 
-            variant="subtle"
             leftSection={<Target size={14} />}
             onClick={handleOpenPurposeModal}
             disabled={isProcessing}
@@ -1276,6 +1256,39 @@ export default function CapsuleView() {
             }}
           >
             ADD CONTEXT
+          </Button>
+          <ActionIcon 
+            size="lg" 
+            variant="subtle" 
+            onClick={() => setIsSettingsModalOpen(true)}
+            style={{ color: '#a0a0a0' }}
+            title="Capsule settings"
+          >
+            <Settings size={20} />
+          </ActionIcon>
+          <Button 
+            variant="filled"
+            leftSection={<RefreshCw size={14} />}
+            onClick={handleRegenerateCapsule}
+            disabled={isProcessing}
+            loading={isRegenerating}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                '&:hover': {
+                  backgroundColor: '#E09612',
+                },
+              },
+            }}
+          >
+            REGENERATE
           </Button>
         </Group>
       </Flex>
@@ -1508,6 +1521,18 @@ export default function CapsuleView() {
                     </Button>
                   </Stack>
                 )}
+                {hasContentForDisplay && (
+                  <ActionIcon 
+                    size="lg" 
+                    variant="subtle" 
+                    onClick={handleDownloadMarkdown}
+                    disabled={isProcessing}
+                    style={{ color: '#a0a0a0', marginTop: '16px' }}
+                    title="Download markdown"
+                  >
+                    <Download size={20} />
+                  </ActionIcon>
+                )}
               </Tabs.Panel>
               
               <Tabs.Panel value="markdown" pt="md">
@@ -1722,6 +1747,14 @@ export default function CapsuleView() {
         onPurposeSelect={handlePurposeSelect}
         activePurpose={optimisticPurposeId || getCurrentPurposeId()}
         capsuleId={capsuleId}
+      />
+      <CapsuleSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        capsuleId={capsuleId}
+        capsuleName={record?.name || ''}
+        capsuleSlug={record?.slug || ''}
+        onUpdateSuccess={refetch}
       />
     </Box>
   );
