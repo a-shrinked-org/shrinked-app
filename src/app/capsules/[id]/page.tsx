@@ -34,7 +34,8 @@ import {
   Link2,
   Target,
   ChevronsUpDown,
-  Check
+  Check,
+  Settings
 } from 'lucide-react';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -45,6 +46,7 @@ import { GeistMono } from 'geist/font/mono';
 import FileSelector from '@/components/FileSelector';
 import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 import CapsulePurposeModal from "@/components/CapsulePurposeModal";
+import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -170,6 +172,7 @@ export default function CapsuleView() {
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Capsule dropdown state
   const [availableCapsules, setAvailableCapsules] = useState<{ value: string; label: string }[]>([]);
@@ -1229,32 +1232,42 @@ export default function CapsuleView() {
             PURPOSE
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button 
-              variant="subtle"
-              leftSection={<Link2 size={14} />}
-              onClick={() => {
-                handleResetEnrichedContent();
-                setIsReferenceModalOpen(true);
-              }}
-              disabled={!hasContentForDisplay || isProcessing}
-              styles={{
-                root: {
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  '&:hover': {
-                    backgroundColor: '#1a1a1a',
+            <>
+              <Button 
+                variant="subtle"
+                leftSection={<Link2 size={14} />}
+                onClick={() => {
+                  handleResetEnrichedContent();
+                  setIsReferenceModalOpen(true);
+                }}
+                disabled={!hasContentForDisplay || isProcessing}
+                styles={{
+                  root: {
+                    fontFamily: GeistMono.style.fontFamily,
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    padding: '8px 16px',
+                    backgroundColor: 'transparent',
+                    color: '#ffffff',
+                    '&:hover': {
+                      backgroundColor: '#1a1a1a',
+                    },
                   },
-                },
-              }}
-            >
-              REFS
-            </Button>
+                }}
+              >
+                REFS
+              </Button>
+              <ActionIcon
+                variant="subtle"
+                onClick={() => setIsSettingsModalOpen(true)}
+                disabled={isProcessing}
+                title="Capsule Settings"
+              >
+                <Settings size={18} />
+              </ActionIcon>
+            </>
           )}
           <Button 
             variant="filled"
@@ -1731,6 +1744,11 @@ export default function CapsuleView() {
         testSummary={testSummaryPrompt}
         onPurposeSelect={handlePurposeSelect}
         activePurpose={getCurrentPurposeId()}
+        capsuleId={capsuleId}
+      />
+      <CapsuleSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
         capsuleId={capsuleId}
       />
     </Box>
