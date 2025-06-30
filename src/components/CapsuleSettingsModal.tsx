@@ -127,19 +127,19 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
         // Build prompts array only for non-empty prompts
         const promptsToUpdate = [];
         
-        // Add summary prompt if it has a value
+        // Add summary prompt if it has a non-empty value
         const sanitizedSummaryPrompt = summaryPrompt.trim();
         if (sanitizedSummaryPrompt) {
           promptsToUpdate.push({ section: 'capsule.summary', prompt: sanitizedSummaryPrompt });
         }
   
-        // Add highlights prompt if it has a value (optional, include only if needed)
+        // Add highlights prompt if it has a non-empty value
         const sanitizedHighlightsPrompt = highlightsPrompt.trim();
         if (sanitizedHighlightsPrompt) {
           promptsToUpdate.push({ section: 'capsule.highlights', prompt: sanitizedHighlightsPrompt });
         }
   
-        // Add test summary prompt if it has a value (optional, include only if needed)
+        // Add test summary prompt if it has a non-empty value
         const sanitizedTestSummaryPrompt = testSummaryPrompt.trim();
         if (sanitizedTestSummaryPrompt) {
           promptsToUpdate.push({ section: 'capsule.testSummary', prompt: sanitizedTestSummaryPrompt });
@@ -184,7 +184,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       setIsSaving(false);
     };
   };
-
+  
   return (
     <Modal
       opened={isOpen}

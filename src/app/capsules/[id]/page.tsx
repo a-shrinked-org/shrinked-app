@@ -1011,17 +1011,38 @@ export default function CapsuleView() {
     return exists ? capsuleId : null;
   };
 
+  // Handle initial loading state
+  if (isLoading) {
+    return (
+      <Box style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: '#0a0a0a',
+        color: '#ffffff',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+        <Text ta="center" pt="xl" c="dimmed">Loading capsule details...</Text>
+      </Box>
+    );
+  }
+
+  // Handle error state after loading, or if record is explicitly null/undefined
   if (isError || !record) {
     return (
-      <Box style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        height: '100vh', 
-        backgroundColor: '#0a0a0a', 
-        color: '#ffffff' 
+      <Box style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: '#0a0a0a',
+        color: '#ffffff',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}>
         <Alert color="red" title="Error Loading Capsule" icon={<AlertCircle size={16} />} mb="md">
-          {errorMessage || "Could not load capsule details."}
+          {errorMessage || "Could not load capsule details. The capsule might not exist or you don't have access."}
         </Alert>
         <Button onClick={() => router.push("/capsules")} leftSection={<ArrowLeft size={16} />}>
           Back to Capsules List
