@@ -323,7 +323,7 @@ export default function CapsuleView() {
     if (overrideData) {
       return overrideData.cardName;
     }
-    return 'Summary'; // Default
+    return 'Summary (Default)'; // Default
   }, [record?.overridePrompt, parseOverridePrompt]);
 
   const getCurrentPurposeId = useCallback(() => {

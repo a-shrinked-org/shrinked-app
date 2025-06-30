@@ -8,124 +8,86 @@ import {
   ActionIcon,
   Flex,
   Modal,
-  SimpleGrid,
-  Card,
-  Badge,
+  TextInput,
 } from '@mantine/core';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
+import { useAuth } from "@/utils/authUtils";
+import { notifications } from '@mantine/notifications';
 
-interface PurposeCard {
-  id: string;
-  name: string;
-  description: string;
-  prompt: string;
-  section: string;
-  isDefault?: boolean;
-}
-
-interface CapsulePurposeModalProps {
+interface CapsuleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  isLoading: boolean;
-  summary: string;
-  highlights: string;
-  testSummary: string;
-  onPurposeSelect: (card: PurposeCard) => void;
-  activePurpose?: string;
   capsuleId: string;
+  capsuleName: string;
+  capsuleSlug: string;
+  onUpdateSuccess: () => void;
 }
 
-const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
+const IS_DEV = process.env.NODE_ENV === 'development';
+
+const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   isOpen,
   onClose,
-  isLoading,
-  summary,
-  highlights,
-  testSummary,
-  onPurposeSelect,
-  activePurpose,
-  capsuleId
+  capsuleId,
+  capsuleName,
+  capsuleSlug,
+  onUpdateSuccess,
 }) => {
-  // Default cards using backend data
-  const defaultCards: PurposeCard[] = [
-    {
-      id: 'summary',
-      name: 'Summary',
-      description: 'Generate a comprehensive summary of the provided documents',
-      prompt: summary || 'Generate a comprehensive summary of the provided documents',
-      section: 'capsule.summary',
-      isDefault: true
-    },
-    {
-      id: 'highlights',
-      name: 'Highlights',
-      description: 'Extract key highlights and important points from documents',
-      prompt: highlights || 'Extract key highlights and important points from documents',
-      section: 'capsule.highlights',
-      isDefault: true
-    }
-  ];
+  const { fetchWithAuth, handleAuthError } = useAuth();
+  const [name, setName] = useState(capsuleName);
+  const [slug, setSlug] = useState(capsuleSlug);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Prototype cards with frontend-stored prompts
-  const prototypeCards: PurposeCard[] = [
-    {
-      id: 'rfp-response',
-      name: 'Answer RFP documentation',
-      description: 'Generate comprehensive responses to RFP requirements based on provided documentation',
-      prompt: 'Analyze the provided RFP documentation and generate detailed, compliant responses that address all requirements. Structure the response professionally with clear sections for technical approach, methodology, timeline, and deliverables.',
-      section: 'capsule.rfp-response'
-    },
-    {
-      id: 'competitor-analysis',
-      name: 'Conduct a competitor analysis',
-      description: 'Perform detailed competitive analysis from provided market research and company data',
-      prompt: 'Conduct a comprehensive competitor analysis based on the provided documents. Identify key competitors, analyze their strengths and weaknesses, market positioning, pricing strategies, and provide strategic recommendations.',
-      section: 'capsule.competitor-analysis'
-    },
-    {
-      id: 'communication-feedback',
-      name: 'Provide feedback on communication effectiveness',
-      description: 'Analyze communication materials and provide improvement recommendations',
-      prompt: 'Review the provided communication materials and provide detailed feedback on effectiveness, clarity, tone, and audience engagement. Suggest specific improvements for better communication outcomes.',
-      section: 'capsule.communication-feedback'
-    },
-    {
-      id: 'linkedin-connection',
-      name: 'Craft a LinkedIn connection request',
-      description: 'Create personalized LinkedIn connection requests based on prospect research',
-      prompt: 'Based on the provided prospect research and company information, craft personalized LinkedIn connection requests that are professional, relevant, and likely to be accepted. Include specific reasons for connecting.',
-      section: 'capsule.linkedin-connection'
-    },
-    {
-      id: 'prospect-email',
-      name: 'Write a prospect email',
-      description: 'Compose compelling prospect emails using research insights',
-      prompt: 'Using the provided prospect and company research, write compelling outreach emails that are personalized, value-focused, and designed to generate positive responses. Include clear call-to-actions.',
-      section: 'capsule.prospect-email'
-    },
-    {
-      id: 'followup-templates',
-      name: 'Prepare follow-up email templates for prospect',
-      description: 'Create a series of follow-up email templates for prospect nurturing',
-      prompt: 'Create a series of follow-up email templates based on the prospect research provided. Include templates for different scenarios: initial follow-up, value-add follow-up, and final attempt. Each should be personalized and professional.',
-      section: 'capsule.followup-templates'
-    }
-  ];
+  useEffect(() => {
+    setName(capsuleName);
+    setSlug(capsuleSlug);
+  }, [capsuleName, capsuleSlug]);
 
-  const allCards = [...defaultCards, ...prototypeCards];
-
-  const handleCardSelect = async (card: PurposeCard) => {
-    await onPurposeSelect(card);
-    onClose(); // Close modal after selection
+  const formatErrorMessage = (error: any): string => {
+    if (!error) return "An unknown error occurred";
+    const status = error?.status ?? error?.statusCode ?? error?.response?.status;
+    const message = error?.message || "An unexpected error occurred";
+    if (status === 401 || status === 403) return "Your session has expired. Please log in again.";
+    if (status === 404) return "The requested resource was not found.";
+    if (status >= 500) return "The server encountered an error. Please try again later.";
+    return message;
   };
 
-  const isCardActive = (cardId: string) => {
-    return activePurpose === cardId;
-  };
+  const handleSave = async () => {
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, slug }),
+      });
 
-  const isCardDisabled = (card: PurposeCard) => {
-    // Make highlights passive for now
-    return card.id === 'highlights';
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update capsule: ${response.status}`);
+      }
+
+      notifications.show({
+        title: 'Capsule Updated',
+        message: 'Capsule settings saved successfully.',
+        color: 'green',
+      });
+      onUpdateSuccess();
+      onClose();
+    } catch (error) {
+      if (IS_DEV) console.error('Failed to update capsule settings:', error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -135,10 +97,10 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
       withCloseButton={false}
       title={null}
       centered
-      size="xl"
+      size="lg"
       styles={{
-        body: { 
-          backgroundColor: '#000000', 
+        body: {
+          backgroundColor: '#000000',
           color: '#ffffff',
           padding: '22px 30px',
         },
@@ -146,7 +108,7 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
           padding: 0,
         },
         content: {
-          maxWidth: '900px',
+          maxWidth: '700px',
           borderRadius: '10px',
           border: '0.5px solid #2B2B2B',
           overflow: 'hidden',
@@ -156,104 +118,73 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
       <Box>
         <Flex justify="space-between" align="center" mb="16px">
           <Text fw={500} size="md">
-            Capsule Purpose
+            Capsule Settings
           </Text>
-          <ActionIcon 
-            onClick={onClose} 
-            variant="transparent" 
-            color="#ffffff" 
+          <ActionIcon
+            onClick={onClose}
+            variant="transparent"
+            color="#ffffff"
             style={{ marginRight: '-10px', marginTop: '-10px' }}
           >
             <X size={18} />
           </ActionIcon>
         </Flex>
-        
-        <Text size="md" mb="lg" style={{ 
-          color: '#A1A1A1', 
-          fontSize: '14px',
-          fontFamily: 'inherit'
-        }}>
-          Choose the purpose for your capsule to customize how content is generated
-        </Text>
-        
-        <Box style={{ position: 'relative', minHeight: '400px' }}>
-          <LoadingOverlay visible={isLoading} overlayProps={{ blur: 2 }} />
-          
-          <SimpleGrid cols={2} spacing="md" verticalSpacing="md">
-            {allCards.map((card) => (
-              <Card
-                key={card.id}
-                padding="lg"
-                style={{
-                  backgroundColor: isCardActive(card.id) ? '#1a1a1a' : '#0a0a0a',
-                  border: isCardActive(card.id) ? '1px solid #F5A623' : '1px solid #2B2B2B',
-                  borderRadius: '8px',
-                  cursor: isCardDisabled(card) ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  position: 'relative',
-                  minHeight: '120px',
-                  opacity: isCardDisabled(card) ? 0.5 : 1
-                }}
-                onClick={() => !isCardDisabled(card) && handleCardSelect(card)}
-              >
-                <Flex direction="column" h="100%">
-                  <Flex justify="space-between" align="flex-start" mb="xs">
-                    <Text fw={500} size="sm" style={{ color: '#ffffff', lineHeight: 1.3 }}>
-                      {card.name}
-                    </Text>
-                    <Flex gap="xs" align="center">
-                      {isCardActive(card.id) && (
-                        <ActionIcon size="sm" style={{ color: '#F5A623' }}>
-                          <Check size={16} />
-                        </ActionIcon>
-                      )}
-                      {card.isDefault && (
-                        <Badge 
-                          size="xs" 
-                          style={{ 
-                            backgroundColor: '#2B2B2B', 
-                            color: '#A1A1A1',
-                            textTransform: 'uppercase',
-                            fontSize: '10px'
-                          }}
-                        >
-                          Default
-                        </Badge>
-                      )}
-                      {isCardDisabled(card) && (
-                        <Badge 
-                          size="xs" 
-                          style={{ 
-                            backgroundColor: '#444', 
-                            color: '#888',
-                            textTransform: 'uppercase',
-                            fontSize: '10px'
-                          }}
-                        >
-                          Soon
-                        </Badge>
-                      )}
-                    </Flex>
-                  </Flex>
-                  
-                  <Text 
-                    size="xs" 
-                    style={{ 
-                      color: '#A1A1A1', 
-                      lineHeight: 1.4,
-                      flex: 1
-                    }}
-                  >
-                    {card.description}
-                  </Text>
-                </Flex>
-              </Card>
-            ))}
-          </SimpleGrid>
-        </Box>
+
+        {errorMessage && (
+          <Text color="red" size="sm" mb="md">
+            {errorMessage}
+          </Text>
+        )}
+
+        <TextInput
+          label="Capsule Name"
+          placeholder="Enter capsule name"
+          value={name}
+          onChange={(event) => setName(event.currentTarget.value)}
+          mb="md"
+          styles={{
+            label: { color: '#A1A1A1' },
+            input: {
+              backgroundColor: '#1a1a1a',
+              color: '#ffffff',
+              border: '1px solid #2B2B2B',
+              '&:focus-within': {
+                borderColor: '#F5A623',
+              },
+            },
+          }}
+        />
+
+        <TextInput
+          label="Capsule Slug"
+          placeholder="Enter capsule slug"
+          value={slug}
+          onChange={(event) => setSlug(event.currentTarget.value)}
+          mb="lg"
+          styles={{
+            label: { color: '#A1A1A1' },
+            input: {
+              backgroundColor: '#1a1a1a',
+              color: '#ffffff',
+              border: '1px solid #2B2B2B',
+              '&:focus-within': {
+                borderColor: '#F5A623',
+              },
+            },
+          }}
+        />
+
+        <Group justify="flex-end">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} loading={isSaving}>
+            Save Changes
+          </Button>
+        </Group>
       </Box>
     </Modal>
   );
 };
 
-export default CapsulePurposeModal;
+export default CapsuleSettingsModal;
