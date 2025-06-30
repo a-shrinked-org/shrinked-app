@@ -1443,52 +1443,54 @@ export default function CapsuleView() {
             </Box>
 
             {/* Tabs Section - Match Job Page Design */}
-            <Flex justify="space-between" align="center">
-              <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")}>
-                <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
-                  <Tabs.Tab 
-                    value="preview"
-                    styles={{
-                      tab: {
-                        backgroundColor: 'transparent',
-                        color: '#a1a1a1',
-                        '&[data-active]': {
-                          borderBottom: '2px solid #ffffff',
-                          color: '#ffffff',
+            <Box>
+              <Flex justify="space-between" align="center">
+                <Tabs value={activeTab} onChange={(value) => setActiveTab(value || "preview")} style={{ flex: 1 }}>
+                  <Tabs.List style={{ backgroundColor: 'transparent', borderBottom: '1px solid #202020' }}>
+                    <Tabs.Tab 
+                      value="preview"
+                      styles={{
+                        tab: {
+                          backgroundColor: 'transparent',
+                          color: '#a1a1a1',
+                          '&[data-active]': {
+                            borderBottom: '2px solid #ffffff',
+                            color: '#ffffff',
+                          },
                         },
-                      },
-                    }}
-                  >
-                    Preview
-                  </Tabs.Tab>
-                  <Tabs.Tab 
-                    value="markdown"
-                    styles={{
-                      tab: {
-                        backgroundColor: 'transparent',
-                        color: '#a1a1a1',
-                        '&[data-active]': {
-                          borderBottom: '2px solid #ffffff',
-                          color: '#ffffff',
+                      }}
+                    >
+                      Preview
+                    </Tabs.Tab>
+                    <Tabs.Tab 
+                      value="markdown"
+                      styles={{
+                        tab: {
+                          backgroundColor: 'transparent',
+                          color: '#a1a1a1',
+                          '&[data-active]': {
+                            borderBottom: '2px solid #ffffff',
+                            color: '#ffffff',
+                          },
                         },
-                      },
-                    }}
-                  >
-                    Markdown
-                  </Tabs.Tab>
-                </Tabs.List>
-              </Tabs>
-              <ActionIcon
-                variant="subtle"
-                onClick={handleDownloadMarkdown}
-                disabled={!hasContentForDisplay || isProcessing}
-                title="Download Markdown"
-              >
-                <Download size={18} />
-              </ActionIcon>
-            </Flex>
-            <Tabs.Panel value="preview" pt="md">
-              {isProcessing ? (
+                      }}
+                    >
+                      Markdown
+                    </Tabs.Tab>
+                  </Tabs.List>
+                </Tabs>
+                <ActionIcon
+                  variant="subtle"
+                  onClick={handleDownloadMarkdown}
+                  disabled={!hasContentForDisplay || isProcessing}
+                  title="Download Markdown"
+                >
+                  <Download size={18} />
+                </ActionIcon>
+              </Flex>
+
+              <Tabs.Panel value="preview" pt="md">
+                {isProcessing ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
                     <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
