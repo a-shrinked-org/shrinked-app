@@ -33,7 +33,8 @@ import {
   File,
   Link2,
   Target,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Check
 } from 'lucide-react';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
@@ -470,7 +471,7 @@ export default function CapsuleView() {
         return;
       }
 
-      response = await fetchWithAuth(`/api/capsules/${capsuleId}`);
+      response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}`);
       if (!response.ok) throw new Error(`Capsule fetch failed: ${response.status}`);
 
       let data = await response.json();
@@ -561,7 +562,7 @@ export default function CapsuleView() {
 
       for (let i = 0; i < fileIds.length; i += FILE_BATCH_SIZE) {
         const batch = fileIds.slice(i, i + FILE_BATCH_SIZE);
-        const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files`, {
+        const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileIds: batch }),
@@ -570,7 +571,7 @@ export default function CapsuleView() {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
-      await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
+      await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { method: 'GET' });
       refetch();
 
       notifications.show({
@@ -616,14 +617,14 @@ export default function CapsuleView() {
 
       setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
 
-      const response = await fetchWithAuth(`/api/capsules/${capsuleId}/files/${fileId}`, {
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
       });
       if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
 
       const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
       if (remainingFiles.length > 0) {
-        await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
+        await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { method: 'GET' });
       }
       refetch();
 
@@ -663,7 +664,7 @@ export default function CapsuleView() {
     setIsRegenerating(true);
 
     try {
-      const response = await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
+      const response = await fetchWithAuth(`/api/capsules-proxy/${capsuleId}/regenerate`, { method: 'GET' });
       if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
 
       startStatusMonitoring();
@@ -841,7 +842,7 @@ export default function CapsuleView() {
 
       setIsLoadingCapsules(true);
       try {
-        const response = await fetchWithAuth(`/api/capsules`);
+        const response = await fetchWithAuth(`/api/capsules-proxy`);
         if (!response.ok) throw new Error(`Failed to fetch capsules: ${response.status}`);
         const data = await response.json();
         const formattedCapsules = data.map((cap: any) => ({
@@ -849,6 +850,7 @@ export default function CapsuleView() {
           label: cap.name,
         }));
         setAvailableCapsules(formattedCapsules);
+        if (IS_DEV) console.log("[CapsuleView] Fetched capsules:", formattedCapsules);
       } catch (error) {
         if (IS_DEV) console.error("[CapsuleView] Failed to fetch all capsules:", error);
         notifications.show({
@@ -928,15 +930,6 @@ export default function CapsuleView() {
     return `${diffMinutes}M ${diffSeconds}S`;
   };
 
-  const generateNerdyCapsuleName = (): string => {
-    const adjectives = ["Quantum", "Nebula", "Binary", "Cosmic", "Galactic", "Astro", "Sonic", "Hyper", "Mega", "Nano"];
-    const nouns = ["Flux", "Core", "Nexus", "Matrix", "Vortex", "Beacon", "Cipher", "Engine", "Node", "Shard"];
-    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-    const randomNumber = Math.floor(1000 + Math.random() * 9000); // 4-digit number
-    return `CAPSULE-${randomAdjective.toUpperCase()}-${randomNoun.toUpperCase()}-${randomNumber}`;
-  };
-
   const handleCreateNewCapsule = useCallback(async () => {
     if (!identity?.id) {
       notifications.show({
@@ -946,58 +939,94 @@ export default function CapsuleView() {
       });
       return;
     }
-
+  
     const newCapsuleName = generateNerdyCapsuleName();
+    
     try {
-      const response = await fetchWithAuth(`/api/capsules`, {
+      setIsLoadingCapsules(true); // Show loading state
+      
+      const response = await fetchWithAuth(`/api/capsules-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCapsuleName }),
       });
-
+  
       if (!response.ok) {
-        throw new Error(`Failed to create capsule: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to create capsule: ${response.status}`);
       }
-
+  
       const newCapsule = await response.json();
+      
+      // Update available capsules list with the new capsule
+      const newCapsuleOption = {
+        value: newCapsule._id,
+        label: newCapsule.name,
+      };
+      
+      setAvailableCapsules(prev => [...prev, newCapsuleOption]);
+      
       notifications.show({
         title: 'Capsule Created',
-        message: `New capsule '${newCapsule.name}' created.`, 
+        message: `New capsule '${newCapsule.name}' created successfully.`, 
         color: 'green',
       });
-      show("capsules", newCapsule._id); // Navigate to the new capsule
+      
+      // Navigate to the new capsule
+      show("capsules", newCapsule._id);
+      
     } catch (error) {
       if (IS_DEV) console.error("[CapsuleView] Failed to create new capsule:", error);
-      setErrorMessage(formatErrorMessage(error));
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create capsule';
+      setErrorMessage(errorMessage);
       handleAuthError(error);
       notifications.show({
         title: 'Error',
-        message: formatErrorMessage(error),
+        message: errorMessage,
         color: 'red',
       });
+    } finally {
+      setIsLoadingCapsules(false);
     }
-  }, [identity?.id, fetchWithAuth, handleAuthError, list]);
-
+  }, [identity?.id, fetchWithAuth, handleAuthError, show, setAvailableCapsules]);
+  
+  // Improved generateNerdyCapsuleName function
+  const generateNerdyCapsuleName = (): string => {
+    const prefixes = ["QUANTUM", "NEURAL", "CRYPTO", "NEXUS", "CYBER", "MATRIX", "FLUX", "VOID", "PLASMA", "ATOM"];
+    const suffixes = ["CORE", "ENGINE", "VAULT", "NEXUS", "HUB", "NODE", "GRID", "ARRAY", "MATRIX", "SPHERE"];
+    
+    const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const randomSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    const randomId = Math.floor(1000 + Math.random() * 9000); // 4-digit number
+    
+    return `CAPSULE-${randomPrefix}-${randomSuffix}-${randomId}`;
+  };
+  
+  // Enhanced handleCapsuleChange to ensure smooth navigation
   const handleCapsuleChange = useCallback((value: string | null) => {
     if (value && value !== capsuleId) {
+      // Find the capsule name for logging
+      const selectedCapsule = availableCapsules.find(cap => cap.value === value);
+      if (IS_DEV) {
+        console.log(`[CapsuleView] Switching to capsule: ${selectedCapsule?.label || value}`);
+      }
+      
       show("capsules", value);
     }
-  }, [capsuleId, list]);
-
-  // Render
-  if (isLoading || identityLoading) {
-    return (
-      <Box style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        height: '100vh', 
-        backgroundColor: '#0a0a0a', 
-        color: '#ffffff' 
-      }}>
-        <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
-      </Box>
-    );
-  }
+  }, [capsuleId, show, availableCapsules]);
+  
+  // Make sure to display the current capsule name properly
+  const getCurrentCapsuleName = () => {
+    const currentCapsule = availableCapsules.find(cap => cap.value === capsuleId);
+    return currentCapsule?.label || record?.name || 'Unknown Capsule';
+  };
+  
+  // Additional fix: Ensure the select value is properly mapped
+  const getSelectValue = () => {
+    // Make sure we have a valid capsuleId that exists in availableCapsules
+    const exists = availableCapsules.some(cap => cap.value === capsuleId);
+    return exists ? capsuleId : null;
+  };
 
   if (isError || !record) {
     return (
@@ -1066,15 +1095,13 @@ export default function CapsuleView() {
             value={capsuleId}
             onChange={handleCapsuleChange}
             data={availableCapsules}
-            searchable
-            
+            searchable={false}
+            readOnly={false} // Changed from readOnly to allow selection
             rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
-            onDropdownOpen={toggleCapsuleDropdown}
-            onDropdownClose={toggleCapsuleDropdown}
             styles={{
               root: {
                 width: 'auto',
-                minWidth: '150px',
+                minWidth: '200px', // Increased for better visibility
               },
               wrapper: {
                 width: 'auto',
@@ -1092,37 +1119,58 @@ export default function CapsuleView() {
                 lineHeight: 1,
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase',
+                cursor: 'pointer', // Added cursor pointer
                 '&:focus': {
                   outline: 'none',
                 },
                 '&::placeholder': {
                   color: '#a0a0a0',
                 },
+                paddingRight: '24px !important',
               },
               section: {
                 color: '#a0a0a0',
+                width: 'auto',
               },
               dropdown: {
                 backgroundColor: '#000000',
                 border: '1px solid #2b2b2b',
                 width: 'auto',
                 minWidth: 'max-content',
+                maxHeight: '300px', // Added max height for scrolling
+                overflowY: 'auto',
               },
               option: {
                 color: '#ffffff',
                 fontSize: '14px',
                 fontFamily: GeistMono.style.fontFamily,
+                padding: '8px 12px', // Better padding
                 '&[data-selected]': {
                   backgroundColor: '#202020',
+                  color: '#F5A623', // Highlight selected option
                 },
                 '&:hover:not([data-disabled])': {
                   backgroundColor: '#1c1c1c',
                 },
               },
             }}
-            placeholder="Select Capsule"
+            placeholder={isLoadingCapsules ? "Loading..." : "Select Capsule"}
             disabled={isLoadingCapsules}
-            
+            // Display current capsule name or fallback
+            renderOption={({ option, checked }) => (
+              <Group justify="space-between" style={{ width: '100%' }}>
+                <Text 
+                  style={{ 
+                    fontFamily: GeistMono.style.fontFamily,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  {option.label}
+                </Text>
+                {checked && <Check size={14} color="#F5A623" />}
+              </Group>
+            )}
           />
         </Group>
         <Group gap="xs">
