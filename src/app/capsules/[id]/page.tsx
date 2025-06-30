@@ -1273,7 +1273,7 @@ export default function CapsuleView() {
                 handleResetEnrichedContent();
                 setIsReferenceModalOpen(true);
               }}
-              disabled={!hasContextSummary || isProcessing}
+              disabled={!hasContentForDisplay || isProcessing}
               styles={{
                 root: {
                   fontFamily: GeistMono.style.fontFamily,
