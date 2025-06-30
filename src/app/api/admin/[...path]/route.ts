@@ -131,6 +131,9 @@ async function handleRequest(
 // Export route handlers
 export const GET = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "GET");
 export const POST = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "POST");
-export const PATCH = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "PATCH");
+export async function PATCH(request: NextRequest, { params }: { params: { path: string[] }}) {
+  if (IS_DEV) console.log("[Admin Proxy] PATCH export hit!");
+  return handleRequest(request, { params }, 'PATCH');
+}
 export const PUT = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "PUT");
 export const DELETE = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "DELETE");
