@@ -133,7 +133,7 @@ const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
 
 export default function CapsuleView() {
   const params = useParams();
-  const { list } = useNavigation();
+  const { list, show } = useNavigation();
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>({
     queryOptions: {
@@ -196,7 +196,7 @@ export default function CapsuleView() {
   const record = capsuleData?.data;
 
   // Debounced refetch
-  const debouncedRefetch = useCallback(debounce(refetch, 500), [refetch]);
+  const debouncedRefetch = useMemo(() => debounce(refetch, 500), []);
 
   // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = useMemo(() => [
@@ -420,7 +420,7 @@ export default function CapsuleView() {
         debouncedRefetch();
       }
     }, 90000);
-  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
+  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating, refetch, notifications]);
 
   // File operations
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
@@ -965,7 +965,7 @@ export default function CapsuleView() {
         message: `New capsule '${newCapsule.name}' created.`, 
         color: 'green',
       });
-      list("capsules", { id: newCapsule._id }); // Navigate to the new capsule
+      show("capsules", newCapsule._id); // Navigate to the new capsule
     } catch (error) {
       if (IS_DEV) console.error("[CapsuleView] Failed to create new capsule:", error);
       setErrorMessage(formatErrorMessage(error));
@@ -980,7 +980,7 @@ export default function CapsuleView() {
 
   const handleCapsuleChange = useCallback((value: string | null) => {
     if (value && value !== capsuleId) {
-      list("capsules", { id: value });
+      show("capsules", value);
     }
   }, [capsuleId, list]);
 
@@ -1067,7 +1067,7 @@ export default function CapsuleView() {
             onChange={handleCapsuleChange}
             data={availableCapsules}
             searchable
-            nothingFound="No capsules found"
+            
             rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
             onDropdownOpen={toggleCapsuleDropdown}
             onDropdownClose={toggleCapsuleDropdown}
@@ -1122,7 +1122,7 @@ export default function CapsuleView() {
             }}
             placeholder="Select Capsule"
             disabled={isLoadingCapsules}
-            loading={isLoadingCapsules}
+            
           />
         </Group>
         <Group gap="xs">
