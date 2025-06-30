@@ -775,7 +775,7 @@ export default function CapsuleView() {
           message: 'Using default summary purpose.',
           color: 'green',
         });
-      } else if (!card.isDefault) {
+      } else {
         // For prototype cards, set override with structured JSON data
         console.log('Setting purpose override:', card.name);
         
@@ -823,7 +823,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingPrompts(false);
     }
-  }, [capsuleId, fetchWithAuth, debouncedRefetch]);
+  }, [capsuleId, fetchWithAuth, refetch]);
 
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
@@ -915,11 +915,11 @@ export default function CapsuleView() {
 
   const extractHighlightsContent = (highlights?: Array<{ xml: string }>): string | null => {
     if (!highlights || highlights.length === 0) return null;
-    return highlights.map(h => h.text).join('\n\n');
+    return highlights.map(h => h.xml).join('\n\n');
   };
 
   const handleDownloadMarkdown = useCallback(() => {
-    const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights);
+    const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
     if (!contentToDownload || !record) return;
 
     try {
@@ -1095,7 +1095,7 @@ export default function CapsuleView() {
   const displayFiles = record.files?.length ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
-  const hasContentForDisplay = !!(extractContextSummary(record.summaryContext) || extractHighlightsContent(record.highlights));
+  const hasContentForDisplay = !!(extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext));
   
   const debugContent = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
   console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
