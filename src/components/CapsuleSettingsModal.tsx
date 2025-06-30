@@ -129,7 +129,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
           { section: 'capsule.highlights', prompt: highlightsPrompt },
           { section: 'capsule.testSummary', prompt: testSummaryPrompt },
         ];
-        promises.push(fetchWithAuth(`/api/admin/prompts`, {
+        promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompts: promptsToUpdate }),

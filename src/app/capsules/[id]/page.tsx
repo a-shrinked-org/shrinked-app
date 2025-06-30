@@ -345,58 +345,20 @@ export default function CapsuleView() {
     return 'summary'; // Default
   }, [record?.overridePrompt, parseOverridePrompt]);
   
+  const resetGeneratedContent = useCallback(() => {
+    console.log('Main: Resetting generated content');
+    setSummary('');
+    setHighlights('');
+    setTestSummary('');
+    // Add any other content you need to reset
+  }, [setSummary, setHighlights, setTestSummary]);
+  
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
-    console.log('handlePurposeSelect called with:', {
-      cardId: card.id,
-      cardPrompt: card.prompt,
-      willSendOverridePrompt: card.id === 'summary' ? null : card.prompt
-    });
-    
-    const originalPurposeId = getCurrentPurposeId();
-    setOptimisticPurposeId(card.id);
-    
-    try {
-      const payload = {
-        overridePrompt: card.id === 'summary' ? null : card.prompt,
-      };
-      console.log('Sending payload:', payload);
-      
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      
-      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
-      
-      console.log('Server response OK, refetching...');
-      await refetch();
-      
-      // Log the state after refetch
-      setTimeout(() => {
-        console.log('After refetch - record.overridePrompt:', record?.overridePrompt);
-        console.log('After refetch - getCurrentPurposeId():', getCurrentPurposeId());
-      }, 100);
-      
-      setIsPurposeModalOpen(false);
-      notifications.show({
-        title: 'Purpose Updated',
-        message: `Capsule purpose set to: ${card.name}`,
-        color: 'green',
-      });
-    } catch (error) {
-      console.error('Error in handlePurposeSelect:', error);
-      setOptimisticPurposeId(originalPurposeId);
-      notifications.show({
-        title: 'Error',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
-    } finally {
-      setOptimisticPurposeId(null);
-    }
-  }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId, record?.overridePrompt]);
-
+    // This is now just for any additional parent-specific logic
+    console.log('Main: Purpose selected:', card.name);
+    // Any other logic you need when purpose changes
+  }, []);
+  
   // Status monitoring with improved logic
   const startStatusMonitoring = useCallback(() => {
     if (statusMonitorActive) {
@@ -1762,9 +1724,13 @@ export default function CapsuleView() {
         summary={summaryPrompt}
         highlights={highlightsPrompt}
         testSummary={testSummaryPrompt}
-        onPurposeSelect={handlePurposeSelect}
         activePurpose={optimisticPurposeId || getCurrentPurposeId()}
         capsuleId={capsuleId}
+        onContentReset={resetGeneratedContent}
+        fetchWithAuth={fetchWithAuth}
+        refetch={refetch}
+        notifications={notifications}
+        formatErrorMessage={formatErrorMessage}
       />
       <CapsuleSettingsModal
         isOpen={isSettingsModalOpen}

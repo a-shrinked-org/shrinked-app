@@ -30,9 +30,13 @@ interface CapsulePurposeModalProps {
   summary: string;
   highlights: string;
   testSummary: string;
-  onPurposeSelect: (card: PurposeCard) => void;
+  onContentReset: () => void; // New prop for content reset
   activePurpose?: string;
   capsuleId: string;
+  fetchWithAuth: (url: string, options: any) => Promise<Response>;
+  refetch: () => Promise<any>;
+  notifications: any;
+  formatErrorMessage: (error: any) => string;
 }
 
 const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
@@ -42,17 +46,23 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
   summary,
   highlights,
   testSummary,
-  onPurposeSelect,
+  onContentReset,
   activePurpose,
-  capsuleId
+  capsuleId,
+  fetchWithAuth,
+  refetch,
+  notifications,
+  formatErrorMessage
 }) => {
+  const [isUpdating, setIsUpdating] = useState(false);
+
   // Default cards using backend data
   const defaultCards: PurposeCard[] = [
     {
       id: 'summary',
       name: 'Summary',
       description: 'Generate a comprehensive summary of the provided documents',
-      prompt: '',
+      prompt: summary,
       section: 'capsule.summary',
       isDefault: true
     },
@@ -115,8 +125,57 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
   const allCards = [...defaultCards, ...prototypeCards];
 
   const handleCardSelect = async (card: PurposeCard) => {
-    await onPurposeSelect(card);
-    onClose(); // Close modal after selection
+    console.log('Modal: handleCardSelect called with:', {
+      cardId: card.id,
+      cardPrompt: card.prompt,
+      currentActivePurpose: activePurpose,
+      willSendOverridePrompt: card.id === 'summary' ? null : card.prompt
+    });
+    
+    const purposeChanged = activePurpose !== card.id;
+    setIsUpdating(true);
+    
+    try {
+      const payload = {
+        overridePrompt: card.id === 'summary' ? null : card.prompt,
+      };
+      console.log('Modal: Sending payload:', payload);
+      
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
+      
+      console.log('Modal: Server response OK, refetching...');
+      await refetch();
+      
+      // Reset content if purpose changed
+      if (purposeChanged) {
+        console.log('Modal: Purpose changed from', activePurpose, 'to', card.id, '- triggering content reset');
+        onContentReset();
+      }
+      
+      // Close modal and show success
+      onClose();
+      notifications.show({
+        title: 'Purpose Updated',
+        message: `Capsule purpose set to: ${card.name}`,
+        color: 'green',
+      });
+      
+    } catch (error) {
+      console.error('Modal: Error in handleCardSelect:', error);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const isCardActive = (cardId: string) => {
@@ -177,7 +236,7 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
         </Text>
         
         <Box style={{ position: 'relative', minHeight: '400px' }}>
-          <LoadingOverlay visible={isLoading} overlayProps={{ blur: 2 }} />
+          <LoadingOverlay visible={isLoading || isUpdating} overlayProps={{ blur: 2 }} />
           
           <SimpleGrid cols={2} spacing="md" verticalSpacing="md">
             {allCards.map((card) => (
@@ -188,13 +247,13 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
                   backgroundColor: isCardActive(card.id) ? '#1a1a1a' : '#0a0a0a',
                   border: isCardActive(card.id) ? '1px solid #F5A623' : '1px solid #2B2B2B',
                   borderRadius: '8px',
-                  cursor: isCardDisabled(card) ? 'not-allowed' : 'pointer',
+                  cursor: isCardDisabled(card) || isUpdating ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                   position: 'relative',
                   minHeight: '120px',
-                  opacity: isCardDisabled(card) ? 0.5 : 1
+                  opacity: isCardDisabled(card) || isUpdating ? 0.5 : 1
                 }}
-                onClick={() => !isCardDisabled(card) && handleCardSelect(card)}
+                onClick={() => !isCardDisabled(card) && !isUpdating && handleCardSelect(card)}
               >
                 <Flex direction="column" h="100%">
                   <Flex justify="space-between" align="flex-start" mb="xs">
