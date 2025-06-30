@@ -37,6 +37,7 @@ import {
   Check,
   Settings
 } from 'lucide-react';
+import { Loader } from '@mantine/core';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useParams, useRouter } from "next/navigation";
@@ -1184,10 +1185,10 @@ export default function CapsuleView() {
         <Group gap="xs">
           <Button 
             variant="subtle"
-            leftSection={<RefreshCw size={14} />}
+            leftSection={isRegenerating ? <Loader size={14} color="white" /> : <RefreshCw size={14} />}
             onClick={handleRegenerateCapsule}
             disabled={isProcessing}
-            loading={isRegenerating}
+            loading={false}
             styles={{
               root: {
                 fontFamily: GeistMono.style.fontFamily,
@@ -1258,29 +1259,15 @@ export default function CapsuleView() {
             </Button>
           )}
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button 
-              variant="subtle"
-              leftSection={<Settings size={14} />}
+            <ActionIcon 
+              size="lg" 
+              variant="subtle" 
               onClick={() => setIsSettingsModalOpen(true)}
-              disabled={isProcessing}
-              styles={{
-                root: {
-                  fontFamily: GeistMono.style.fontFamily,
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 16px',
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  '&:hover': {
-                    backgroundColor: '#1a1a1a',
-                  },
-                },
-              }}
+              style={{ color: '#a0a0a0' }}
+              title="Capsule settings"
             >
-              SETTINGS
-            </Button>
+              <Settings size={20} />
+            </ActionIcon>
           )}
           <Button 
             variant="filled"
