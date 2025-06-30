@@ -563,7 +563,7 @@ export default function CapsuleView() {
       }
 
       await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
-      setTimeout(() => debouncedRefetch(), 750);
+      refetch();
 
       notifications.show({
         title: 'Files Added',
@@ -617,7 +617,7 @@ export default function CapsuleView() {
       if (remainingFiles.length > 0) {
         await fetchWithAuth(`/api/capsules/${capsuleId}/regenerate`, { method: 'GET' });
       }
-      setTimeout(() => debouncedRefetch(), 750);
+      refetch();
 
       notifications.show({
         title: 'File Removed',

@@ -1129,7 +1129,7 @@ export default function JobShow() {
                           position: 'absolute',
                           left: '24px',
                           top: '50%', // Start from middle of current card (circle position)
-                          height: 'calc(100% + 3rem)', // Extend to next card (including marginBottom)
+                          height: 'calc(100% + 2rem)', // Extend to next card (including marginBottom)
                           width: '1px',
                           backgroundColor: '#2B2B2B',
                           zIndex: 1
