@@ -107,7 +107,7 @@ interface Capsule {
   createdAt: string;
   status: string;
   summaryContext?: string;
-  highlights?: Array<{ xml: string }>;
+  highlights?: Array<{ xml?: string; text?: string }>;
   summary?: string;
   testSummary?: string;
   overridePrompt?: string;
@@ -913,9 +913,9 @@ export default function CapsuleView() {
     return summaryMatch?.[1]?.trim() ?? summaryContext.trim();
   };
 
-  const extractHighlightsContent = (highlights?: Array<{ xml: string }>): string | null => {
+  const extractHighlightsContent = (highlights?: Array<{ xml?: string; text?: string }>): string | null => {
     if (!highlights || highlights.length === 0) return null;
-    return highlights.map(h => h.xml).join('\n\n');
+    return highlights.map(h => h.xml || h.text).join('\n\n');
   };
 
   const handleDownloadMarkdown = useCallback(() => {
@@ -1512,7 +1512,8 @@ export default function CapsuleView() {
                   </Stack>
                 ) : hasContentForDisplay ? (
                   <DocumentMarkdownWrapper 
-                    markdown={(enrichedContent || extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext)) ?? ""} 
+                    highlights={record.highlights} 
+                    markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
                   />
                 ) : hasFiles ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>

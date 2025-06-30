@@ -1,30 +1,34 @@
-"use client";
-
 import React, { useCallback } from 'react';
 import DocumentMarkdownRenderer from './DocumentMarkdownRenderer';
 
-interface DocumentMarkdownWrapperProps {
-  markdown: string;
+interface Highlight {
+  xml?: string;
+  text?: string;
 }
 
-/**
- * A wrapper component for DocumentMarkdownRenderer that provides default values
- * for the required props while passing through the markdown content
- */
-const DocumentMarkdownWrapper: React.FC<DocumentMarkdownWrapperProps> = ({ markdown }) => {
-  // Provide a dummy refresh handler
+interface DocumentMarkdownWrapperProps {
+  markdown?: string;
+  highlights?: Highlight[];
+}
+
+const DocumentMarkdownWrapper: React.FC<DocumentMarkdownWrapperProps> = ({ markdown, highlights }) => {
   const handleRefresh = useCallback(() => {
     console.log("Refresh requested in DocumentMarkdownWrapper");
   }, []);
-  
+
+  const content = highlights 
+    ? highlights.map(h => h.xml || h.text).join('\n\n') 
+    : markdown || '';
+
   return (
     <DocumentMarkdownRenderer
-      markdown={markdown}
+      markdown={content}
       isLoading={false}
       errorMessage={null}
       onRefresh={handleRefresh}
     />
   );
 };
+
 
 export default DocumentMarkdownWrapper;
