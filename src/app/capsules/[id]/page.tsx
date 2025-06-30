@@ -923,7 +923,7 @@ export default function CapsuleView() {
     if (!contentToDownload || !record) return;
 
     try {
-      const blob = new Blob([summary], { type: 'text/markdown;charset=utf-8' });
+      const blob = new Blob([contentToDownload], { type: 'text/markdown;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
