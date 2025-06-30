@@ -20,7 +20,11 @@ interface CapsuleSettingsModalProps {
   capsuleId: string;
   capsuleName: string;
   capsuleSlug: string;
+  summaryPrompt: string;
+  highlightsPrompt: string;
+  testSummaryPrompt: string;
   onUpdateSuccess: () => void;
+  onPromptUpdateSuccess: () => void;
 }
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -31,11 +35,18 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   capsuleId,
   capsuleName,
   capsuleSlug,
+  summaryPrompt: initialSummaryPrompt,
+  highlightsPrompt: initialHighlightsPrompt,
+  testSummaryPrompt: initialTestSummaryPrompt,
   onUpdateSuccess,
+  onPromptUpdateSuccess,
 }) => {
-  const { fetchWithAuth, handleAuthError } = useAuth();
+  const { fetchWithAuth, handleAuthError, data: identity } = useAuth();
   const [name, setName] = useState(capsuleName);
   const [slug, setSlug] = useState(capsuleSlug);
+  const [summaryPrompt, setSummaryPrompt] = useState(initialSummaryPrompt);
+  const [highlightsPrompt, setHighlightsPrompt] = useState(initialHighlightsPrompt);
+  const [testSummaryPrompt, setTestSummaryPrompt] = useState(initialTestSummaryPrompt);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -43,6 +54,12 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
     setName(capsuleName);
     setSlug(capsuleSlug);
   }, [capsuleName, capsuleSlug]);
+
+  useEffect(() => {
+    setSummaryPrompt(initialSummaryPrompt);
+    setHighlightsPrompt(initialHighlightsPrompt);
+    setTestSummaryPrompt(initialTestSummaryPrompt);
+  }, [initialSummaryPrompt, initialHighlightsPrompt, initialTestSummaryPrompt]);
 
   const formatErrorMessage = (error: any): string => {
     if (!error) return "An unknown error occurred";
@@ -54,19 +71,65 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
     return message;
   };
 
+  const handleSavePrompts = async () => {
+    if (identity?.subscriptionPlan?.name?.toUpperCase() !== 'ADMIN') return;
+
+    try {
+      const promptsToUpdate = [
+        { section: 'capsule.summary', prompt: summaryPrompt },
+        { section: 'capsule.highlights', prompt: highlightsPrompt },
+        { section: 'capsule.testSummary', prompt: testSummaryPrompt },
+      ];
+
+      const response = await fetchWithAuth(`/api/admin/prompts`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompts: promptsToUpdate }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update prompts: ${response.status}`);
+      }
+
+      notifications.show({
+        title: 'Prompts Updated',
+        message: 'Default prompts saved successfully.',
+        color: 'green',
+      });
+      onPromptUpdateSuccess();
+    } catch (error) {
+      if (IS_DEV) console.error('Failed to update prompts:', error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+      notifications.show({
+        title: 'Error',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
+      const capsuleUpdatePromise = fetchWithAuth(`/api/capsule/${capsuleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, slug }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to update capsule: ${response.status}`);
+      const promptUpdatePromise = handleSavePrompts();
+
+      const [capsuleResponse] = await Promise.all([
+        capsuleUpdatePromise,
+        promptUpdatePromise,
+      ]);
+
+      if (!capsuleResponse.ok) {
+        const errorData = await capsuleResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to update capsule: ${capsuleResponse.status}`);
       }
 
       notifications.show({
@@ -173,6 +236,66 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
             },
           }}
         />
+
+        {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
+          <Box mb="lg">
+            <Text fw={500} size="md" mb="md">Default Prompts (Admin Only)</Text>
+            <TextInput
+              label="Summary Prompt"
+              placeholder="Enter default summary prompt"
+              value={summaryPrompt}
+              onChange={(event) => setSummaryPrompt(event.currentTarget.value)}
+              mb="md"
+              styles={{
+                label: { color: '#A1A1A1' },
+                input: {
+                  backgroundColor: '#1a1a1a',
+                  color: '#ffffff',
+                  border: '1px solid #2B2B2B',
+                  '&:focus-within': {
+                    borderColor: '#F5A623',
+                  },
+                },
+              }}
+            />
+            <TextInput
+              label="Highlights Prompt"
+              placeholder="Enter default highlights prompt"
+              value={highlightsPrompt}
+              onChange={(event) => setHighlightsPrompt(event.currentTarget.value)}
+              mb="md"
+              styles={{
+                label: { color: '#A1A1A1' },
+                input: {
+                  backgroundColor: '#1a1a1a',
+                  color: '#ffffff',
+                  border: '1px solid #2B2B2B',
+                  '&:focus-within': {
+                    borderColor: '#F5A623',
+                  },
+                },
+              }}
+            />
+            <TextInput
+              label="Test Summary Prompt"
+              placeholder="Enter default test summary prompt"
+              value={testSummaryPrompt}
+              onChange={(event) => setTestSummaryPrompt(event.currentTarget.value)}
+              mb="lg"
+              styles={{
+                label: { color: '#A1A1A1' },
+                input: {
+                  backgroundColor: '#1a1a1a',
+                  color: '#ffffff',
+                  border: '1px solid #2B2B2B',
+                  '&:focus-within': {
+                    borderColor: '#F5A623',
+                  },
+                },
+              }}
+            />
+          </Box>
+        )}
 
         <Group justify="flex-end">
           <Button variant="outline" onClick={onClose}>

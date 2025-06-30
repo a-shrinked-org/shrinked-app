@@ -1182,7 +1182,31 @@ export default function CapsuleView() {
           />
         </Group>
         <Group gap="xs">
-          <Button 
+          <Button
+            variant="subtle"
+            leftSection={<RefreshCw size={14} />}
+            onClick={handleRegenerateCapsule}
+            disabled={isProcessing}
+            loading={isRegenerating}
+            styles={{
+              root: {
+                fontFamily: GeistMono.style.fontFamily,
+                fontSize: '14px',
+                fontWeight: 400,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                padding: '8px 16px',
+                backgroundColor: 'transparent',
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: '#1a1a1a',
+                },
+              },
+            }}
+          >
+            REGENERATE
+          </Button>
+          <Button
             variant="subtle"
             leftSection={<Target size={14} />}
             onClick={handleOpenPurposeModal}
@@ -1206,7 +1230,7 @@ export default function CapsuleView() {
             PURPOSE
           </Button>
           {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-            <Button 
+            <Button
               variant="subtle"
               leftSection={<Link2 size={14} />}
               onClick={() => {
@@ -1233,7 +1257,32 @@ export default function CapsuleView() {
               REFS
             </Button>
           )}
-          <Button 
+          {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
+            <Button
+              variant="subtle"
+              leftSection={<Settings size={14} />}
+              onClick={() => setIsSettingsModalOpen(true)}
+              disabled={isProcessing}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
+            >
+              SETTINGS
+            </Button>
+          )}
+          <Button
             variant="filled"
             leftSection={<Plus size={14} />}
             onClick={handleAddFile}
@@ -1256,39 +1305,6 @@ export default function CapsuleView() {
             }}
           >
             ADD CONTEXT
-          </Button>
-          <ActionIcon 
-            size="lg" 
-            variant="subtle" 
-            onClick={() => setIsSettingsModalOpen(true)}
-            style={{ color: '#a0a0a0' }}
-            title="Capsule settings"
-          >
-            <Settings size={20} />
-          </ActionIcon>
-          <Button 
-            variant="filled"
-            leftSection={<RefreshCw size={14} />}
-            onClick={handleRegenerateCapsule}
-            disabled={isProcessing}
-            loading={isRegenerating}
-            styles={{
-              root: {
-                fontFamily: GeistMono.style.fontFamily,
-                fontSize: '14px',
-                fontWeight: 400,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                padding: '8px 16px',
-                backgroundColor: '#F5A623',
-                color: '#000000',
-                '&:hover': {
-                  backgroundColor: '#E09612',
-                },
-              },
-            }}
-          >
-            REGENERATE
           </Button>
         </Group>
       </Flex>
@@ -1754,7 +1770,11 @@ export default function CapsuleView() {
         capsuleId={capsuleId}
         capsuleName={record?.name || ''}
         capsuleSlug={record?.slug || ''}
+        summaryPrompt={summaryPrompt}
+        highlightsPrompt={highlightsPrompt}
+        testSummaryPrompt={testSummaryPrompt}
         onUpdateSuccess={refetch}
+        onPromptUpdateSuccess={loadPrompts}
       />
     </Box>
   );
