@@ -915,7 +915,7 @@ export default function CapsuleView() {
 
   const extractHighlightsContent = (highlights?: Array<{ xml: string }>): string | null => {
     if (!highlights || highlights.length === 0) return null;
-    return highlights.map(h => h.xml).join('\n\n');
+    return highlights.map(h => h.text).join('\n\n');
   };
 
   const handleDownloadMarkdown = useCallback(() => {
