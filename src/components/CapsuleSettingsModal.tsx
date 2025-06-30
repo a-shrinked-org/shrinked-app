@@ -25,13 +25,25 @@ interface Identity {
   subscriptionPlan?: { name?: string };
 }
 
+interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+  id?: string;
+  subscriptionPlan?: { name?: string };
+}
+
 interface CapsuleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   capsuleId: string;
   capsuleName: string;
   capsuleSlug: string;
+  summaryPrompt: string;
+  highlightsPrompt: string;
+  testSummaryPrompt: string;
   onUpdateSuccess: () => void;
+  onPromptUpdateSuccess: () => void;
   identity?: Identity;
 }
 
