@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/utils/authUtils";
 import DocumentMarkdownWrapper from "@/components/DocumentMarkdownWrapper";
 import { GeistMono } from 'geist/font/mono';
@@ -134,7 +134,8 @@ const debounce = <F extends (...args: any[]) => any>(func: F, wait: number) => {
 
 export default function CapsuleView() {
   const params = useParams();
-  const { list, show } = useNavigation();
+  const router = useRouter();
+  useNavigation();
   const capsuleId = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>({
     queryOptions: {
@@ -962,7 +963,7 @@ export default function CapsuleView() {
       });
       
       // Navigate to the new capsule
-      show("capsules", newCapsule._id);
+      router.push(`/capsules/${newCapsule._id}`);
       
     } catch (error) {
       if (IS_DEV) console.error("[CapsuleView] Failed to create new capsule:", error);
@@ -977,7 +978,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingCapsules(false);
     }
-  }, [identity?.id, fetchWithAuth, handleAuthError, show, setAvailableCapsules]);
+  }, [identity?.id, fetchWithAuth, handleAuthError, setAvailableCapsules]);
   
   // Improved generateNerdyCapsuleName function
   const generateNerdyCapsuleName = (): string => {
@@ -1000,9 +1001,9 @@ export default function CapsuleView() {
         console.log(`[CapsuleView] Switching to capsule: ${selectedCapsule?.label || value}`);
       }
       
-      show("capsules", value);
+      router.push(`/capsules/${value}`);
     }
-  }, [capsuleId, show, availableCapsules]);
+  }, [capsuleId, availableCapsules, router]);
   
   // Make sure to display the current capsule name properly
   const getCurrentCapsuleName = () => {
@@ -1029,7 +1030,7 @@ export default function CapsuleView() {
         <Alert color="red" title="Error Loading Capsule" icon={<AlertCircle size={16} />} mb="md">
           {errorMessage || "Could not load capsule details."}
         </Alert>
-        <Button onClick={() => list("capsules")} leftSection={<ArrowLeft size={16} />}>
+        <Button onClick={() => router.push("/capsules")} leftSection={<ArrowLeft size={16} />}>
           Back to Capsules List
         </Button>
       </Box>
