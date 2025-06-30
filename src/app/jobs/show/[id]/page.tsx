@@ -1145,7 +1145,7 @@ export default function JobShow() {
                          const isCollapsible = step.data && Object.keys(step.data).length > 0;
                    
                          return (
-                          <Box key={index} style={{ marginBottom: '1rem', position: 'relative' }}>
+                          <Box key={`${step._id || step.name}-${index}`} style={{ marginBottom: '1rem', position: 'relative' }}>
                             {/* Vertical line segment for this step - only if not the last step */}
                             {!isLastStep && (
                               <Box style={{ 
