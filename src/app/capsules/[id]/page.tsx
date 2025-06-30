@@ -804,42 +804,6 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth]);
 
-  // Purpose selection handlers
-  const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
-    const originalPurposeId = getCurrentPurposeId();
-    setOptimisticPurposeId(card.id);
-
-    try {
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          overridePrompt: card.id === 'summary' ? null : card.prompt,
-        }),
-      });
-
-      if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
-
-      await refetch();
-      setIsPurposeModalOpen(false);
-      notifications.show({
-        title: 'Purpose Updated',
-        message: `Capsule purpose set to: ${card.name}`,
-        color: 'green',
-      });
-    } catch (error) {
-      setOptimisticPurposeId(originalPurposeId); // Revert on error
-      if (IS_DEV) console.error('Failed to update purpose:', error);
-      notifications.show({
-        title: 'Error',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
-    } finally {
-      setOptimisticPurposeId(null);
-    }
-  }, [capsuleId, fetchWithAuth, refetch, getCurrentPurposeId]);
-
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
     setIsPurposeModalOpen(true);
