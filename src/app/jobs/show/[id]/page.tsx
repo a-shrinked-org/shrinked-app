@@ -516,55 +516,44 @@ export default function JobShow() {
   );
 
   const renderPreviewContent = () => {
-  const status = getProcessingStatus();
-  
-  // Check processing state FIRST, before checking errors
-  if (status === 'processing' || status === 'in_progress' || status === 'pending') {
-    return (
-      <DocumentMarkdownRenderer 
-        isLoading={true}
-        errorMessage={null}
-        onRefresh={manualRefetch}
-        processingStatus={status}
-      />
-    );
-  }
-  
-  // Then check loading states
-  if (isLoadingDoc || isLoadingMarkdown.current) {
-    return (
-      <DocumentMarkdownRenderer 
-        isLoading={true}
-        errorMessage={null}
-        onRefresh={manualRefetch}
-        processingStatus={status}
-      />
-    );
-  }
-  
-  // Only show errors if we're not processing
-  if (errorMessage) {
-    return (
-      <Alert 
-        icon={<AlertCircle size={16} />}
-        color="red" 
-        title="Error"
-        mb="md"
-      >
-        {errorMessage}
-        <Button 
-          leftSection={<RefreshCw size={16} />}
-          mt="sm"
-          onClick={manualRefetch}
-          variant="light"
-          size="sm"
+    const status = getProcessingStatus();
+
+    // Show loading state if processing or fetching content
+    if (status === 'processing' || status === 'in_progress' || status === 'pending' || isLoadingDoc || isLoadingMarkdown.current) {
+      return (
+        <DocumentMarkdownRenderer 
+          isLoading={true}
+          errorMessage={null}
+          onRefresh={manualRefetch}
+          processingStatus={status}
+        />
+      );
+    }
+
+    // Show error message if there is one and not currently loading/processing
+    if (errorMessage) {
+      return (
+        <Alert 
+          icon={<AlertCircle size={16} />}
+          color="red" 
+          title="Error"
+          mb="md"
         >
-          Try again
-        </Button>
-      </Alert>
-    );
-  }
-  
+          {errorMessage}
+          <Button 
+            leftSection={<RefreshCw size={16} />}
+            mt="sm"
+            onClick={manualRefetch}
+            variant="light"
+            size="sm"
+          >
+            Try again
+          </Button>
+        </Alert>
+      );
+    }
+
+    // Show markdown content if available
     if (markdownContent && markdownContent.trim() !== '') {
       return (
         <DocumentMarkdownRenderer 
@@ -576,18 +565,8 @@ export default function JobShow() {
         />
       );
     }
-  
-    if (status === 'processing' || status === 'in_progress' || status === 'pending') {
-      return (
-        <DocumentMarkdownRenderer 
-          isLoading={true}
-          errorMessage={null}
-          onRefresh={manualRefetch}
-          processingStatus={status}
-        />
-      );
-    }
-  
+
+    // Show processing failed message
     if (status === 'error' || status === 'failed') {
       return (
         <Alert 
@@ -609,9 +588,8 @@ export default function JobShow() {
         </Alert>
       );
     }
-  
-    // Only show "unavailable" when we're definitely not loading
-    // and the status indicates completion but no content exists
+
+    // Default: content unavailable (e.g., job completed but no markdown yet, or initial state)
     return (
       <Alert 
         icon={<AlertCircle size={16} />}
@@ -684,7 +662,7 @@ export default function JobShow() {
     );
   }
   
-  if (isLoading) {
+  if (isLoading && !record) {
     return (
       <Box style={{ 
         display: 'flex', 
