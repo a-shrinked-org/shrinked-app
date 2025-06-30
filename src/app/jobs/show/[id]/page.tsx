@@ -1101,7 +1101,7 @@ export default function JobShow() {
               )}
             </Box>
             
-            // Replace the Logic section in your sidebar with this corrected version:
+            {/* Replace the Logic section in your sidebar with this corrected version: */}
             
             <Box style={{ marginTop: '2rem' }}>
               <Text c="dimmed" mb="md" size="xs" style={{ fontFamily: GeistMono.style.fontFamily }}>
