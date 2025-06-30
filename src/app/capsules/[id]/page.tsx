@@ -269,13 +269,10 @@ export default function CapsuleView() {
   const parseOverridePrompt = useCallback((overridePrompt?: string) => {
     if (!overridePrompt) return null;
     
-    if (IS_DEV) console.log('[CapsuleView] parseOverridePrompt: Raw overridePrompt:', overridePrompt);
-
     try {
       // Try to parse as JSON first (new structured format)
       const parsed = JSON.parse(overridePrompt);
       if (parsed.cardId && parsed.cardName && parsed.prompt) {
-        if (IS_DEV) console.log('[CapsuleView] parseOverridePrompt: Parsed as structured JSON:', parsed);
         return parsed as {
           cardId: string;
           cardName: string;
@@ -294,7 +291,6 @@ export default function CapsuleView() {
     const matchingCard = allCards.find(card => card.prompt === overridePrompt);
     
     if (matchingCard) {
-      if (IS_DEV) console.log('[CapsuleView] parseOverridePrompt: Matched prototype card:', matchingCard);
       return {
         cardId: matchingCard.id,
         cardName: matchingCard.name,
@@ -305,7 +301,6 @@ export default function CapsuleView() {
     
     // If it's a custom prompt that doesn't match any card, treat as custom
     if (overridePrompt.trim()) {
-      if (IS_DEV) console.log('[CapsuleView] parseOverridePrompt: Identified as custom prompt:', overridePrompt);
       return {
         cardId: 'custom',
         cardName: 'Custom Prompt',
@@ -343,20 +338,7 @@ export default function CapsuleView() {
     return summaryPrompt; // Default summary prompt
   }, [record?.overridePrompt, parseOverridePrompt, summaryPrompt]);
 
-  // Debug effect to monitor overridePrompt changes
-  useEffect(() => {
-    if (record?.overridePrompt !== undefined) {
-      const overrideData = parseOverridePrompt(record.overridePrompt);
-      if (IS_DEV) {
-        console.log('[CapsuleView] overridePrompt analysis:', {
-          raw: record.overridePrompt,
-          parsed: overrideData,
-          currentPurpose: getCurrentPurposeName(),
-          currentPurposeId: getCurrentPurposeId()
-        });
-      }
-    }
-  }, [record?.overridePrompt, parseOverridePrompt, getCurrentPurposeName, getCurrentPurposeId]);
+  
 
   // Status monitoring with improved logic
   const startStatusMonitoring = useCallback(() => {
@@ -754,7 +736,7 @@ export default function CapsuleView() {
           timestamp: new Date().toISOString()
         };
         
-        if (IS_DEV) console.log('[CapsuleView] handlePurposeSelect: Sending overrideData:', overrideData);
+        
         
         const response = await fetchWithAuth(`/api/capsule/${capsuleId}`, {
           method: 'PATCH',
@@ -778,7 +760,7 @@ export default function CapsuleView() {
       }
       
       // Refresh capsule data to get updated purpose
-      setTimeout(() => debouncedRefetch(), 500);
+      refetch();
       
     } catch (error) {
       if (IS_DEV) console.error('Failed to update purpose:', error);
