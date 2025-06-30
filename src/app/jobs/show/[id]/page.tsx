@@ -1209,7 +1209,7 @@ export default function JobShow() {
                           </Group>
                         </Flex>
                         
-                        {{/* Collapsible content - NO internal borders */}}
+                        {/* Collapsible content - NO internal borders */}
                         {isCollapsible && (
                           <Collapse in={true}>
                             <Box mt="md" style={{ paddingLeft: '12px' }}>
@@ -1282,6 +1282,6 @@ export default function JobShow() {
         shareUrl={sharedUrl}
         documentTitle={processingDoc?.title || record?.jobName || 'Untitled Document'}
       />
-    </div>
+    </Box>
   );
 }
