@@ -171,8 +171,6 @@ export default function CapsuleView() {
   
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [enrichedContent, setEnrichedContent] = useState<string>('');
-  const [streamedContent, setStreamedContent] = useState<string>('');
-  const [isStreaming, setIsStreaming] = useState(false);
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
@@ -397,7 +395,6 @@ export default function CapsuleView() {
           setIsRegenerating(false);
           setIsAddingFiles(false);
           setStatusMonitorActive(false);
-          setIsStreaming(false); // Ensure streaming state is reset
           if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
 
           await debouncedRefetch();
@@ -765,120 +762,6 @@ export default function CapsuleView() {
       if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
     }
   }, [capsuleData?.data?.status, identity?.token, statusMonitorActive, isRegenerating, startStatusMonitoring]);
-
-  // SSE for streaming summary context
-  useEffect(() => {
-    let controller: AbortController | null = null;
-
-    const currentStatus = record?.status?.toLowerCase();
-    const shouldStream = currentStatus === 'processing' && !isStreaming && capsuleId && identity?.token;
-
-    // If status is no longer processing, stop streaming
-    if (currentStatus !== 'processing' && isStreaming) {
-      if (IS_DEV) console.log("[SSE] Status changed, stopping streaming.");
-      setIsStreaming(false);
-      return;
-    }
-
-    if (shouldStream) {
-      if (IS_DEV) console.log("[SSE] Starting summary stream");
-      setIsStreaming(true);
-      setStreamedContent(''); // Clear previous content
-      controller = new AbortController();
-      const { signal } = controller;
-
-      const fetchStream = async () => {
-        try {
-          const response = await fetchWithAuth(`/api/capsules/${capsuleId}/summary-stream`, {
-            method: 'GET',
-            signal,
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            throw new Error("Failed to get reader from response body");
-          }
-
-          let accumulatedContent = '';
-          const decoder = new TextDecoder();
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) {
-              if (IS_DEV) console.log("[SSE] Stream complete");
-              break;
-            }
-
-            const chunk = decoder.decode(value, { stream: true });
-            accumulatedContent += chunk;
-
-            // Process SSE events
-            const events = accumulatedContent.split('\n\n');
-            accumulatedContent = events.pop() || ''; // Keep incomplete event
-
-            for (const eventBlock of events) {
-              const lines = eventBlock.split('\n');
-              let eventType = '';
-              let eventData = '';
-
-              for (const line of lines) {
-                if (line.startsWith('event:')) {
-                  eventType = line.substring(6).trim();
-                } else if (line.startsWith('data:')) {
-                  eventData = line.substring(5).trim();
-                }
-              }
-
-              if (eventType === 'summary-section') {
-                setStreamedContent(prev => prev + eventData + '\n');
-              } else if (eventType === 'section') {
-                if (IS_DEV) console.log("[SSE] Received section data (not displayed in preview):", eventData);
-              } else if (eventType === 'start') {
-                if (IS_DEV) console.log("[SSE] Stream started");
-                setStreamedContent('');
-              } else if (eventType === 'context-end') {
-                if (IS_DEV) console.log("[SSE] Context ended");
-                setStreamedContent(prev => prev + '\n\n---\n');
-              } else if (eventType === 'start-summary') {
-                if (IS_DEV) console.log("[SSE] Summary started");
-              } else if (eventType === 'summary-end') {
-                if (IS_DEV) console.log("[SSE] Summary ended");
-                setIsStreaming(false);
-                refetch();
-              } else if (eventType === 'ping') {
-                if (IS_DEV) console.log("[SSE] Ping received");
-              } else if (eventType === 'error') {
-                if (IS_DEV) console.error("[SSE] Stream error event received");
-                setErrorMessage("Stream error. Please try regenerating.");
-                setIsStreaming(false);
-              }
-            }
-          }
-        } catch (error) {
-          if (signal.aborted) {
-            if (IS_DEV) console.log("[SSE] Stream fetch aborted");
-          } else {
-            if (IS_DEV) console.error("[SSE] Stream fetch error:", error);
-            setErrorMessage("Stream error. Please try regenerating.");
-          }
-          setIsStreaming(false);
-        }
-      };
-
-      fetchStream();
-    }
-
-    return () => {
-      if (controller) {
-        if (IS_DEV) console.log("[SSE] Aborting stream fetch");
-        controller.abort();
-      }
-    };
-  }, [record?.status, capsuleId, identity?.token, isStreaming, refetch, fetchWithAuth]);
 
   // File effect with retry limit
   useEffect(() => {
@@ -1587,10 +1470,9 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
               
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
-                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Processing...</Text>
-                    <Text ta="center" c="dimmed" mb="xl">
+                  <Stack align="flex-start" justify="flex-start" style={{ height: '300px', color: '#a0a0a0', paddingTop: '20px', paddingLeft: '20px' }}>
+                    <CliLoadingAnimation message="Generating context" />
+                    <Text c="dimmed" style={{ zIndex: 1, marginLeft: '20px' }}>
                       Analyzing files and creating the capsule summary.
                     </Text>
                   </Stack>
@@ -1599,7 +1481,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                     markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''} 
                   />
                 ) : hasFiles ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
