@@ -100,19 +100,31 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       const promises = [capsuleUpdatePromise];
 
       if (identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
-        const promptsToUpdate = [
-          { section: 'capsule.summary', prompt: summaryPrompt },
-          { section: 'capsule.highlights', prompt: highlightsPrompt },
-          { section: 'capsule.testSummary', prompt: testSummaryPrompt },
-        ];
+        const promptsToUpdate = [];
 
-        // Send each prompt update individually
-        for (const promptData of promptsToUpdate) {
-          promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(promptData), // Send individual prompt data
-          }));
+        const sanitizedSummaryPrompt = summaryPrompt.trim();
+        if (sanitizedSummaryPrompt) {
+          promptsToUpdate.push({ section: 'capsule.summary', prompt: sanitizedSummaryPrompt });
+        }
+
+        const sanitizedHighlightsPrompt = highlightsPrompt.trim();
+        if (sanitizedHighlightsPrompt) {
+          promptsToUpdate.push({ section: 'capsule.highlights', prompt: sanitizedHighlightsPrompt });
+        }
+
+        const sanitizedTestSummaryPrompt = testSummaryPrompt.trim();
+        if (sanitizedTestSummaryPrompt) {
+          promptsToUpdate.push({ section: 'capsule.testSummary', prompt: sanitizedTestSummaryPrompt });
+        }
+
+        if (promptsToUpdate.length > 0) {
+          for (const promptData of promptsToUpdate) {
+            promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(promptData),
+            }));
+          }
         }
       }
 
