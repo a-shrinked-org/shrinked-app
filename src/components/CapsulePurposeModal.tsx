@@ -74,19 +74,12 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
   const allCards = [...defaultCards, ...prototypeCards];
 
   const handleCardSelect = async (card: PurposeCard) => {
-    console.log('Modal: handleCardSelect called with:', {
-      cardId: card.id,
-      cardPrompt: card.prompt,
-      currentActivePurpose: activePurpose,
-      willSendOverridePrompt: card.id === 'summary' ? null : card.prompt
-    });
-    
     const purposeChanged = activePurpose !== card.id;
     setIsUpdating(true);
     
     try {
       const payload = {
-        overridePrompt: card.id === 'summary' ? '' : card.prompt, // Send plain text prompt
+        overridePrompt: card.isDefault ? null : card.prompt, // Use null for default
       };
       console.log('Modal: Sending payload:', payload);
       
@@ -98,12 +91,10 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
       
       if (!response.ok) throw new Error(`Failed to update purpose: ${response.status}`);
       
-      console.log('Modal: Server response OK, refetching...');
       await refetch();
       
       // Reset content if purpose changed
       if (purposeChanged) {
-        console.log('Modal: Purpose changed from', activePurpose, 'to', card.id, '- triggering content reset');
         onContentReset();
       }
       
