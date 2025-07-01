@@ -432,6 +432,7 @@ const App = (props: React.PropsWithChildren<{}>) => {
           { name: "scheduled", list: "/scheduled", create: "/scheduled/create", edit: "/scheduled/edit/:id", show: "/scheduled/show/:id", meta: { canDelete: true } },
           { name: "output", list: "/output", show: "/output/show/:id", meta: { canDelete: true } },
           { name: "logic", list: "/logic", meta: { canDelete: false } },
+          { name: "api-keys", list: "/api/api-keys-proxy", meta: { canDelete: true } },
         ]}
         options={{ syncWithLocation: true, warnWhenUnsavedChanges: true, useNewQueryKeys: true }}
       >
