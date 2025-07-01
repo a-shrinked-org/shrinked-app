@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Text,
   Box,
@@ -11,6 +11,7 @@ import {
   Modal,
   Divider,
   ScrollArea,
+  TextInput,
 } from '@mantine/core';
 import { X } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
@@ -84,21 +85,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
     }
   }, [capsuleId, identity?.id, fetchWithAuth]);
 
-  useEffect(() => {
-    if (isOpen && identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
-      loadPrompts();
-    }
-  }, [isOpen, identity?.subscriptionPlan?.name, loadPrompts]);
-
-  const formatErrorMessage = (error: any): string => {
-    if (!error) return "An unknown error occurred";
-    const status = error?.status ?? error?.statusCode ?? error?.response?.status;
-    const message = error?.message || "An unexpected error occurred";
-    if (status === 401 || status === 403) return "Your session has expired. Please log in again.";
-    if (status === 404) return "The requested resource was not found.";
-    if (status >= 500) return "The server encountered an error. Please try again later.";
-    return message;
-  };
+  
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -155,41 +142,9 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       setIsSaving(false);
     }
   };
-  const [name, setName] = useState(capsuleName);
-  const [slug, setSlug] = useState(capsuleSlug);
-  const [summaryPrompt, setSummaryPrompt] = useState('');
-  const [highlightsPrompt, setHighlightsPrompt] = useState('');
-  const [testSummaryPrompt, setTestSummaryPrompt] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingPrompts, setIsLoadingPromuseState] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
 
-  useEffect(() => {
-    setName(capsuleName);
-    setSlug(capsuleSlug);
-  }, [capsuleName, capsuleSlug]);
-
-  const loadPrompts = async () => {
-    if (!capsuleId || !identity?.id) return;
-    
-    setIsLoadingPrompts(true);
-    try {
-      const response = await fetchWithAuth(`/api/admin/prompts?capsuleId=${capsuleId}`);
-      if (!response.ok) throw new Error(`Failed to fetch prompts: ${response.status}`);
-
-      const data = await response.json();
-      setSummaryPrompt(data.find((p: any) => p.section === 'capsule.summary')?.prompt || '');
-      setHighlightsPrompt(data.find((p: any) => p.section === 'capsule.highlights')?.prompt || '');
-      setTestSummaryPrompt(data.find((p: any) => p.section === 'capsule.testSummary')?.prompt || '');
-    } catch (error) {
-      if (IS_DEV) console.error('Failed to fetch prompts:', error);
-      setSummaryPrompt('Generate a comprehensive summary of the provided documents');
-      setHighlightsPrompt('Extract key highlights and important points from documents');
-      setTestSummaryPrompt('Create a test summary of the content');
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  };
+  
 
   useEffect(() => {
     if (isOpen && identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
@@ -206,80 +161,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
     return message;
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    setErrorMessage(null);
-    try {
-      const capsuleUpdatePromise = fetchWithAuth(`/api/capsule/${capsuleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, slug }),
-      });
   
-      const promises = [capsuleUpdatePromise];
-  
-      if (identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
-        // Build prompts array only for non-empty prompts
-        const promptsToUpdate = [];
-        
-        // Add summary prompt if it has a non-empty value
-        const sanitizedSummaryPrompt = summaryPrompt.trim();
-        if (sanitizedSummaryPrompt) {
-          promptsToUpdate.push({ section: 'capsule.summary', prompt: sanitizedSummaryPrompt });
-        }
-  
-        // Add highlights prompt if it has a non-empty value
-        const sanitizedHighlightsPrompt = highlightsPrompt.trim();
-        if (sanitizedHighlightsPrompt) {
-          promptsToUpdate.push({ section: 'capsule.highlights', prompt: sanitizedHighlightsPrompt });
-        }
-  
-        // Add test summary prompt if it has a non-empty value
-        const sanitizedTestSummaryPrompt = testSummaryPrompt.trim();
-        if (sanitizedTestSummaryPrompt) {
-          promptsToUpdate.push({ section: 'capsule.testSummary', prompt: sanitizedTestSummaryPrompt });
-        }
-  
-        // Only send the prompts request if there are prompts to update
-        if (promptsToUpdate.length > 0) {
-          promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompts: promptsToUpdate }),
-          }));
-        }
-      }
-  
-      const responses = await Promise.all(promises);
-  
-      for (const response of responses) {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Failed to update: ${response.status}`);
-        }
-      }
-
-      notifications.show({
-        title: 'Settings Updated',
-        message: 'Capsule settings and prompts saved successfully.',
-        color: 'green',
-      });
-      onUpdateSuccess();
-      onPromptUpdateSuccess(); // Notify parent to refetch prompts
-      onClose();
-    } catch (error) {
-      if (IS_DEV) console.error('Failed to update settings:', error);
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-      notifications.show({
-        title: 'Error',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <Modal
