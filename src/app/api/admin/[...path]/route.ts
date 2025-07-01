@@ -1,139 +1,340 @@
-// app/api/admin/[[...path]]/route.ts
+// In app/api/admin/[[...path]]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.shrinked.ai";
-const IS_DEV = process.env.NODE_ENV === "development";
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 async function handleRequest(
   request: NextRequest,
   { params }: { params: { path: string[] } },
   method: string
 ) {
-  const startTime = Date.now();
-  const pathSegments = params.path || [];
-  const pathSuffix = pathSegments.join("/");
-  const isPromptsUpsert = pathSuffix === "prompts/upsert";
-  const isPromptsGet = pathSuffix === "prompts" && method === "GET";
+  try {
+	const startTime = Date.now();
+	const pathSegments = params.path || [];
+	const pathSuffix = pathSegments.join('/');
 
-  if (IS_DEV) {
-	console.log(`[Admin Proxy] ${method} /api/admin/${pathSuffix}`);
-  }
+	if (IS_DEV) {
+	  console.log(`[Admin Proxy] ${method} request for path: ${pathSuffix}`);
+	}
 
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
-	if (IS_DEV) console.log("[Admin Proxy] Missing Authorization");
-	return NextResponse.json({ error: "Authorization header required" }, { status: 401 });
-  }
+	const authHeader = request.headers.get('authorization');
+	if (!authHeader) {
+	  if (IS_DEV) console.log("[Admin Proxy] Missing authorization header");
+	  return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
+	}
 
-  const url = new URL(request.url);
-  const searchParamsString = url.searchParams.toString();
-  const upstreamUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ""}`;
+	const url = new URL(request.url);
+	const searchParams = new URLSearchParams();
+	url.searchParams.forEach((value, key) => {
+	  searchParams.append(key, value);
+	});
+	const searchParamsString = searchParams.toString();
 
-  if (IS_DEV && isPromptsGet) {
-	console.log("[Admin Proxy] Forwarding GET prompts with query:", searchParamsString);
-  }
-
-  let body: string | undefined = undefined;
-  let headers: HeadersInit = {
-	Authorization: authHeader
-  };
-
-  if (["POST", "PUT", "PATCH"].includes(method)) {
-	const contentType = request.headers.get("content-type") || "";
-	if (contentType.includes("application/json")) {
-	  headers["Content-Type"] = "application/json";
-
+	// Special case handling for prompts upsert
+	const isPromptsUpsert = pathSuffix === 'prompts/upsert';
+	if (isPromptsUpsert && method === 'POST') {
+	  if (IS_DEV) console.log("[Admin Proxy] Detected prompts upsert request, performing validation");
+	  
+	  // Parse and validate request body for prompts
+	  let body;
 	  try {
-		const raw = await request.clone().text();
-		body = raw || undefined;
-	  } catch (e) {
-		return NextResponse.json({ error: "Failed to read JSON body" }, { status: 400 });
+		// Clone the request to read the body
+		const clonedRequest = request.clone();
+		body = await clonedRequest.json();
+	  } catch (error) {
+		if (IS_DEV) console.error("[Admin Proxy] Failed to parse request body as JSON:", error);
+		return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
 	  }
-
-	  // Special handling for prompts/upsert to enforce shape
-	  if (isPromptsUpsert && body) {
+	  
+	  // Check if we received an array of prompts or a single prompt
+	  const promptsArray = Array.isArray(body) ? body : [body];
+	  
+	  // Process each prompt in the array
+	  const standardizedPrompts = [];
+	  
+	  for (const promptData of promptsArray) {
+		// Validate required fields for each prompt
+		if (!promptData.section || typeof promptData.section !== 'string') {
+		  if (IS_DEV) console.error("[Admin Proxy] Missing or invalid section field", promptData);
+		  return NextResponse.json({ 
+			error: "section field is required and must be a string",
+			details: "Invalid prompt at index " + standardizedPrompts.length
+		  }, { status: 400 });
+		}
+		
+		if (!promptData.prompt || typeof promptData.prompt !== 'string') {
+		  if (IS_DEV) console.error("[Admin Proxy] Missing or invalid prompt field", promptData);
+		  return NextResponse.json({ 
+			error: "prompt field is required and must be a string",
+			details: "Invalid prompt at index " + standardizedPrompts.length
+		  }, { status: 400 });
+		}
+		
+		// Ensure prefill is always a string if provided
+		if (promptData.prefill !== undefined && typeof promptData.prefill !== 'string') {
+		  if (IS_DEV) console.error("[Admin Proxy] Invalid prefill field", promptData);
+		  return NextResponse.json({ 
+			error: "prefill field must be a string when provided",
+			details: "Invalid prompt at index " + standardizedPrompts.length
+		  }, { status: 400 });
+		}
+		
+		// Standardize each prompt object
+		standardizedPrompts.push({
+		  section: promptData.section,
+		  prompt: promptData.prompt,
+		  prefill: promptData.prefill || "" // Default to empty string if not provided
+		});
+	  }
+	  
+	  if (IS_DEV) console.log(`[Admin Proxy] Standardized ${standardizedPrompts.length} prompts`);
+	  
+	  // If it was a single prompt, replace with a single standardized prompt
+	  // If it was an array, replace with an array of standardized prompts
+	  const requestBody = Array.isArray(body) ? standardizedPrompts : standardizedPrompts[0];
+	  
+	  // Instead of creating a new Request (which doesn't work with NextRequest),
+	  // we'll just pass the standardized body directly to the fetch call
+	  const jsonBody = JSON.stringify(requestBody);
+	  
+	  if (IS_DEV) {
+		if (Array.isArray(requestBody)) {
+		  console.log(`[Admin Proxy] Prepared array of ${requestBody.length} standardized prompts for forwarding`);
+		} else {
+		  console.log("[Admin Proxy] Prepared standardized prompt for forwarding:", requestBody);
+		}
+	  }
+	  
+	  const apiUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
+	  if (IS_DEV) console.log(`[Admin Proxy] Sending ${method} request to: ${apiUrl}`);
+	  
+	  const headers: HeadersInit = {
+		'Authorization': authHeader,
+		'Content-Type': 'application/json'
+	  };
+	  
+	  const controller = new AbortController();
+	  const timeoutId = setTimeout(() => controller.abort(), 60000);
+	  
+	  const response = await fetch(apiUrl, {
+		method,
+		headers,
+		body: jsonBody,
+		signal: controller.signal
+	  });
+	  
+	  clearTimeout(timeoutId);
+	  
+	  const responseTime = Date.now() - startTime;
+	  if (IS_DEV) console.log(`[Admin Proxy] API response: status=${response.status}, time=${responseTime}ms`);
+	  
+	  if (response.status === 204) {
+		if (IS_DEV) console.log("[Admin Proxy] Received 204 No Content from API.");
+		return new NextResponse(null, { status: 204 });
+	  }
+	  
+	  const responseContentType = response.headers.get('content-type') || '';
+	  let responseBodyText = '';
+	  try {
+		responseBodyText = await response.text();
+	  } catch (readError) {
+		console.error(`[Admin Proxy] Error reading response body:`, readError);
+		return NextResponse.json({
+		  error: "Failed to read response body from upstream API",
+		  status: response.status
+		}, { status: response.status });
+	  }
+	  
+	  const responseHeaders = new Headers();
+	  response.headers.forEach((value, key) => {
+		if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+		  responseHeaders.set(key, value);
+		}
+	  });
+	  
+	  if (responseContentType.includes('application/json')) {
 		try {
-		  const parsed = JSON.parse(body);
-		  if (!Array.isArray(parsed.prompts)) {
-			return NextResponse.json({ error: "Expected { prompts: [...] }" }, { status: 400 });
-		  }
-
-		  const prompts = parsed.prompts.map((p: any, idx: number) => {
-			if (typeof p.section !== "string" || typeof p.prompt !== "string") {
-			  throw new Error(`Invalid prompt at index ${idx}`);
-			}
-			return {
-			  section: p.section,
-			  prompt: p.prompt,
-			  prefill: typeof p.prefill === "string" ? p.prefill : ""
-			};
+		  const data = JSON.parse(responseBodyText);
+		  return NextResponse.json(data, { 
+			status: response.status,
+			headers: Object.fromEntries(responseHeaders)
 		  });
+		} catch (error) {
+		  console.error(`[Admin Proxy] Error parsing JSON response:`, error);
+		  if (IS_DEV) console.error(`[Admin Proxy] Raw text response (preview): ${responseBodyText.substring(0, 500)}`);
+		  return NextResponse.json({
+			error: "Failed to parse API response as JSON",
+			status: response.status,
+			rawResponsePreview: IS_DEV ? responseBodyText.substring(0, 500) : undefined
+		  }, { status: response.status });
+		}
+	  } else {
+		if (IS_DEV) {
+		  console.warn(`[Admin Proxy] Non-JSON response received: ${responseContentType}`);
+		  console.warn(`[Admin Proxy] Raw text response (preview): ${responseBodyText.substring(0, 500)}`);
+		}
+		
+		return NextResponse.json({
+		  error: `Unexpected response format from upstream API`,
+		  message: `Expected JSON but got ${responseContentType}`,
+		  status: response.status,
+		  rawResponsePreview: IS_DEV ? responseBodyText.substring(0, 500) : undefined
+		}, { status: response.status });
+	  }
+	}
 
-		  body = JSON.stringify({ prompts });
+	// Handle non-prompts upsert requests
+	const apiUrl = `${API_URL}/admin/${pathSuffix}${searchParamsString ? `?${searchParamsString}` : ''}`;
+	if (IS_DEV) console.log(`[Admin Proxy] Sending ${method} request to: ${apiUrl}`);
 
-		  if (IS_DEV) {
-			console.log("[Admin Proxy] Validated prompts payload:", prompts.length);
+	const headers: HeadersInit = {
+	  'Authorization': authHeader
+	};
+
+	if (['POST', 'PUT', 'PATCH'].includes(method)) {
+	  const incomingContentType = request.headers.get('content-type');
+	  if (incomingContentType && incomingContentType.includes('application/json')) {
+		headers['Content-Type'] = 'application/json';
+	  }
+	}
+
+	const options: RequestInit = {
+	  method,
+	  headers,
+	  credentials: 'omit',
+	  keepalive: true
+	};
+
+	if (['POST', 'PUT', 'PATCH'].includes(method)) {
+	  const contentType = request.headers.get('content-type');
+	  if (contentType && contentType.includes('application/json')) {
+		try {
+		  // Clone the request to read the body
+		  const clonedRequest = request.clone();
+		  const rawBody = await clonedRequest.text();
+		  if (rawBody) {
+			options.body = rawBody;
+			if (IS_DEV) console.log("[Admin Proxy] Forwarding JSON body.");
+		  } else {
+			if (IS_DEV) console.log("[Admin Proxy] Request has JSON Content-Type but empty body.");
 		  }
 		} catch (err) {
-		  return NextResponse.json({ error: "Invalid prompt format", message: String(err) }, { status: 400 });
+		  console.error("[Admin Proxy] Error reading request body:", err);
+		  return NextResponse.json({ error: "Invalid request body provided" }, { status: 400 });
 		}
 	  }
 	}
-  }
 
-  try {
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), 60000);
+	const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-	const res = await fetch(upstreamUrl, {
-	  method,
-	  headers,
-	  body,
+	const response = await fetch(apiUrl, {
+	  ...options,
 	  signal: controller.signal
 	});
 
-	clearTimeout(timeout);
+	clearTimeout(timeoutId);
 
-	const contentType = res.headers.get("content-type") || "";
-	const text = await res.text();
-	
-	const headersObj: Record<string, string> = {};
-	res.headers.forEach((value, key) => {
-	  if (!["content-encoding", "transfer-encoding"].includes(key)) {
-		headersObj[key] = value;
+	const responseTime = Date.now() - startTime;
+	if (IS_DEV) console.log(`[Admin Proxy] API response: status=${response.status}, time=${responseTime}ms`);
+
+	if (response.status === 204) {
+	  if (IS_DEV) console.log("[Admin Proxy] Received 204 No Content from API.");
+	  return new NextResponse(null, { status: 204 });
+	}
+
+	const responseContentType = response.headers.get('content-type') || '';
+	let responseBodyText = '';
+	try {
+	  responseBodyText = await response.text();
+	} catch (readError) {
+	  console.error(`[Admin Proxy] Error reading response body:`, readError);
+	  return NextResponse.json({
+		error: "Failed to read response body from upstream API",
+		status: response.status
+	  }, { status: response.status });
+	}
+
+	const responseHeaders = new Headers();
+	response.headers.forEach((value, key) => {
+	  if (key !== 'content-encoding' && key !== 'transfer-encoding') {
+		responseHeaders.set(key, value);
 	  }
 	});
 
-	if (res.status === 204) return new NextResponse(null, { status: 204 });
-
-	if (contentType.includes("application/json")) {
+	if (responseContentType.includes('application/json')) {
 	  try {
-		return NextResponse.json(JSON.parse(text), { status: res.status, headers: headersObj });
-	  } catch (err) {
-		return NextResponse.json(
-		  { error: "Invalid JSON from upstream", preview: text.slice(0, 500) },
-		  { status: 500 }
-		);
+		const data = JSON.parse(responseBodyText);
+		return NextResponse.json(data, { 
+		  status: response.status,
+		  headers: Object.fromEntries(responseHeaders)
+		});
+	  } catch (error) {
+		console.error(`[Admin Proxy] Error parsing JSON response:`, error);
+		if (IS_DEV) console.error(`[Admin Proxy] Raw text response (preview): ${responseBodyText.substring(0, 500)}`);
+		return NextResponse.json({
+		  error: "Failed to parse API response as JSON",
+		  status: response.status,
+		  rawResponsePreview: IS_DEV ? responseBodyText.substring(0, 500) : undefined
+		}, { status: response.status });
+	  }
+	} else {
+	  if (IS_DEV) {
+		console.warn(`[Admin Proxy] Non-JSON response received: ${responseContentType}`);
+		console.warn(`[Admin Proxy] Raw text response (preview): ${responseBodyText.substring(0, 500)}`);
+	  }
+
+	  return NextResponse.json({
+		error: `Unexpected response format from upstream API`,
+		message: `Expected JSON but got ${responseContentType}`,
+		status: response.status,
+		rawResponsePreview: IS_DEV ? responseBodyText.substring(0, 500) : undefined
+	  }, { status: response.status });
+	}
+
+  } catch (error: unknown) {
+	console.error(`[Admin Proxy] Error in ${method} handler:`, error);
+
+	let status = 500;
+	let errorMessage = "Unknown error occurred in the proxy.";
+
+	if (error instanceof Error) {
+	  errorMessage = error.message;
+	  if (error.name === 'AbortError') {
+		status = 504;
+		errorMessage = "The upstream API request timed out.";
+	  } else if (error instanceof TypeError && error.message.includes('fetch failed')) {
+		status = 502;
+		errorMessage = "Failed to connect to the upstream API.";
+	  } else if (error instanceof SyntaxError && errorMessage.includes('JSON')) {
+		status = 400;
+		errorMessage = "Invalid JSON format in the request body.";
 	  }
 	}
 
-	return new NextResponse(text, { status: res.status, headers: headersObj });
-  } catch (error: any) {
-	console.error("[Admin Proxy] Proxy error:", error);
-	const message =
-	  error.name === "AbortError"
-		? "Upstream request timed out"
-		: error.message || "Unknown proxy error";
-	return NextResponse.json({ error: message }, { status: 500 });
+	return NextResponse.json({
+	  error: "Proxy failed to process request",
+	  message: errorMessage
+	}, { status });
   }
 }
 
-// Export route handlers
-export const GET = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "GET");
-export const POST = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "POST");
+export async function GET(request: NextRequest, { params }: { params: { path: string[] }}) {
+  return handleRequest(request, { params }, 'GET');
+}
+
+export async function POST(request: NextRequest, { params }: { params: { path: string[] }}) {
+  return handleRequest(request, { params }, 'POST');
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { path: string[] }}) {
-  if (IS_DEV) console.log("[Admin Proxy] PATCH export hit!");
   return handleRequest(request, { params }, 'PATCH');
 }
-export const PUT = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "PUT");
-export const DELETE = (req: NextRequest, ctx: any) => handleRequest(req, ctx, "DELETE");
+
+export async function PUT(request: NextRequest, { params }: { params: { path: string[] }}) {
+  return handleRequest(request, { params }, 'PUT');
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { path: string[] }}) {
+  return handleRequest(request, { params }, 'DELETE');
+}

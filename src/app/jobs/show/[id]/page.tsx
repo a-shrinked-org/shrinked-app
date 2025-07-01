@@ -1144,18 +1144,16 @@ export default function JobShow() {
                         
                         {/* Circle at the connection point */}
                         <Box className={isProcessingStep ? 'blink-animation' : ''} style={{ 
-                          position: 'absolute',
-                          left: '-28px', // Position circle on the vertical line
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: isCompleted ? '#3DC28B' : 
-                                              isError ? '#FF4F56' : 
-                                              '#F5A623',
-                          border: '1px solid #2B2B2B',
-                          zIndex: 2
+                          pposition: 'absolute',
+                           left: '-28px', // Position circle on the vertical line
+                           top: '50%',
+                           transform: 'translateY(-50%)',
+                           width: '8px',
+                           height: '8px',
+                           borderRadius: '50%',
+                           backgroundColor: '#000000',
+                           border: '1px solid #2B2B2B',
+                           zIndex: 2
                         }} />
                         
                         <Flex justify="space-between" align="center">
