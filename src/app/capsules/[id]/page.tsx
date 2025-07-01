@@ -1751,17 +1751,21 @@ export default function CapsuleView() {
         formatErrorMessage={formatErrorMessage}
       />
       <CapsuleSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        capsuleId={capsuleId}
-        capsuleName={record?.name || ''}
-        capsuleSlug={record?.slug || ''}
-        summaryPrompt={summaryPrompt}
-        highlightsPrompt={highlightsPrompt}
-        testSummaryPrompt={testSummaryPrompt}
-        onUpdateSuccess={refetch}
-        onPromptUpdateSuccess={loadPrompts}
-        identity={identity}
+        isOpen: boolean;
+        onClose: () => void;
+        capsuleId: string;
+        capsuleName: string; // Added to fix type error
+        capsuleSlug: string; // Added to fix type error
+        summaryPrompt: string;
+        highlightsPrompt: string;
+        testSummaryPrompt: string;
+        onSummaryChange: (value: string) => void;
+        onHighlightsChange: (value: string) => void;
+        onTestSummaryChange: (value: string) => void;
+        onSave: () => void;
+        saveStatus: string;
+        onPromptUpdateSuccess: () => void;
+        identity?: Identity;
       />
     </Box>
   );
