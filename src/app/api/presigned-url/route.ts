@@ -2,29 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// R2 configuration from environment variables (no hardcoded fallbacks except bucket)
-const R2_CONFIG = {
-  endpoint: process.env.R2_ENDPOINT, // Should be https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  bucketName: process.env.R2_BUCKET_NAME || 'apptemp',
-  publicUrl: process.env.R2_PUBLIC_URL || 'https://store.shrinked.ai', // Public URL for file access
-};
 
-// Validate required environment variables
-if (!R2_CONFIG.endpoint || !R2_CONFIG.accessKeyId || !R2_CONFIG.secretAccessKey) {
-  throw new Error('Missing required R2 configuration in environment variables');
-}
-
-// Create S3 client for Cloudflare R2
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: R2_CONFIG.endpoint,
-  credentials: {
-	accessKeyId: R2_CONFIG.accessKeyId,
-	secretAccessKey: R2_CONFIG.secretAccessKey,
-  },
-});
 
 /**
  * Verify authentication token from request headers
@@ -48,7 +26,7 @@ async function verifyAuth(request: NextRequest): Promise<boolean> {
  * From: https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com//apptemp/filename.ext
  * To:   https://store.shrinked.ai/filename.ext
  */
-function convertToPublicUrl(developmentUrl: string, fileName: string): string {
+function convertToPublicUrl(R2_CONFIG: any, developmentUrl: string, fileName: string): string {
   // Simply use the public base URL and append the file name
   return `${R2_CONFIG.publicUrl}/${fileName}`;
 }
@@ -71,6 +49,30 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  // R2 configuration from environment variables (no hardcoded fallbacks except bucket)
+  const R2_CONFIG = {
+    endpoint: process.env.R2_ENDPOINT, // Should be https://208ac76a616307b97467d996e09e57f2.r2.cloudflarestorage.com
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    bucketName: process.env.R2_BUCKET_NAME || 'apptemp',
+    publicUrl: process.env.R2_PUBLIC_URL || 'https://store.shrinked.ai', // Public URL for file access
+  };
+
+  // Validate required environment variables
+  if (!R2_CONFIG.endpoint || !R2_CONFIG.accessKeyId || !R2_CONFIG.secretAccessKey) {
+    throw new Error('Missing required R2 configuration in environment variables');
+  }
+
+  // Create S3 client for Cloudflare R2
+  const s3Client = new S3Client({
+    region: 'auto',
+    endpoint: R2_CONFIG.endpoint,
+    credentials: {
+      accessKeyId: R2_CONFIG.accessKeyId,
+      secretAccessKey: R2_CONFIG.secretAccessKey,
+    },
+  });
+
   try {
 	const isAuthenticated = await verifyAuth(request);
 	if (!isAuthenticated) {
@@ -102,7 +104,7 @@ export async function POST(request: NextRequest) {
 	const developmentUrl = `${R2_CONFIG.endpoint}/${targetBucket}/${fileName}`;
 	
 	// Generate the public-facing URL
-	const fileUrl = convertToPublicUrl(developmentUrl, fileName);
+	const fileUrl = convertToPublicUrl(R2_CONFIG, developmentUrl, fileName);
 
 	console.log('Generated Presigned URL:', presignedUrl);
 	console.log('Development URL:', developmentUrl);

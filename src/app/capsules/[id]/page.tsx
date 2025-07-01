@@ -50,6 +50,7 @@ import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 import CapsulePurposeModal from "@/components/CapsulePurposeModal";
 import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
 import stringSimilarity from 'string-similarity';
+import { Identity } from "@/@types/logic";
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -62,13 +63,7 @@ const formatErrorMessage = (error: any): string => {
   return message;
 };
 
-interface Identity {
-  token?: string;
-  email?: string;
-  name?: string;
-  id?: string;
-  subscriptionPlan?: { name?: string };
-}
+
 
 interface FileData {
   _id: string;

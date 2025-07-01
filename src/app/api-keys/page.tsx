@@ -27,6 +27,7 @@ import DocumentsTable, { ProcessedDocument } from '@/components/shared/Documents
 import { formatDate } from '@/utils/formatting';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';
+import { Identity } from "@/@types/logic";
 
 interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
@@ -70,7 +71,7 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
 };
 
 export default function ApiKeysList() {
-  const { data: identity } = useGetIdentity();
+  const { data: identity } = useGetIdentity<Identity>();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [keyName, setKeyName] = useState("");

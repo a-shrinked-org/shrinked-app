@@ -1,5 +1,4 @@
 // src/types/logic.ts
-import type { Node as XYNode, Edge as XYEdge } from '@xyflow/react';
 
 export interface NodeData {
   label: string;
@@ -29,10 +28,24 @@ export interface JobProcessingFlowProps {
   jobStatus: string;
 }
 
-// Use XYFlow's Node and Edge types instead of ReactFlow's
-export type LogicNode = XYNode<NodeData>;
-export type LogicEdge = XYEdge;
+export interface LogicNode {
+  id: string;
+  type: NodeType;
+  position: { x: number; y: number };
+  data: NodeData;
+}
 
-// Legacy compatibility with @reactflow/core for your existing node components
-import type { NodeProps as ReactFlowNodeProps } from '@reactflow/core';
-export type OriginalNodeProps = ReactFlowNodeProps<NodeData>;
+export interface LogicEdge {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+}
+
+export interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+  id?: string;
+  subscriptionPlan?: { name?: string };
+}

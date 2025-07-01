@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_CONFIG, authUtils } from "@/utils/authUtils";
-import "@/styles/callback-styles.css";
+import '@/styles/callback-styles.css';
 
 export default function AuthCallback() {
   const router = useRouter();

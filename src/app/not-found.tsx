@@ -1,14 +1,10 @@
-"use client";
-
-import { Authenticated, ErrorComponent } from "@refinedev/core";
-import { Suspense } from "react";
+export const dynamic = 'force-dynamic';
 
 export default function NotFound() {
   return (
-    <Suspense>
-      <Authenticated key="not-found">
-        <ErrorComponent />
-      </Authenticated>
-    </Suspense>
+    <div>
+      <h1>404 - Page Not Found</h1>
+      <p>The page you are looking for does not exist.</p>
+    </div>
   );
 }

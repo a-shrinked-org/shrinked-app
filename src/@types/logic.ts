@@ -26,3 +26,11 @@ export interface LogicEdge {
   target: string;
   type?: string;
 }
+
+export interface Identity {
+  token?: string;
+  email?: string;
+  name?: string;
+  id?: string;
+  subscriptionPlan?: { name?: string };
+}
