@@ -81,12 +81,8 @@ export default function ApiKeysList() {
   // Add refresh counter state to force re-renders
   const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // API URL for listing API keys
-  const apiKeysUrl = `${API_CONFIG.API_URL}/users/api-keys`;
-  console.log("API URL used for list:", apiKeysUrl);
-
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: "users/api-keys",
+    resource: "api-keys-proxy",
     queryOptions: {
       enabled: !!authUtils.isAuthenticated(),
       // Add cache options for better refresh behavior

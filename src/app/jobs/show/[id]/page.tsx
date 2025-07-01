@@ -242,6 +242,8 @@ export default function JobShow() {
             if (!markdown || markdown.trim() === '') throw new Error('No content available yet');
             setMarkdownContent(markdown);
             console.log('Fetched markdown after token refresh:', processingDocId);
+          } else {
+            throw new Error('Token refresh failed');
           }
         } else if (response.status === 404) {
           throw new Error('Content not available yet');
@@ -300,11 +302,25 @@ export default function JobShow() {
     const status = getProcessingStatus();
     if (status === 'processing' || status === 'in_progress' || status === 'pending') {
       const interval = setInterval(() => {
-        refetch();
+        refetch().then((result) => {
+          // After refetch, check if job is completed and trigger markdown fetch
+          if (result.data?.data?.status?.toLowerCase() === 'completed') {
+            const newResultId = extractResultId(result.data?.data);
+            if (newResultId && newResultId !== processingDocId) {
+              setProcessingDocId(newResultId);
+            }
+            if (!markdownContent && !isLoadingMarkdown.current) {
+              fetchMarkdownContent(true); // Force fetch markdown when job completes
+            }
+          }
+        });
       }, 3000);
       return () => clearInterval(interval);
+    } else if (status === 'completed' && processingDocId && !markdownContent && !isLoadingMarkdown.current) {
+      // Trigger immediate markdown fetch when job is completed
+      fetchMarkdownContent(true);
     }
-  }, [getProcessingStatus, refetch, processingDoc]);
+  }, [getProcessingStatus, refetch, processingDocId, markdownContent, fetchMarkdownContent]);
   
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
@@ -367,10 +383,13 @@ export default function JobShow() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
+    
+    // Find the highest-priority processing step (PLATOGRAM_PROCESSING or TEXT_PROCESSING)
     const processingStep = record?.steps?.find(step => 
-      step.status?.toLowerCase() === 'processing' || 
-      step.status?.toLowerCase() === 'in_progress' ||
-      step.status?.toLowerCase() === 'pending'
+      (step.name === "PLATOGRAM_PROCESSING" || step.name === "TEXT_PROCESSING") &&
+      (step.status?.toLowerCase() === 'processing' || 
+       step.status?.toLowerCase() === 'in_progress' || 
+       step.status?.toLowerCase() === 'pending')
     );
 
     if (processingStep && processingStep.startTime) {
@@ -529,7 +548,7 @@ export default function JobShow() {
   const renderPreviewContent = () => {
     const status = getProcessingStatus();
 
-    // If markdown content is available, display it immediately
+    // If markdown content is available, display it
     if (markdownContent && markdownContent.trim() !== '') {
       return (
         <DocumentMarkdownRenderer 
@@ -554,7 +573,7 @@ export default function JobShow() {
       );
     }
 
-    // Show error message if there is one and not currently loading/processing
+    // Show error message if there is one
     if (errorMessage) {
       return (
         <Alert 
@@ -600,7 +619,7 @@ export default function JobShow() {
       );
     }
 
-    // Default: content unavailable (e.g., job completed but no markdown yet, or initial state)
+    // Default: content unavailable (e.g., job completed but no markdown yet)
     return (
       <Alert 
         icon={<AlertCircle size={16} />}
@@ -622,18 +641,31 @@ export default function JobShow() {
     );
   };
 
-  const manualRefetch = useCallback(() => {
+  const manualRefetch = useCallback(async () => {
     setErrorMessage(null);
-    setMarkdownContent(null);
-    if (processingDocId) {
-      console.log("Manual refresh: fetching processing document");
-      getProcessingDocument();
+    setMarkdownContent(null); // Clear existing markdown to force re-render
+    try {
+      // Refetch job data first to ensure latest status and resultId
+      const jobResult = await refetch();
+      const newResultId = extractResultId(jobResult.data?.data);
+      if (newResultId && newResultId !== processingDocId) {
+        setProcessingDocId(newResultId);
+      }
+      // Fetch processing document
+      if (newResultId || processingDocId) {
+        console.log("Manual refresh: fetching processing document");
+        await getProcessingDocument();
+      }
+      // Fetch markdown content
+      if (newResultId || processingDocId) {
+        console.log("Manual refresh: fetching markdown content");
+        await fetchMarkdownContent(true); // Force fetch
+      }
+    } catch (error) {
+      console.error("Manual refetch failed:", error);
+      setErrorMessage(`Failed to refresh: ${error instanceof Error ? error.message : String(error)}`);
     }
-    if (processingDocId) {
-      console.log("Manual refresh: fetching markdown content");
-      fetchMarkdownContent(true);
-    }
-  }, [processingDocId, getProcessingDocument, fetchMarkdownContent]);
+  }, [processingDocId, getProcessingDocument, fetchMarkdownContent, refetch, extractResultId]);
 
   const formatDuration = (durationInMs?: number) => {
     if (durationInMs === undefined || durationInMs === null) return "N/A";

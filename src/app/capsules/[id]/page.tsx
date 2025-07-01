@@ -1303,7 +1303,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                   }
                 }}
               >
-                Context
+                Beta
               </Badge>
               <Text 
                 size="28px" 
