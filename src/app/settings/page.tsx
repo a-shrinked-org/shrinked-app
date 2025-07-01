@@ -428,7 +428,7 @@ export default function SettingsPage() {
     };
 
     fetchData();
-  }, [router, fetchUsageData]);
+  }, [router, fetchUsageData, profile]);
 
   useEffect(() => {
     if (profile?.subscriptionPlan?._id) {

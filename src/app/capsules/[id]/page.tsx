@@ -204,7 +204,7 @@ export default function CapsuleView() {
   const record = capsuleData?.data;
 
   // Debounced refetch
-  const debouncedRefetch = useMemo(() => debounce(refetch, 500), []);
+  const debouncedRefetch = useMemo(() => debounce(refetch, 500), [refetch]);
 
   // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = useMemo(() => [
@@ -423,7 +423,7 @@ export default function CapsuleView() {
         debouncedRefetch();
       }
     }, 90000);
-  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating, refetch, notifications]);
+  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
 
   // File operations
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
@@ -683,38 +683,6 @@ export default function CapsuleView() {
     }
   }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, refetch]);
 
-  // Regeneration with immediate UI feedback
-  const handleRegenerateCapsule = useCallback(async () => {
-    if (!capsuleId || isRegenerating) return;
-
-    setErrorMessage(null);
-    setIsRegenerating(true);
-    setEnrichedContent(''); // Clear content immediately
-
-    try {
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
-      if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
-
-      startStatusMonitoring();
-
-      notifications.show({
-        title: 'Processing Started',
-        message: 'Capsule regeneration in progress.',
-        color: 'yellow',
-      });
-    } catch (error) {
-      if (IS_DEV) console.error("[CapsuleView] Failed to regenerate capsule:", error);
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-      setIsRegenerating(false);
-      notifications.show({
-        title: 'Regeneration Failed',
-        message: formatErrorMessage(error),
-        color: 'red',
-      });
-    }
-  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating, setEnrichedContent]);
-
   // Load prompts for purpose modal
   const loadPrompts = useCallback(async () => {
     if (!capsuleId) return;
@@ -737,6 +705,44 @@ export default function CapsuleView() {
       setIsLoadingPrompts(false);
     }
   }, [capsuleId, fetchWithAuth]);
+
+  // Regeneration with immediate UI feedback
+  const handleRegenerateCapsule = useCallback(async () => {
+    if (!capsuleId || isRegenerating) return;
+
+    setErrorMessage(null);
+    setIsRegenerating(true);
+    setEnrichedContent(''); // Clear content immediately
+
+    try {
+      // Ensure prompts are loaded before triggering regeneration
+      if (!summaryPrompt || !highlightsPrompt) {
+        if (IS_DEV) console.log("[CapsuleView] Prompts not loaded, fetching them now...");
+        await loadPrompts();
+      }
+
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
+      if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
+
+      startStatusMonitoring();
+
+      notifications.show({
+        title: 'Processing Started',
+        message: 'Capsule regeneration in progress.',
+        color: 'yellow',
+      });
+    } catch (error) {
+      if (IS_DEV) console.error("[CapsuleView] Failed to regenerate capsule:", error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+      setIsRegenerating(false);
+      notifications.show({
+        title: 'Regeneration Failed',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating, setEnrichedContent, summaryPrompt, highlightsPrompt, loadPrompts]);
 
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
@@ -862,7 +868,7 @@ const extractHighlightsContent = (highlights?: string): string | null => {
         color: 'red',
       });
     }
-  }, [record]);
+  }, [record, enrichedContent]);
 
   const formatDate = (dateString?: string): string => {
     if (!dateString) return "N/A";
@@ -949,7 +955,7 @@ const extractHighlightsContent = (highlights?: string): string | null => {
     } finally {
       setIsLoadingCapsules(false);
     }
-  }, [identity?.id, fetchWithAuth, handleAuthError, setAvailableCapsules]);
+  }, [identity?.id, fetchWithAuth, handleAuthError, setAvailableCapsules, router]);
   
   // Improved generateNerdyCapsuleName function
   const generateNerdyCapsuleName = (): string => {
@@ -1470,18 +1476,19 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
               
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
-                  <Stack align="flex-start" justify="flex-start" style={{ height: '300px', color: '#a0a0a0', paddingTop: '20px', paddingLeft: '20px' }}>
-                    <CliLoadingAnimation message="Generating context" />
-                    <Text c="dimmed" style={{ zIndex: 1, marginLeft: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Processing...</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
                       Analyzing files and creating the capsule summary.
                     </Text>
                   </Stack>
                 ) : hasContentForDisplay ? (
-                  <DocumentMarkdownWrapper 
-                    markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''} 
+                  <DocumentMarkdownWrapper
+                    markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''}
                   />
                 ) : hasFiles ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -1497,7 +1504,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                     </Button>
                   </Stack>
                 ) : (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -1514,9 +1521,9 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                   </Stack>
                 )}
                 {hasContentForDisplay && (
-                  <ActionIcon 
-                    size="lg" 
-                    variant="subtle" 
+                  <ActionIcon
+                    size="lg"
+                    variant="subtle"
                     onClick={handleDownloadMarkdown}
                     disabled={isProcessing}
                     style={{ color: '#a0a0a0', marginTop: '16px' }}
@@ -1526,7 +1533,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                   </ActionIcon>
                 )}
               </Tabs.Panel>
-              
+
               <Tabs.Panel value="markdown" pt="md">
                 {hasContentForDisplay ? (
                   <Code
