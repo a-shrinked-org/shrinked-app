@@ -79,7 +79,7 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
     
     try {
       const payload = {
-        overridePrompt: card.isDefault ? null : card.prompt, // Use null for default
+        overridePrompt: card.isDefault ? '' : card.prompt,
       };
       console.log('Modal: Sending payload:', payload);
       
