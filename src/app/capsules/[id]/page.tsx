@@ -86,14 +86,7 @@ interface AdminPrompt {
   prefill?: string;
 }
 
-interface PurposeCard {
-  id: string;
-  name: string;
-  description: string;
-  prompt: string;
-  section: string;
-  isDefault?: boolean;
-}
+import { prototypeCards, PurposeCard } from "./cards";
 
 interface Capsule {
   _id: string;
@@ -207,51 +200,7 @@ export default function CapsuleView() {
   // Debounced refetch
   const debouncedRefetch = useMemo(() => debounce(refetch, 500), [refetch]);
 
-  // Prototype cards with frontend-stored prompts
-  const prototypeCards: PurposeCard[] = useMemo(() => [
-    {
-      id: 'rfp-response',
-      name: 'Answer RFP documentation',
-      description: 'Generate comprehensive responses to RFP requirements based on provided documentation',
-      prompt: 'Analyze the provided RFP documentation and generate detailed, compliant responses that address all requirements. Structure the response professionally with clear sections for technical approach, methodology, timeline, and deliverables.',
-      section: 'capsule.rfp-response'
-    },
-    {
-      id: 'competitor-analysis',
-      name: 'Conduct a competitor analysis',
-      description: 'Perform detailed competitive analysis from provided market research and company data',
-      prompt: 'Conduct a comprehensive competitor analysis based on the provided documents. Identify key competitors, analyze their strengths and weaknesses, market positioning, pricing strategies, and provide strategic recommendations.',
-      section: 'capsule.competitor-analysis'
-    },
-    {
-      id: 'communication-feedback',
-      name: 'Provide feedback on communication effectiveness',
-      description: 'Analyze communication materials and provide improvement recommendations',
-      prompt: 'Review the provided communication materials and provide detailed feedback on effectiveness, clarity, tone, and audience engagement. Suggest specific improvements for better communication outcomes.',
-      section: 'capsule.communication-feedback'
-    },
-    {
-      id: 'linkedin-connection',
-      name: 'Craft a LinkedIn connection request',
-      description: 'Create personalized LinkedIn connection requests based on prospect research',
-      prompt: 'Based on the provided prospect research and company information, craft personalized LinkedIn connection requests that are professional, relevant, and likely to be accepted. Include specific reasons for connecting.',
-      section: 'capsule.linkedin-connection'
-    },
-    {
-      id: 'prospect-email',
-      name: 'Write a prospect email',
-      description: 'Compose compelling prospect emails using research insights',
-      prompt: 'Using the provided prospect and company research, write compelling outreach emails that are personalized, value-focused, and designed to generate positive responses. Include clear call-to-actions.',
-      section: 'capsule.prospect-email'
-    },
-    {
-      id: 'followup-templates',
-      name: 'Prepare follow-up email templates for prospect',
-      description: 'Create a series of follow-up email templates for prospect nurturing',
-      prompt: 'Create a series of follow-up email templates based on the prospect research provided. Include templates for different scenarios: initial follow-up, value-add follow-up, and final attempt. Each should be personalized and professional.',
-      section: 'capsule.followup-templates'
-    }
-  ], []);
+  
 
   // Default cards using backend data
   const defaultCards: PurposeCard[] = useMemo(() => [
