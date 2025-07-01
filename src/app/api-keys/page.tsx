@@ -1,6 +1,6 @@
 "use client";
 
-import { useList } from "@refinedev/core";
+import { useList, useGetIdentity } from "@refinedev/core";
 import React, { useState, useEffect } from "react";
 import {
   Stack,
@@ -70,6 +70,7 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
 };
 
 export default function ApiKeysList() {
+  const { data: identity } = useGetIdentity();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
@@ -78,7 +79,7 @@ export default function ApiKeysList() {
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: "api-keys-proxy", // Updated to match new route
+    resource: "", // Updated to match new route
     queryOptions: {
       enabled: !!authUtils.isAuthenticated(),
       cacheTime: 5000,
@@ -138,15 +139,14 @@ export default function ApiKeysList() {
 
   const handleCreateApiKey = async () => {
     if (!keyName) return;
+    if (!identity?.id) {
+      alert("User not authenticated.");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const session = await authUtils.getSession(); // Get user session
-      const userId = session?.user?.id; // Assume session.user.id contains the userId
-      if (!userId) {
-        throw new Error("User ID not found in session");
-      }
-      const newKey = await ApiKeyService.createApiKey(keyName, userId);
+      const newKey = await ApiKeyService.createApiKey(keyName, identity.id);
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
