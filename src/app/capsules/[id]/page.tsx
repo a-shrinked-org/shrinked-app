@@ -235,47 +235,28 @@ export default function CapsuleView() {
  
  
  
- // Updated parseOverridePrompt
  const parseOverridePrompt = useCallback((overridePrompt?: string) => {
    if (!overridePrompt) return null;
  
    const normalizedOverride = normalizeText(overridePrompt);
    const allCards = [...defaultCards, ...prototypeCards];
  
-   // Word-based similarity check
-   const SIMILARITY_THRESHOLD = 0.5; // 50% word overlap
-   let bestMatch = null;
-   let highestSimilarity = 0;
- 
-   const overrideWords = new Set(normalizedOverride.split(/\s+/));
- 
-   for (const card of allCards) {
+   // First, try exact match (after normalization)
+   const exactMatch = allCards.find(card => {
      const normalizedCardPrompt = normalizeText(card.prompt);
-     const cardWords = new Set(normalizedCardPrompt.split(/\s+/));
+     return normalizedCardPrompt === normalizedOverride;
+   });
  
-     const intersection = new Set([...overrideWords].filter(word => cardWords.has(word)));
-     const union = new Set([...overrideWords, ...cardWords]);
-     const similarity = union.size > 0 ? intersection.size / union.size : 0;
- 
-     console.log(`Comparing with card '${card.name}': Jaccard similarity = ${similarity}`);
- 
-     if (similarity > highestSimilarity) {
-       bestMatch = card;
-       highestSimilarity = similarity;
-     }
-   }
- 
-   if (bestMatch && highestSimilarity >= SIMILARITY_THRESHOLD) {
-     console.log(`Best match found for card: ${bestMatch.name} (similarity: ${highestSimilarity})`);
+   if (exactMatch) {
      return {
-       cardId: bestMatch.id,
-       cardName: bestMatch.name,
-       prompt: bestMatch.prompt,
-       section: bestMatch.section
+       cardId: exactMatch.id,
+       cardName: exactMatch.name,
+       prompt: exactMatch.prompt,
+       section: exactMatch.section
      };
    }
- 
-   // Fallback to unique phrase matching for specific cards
+
+   // If exact match fails, try phrase matching for legacy/special cases
    const phraseMatch = allCards.find(card => {
      const overrideText = normalizedOverride;
  
@@ -287,7 +268,6 @@ export default function CapsuleView() {
          overrideText.includes('tbpn') &&
          overrideText.includes('timestamp references') &&
          overrideText.includes('1200-1600 words');
-       console.log(`Checking narrative-analyst phrases: ${hasKeyPhrases}`);
        return hasKeyPhrases;
      }
  
@@ -306,7 +286,6 @@ export default function CapsuleView() {
    });
  
    if (phraseMatch) {
-     console.log(`Phrase match found for card: ${phraseMatch.name}`);
      return {
        cardId: phraseMatch.id,
        cardName: phraseMatch.name,
@@ -316,7 +295,6 @@ export default function CapsuleView() {
    }
  
    // If no match, treat as custom
-   console.log('No card match found, treating as custom prompt');
    return {
      cardId: 'custom',
      cardName: 'Custom Prompt',
@@ -335,20 +313,10 @@ export default function CapsuleView() {
   }, [record?.overridePrompt, parseOverridePrompt]);
 
   const getCurrentPurposeId = useCallback(() => {
-    console.log('getCurrentPurposeId called with:', {
-      overridePrompt: record?.overridePrompt,
-      overridePromptType: typeof record?.overridePrompt,
-      overridePromptLength: record?.overridePrompt?.length
-    });
-    
     const overrideData = parseOverridePrompt(record?.overridePrompt);
-    console.log('parseOverridePrompt result:', overrideData);
-    
     if (overrideData) {
-      console.log('Returning cardId:', overrideData.cardId);
       return overrideData.cardId;
     }
-    console.log('Returning default: summary');
     return 'summary'; // Default
   }, [record?.overridePrompt, parseOverridePrompt]);
   
