@@ -1011,8 +1011,7 @@ export default function CapsuleView() {
     return exists ? capsuleId : null;
   };
 
-  // Handle initial loading state
-  if (isLoading) {
+  if (identityLoading || isLoading) {
     return (
       <Box style={{
         display: 'flex',
@@ -1025,6 +1024,21 @@ export default function CapsuleView() {
       }}>
         <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
         <Text ta="center" pt="xl" c="dimmed">Loading capsule details...</Text>
+      </Box>
+    );
+  }
+
+  // Not Authenticated State
+  if (!identity?.token) {
+     return (
+      <Box style={{ padding: '24px' }}>
+          <Alert
+            icon={<AlertCircle size={16} />}
+            color="red"
+            title="Authentication Required"
+          >
+            Please log in to manage your capsules.
+          </Alert>
       </Box>
     );
   }
@@ -1751,21 +1765,14 @@ export default function CapsuleView() {
         formatErrorMessage={formatErrorMessage}
       />
       <CapsuleSettingsModal
-        isOpen: boolean;
-        onClose: () => void;
-        capsuleId: string;
-        capsuleName: string; // Added to fix type error
-        capsuleSlug: string; // Added to fix type error
-        summaryPrompt: string;
-        highlightsPrompt: string;
-        testSummaryPrompt: string;
-        onSummaryChange: (value: string) => void;
-        onHighlightsChange: (value: string) => void;
-        onTestSummaryChange: (value: string) => void;
-        onSave: () => void;
-        saveStatus: string;
-        onPromptUpdateSuccess: () => void;
-        identity?: Identity;
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        capsuleId={capsuleId}
+        capsuleName={record?.name || ''}
+        capsuleSlug={record?.slug || ''}
+        onUpdateSuccess={refetch}
+        onPromptUpdateSuccess={loadPrompts}
+        identity={identity}
       />
     </Box>
   );
