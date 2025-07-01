@@ -74,7 +74,7 @@ export default function ApiKeysList() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: "api-keys-proxy",
+    resource: "api-keys",
     queryOptions: {
       enabled: !!authUtils.isAuthenticated(),
       cacheTime: 5000,
@@ -84,49 +84,54 @@ export default function ApiKeysList() {
       pageSize: 100,
     },
     meta: {
-      headers: authUtils.getAuthHeaders()
-    }
+      headers: authUtils.getAuthHeaders(),
+    },
   });
 
   useEffect(() => {
+    console.log("[ApiKeysList] Fetching API keys with resource: api-keys");
     if (error) {
-      console.error("Error fetching API keys:", error);
+      console.error("[ApiKeysList] Error fetching API keys:", error);
       authUtils.handleAuthError(error);
       if (error.status === 401 || error.status === 403) {
         authUtils.refreshToken().then(success => {
           if (success) refetch();
         });
       }
+      setErrorMessage(`Failed to fetch API keys: ${error.message || "Unknown error"}`);
     }
   }, [error, refetch]);
 
   useEffect(() => {
     if (authUtils.isAuthenticated()) {
+      console.log("[ApiKeysList] Triggering refetch for API keys");
       refetch();
     }
   }, [refetch, refreshCounter]);
 
   const handleViewDocument = (apiKey: ExtendedApiKey) => {
-    console.log("Viewing API key:", apiKey);
+    console.log("[ApiKeysList] Viewing API key:", apiKey);
   };
 
   const handleDelete = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm("Are you sure you want to delete this API key?")) {
       try {
+        console.log("[ApiKeysList] Deleting API key:", id);
         const success = await ApiKeyService.deleteApiKey(id);
         if (success) {
           setRefreshCounter(prev => prev + 1);
           setErrorMessage(null);
         }
       } catch (error: any) {
-        console.error("Error deleting API key:", error);
+        console.error("[ApiKeysList] Error deleting API key:", error);
         setErrorMessage(`Failed to delete API key: ${error.message || "Unknown error"}`);
       }
     }
   };
 
   const handleRefresh = () => {
+    console.log("[ApiKeysList] Refreshing API keys");
     refetch();
     setRefreshCounter(prev => prev + 1);
     setErrorMessage(null);
@@ -145,12 +150,13 @@ export default function ApiKeysList() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
+      console.log("[ApiKeysList] Creating API key:", { name: keyName, userId: identity.id });
       const newKey = await ApiKeyService.createApiKey(keyName, identity.id);
       setNewApiKey(newKey.key);
       setRefreshCounter(prev => prev + 1);
       setKeyName("");
     } catch (error: any) {
-      console.error("Error creating API key:", error);
+      console.error("[ApiKeysList] Error creating API key:", error);
       setErrorMessage(`Error creating API key: ${error.message || "Unknown error"}`);
     } finally {
       setIsLoading(false);
@@ -192,6 +198,7 @@ export default function ApiKeysList() {
           icon={<AlertCircle size={16} />}
           title="Authentication Required" 
           color="red"
+          styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
         >
           You must be logged in to manage API keys.
         </Alert>
@@ -300,7 +307,7 @@ export default function ApiKeysList() {
             mb="md"
             styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
           >
-            Keep a record of the key below. You won&apos;t be able to view it again.
+            Keep a record of the key below. You won't be able to view it again.
           </Alert>
           <Box p="md" style={{ backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
             <Group justify="apart">
@@ -342,7 +349,7 @@ export default function ApiKeysList() {
                 },
               }}
             >
-              I&apos;ve saved my API key
+              I've saved my API key
             </Button>
           </Group>
         </Paper>

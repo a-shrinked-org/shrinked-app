@@ -211,7 +211,10 @@ export const shrinkedDataProvider = (
 	'jobs': '/api/jobs-proxy',
 	
 	// Documents endpoints
-	'documents': '/api/documents-proxy'
+	'documents': '/api/documents-proxy',
+	
+	// Keys endpoints
+	'api-keys': '/api/api-keys-proxy'
   };
 
   // Improved proxy URL helper with enhanced debugging
