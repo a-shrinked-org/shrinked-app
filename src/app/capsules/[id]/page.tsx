@@ -1047,7 +1047,7 @@ export default function CapsuleView() {
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
   const hasContentForDisplay = !!(record.highlights || extractContextSummary(record.summaryContext));
   
-  const debugContent = enrichedContent || record?.highlights || extractContextSummary(record?.summaryContext);
+  const debugContent = enrichedContent || record.highlights || extractContextSummary(record.summaryContext) || '';
   console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
   
   const malformedInPage = debugContent?.match(/\*{3,}\[/g);
