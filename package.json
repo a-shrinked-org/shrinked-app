@@ -54,7 +54,8 @@
     "react-helmet-async": "^2.0.5",
     "react-toastify": "^11.0.3",
     "resend": "^4.1.2",
-    "zustand": "^4.5.2"
+    "zustand": "^4.5.2",
+    "string-similarity": "^4.0.4"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.16",

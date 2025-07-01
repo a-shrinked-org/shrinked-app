@@ -49,6 +49,7 @@ import FileSelector from '@/components/FileSelector';
 import ReferenceEnrichmentModal from "@/components/ReferenceEnrichmentModal";
 import CapsulePurposeModal from "@/components/CapsulePurposeModal";
 import CapsuleSettingsModal from "@/components/CapsuleSettingsModal";
+import stringSimilarity from 'string-similarity';
 
 // Error handling helper
 const formatErrorMessage = (error: any): string => {
@@ -272,91 +273,156 @@ export default function CapsuleView() {
     }
   ], [summaryPrompt, highlightsPrompt]);
 
- // Helper function to normalize text for comparison
+ // Enhanced normalization function
  const normalizeText = (text: string): string => {
+   if (!text) return '';
    return text
+     .replace(/\r\n|\r|\n/g, '\n') // Normalize all line breaks to \n
+     .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+     .replace(/\n\s*/g, '\n') // Normalize spaces around line breaks
      .trim()
-     .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
-     .replace(/\n\s*/g, '\n') // Normalize line breaks
      .toLowerCase();
  };
  
- // Helper function to parse override prompt data
+ // Helper function to calculate Levenshtein distance (if not using string-similarity)
+ const levenshteinDistance = (a: string, b: string): number => {
+   const matrix: number[][] = [];
+ 
+   // Initialize matrix
+   for (let i = 0; i <= b.length; i++) {
+     matrix[i] = [i];
+   }
+   for (let j = 0; j <= a.length; j++) {
+     matrix[0][j] = j;
+   }
+ 
+   // Fill matrix
+   for (let i = 1; i <= b.length; i++) {
+     for (let j = 1; j <= a.length; j++) {
+       if (b.charAt(i - 1) === a.charAt(j - 1)) {
+         matrix[i][j] = matrix[i - 1][j - 1];
+       } else {
+         matrix[i][j] = Math.min(
+           matrix[i - 1][j - 1] + 1, // substitution
+           matrix[i][j - 1] + 1, // insertion
+           matrix[i - 1][j] + 1 // deletion
+         );
+       }
+     }
+   }
+ 
+   return matrix[b.length][a.length];
+ };
+ 
+ // Helper function to calculate similarity score (if not using string-similarity)
+ const similarityScore = (a: string, b: string): number => {
+   const maxLength = Math.max(a.length, b.length);
+   if (maxLength === 0) return 1.0;
+   const distance = levenshteinDistance(a, b);
+   return 1 - distance / maxLength;
+ };
+ 
+ // Updated parseOverridePrompt
  const parseOverridePrompt = useCallback((overridePrompt?: string) => {
    if (!overridePrompt) return null;
-   
+ 
    const normalizedOverride = normalizeText(overridePrompt);
-   
-   // Check if the text matches any of our cards (with normalization)
    const allCards = [...defaultCards, ...prototypeCards];
-   const matchingCard = allCards.find(card => {
+ 
+   // First, try exact match (after normalization)
+   const exactMatch = allCards.find(card => {
      const normalizedCardPrompt = normalizeText(card.prompt);
      return normalizedCardPrompt === normalizedOverride;
    });
-   
-   if (matchingCard) {
+ 
+   if (exactMatch) {
+     console.log('Exact match found for card:', exactMatch.name);
      return {
-       cardId: matchingCard.id,
-       cardName: matchingCard.name,
-       prompt: matchingCard.prompt,
-       section: matchingCard.section
+       cardId: exactMatch.id,
+       cardName: exactMatch.name,
+       prompt: exactMatch.prompt,
+       section: exactMatch.section
      };
    }
-   
-   // For debugging: try partial matching on key unique phrases
-   const debugMatch = allCards.find(card => {
-     const cardPrompt = normalizeText(card.prompt);
+ 
+   // If exact match fails, try fuzzy matching
+   const SIMILARITY_THRESHOLD = 0.95; // Adjust based on testing
+   let bestMatch = null;
+   let highestSimilarity = 0;
+ 
+   for (const card of allCards) {
+     const normalizedCardPrompt = normalizeText(card.prompt);
+     // Use string-similarity if available, otherwise use custom similarityScore
+     const similarity = stringSimilarity
+       ? stringSimilarity.compareTwoStrings(normalizedOverride, normalizedCardPrompt)
+       : similarityScore(normalizedOverride, normalizedCardPrompt);
+ 
+     console.log(`Comparing with card '${card.name}': similarity = ${similarity}`);
+ 
+     if (similarity >= SIMILARITY_THRESHOLD && similarity > highestSimilarity) {
+       bestMatch = card;
+       highestSimilarity = similarity;
+     }
+   }
+ 
+   if (bestMatch) {
+     console.log(`Fuzzy match found for card: ${bestMatch.name} (similarity: ${highestSimilarity})`);
+     return {
+       cardId: bestMatch.id,
+       cardName: bestMatch.name,
+       prompt: bestMatch.prompt,
+       section: bestMatch.section
+     };
+   }
+ 
+   // Fallback to unique phrase matching for specific cards
+   const phraseMatch = allCards.find(card => {
      const overrideText = normalizedOverride;
-     
-     // Check for unique identifiers in each card
-     if (card.id === 'narrative-analyst' && 
-         overrideText.includes('paul graham') && 
+ 
+     // Enhanced checks for narrative-analyst
+     if (card.id === 'narrative-analyst') {
+       const hasKeyPhrases =
+         overrideText.includes('paul graham') &&
          overrideText.includes('tech newsletter') &&
-         overrideText.includes('tbpn')) {
-       console.log('Found narrative-analyst match by unique phrases');
-       return true;
+         overrideText.includes('tbpn') &&
+         overrideText.includes('timestamp references') &&
+         overrideText.includes('1200-1600 words');
+       console.log(`Checking narrative-analyst phrases: ${hasKeyPhrases}`);
+       return hasKeyPhrases;
      }
-     
-     // Add similar checks for other cards with unique phrases
-     if (card.id === 'competitor-analysis' && 
-         overrideText.includes('competitor analysis') &&
-         overrideText.includes('market positioning')) {
-       return true;
+ 
+     // Add checks for other cards
+     if (card.id === 'competitor-analysis') {
+       return overrideText.includes('competitor analysis') &&
+              overrideText.includes('market positioning');
      }
-     
-     if (card.id === 'linkedin-connection' && 
-         overrideText.includes('linkedin connection') &&
-         overrideText.includes('prospect research')) {
-       return true;
+ 
+     if (card.id === 'linkedin-connection') {
+       return overrideText.includes('linkedin connection') &&
+              overrideText.includes('prospect research');
      }
-     
-     // Add more unique phrase checks as needed
-     
+ 
      return false;
    });
-   
-   if (debugMatch) {
-     console.log('Matched card via unique phrases:', debugMatch.name);
+ 
+   if (phraseMatch) {
+     console.log(`Phrase match found for card: ${phraseMatch.name}`);
      return {
-       cardId: debugMatch.id,
-       cardName: debugMatch.name,
-       prompt: debugMatch.prompt,
-       section: debugMatch.section
+       cardId: phraseMatch.id,
+       cardName: phraseMatch.name,
+       prompt: phraseMatch.prompt,
+       section: phraseMatch.section
      };
    }
-   
-   // If it's a custom prompt that doesn't match any card, treat as custom
-   if (overridePrompt.trim()) {
-     console.log('No card match found, treating as custom prompt');
-     return {
-       cardId: 'custom',
-       cardName: 'Custom Prompt',
-       prompt: overridePrompt,
-       section: 'capsule.custom'
-     };
-   }
-   
-   return null;
+ 
+   // If no match, treat as custom
+   console.log('No card match found, treating as custom prompt');
+   return {
+     cardId: 'custom',
+     cardName: 'Custom Prompt',
+     prompt: overridePrompt,
+     section: 'capsule.custom'
+   };
  }, [defaultCards, prototypeCards]);
 
   // Updated helper functions
