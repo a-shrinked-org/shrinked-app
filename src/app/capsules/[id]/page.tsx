@@ -171,6 +171,8 @@ export default function CapsuleView() {
   
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [enrichedContent, setEnrichedContent] = useState<string>('');
+  const [streamedContent, setStreamedContent] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState(false);
 
   // Purpose modal state
   const [isPurposeModalOpen, setIsPurposeModalOpen] = useState(false);
@@ -762,6 +764,103 @@ export default function CapsuleView() {
       if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
     }
   }, [capsuleData?.data?.status, identity?.token, statusMonitorActive, isRegenerating, startStatusMonitoring]);
+
+  // SSE for streaming summary context
+  useEffect(() => {
+    let controller: AbortController | null = null;
+
+    const currentStatus = record?.status?.toLowerCase();
+    const shouldStream = currentStatus === 'processing' && !isStreaming && capsuleId && identity?.token;
+
+    if (shouldStream) {
+      if (IS_DEV) console.log("[SSE] Starting summary stream");
+      setIsStreaming(true);
+      setStreamedContent(''); // Clear previous content
+      controller = new AbortController();
+      const { signal } = controller;
+
+      const fetchStream = async () => {
+        try {
+          const response = await fetchWithAuth(`/api/capsules/${capsuleId}/summary-stream`, {
+            method: 'GET',
+            signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error("Failed to get reader from response body");
+          }
+
+          let accumulatedContent = '';
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              if (IS_DEV) console.log("[SSE] Stream complete");
+              break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            accumulatedContent += chunk;
+
+            // Process SSE events
+            const events = accumulatedContent.split('\n\n');
+            accumulatedContent = events.pop() || ''; // Keep incomplete event
+
+            for (const event of events) {
+              if (event.startsWith('data:')) {
+                const data = event.substring(5).trim();
+                setStreamedContent(prev => prev + data + '\n');
+              } else if (event.startsWith('event:')) {
+                const eventType = event.substring(6).trim();
+                if (eventType === 'start') {
+                  if (IS_DEV) console.log("[SSE] Stream started");
+                  setStreamedContent('');
+                } else if (eventType === 'context-end') {
+                  if (IS_DEV) console.log("[SSE] Context ended");
+                  setStreamedContent(prev => prev + '\n\n---\n');
+                } else if (eventType === 'start-summary') {
+                  if (IS_DEV) console.log("[SSE] Summary started");
+                } else if (eventType === 'summary-end') {
+                  if (IS_DEV) console.log("[SSE] Summary ended");
+                  setIsStreaming(false);
+                  refetch();
+                } else if (eventType === 'ping') {
+                  if (IS_DEV) console.log("[SSE] Ping received");
+                } else if (eventType === 'error') {
+                  if (IS_DEV) console.error("[SSE] Stream error event received");
+                  setErrorMessage("Stream error. Please try regenerating.");
+                  setIsStreaming(false);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          if (signal.aborted) {
+            if (IS_DEV) console.log("[SSE] Stream fetch aborted");
+          } else {
+            if (IS_DEV) console.error("[SSE] Stream fetch error:", error);
+            setErrorMessage("Stream error. Please try regenerating.");
+          }
+          setIsStreaming(false);
+        }
+      };
+
+      fetchStream();
+    }
+
+    return () => {
+      if (controller) {
+        if (IS_DEV) console.log("[SSE] Aborting stream fetch");
+        controller.abort();
+      }
+    };
+  }, [record?.status, capsuleId, identity?.token, isStreaming, refetch, fetchWithAuth]);
 
   // File effect with retry limit
   useEffect(() => {
@@ -1470,18 +1569,19 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
               
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
-                  <Stack align="flex-start" justify="flex-start" style={{ height: '300px', color: '#a0a0a0', paddingTop: '20px', paddingLeft: '20px' }}>
-                    <CliLoadingAnimation message="Generating context" />
-                    <Text c="dimmed" style={{ zIndex: 1, marginLeft: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Processing...</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
                       Analyzing files and creating the capsule summary.
                     </Text>
                   </Stack>
                 ) : hasContentForDisplay ? (
                   <DocumentMarkdownWrapper 
-                    markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''} 
+                    markdown={isStreaming ? streamedContent : (enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || '')} 
                   />
                 ) : hasFiles ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -1497,7 +1597,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                     </Button>
                   </Stack>
                 ) : (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                     <Text ta="center" c="dimmed" mb="xl">
