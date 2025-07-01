@@ -8,17 +8,14 @@ interface Highlight {
 
 interface DocumentMarkdownWrapperProps {
   markdown?: string;
-  highlights?: Highlight[];
 }
 
-const DocumentMarkdownWrapper: React.FC<DocumentMarkdownWrapperProps> = ({ markdown, highlights }) => {
+const DocumentMarkdownWrapper: React.FC<DocumentMarkdownWrapperProps> = ({ markdown }) => {
   const handleRefresh = useCallback(() => {
     console.log("Refresh requested in DocumentMarkdownWrapper");
   }, []);
 
-  const content = highlights 
-    ? highlights.map(h => h.xml || h.text).join('\n\n') 
-    : markdown || '';
+  const content = markdown || '';
 
   return (
     <DocumentMarkdownRenderer

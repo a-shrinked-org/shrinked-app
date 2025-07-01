@@ -38,6 +38,7 @@ import {
   Settings
 } from 'lucide-react';
 import { Loader } from '@mantine/core';
+import CliLoadingAnimation from '@/components/CliLoadingAnimation';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useParams, useRouter } from "next/navigation";
@@ -110,7 +111,7 @@ interface Capsule {
   createdAt: string;
   status: string;
   summaryContext?: string;
-  highlights?: Array<{ xml?: string; text?: string }>;
+  highlights?: string;
   summary?: string;
   testSummary?: string;
   overridePrompt?: string;
@@ -203,7 +204,7 @@ export default function CapsuleView() {
   const record = capsuleData?.data;
 
   // Debounced refetch
-  const debouncedRefetch = useMemo(() => debounce(refetch, 500), []);
+  const debouncedRefetch = useMemo(() => debounce(refetch, 500), [refetch]);
 
   // Prototype cards with frontend-stored prompts
   const prototypeCards: PurposeCard[] = useMemo(() => [
@@ -334,9 +335,7 @@ export default function CapsuleView() {
   }, [setEnrichedContent]);
   
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
-    // This is now just for any additional parent-specific logic
     console.log('Main: Purpose selected:', card.name);
-    // Any other logic you need when purpose changes
   }, []);
   
   // Status monitoring with improved logic
@@ -407,7 +406,7 @@ export default function CapsuleView() {
         debouncedRefetch();
       }
     }, 90000);
-  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating, refetch, notifications]);
+  }, [record?.status, debouncedRefetch, statusMonitorActive, isRegenerating]);
 
   // File operations
   const fetchFileDetails = useCallback(async (fileIds: string[]) => {
@@ -594,8 +593,6 @@ export default function CapsuleView() {
         });
 
     } catch (error) {
-      // This catch block will primarily handle errors from optimistic updates or initial setup,
-      // as API call errors are now handled within their respective promises.
       if (IS_DEV) console.error("[CapsuleView] General error in handleFileSelect:", error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
@@ -603,7 +600,6 @@ export default function CapsuleView() {
     } finally {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
-      // No refetch here; status monitoring will handle it
     }
   }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring]);
   
@@ -611,7 +607,7 @@ export default function CapsuleView() {
     console.log('SETTING enriched content:', enrichedContent.substring(0, 200));
     setEnrichedContent(enrichedContent);
   }, []);
-  
+
   const handleResetEnrichedContent = useCallback(() => {
     console.log('RESETTING enriched content');
     setEnrichedContent('');
@@ -627,101 +623,48 @@ export default function CapsuleView() {
     setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
 
     setIsRegenerating(true);
-    startStatusMonitoring(); // Start monitoring immediately
 
     try {
-      // Send API calls without awaiting them to avoid blocking UI
-      fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
-      })
-        .then(response => {
-          if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
-          notifications.show({
-            title: 'File Removed',
-            message: 'File removal initiated.',
-            color: 'green',
-          });
-
-          // Trigger regeneration if files remain, but don't block
-          const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
-          if (remainingFiles.length > 0) {
-            fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' })
-              .then(regenResponse => {
-                if (!regenResponse.ok) throw new Error(`Failed to trigger regeneration: ${regenResponse.status}`);
-              })
-              .catch(regenError => {
-                if (IS_DEV) console.error("[CapsuleView] Failed to trigger regeneration after file removal:", regenError);
-                notifications.show({
-                  title: 'Regeneration Error',
-                  message: formatErrorMessage(regenError),
-                  color: 'red',
-                });
-                handleAuthError(regenError);
-              });
-          }
-        })
-        .catch(error => {
-          if (IS_DEV) console.error("[CapsuleView] Failed to remove file:", error);
-          // Revert optimistic update if API call fails
-          setLoadedFiles(prev => {
-            const file = record?.files?.find(f => f._id === fileId) || {
-              _id: fileId,
-              title: `File ${fileId.slice(-6)}`,
-              createdAt: new Date().toISOString(),
-              size: 0,
-              contentType: 'application/octet-stream'
-            };
-            return prev.some(f => f._id === fileId) ? prev : [...prev, file];
-          });
-          setErrorMessage(formatErrorMessage(error));
-          handleAuthError(error);
-          setIsRegenerating(false); // Stop regenerating state if initial setup fails
-          notifications.show({
-            title: 'Error Removing File',
-            message: formatErrorMessage(error),
-            color: 'red',
-          });
-        });
-
-    } catch (error) {
-      // This catch block will primarily handle errors from optimistic updates or initial setup
-      if (IS_DEV) console.error("[CapsuleView] General error in handleRemoveFile:", error);
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
-      setIsRegenerating(false);
-    }
-  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
-
-  // Regeneration with immediate UI feedback
-  const handleRegenerateCapsule = useCallback(async () => {
-    if (!capsuleId || isRegenerating) return;
-
-    setErrorMessage(null);
-    setIsRegenerating(true);
-
-    try {
-      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
-      if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
-
-      startStatusMonitoring();
-
-      notifications.show({
-        title: 'Processing Started',
-        message: 'Capsule regeneration in progress.',
-        color: 'yellow',
       });
+
+      if (!response.ok && response.status !== 204) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
+      }
+
+      notifications.show({
+        title: 'File Removed',
+        message: 'File removal initiated.',
+        color: 'green',
+      });
+
+      await refetch(); // Explicitly refetch after successful deletion
+
     } catch (error) {
-      if (IS_DEV) console.error("[CapsuleView] Failed to regenerate capsule:", error);
+      if (IS_DEV) console.error("[CapsuleView] Failed to remove file:", error);
+      // Revert optimistic update if API call fails
+      setLoadedFiles(prev => {
+        const file = record?.files?.find(f => f._id === fileId) || {
+          _id: fileId,
+          title: `File ${fileId.slice(-6)}`,
+          createdAt: new Date().toISOString(),
+          size: 0,
+          contentType: 'application/octet-stream'
+        };
+        return prev.some(f => f._id === fileId) ? prev : [...prev, file];
+      });
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
-      setIsRegenerating(false);
+      setIsRegenerating(false); // Stop regenerating state if initial setup fails
       notifications.show({
-        title: 'Regeneration Failed',
+        title: 'Error Removing File',
         message: formatErrorMessage(error),
         color: 'red',
       });
     }
-  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating]);
+  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, refetch]);
 
   // Load prompts for purpose modal
   const loadPrompts = useCallback(async () => {
@@ -745,6 +688,44 @@ export default function CapsuleView() {
       setIsLoadingPrompts(false);
     }
   }, [capsuleId, fetchWithAuth]);
+
+  // Regeneration with immediate UI feedback
+  const handleRegenerateCapsule = useCallback(async () => {
+    if (!capsuleId || isRegenerating) return;
+
+    setErrorMessage(null);
+    setIsRegenerating(true);
+    setEnrichedContent(''); // Clear content immediately
+
+    try {
+      // Ensure prompts are loaded before triggering regeneration
+      if (!summaryPrompt || !highlightsPrompt) {
+        if (IS_DEV) console.log("[CapsuleView] Prompts not loaded, fetching them now...");
+        await loadPrompts();
+      }
+
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
+      if (!response.ok) throw new Error(`Failed to trigger regeneration: ${response.status}`);
+
+      startStatusMonitoring();
+
+      notifications.show({
+        title: 'Processing Started',
+        message: 'Capsule regeneration in progress.',
+        color: 'yellow',
+      });
+    } catch (error) {
+      if (IS_DEV) console.error("[CapsuleView] Failed to regenerate capsule:", error);
+      setErrorMessage(formatErrorMessage(error));
+      handleAuthError(error);
+      setIsRegenerating(false);
+      notifications.show({
+        title: 'Regeneration Failed',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
+    }
+  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating, setEnrichedContent, summaryPrompt, highlightsPrompt, loadPrompts]);
 
   const handleOpenPurposeModal = useCallback(async () => {
     await loadPrompts();
@@ -834,10 +815,13 @@ export default function CapsuleView() {
     return summaryMatch?.[1]?.trim() ?? summaryContext.trim();
   };
 
-  const extractHighlightsContent = (highlights?: Array<{ xml?: string; text?: string }>): string | null => {
-    if (!highlights || highlights.length === 0) return null;
-    return highlights.map(h => h.xml || h.text).join('\n\n');
-  };
+// Add extractHighlightsContent for safe handling
+const extractHighlightsContent = (highlights?: string): string | null => {
+  if (!highlights || typeof highlights !== 'string' || highlights.trim() === '') return null;
+  return highlights.trim();
+};
+
+  
 
   const handleDownloadMarkdown = useCallback(() => {
     const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
@@ -867,7 +851,7 @@ export default function CapsuleView() {
         color: 'red',
       });
     }
-  }, [record]);
+  }, [record, enrichedContent]);
 
   const formatDate = (dateString?: string): string => {
     if (!dateString) return "N/A";
@@ -954,7 +938,7 @@ export default function CapsuleView() {
     } finally {
       setIsLoadingCapsules(false);
     }
-  }, [identity?.id, fetchWithAuth, handleAuthError, setAvailableCapsules]);
+  }, [identity?.id, fetchWithAuth, handleAuthError, setAvailableCapsules, router]);
   
   // Improved generateNerdyCapsuleName function
   const generateNerdyCapsuleName = (): string => {
@@ -993,6 +977,17 @@ export default function CapsuleView() {
     const exists = availableCapsules.some(cap => cap.value === capsuleId);
     return exists ? capsuleId : null;
   };
+
+  // Ensure debugContent is always a string
+  const debugContent = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || '';
+console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent === 'string' ? debugContent.substring(0, 2000) : 'Invalid content type: ' + typeof debugContent);
+
+  const malformedInPage = debugContent.match(/\*{3,}\[/g);
+  if (malformedInPage) {
+    console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
+  } else {
+    console.log('PAGE SUCCESS: Clean content being passed to renderer');
+  }
 
   if (identityLoading || isLoading) {
     return (
@@ -1051,17 +1046,7 @@ export default function CapsuleView() {
   const displayFiles = record.files?.length ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
-  const hasContentForDisplay = !!(extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext));
-  
-  const debugContent = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
-  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
-  
-  const malformedInPage = debugContent?.match(/\*{3,}\[/g);
-  if (malformedInPage) {
-    console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
-  } else {
-    console.log('PAGE SUCCESS: Clean content being passed to renderer');
-  }
+  const hasContentForDisplay = !!(record.highlights || extractContextSummary(record.summaryContext));
 
   return (
     <Box style={{ 
@@ -1097,12 +1082,12 @@ export default function CapsuleView() {
             onChange={handleCapsuleChange}
             data={availableCapsules}
             searchable={false}
-            readOnly={false} // Changed from readOnly to allow selection
+            readOnly={false}
             rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
             styles={{
               root: {
                 width: 'auto',
-                minWidth: '200px', // Increased for better visibility
+                minWidth: '200px',
               },
               wrapper: {
                 width: 'auto',
@@ -1120,7 +1105,7 @@ export default function CapsuleView() {
                 lineHeight: 1,
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase',
-                cursor: 'pointer', // Added cursor pointer
+                cursor: 'pointer',
                 '&:focus': {
                   outline: 'none',
                 },
@@ -1132,23 +1117,27 @@ export default function CapsuleView() {
               section: {
                 color: '#a0a0a0',
                 width: 'auto',
+                position: 'absolute',
+                right: '5px',
+                top: '50%',
+                transform: 'translateY(-50%)',
               },
               dropdown: {
                 backgroundColor: '#000000',
                 border: '1px solid #2b2b2b',
                 width: 'auto',
                 minWidth: 'max-content',
-                maxHeight: '300px', // Added max height for scrolling
+                maxHeight: '300px',
                 overflowY: 'auto',
               },
               option: {
                 color: '#ffffff',
                 fontSize: '14px',
                 fontFamily: GeistMono.style.fontFamily,
-                padding: '8px 12px', // Better padding
+                padding: '8px 12px',
                 '&[data-selected]': {
                   backgroundColor: '#202020',
-                  color: '#F5A623', // Highlight selected option
+                  color: '#F5A623',
                 },
                 '&:hover:not([data-disabled])': {
                   backgroundColor: '#1c1c1c',
@@ -1157,7 +1146,6 @@ export default function CapsuleView() {
             }}
             placeholder={isLoadingCapsules ? "Loading..." : "Select Capsule"}
             disabled={isLoadingCapsules}
-            // Display current capsule name or fallback
             renderOption={({ option, checked }) => (
               <Group justify="space-between" style={{ width: '100%' }}>
                 <Text 
@@ -1471,20 +1459,19 @@ export default function CapsuleView() {
               
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
-                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                    <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
+                    <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
+                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Processing...</Text>
+                    <Text ta="center" c="dimmed" mb="xl">
                       Analyzing files and creating the capsule summary.
                     </Text>
                   </Stack>
                 ) : hasContentForDisplay ? (
-                  <DocumentMarkdownWrapper 
-                    highlights={record.highlights} 
-                    markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                  <DocumentMarkdownWrapper
+                    markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''}
                   />
                 ) : hasFiles ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>Ready to Generate</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -1500,7 +1487,7 @@ export default function CapsuleView() {
                     </Button>
                   </Stack>
                 ) : (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                     <Text ta="center" c="dimmed" mb="xl">
@@ -1517,9 +1504,9 @@ export default function CapsuleView() {
                   </Stack>
                 )}
                 {hasContentForDisplay && (
-                  <ActionIcon 
-                    size="lg" 
-                    variant="subtle" 
+                  <ActionIcon
+                    size="lg"
+                    variant="subtle"
                     onClick={handleDownloadMarkdown}
                     disabled={isProcessing}
                     style={{ color: '#a0a0a0', marginTop: '16px' }}
@@ -1529,7 +1516,7 @@ export default function CapsuleView() {
                   </ActionIcon>
                 )}
               </Tabs.Panel>
-              
+
               <Tabs.Panel value="markdown" pt="md">
                 {hasContentForDisplay ? (
                   <Code
@@ -1550,7 +1537,7 @@ export default function CapsuleView() {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {enrichedContent || extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext) || 'No markdown content available'}
+                    {enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || 'No markdown content available'}
                   </Code>
                 ) : (
                   <Text c="dimmed" ta="center" mt="xl">

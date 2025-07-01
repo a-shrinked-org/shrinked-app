@@ -304,7 +304,7 @@ export default function JobShow() {
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [getProcessingStatus, refetch]);
+  }, [getProcessingStatus, refetch, processingDoc]);
   
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
@@ -399,7 +399,7 @@ export default function JobShow() {
       console.log("Processing complete, fetching markdown content on mount");
       fetchMarkdownContent();
     }
-  }, [processingDocId, queryResult.data, processingDoc, markdownContent, fetchMarkdownContent]);
+  }, [processingDocId, queryResult.data, markdownContent, fetchMarkdownContent, processingDoc]);
   
   const handleShareDocument = useCallback(async () => {
     if (!processingDocId) {

@@ -124,54 +124,40 @@ function DocumentMarkdocRenderer({
 
   // Universal function to clean duplicate headers
   const cleanDuplicateHeaders = (content: string, expectedHeader: string): string => {
-    if (!content) return '';
-    
-    // Create regex for the header (case-insensitive, various levels)
-    const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'gmi');
-    
+    if (!content || !expectedHeader) return content || '';
+
+    // Create regex to match headers (case-insensitive, 1-6 # levels, at line start)
+    const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'mi');
+
+    // Split content into lines and filter out matching headers
     const lines = content.split('\n');
-    const cleanedLines: string[] = [];
-    let headerFound = false;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      
-      if (headerPattern.test(line.trim())) {
-        if (!headerFound) {
-          // This is the first occurrence, skip it (we'll add proper header in generateMarkdown)
-          headerFound = true;
-        }
-        // Skip all header occurrences since we control the header in generateMarkdown
-      } else {
-        cleanedLines.push(line);
-      }
-    }
-    
+    const cleanedLines = lines.filter(line => !headerPattern.test(line.trim()));
+
     return cleanedLines.join('\n').trim();
   };
 
   const processReferences = (html: string): string => {
     let processed = html;
   
-    // ✅ Safely convert italic <em><a href="url">403</a></em> to desired format
+    // Safely convert italic <em><a href="url">403</a></em> to desired format
     processed = processed.replace(
       /<em><a href="([^"]*#ts-\d+)">(\d+)<\/a><\/em>/g,
       '<em><a href="$1" class="citation-ref">[$2]</a></em>'
     );
   
-    // ✅ Handle plain [403](#ts-403) links
+    // Handle plain [403](#ts-403) links
     processed = processed.replace(
       /<a href="([^"]*#ts-(\d+))">(\d+)<\/a>/g,
       '<em><a href="$1" class="citation-ref">[$3]</a></em>'
     );
   
-    // ✅ Backward compatibility: [[403]](#ts-403)
+    // Backward compatibility: [[403]](#ts-403)
     processed = processed.replace(
       /\[\[(\d+)\]\]\(#ts-(\d+)\)/g,
       '<a href="#ts-$2" class="citation-ref">[$1]</a>'
     );
   
-    // ✅ Handle clean reference headings
+    // Handle clean reference headings
     processed = processed.replace(
       /<p>##### \{#ts-(\d+)\}<\/p>\n<p>(\d+)\.\s+\[([^\]]+)\]\(None#t=(\d+)\):\s+(.+?)<\/p>/g,
       '<p id="ts-$1">$2. [$3]: $5</p>'
@@ -182,9 +168,6 @@ function DocumentMarkdocRenderer({
   
   const preprocessMarkdown = (content: string): string => {
     let processed = content;
-    
-    // CRITICAL: Don't process reference links here - let them pass through to Markdoc naturally
-    // The *[306](url)* format should be handled by Markdoc, not preprocessed
     
     // Convert chapters to proper list format
     processed = processed.replace(
@@ -235,8 +218,6 @@ function DocumentMarkdocRenderer({
     let result = html;
     
     // Clean up reference entries with numbered timestamp links
-    // This very specific pattern matches the structure you shared:
-    // <li><ol start="289"><li><a href="None#t=1350">00:22:30</a>: Probably more.</li></ol></li>
     result = result.replace(/<li><ol\s+start="\d+"><li>(.*?)<\/li><\/ol><\/li>/g, '<li>$1</li>');
     
     // Fix general nested list items (simple case)
