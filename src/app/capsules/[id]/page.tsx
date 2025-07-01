@@ -820,31 +820,41 @@ export default function CapsuleView() {
             const events = accumulatedContent.split('\n\n');
             accumulatedContent = events.pop() || ''; // Keep incomplete event
 
-            for (const event of events) {
-              if (event.startsWith('data:')) {
-                const data = event.substring(5).trim();
-                setStreamedContent(prev => prev + data + '\n');
-              } else if (event.startsWith('event:')) {
-                const eventType = event.substring(6).trim();
-                if (eventType === 'start') {
-                  if (IS_DEV) console.log("[SSE] Stream started");
-                  setStreamedContent('');
-                } else if (eventType === 'context-end') {
-                  if (IS_DEV) console.log("[SSE] Context ended");
-                  setStreamedContent(prev => prev + '\n\n---\n');
-                } else if (eventType === 'start-summary') {
-                  if (IS_DEV) console.log("[SSE] Summary started");
-                } else if (eventType === 'summary-end') {
-                  if (IS_DEV) console.log("[SSE] Summary ended");
-                  setIsStreaming(false);
-                  refetch();
-                } else if (eventType === 'ping') {
-                  if (IS_DEV) console.log("[SSE] Ping received");
-                } else if (eventType === 'error') {
-                  if (IS_DEV) console.error("[SSE] Stream error event received");
-                  setErrorMessage("Stream error. Please try regenerating.");
-                  setIsStreaming(false);
+            for (const eventBlock of events) {
+              const lines = eventBlock.split('\n');
+              let eventType = '';
+              let eventData = '';
+
+              for (const line of lines) {
+                if (line.startsWith('event:')) {
+                  eventType = line.substring(6).trim();
+                } else if (line.startsWith('data:')) {
+                  eventData = line.substring(5).trim();
                 }
+              }
+
+              if (eventType === 'summary-section') {
+                setStreamedContent(prev => prev + eventData + '\n');
+              } else if (eventType === 'section') {
+                if (IS_DEV) console.log("[SSE] Received section data (not displayed in preview):", eventData);
+              } else if (eventType === 'start') {
+                if (IS_DEV) console.log("[SSE] Stream started");
+                setStreamedContent('');
+              } else if (eventType === 'context-end') {
+                if (IS_DEV) console.log("[SSE] Context ended");
+                setStreamedContent(prev => prev + '\n\n---\n');
+              } else if (eventType === 'start-summary') {
+                if (IS_DEV) console.log("[SSE] Summary started");
+              } else if (eventType === 'summary-end') {
+                if (IS_DEV) console.log("[SSE] Summary ended");
+                setIsStreaming(false);
+                refetch();
+              } else if (eventType === 'ping') {
+                if (IS_DEV) console.log("[SSE] Ping received");
+              } else if (eventType === 'error') {
+                if (IS_DEV) console.error("[SSE] Stream error event received");
+                setErrorMessage("Stream error. Please try regenerating.");
+                setIsStreaming(false);
               }
             }
           }
