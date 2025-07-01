@@ -352,9 +352,7 @@ export default function CapsuleView() {
   }, [setEnrichedContent]);
   
   const handlePurposeSelect = useCallback(async (card: PurposeCard) => {
-    // This is now just for any additional parent-specific logic
     console.log('Main: Purpose selected:', card.name);
-    // Any other logic you need when purpose changes
   }, []);
   
   // Status monitoring with improved logic
@@ -612,8 +610,6 @@ export default function CapsuleView() {
         });
 
     } catch (error) {
-      // This catch block will primarily handle errors from optimistic updates or initial setup,
-      // as API call errors are now handled within their respective promises.
       if (IS_DEV) console.error("[CapsuleView] General error in handleFileSelect:", error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
@@ -621,7 +617,6 @@ export default function CapsuleView() {
     } finally {
       setIsAddingFiles(false);
       setIsFileSelectorOpen(false);
-      // No refetch here; status monitoring will handle it
     }
   }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring]);
   
@@ -629,7 +624,7 @@ export default function CapsuleView() {
     console.log('SETTING enriched content:', enrichedContent.substring(0, 200));
     setEnrichedContent(enrichedContent);
   }, []);
-  
+
   const handleResetEnrichedContent = useCallback(() => {
     console.log('RESETTING enriched content');
     setEnrichedContent('');
@@ -831,10 +826,20 @@ export default function CapsuleView() {
     return summaryMatch?.[1]?.trim() ?? summaryContext.trim();
   };
 
-  
+// Add extractHighlightsContent for safe handling
+const extractHighlightsContent = (highlights?: string): string | null => {
+  if (!highlights || typeof highlights !== 'string' || highlights.trim() === '') return null;
+  return highlights.trim();
+};
+
+  // Add extractHighlightsContent for safe handling
+  const extractHighlightsContent = (highlights?: string): string | null => {
+    if (!highlights || typeof highlights !== 'string' || highlights.trim() === '') return null;
+    return highlights.trim();
+  };
 
   const handleDownloadMarkdown = useCallback(() => {
-    const contentToDownload = enrichedContent || record?.highlights || extractContextSummary(record?.summaryContext);
+    const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
     if (!contentToDownload || !record) return;
 
     try {
@@ -988,6 +993,17 @@ export default function CapsuleView() {
     return exists ? capsuleId : null;
   };
 
+  // Ensure debugContent is always a string
+  const debugContent = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || '';
+console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent === 'string' ? debugContent.substring(0, 2000) : 'Invalid content type: ' + typeof debugContent);
+
+  const malformedInPage = debugContent.match(/\*{3,}\[/g);
+  if (malformedInPage) {
+    console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
+  } else {
+    console.log('PAGE SUCCESS: Clean content being passed to renderer');
+  }
+
   if (identityLoading || isLoading) {
     return (
       <Box style={{
@@ -1046,16 +1062,6 @@ export default function CapsuleView() {
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
   const hasContentForDisplay = !!(record.highlights || extractContextSummary(record.summaryContext));
-  
-  const debugContent = enrichedContent || record.highlights || extractContextSummary(record.summaryContext) || '';
-  console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
-  
-  const malformedInPage = debugContent?.match(/\*{3,}\[/g);
-  if (malformedInPage) {
-    console.error('PAGE ERROR: Malformed patterns found before renderer:', malformedInPage);
-  } else {
-    console.log('PAGE SUCCESS: Clean content being passed to renderer');
-  }
 
   return (
     <Box style={{ 
@@ -1091,7 +1097,7 @@ export default function CapsuleView() {
             onChange={handleCapsuleChange}
             data={availableCapsules}
             searchable={false}
-            readOnly={false} // Changed from readOnly to allow selection
+            readOnly={false}
             rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
             styles={{
               root: {
@@ -1155,7 +1161,6 @@ export default function CapsuleView() {
             }}
             placeholder={isLoadingCapsules ? "Loading..." : "Select Capsule"}
             disabled={isLoadingCapsules}
-            // Display current capsule name or fallback
             renderOption={({ option, checked }) => (
               <Group justify="space-between" style={{ width: '100%' }}>
                 <Text 
@@ -1477,7 +1482,7 @@ export default function CapsuleView() {
                   </Stack>
                 ) : hasContentForDisplay ? (
                   <DocumentMarkdownWrapper 
-                    markdown={(enrichedContent || record.highlights || extractContextSummary(record.summaryContext)) ?? ""} 
+                    markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''} 
                   />
                 ) : hasFiles ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
@@ -1546,7 +1551,7 @@ export default function CapsuleView() {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {enrichedContent || record.highlights || extractContextSummary(record.summaryContext) || 'No markdown content available'}
+                    {enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || 'No markdown content available'}
                   </Code>
                 ) : (
                   <Text c="dimmed" ta="center" mt="xl">
@@ -1722,7 +1727,7 @@ export default function CapsuleView() {
         onClose={() => {
           setIsReferenceModalOpen(false);
         }}
-        originalContent={record?.highlights || extractContextSummary(record?.summaryContext) || ''}
+        originalContent={extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''}
         onContentUpdate={handleContentEnrichment}
       />
       <CapsulePurposeModal
