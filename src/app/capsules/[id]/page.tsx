@@ -277,9 +277,9 @@ export default function CapsuleView() {
  const normalizeText = (text: string): string => {
    if (!text) return '';
    return text
-     .replace(/\r\n|\r|\n/g, '\n') // Normalize all line breaks to \n
-     .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-     .replace(/\n\s*/g, '\n') // Normalize spaces around line breaks
+     .replace(/\r\n|\r/g, '\n')      // Normalize line endings to \n
+     .replace(/[ \t]+/g, ' ')       // Collapse horizontal whitespace
+     .replace(/\n+/g, '\n')         // Collapse multiple newlines
      .trim()
      .toLowerCase();
  };
@@ -346,7 +346,7 @@ export default function CapsuleView() {
    }
  
    // If exact match fails, try fuzzy matching
-   const SIMILARITY_THRESHOLD = 0.95; // Adjust based on testing
+   const SIMILARITY_THRESHOLD = 0.9; // Adjust based on testing
    let bestMatch = null;
    let highestSimilarity = 0;
  
