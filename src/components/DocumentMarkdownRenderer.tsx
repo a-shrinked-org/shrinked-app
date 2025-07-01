@@ -126,6 +126,11 @@ function DocumentMarkdocRenderer({
   const cleanDuplicateHeaders = (content: string, expectedHeader: string): string => {
     if (!content) return '';
     
+    // Create a regex to match the header at the beginning of a line, globally and case-insensitively
+    // This will remove ALL occurrences of the header within the content.
+    const headerPattern = new RegExp(`^#{1,6}\s*${expectedHeader.replace(/[.*+?^${}()|[\\]/g, '\\const cleanDuplicateHeaders = (content: string, expectedHeader: string): string => {
+    if (!content) return '';
+    
     // Create regex for the header (case-insensitive, various levels)
     const headerPattern = new RegExp(`^#{1,6}\\s*${expectedHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'gmi');
     
@@ -148,6 +153,138 @@ function DocumentMarkdocRenderer({
     }
     
     return cleanedLines.join('\n').trim();
+  };')}\s*import React from 'react';
+import { Box, Text, Paper, Loader, Alert, Button, Progress, Title, Stack } from '@mantine/core';
+import { AlertCircle, RefreshCw, Clock } from 'lucide-react';
+import Markdoc from '@markdoc/markdoc';
+
+interface DocumentMarkdocRendererProps {
+  data?: {
+    title?: string;
+    abstract?: string;
+    contributors?: string;
+    introduction?: string;
+    conclusion?: string;
+    passages?: string;
+    references?: Array<{ item: string }>;
+    chapters?: Array<{ title: string }>;
+  } | null;
+  markdown?: string | null;
+  isLoading: boolean;
+  errorMessage: string | null;
+  onRefresh: () => void;
+  processingStatus?: string;
+}
+
+function DocumentMarkdocRenderer({
+  data,
+  markdown,
+  isLoading,
+  errorMessage,
+  onRefresh,
+  processingStatus
+}: DocumentMarkdocRendererProps) {
+  const status = processingStatus?.toLowerCase();
+
+  const isProcessing = status === 'processing' || status === 'in_progress' || status === 'pending';
+  const isFailed = status === 'error' || status === 'failed';
+  const isCompleted = status === 'completed';
+
+  if (isLoading) {
+    return (
+      <Box style={{ display: 'flex', justifyContent: 'center', padding: '50px' }}>
+        <Loader size="lg" />
+      </Box>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <Alert 
+        color="red" 
+        title="Error loading document" 
+        icon={<AlertCircle size={16} />}
+      >
+        {errorMessage}
+        <Button 
+          variant="light" 
+          size="sm" 
+          mt="md" 
+          leftSection={<RefreshCw size={16} />}
+          onClick={onRefresh}
+        >
+          Try again
+        </Button>
+      </Alert>
+    );
+  }
+
+  if (isProcessing) {
+    return (
+      <Paper p="xl" style={{ 
+        backgroundColor: '#1a1a1a', 
+        color: '#ffffff', 
+        borderRadius: '8px',
+        position: 'relative',
+        textAlign: 'center',
+        padding: '50px 20px'
+      }}>
+        <Box style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <Clock size={48} style={{ opacity: 0.7, margin: '0 auto 20px' }} />
+          <Text size="xl" fw={600} mb="md">Your document is being processed</Text>
+          <Text size="sm" c="dimmed" mb="lg">
+            We&apos;re analyzing your content and generating a comprehensive document. 
+            This may take a few minutes depending on the file size and complexity.
+          </Text>
+          <Progress 
+            size="sm"
+            radius="xl"
+            value={75}
+            animated
+            style={{ maxWidth: '300px', margin: '0 auto 20px' }}
+          />
+          <Button 
+            variant="light" 
+            size="sm"
+            leftSection={<RefreshCw size={16} />}
+            onClick={onRefresh}
+          >
+            Check Status
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
+
+  if (isFailed) {
+    return (
+      <Alert 
+        color="red" 
+        title="Processing Failed" 
+        icon={<AlertCircle size={16} />}
+      >
+        The document processing failed. Please try again or contact support.
+        <Button 
+          variant="light" 
+          size="sm" 
+          mt="md" 
+          leftSection={<RefreshCw size={16} />}
+          onClick={onRefresh}
+        >
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
+
+  // Universal function to clean duplicate headers
+  , 'gmi');
+    
+    // Replace all occurrences of the header with an empty string
+    const cleanedContent = content.replace(headerPattern, '');
+    
+    // Trim any leading/trailing whitespace that might result from the replacement
+    return cleanedContent.trim();
   };
 
   const processReferences = (html: string): string => {
