@@ -82,7 +82,7 @@ export default function ApiKeysList() {
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: "api-keys-proxy",
+    resource: "",
     queryOptions: {
       enabled: !!authUtils.isAuthenticated(),
       // Add cache options for better refresh behavior
