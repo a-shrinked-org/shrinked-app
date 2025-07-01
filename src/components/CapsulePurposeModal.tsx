@@ -14,7 +14,7 @@ import {
 } from '@mantine/core';
 import { X, Check } from 'lucide-react';
 
-import { prototypeCards, PurposeCard } from "@/app/capsules/cards";
+import { prototypeCards, PurposeCard } from "@/providers/data-provider/cards";
 
 interface CapsulePurposeModalProps {
   isOpen: boolean;

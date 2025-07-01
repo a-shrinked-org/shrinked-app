@@ -86,7 +86,7 @@ interface AdminPrompt {
   prefill?: string;
 }
 
-import { prototypeCards, PurposeCard } from "./cards";
+import { prototypeCards, PurposeCard } from "@/providers/data-provider/cards";
 
 interface Capsule {
   _id: string;
