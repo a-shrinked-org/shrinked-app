@@ -40,6 +40,7 @@ interface CapsuleSettingsModalProps {
   onSave: () => void;
   saveStatus: string;
   onUpdateSuccess: () => void;
+  onPromptUpdateSuccess: () => void; // Added to fix type error
   identity?: Identity;
 }
 
@@ -60,6 +61,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   onSave,
   saveStatus,
   onUpdateSuccess,
+  onPromptUpdateSuccess, // Added to props destructuring
   identity,
 }) => {
   const { fetchWithAuth, handleAuthError } = useAuth();
@@ -80,6 +82,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
         color: 'green',
       });
       onUpdateSuccess();
+      onPromptUpdateSuccess(); // Call the new prop to maintain compatibility
       onClose();
     } else if (saveStatus && saveStatus !== 'Saving...') {
       notifications.show({
@@ -228,7 +231,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
                       '&::-webkit-scrollbar-thumb': {
                         background: '#0C0C0C',
                         borderRadius: '3px',
-                        border: '0.5px solid #2B2B2B',
+                        border: '0.5px solid #2B2 honing2B',
                       },
                     }
                   }}
