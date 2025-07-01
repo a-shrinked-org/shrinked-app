@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Text,
   Box,
@@ -7,15 +7,14 @@ import {
   LoadingOverlay,
   ActionIcon,
   Flex,
-  TextInput,
   Textarea,
   Modal,
   Divider,
   ScrollArea,
 } from '@mantine/core';
 import { X } from 'lucide-react';
-import { useAuth } from "@/utils/authUtils";
 import { notifications } from '@mantine/notifications';
+import { useAuth } from "@/utils/authUtils";
 
 interface Identity {
   token?: string;
@@ -29,8 +28,6 @@ interface CapsuleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   capsuleId: string;
-  capsuleName: string;
-  capsuleSlug: string;
   summaryPrompt: string;
   highlightsPrompt: string;
   testSummaryPrompt: string;
@@ -39,8 +36,7 @@ interface CapsuleSettingsModalProps {
   onTestSummaryChange: (value: string) => void;
   onSave: () => void;
   saveStatus: string;
-  onUpdateSuccess: () => void;
-  onPromptUpdateSuccess: () => void; // Added to fix type error
+  onPromptUpdateSuccess: () => void;
   identity?: Identity;
 }
 
@@ -50,8 +46,6 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   isOpen,
   onClose,
   capsuleId,
-  capsuleName,
-  capsuleSlug,
   summaryPrompt,
   highlightsPrompt,
   testSummaryPrompt,
@@ -60,18 +54,10 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   onTestSummaryChange,
   onSave,
   saveStatus,
-  onUpdateSuccess,
-  onPromptUpdateSuccess, // Added to props destructuring
+  onPromptUpdateSuccess,
   identity,
 }) => {
   const { fetchWithAuth, handleAuthError } = useAuth();
-  const [name, setName] = useState(capsuleName);
-  const [slug, setSlug] = useState(capsuleSlug);
-
-  useEffect(() => {
-    setName(capsuleName);
-    setSlug(capsuleSlug);
-  }, [capsuleName, capsuleSlug]);
 
   const handleSaveClick = () => {
     onSave();
@@ -81,8 +67,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
         message: 'Capsule settings and prompts saved successfully.',
         color: 'green',
       });
-      onUpdateSuccess();
-      onPromptUpdateSuccess(); // Call the new prop to maintain compatibility
+      onPromptUpdateSuccess();
       onClose();
     } else if (saveStatus && saveStatus !== 'Saving...') {
       notifications.show({
@@ -102,8 +87,8 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       centered
       size="lg"
       styles={{
-        body: {
-          backgroundColor: '#000000',
+        body: { 
+          backgroundColor: '#000000', 
           color: '#ffffff',
           padding: '22px 30px',
         },
@@ -123,261 +108,238 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
           <Text fw={500} size="md">
             Capsule Settings
           </Text>
-          <ActionIcon
-            onClick={onClose}
-            variant="transparent"
-            color="#ffffff"
+          <ActionIcon 
+            onClick={onClose} 
+            variant="transparent" 
+            color="#ffffff" 
             style={{ marginRight: '-10px', marginTop: '-10px' }}
           >
             <X size={18} />
           </ActionIcon>
         </Flex>
-
-        {saveStatus && (
-          <Text 
-            size="sm" 
-            c={saveStatus === 'Saved successfully' ? 'green' : 
-               saveStatus === 'Saving...' ? 'orange' : 'red'} 
-            mb="md"
-          >
-            {saveStatus}
-          </Text>
-        )}
-
-        <TextInput
-          label="Capsule Name"
-          placeholder="Enter capsule name"
-          value={name}
-          onChange={(event) => setName(event.currentTarget.value)}
-          mb="md"
-          styles={{
-            label: { color: '#A1A1A1' },
-            input: {
-              backgroundColor: '#1a1a1a',
-              color: '#ffffff',
-              border: '1px solid #2B2B2B',
-              '&:focus-within': {
-                borderColor: '#F5A623',
-              },
-            },
-          }}
-        />
-
-        <TextInput
-          label="Capsule Slug"
-          placeholder="Enter capsule slug"
-          value={slug}
-          onChange={(event) => setSlug(event.currentTarget.value)}
-          mb="lg"
-          styles={{
-            label: { color: '#A1A1A1' },
-            input: {
-              backgroundColor: '#1a1a1a',
-              color: '#ffffff',
-              border: '1px solid #2B2B2B',
-              '&:focus-within': {
-                borderColor: '#F5A623',
-              },
-            },
-          }}
-        />
-
-        {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
-          <Box mb="lg">
-            <Text fw={500} size="md" mb="md">Default Prompts (Admin Only)</Text>
-            <LoadingOverlay visible={saveStatus === 'Saving...'} overlayProps={{ blur: 2 }} />
-            <ScrollArea h={300} scrollbarSize={6} scrollHideDelay={500} type="auto" offsetScrollbars>
-              <Box mb="md">
-                <Divider 
-                  my="md" 
-                  label="Capsule Summary Prompt" 
-                  labelPosition="center"
-                  styles={{
-                    label: { 
-                      color: '#F5A623', 
-                      fontSize: '14px',
-                      fontWeight: 500
+        
+        <Text size="md" mb="lg" style={{ 
+          color: '#A1A1A1', 
+          fontSize: '14px',
+          fontFamily: 'inherit'
+        }}>
+          Edit the admin prompts used for content generation
+        </Text>
+        
+        <Box style={{ position: 'relative' }}>
+          <LoadingOverlay visible={saveStatus === 'Saving...'} overlayProps={{ blur: 2 }} />
+          
+          <ScrollArea h={450} scrollbarSize={6} scrollHideDelay={500} type="auto" offsetScrollbars>
+            {/* Capsule Summary Prompt */}
+            <Box mb="lg">
+              <Divider 
+                my="md" 
+                label="Capsule Summary" 
+                labelPosition="center"
+                styles={{
+                  label: { 
+                    color: '#F5A623', 
+                    fontSize: '14px',
+                    fontWeight: 500
+                  },
+                  root: {
+                    borderColor: '#2B2B2B'
+                  }
+                }}
+              />
+              
+              <Textarea
+                placeholder="Generate a comprehensive summary of the provided documents."
+                value={summaryPrompt}
+                onChange={(e) => onSummaryChange(e.target.value)}
+                minRows={4}
+                autosize
+                maxRows={8}
+                styles={{
+                  input: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2B2B2B',
+                    color: '#ffffff',
+                    borderWidth: '0.5px',
+                    padding: '12px 16px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    '&:focus': {
+                      borderColor: '#F5A623',
                     },
-                    root: {
-                      borderColor: '#2B2B2B'
-                    }
-                  }}
-                />
-                <Textarea
-                  placeholder="Generate a comprehensive summary of the provided documents."
-                  value={summaryPrompt}
-                  onChange={(e) => onSummaryChange(e.target.value)}
-                  minRows={4}
-                  autosize
-                  maxRows={8}
-                  styles={{
-                    input: {
-                      backgroundColor: '#1a1a1a',
-                      borderColor: '#2B2B2B',
-                      color: '#ffffff',
-                      borderWidth: '0.5px',
-                      padding: '12px 16px',
-                      fontFamily: 'inherit',
-                      fontSize: '14px',
-                      '&:focus': {
-                        borderColor: '#F5A623',
-                      },
-                      '&::-webkit-scrollbar': {
-                        width: '6px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        background: '#000000',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        background: '#0C0C0C',
-                        borderRadius: '3px',
-                        border: '0.5px solid #2B2 honing2B',
-                      },
-                    }
-                  }}
-                />
-              </Box>
-              <Box mb="md">
-                <Divider 
-                  my="md" 
-                  label="Capsule Highlights Prompt" 
-                  labelPosition="center"
-                  styles={{
-                    label: { 
-                      color: '#F5A623', 
-                      fontSize: '14px',
-                      fontWeight: 500
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
                     },
-                    root: {
-                      borderColor: '#2B2B2B'
-                    }
-                  }}
-                />
-                <Textarea
-                  placeholder="Extract key highlights and important points from documents."
-                  value={highlightsPrompt}
-                  onChange={(e) => onHighlightsChange(e.target.value)}
-                  minRows={4}
-                  autosize
-                  maxRows={8}
-                  styles={{
-                    input: {
-                      backgroundColor: '#1a1a1a',
-                      borderColor: '#2B2B2B',
-                      color: '#ffffff',
-                      borderWidth: '0.5px',
-                      padding: '12px 16px',
-                      fontFamily: 'inherit',
-                      fontSize: '14px',
-                      '&:focus': {
-                        borderColor: '#F5A623',
-                      },
-                      '&::-webkit-scrollbar': {
-                        width: '6px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        background: '#000000',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        background: '#0C0C0C',
-                        borderRadius: '3px',
-                        border: '0.5px solid #2B2B2B',
-                      },
-                    }
-                  }}
-                />
-              </Box>
-              <Box mb="md">
-                <Divider 
-                  my="md" 
-                  label="Test Summary Prompt" 
-                  labelPosition="center"
-                  styles={{
-                    label: { 
-                      color: '#F5A623', 
-                      fontSize: '14px',
-                      fontWeight: 500
+                    '&::-webkit-scrollbar-track': {
+                      background: '#000000',
                     },
-                    root: {
-                      borderColor: '#2B2B2B'
-                    }
-                  }}
-                />
-                <Textarea
-                  placeholder="Generate a test summary to verify functionality and language support."
-                  value={testSummaryPrompt}
-                  onChange={(e) => onTestSummaryChange(e.target.value)}
-                  minRows={4}
-                  autosize
-                  maxRows={8}
-                  styles={{
-                    input: {
-                      backgroundColor: '#1a1a1a',
-                      borderColor: '#2B2B2B',
-                      color: '#ffffff',
-                      borderWidth: '0.5px',
-                      padding: '12px 16px',
-                      fontFamily: 'inherit',
-                      fontSize: '14px',
-                      '&:focus': {
-                        borderColor: '#F5A623',
-                      },
-                      '&::-webkit-scrollbar': {
-                        width: '6px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        background: '#000000',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        background: '#0C0C0C',
-                        borderRadius: '3px',
-                        border: '0.5px solid #2B2B2B',
-                      },
-                    }
-                  }}
-                />
-                <Text size="xs" mt="xs" style={{ color: '#666666' }}>
-                  Test summary allows you to test specific summary configurations, e.g., non-English summaries
-                </Text>
-              </Box>
-            </ScrollArea>
-          </Box>
-        )}
-
-        <Group justify="flex-end" mt="lg">
-          <Button
-            variant="default"
-            onClick={onClose}
-            styles={{
-              root: {
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-                height: '44px',
-                '&:hover': {
-                  backgroundColor: '#2b2b2b',
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#0C0C0C',
+                      borderRadius: '3px',
+                      border: '0.5px solid #2B2B2B',
+                    },
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Highlights Prompt */}
+            <Box mb="lg">
+              <Divider 
+                my="md" 
+                label="Capsule Highlights" 
+                labelPosition="center"
+                styles={{
+                  label: { 
+                    color: '#F5A623', 
+                    fontSize: '14px',
+                    fontWeight: 500
+                  },
+                  root: {
+                    borderColor: '#2B2B2B'
+                  }
+                }}
+              />
+              
+              <Textarea
+                placeholder="Extract key highlights from the documents."
+                value={highlightsPrompt}
+                onChange={(e) => onHighlightsChange(e.target.value)}
+                minRows={4}
+                autosize
+                maxRows={8}
+                styles={{
+                  input: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2B2B2B',
+                    color: '#ffffff',
+                    borderWidth: '0.5px',
+                    padding: '12px 16px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    '&:focus': {
+                      borderColor: '#F5A623',
+                    },
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: '#000000',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#0C0C0C',
+                      borderRadius: '3px',
+                      border: '0.5px solid #2B2B2B',
+                    },
+                  }
+                }}
+              />
+            </Box>
+            
+            {/* Test Summary Prompt */}
+            <Box mb="lg">
+              <Divider 
+                my="md" 
+                label="Test Summary" 
+                labelPosition="center"
+                styles={{
+                  label: { 
+                    color: '#F5A623', 
+                    fontSize: '14px',
+                    fontWeight: 500
+                  },
+                  root: {
+                    borderColor: '#2B2B2B'
+                  }
+                }}
+              />
+              
+              <Textarea
+                placeholder="Generate a test summary to verify functionality and language support."
+                value={testSummaryPrompt}
+                onChange={(e) => onTestSummaryChange(e.target.value)}
+                minRows={4}
+                autosize
+                maxRows={8}
+                styles={{
+                  input: {
+                    backgroundColor: '#000000',
+                    borderColor: '#2B2B2B',
+                    color: '#ffffff',
+                    borderWidth: '0.5px',
+                    padding: '12px 16px',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    '&:focus': {
+                      borderColor: '#F5A623',
+                    },
+                    '&::-webkit-scrollbar': {
+                      width: '6px',
+                    },
+                    '&::-webkit-scrollbar-track': {
+                      background: '#000000',
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: '#0C0C0C',
+                      borderRadius: '3px',
+                      border: '0.5px solid #2B2B2B',
+                    },
+                  }
+                }}
+              />
+              <Text size="xs" mt="xs" style={{ color: '#666666' }}>
+                Test summary allows you to test specific summary configurations, e.g., non-English summaries
+              </Text>
+            </Box>
+          </ScrollArea>
+          
+          {saveStatus && (
+            <Text 
+              size="sm" 
+              c={saveStatus === 'Saved successfully' ? 'green' : 
+                 saveStatus === 'Saving...' ? 'orange' : 'red'} 
+              mb="md"
+              mt="md"
+            >
+              {saveStatus}
+            </Text>
+          )}
+          
+          <Group justify="flex-end" mt="lg">
+            <Button
+              variant="default"
+              onClick={onClose}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                  height: '44px',
+                  '&:hover': {
+                    backgroundColor: '#2b2b2b',
+                  },
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveClick}
+              loading={saveStatus === 'Saving...'}
+              styles={{
+                root: {
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  height: '44px',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
                 },
-              }
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveClick}
-            loading={saveStatus === 'Saving...'}
-            styles={{
-              root: {
-                backgroundColor: '#F5A623',
-                color: '#000000',
-                height: '44px',
-                '&:hover': {
-                  backgroundColor: '#E09612',
-                },
-              },
-            }}
-          >
-            Save Settings
-          </Button>
-        </Group>
+              }}
+            >
+              Save Settings
+            </Button>
+          </Group>
+        </Box>
       </Box>
     </Modal>
   );
