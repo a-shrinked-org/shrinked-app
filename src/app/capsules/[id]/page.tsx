@@ -832,11 +832,7 @@ const extractHighlightsContent = (highlights?: string): string | null => {
   return highlights.trim();
 };
 
-  // Add extractHighlightsContent for safe handling
-  const extractHighlightsContent = (highlights?: string): string | null => {
-    if (!highlights || typeof highlights !== 'string' || highlights.trim() === '') return null;
-    return highlights.trim();
-  };
+  
 
   const handleDownloadMarkdown = useCallback(() => {
     const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
