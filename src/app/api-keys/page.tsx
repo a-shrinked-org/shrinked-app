@@ -25,6 +25,7 @@ import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
+import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';
 
 interface ExtendedApiKey extends ProcessedDocument {
