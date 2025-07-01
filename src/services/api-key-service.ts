@@ -30,7 +30,7 @@ export const ApiKeyService = {
     try {
       const response = await authUtils.fetchWithAuth(API_BASE_URL, {
         method: "POST",
-        body: JSON.stringify({ name, userId }), // Include userId
+        body: JSON.stringify({ action: "create", name, userId }),
       });
       if (!response.ok) {
         throw new Error(`Error creating API key: ${response.status}`);
@@ -44,8 +44,9 @@ export const ApiKeyService = {
 
   async deleteApiKey(keyId: string): Promise<boolean> {
     try {
-      const response = await authUtils.fetchWithAuth(`${API_BASE_URL}/${keyId}`, {
+      const response = await authUtils.fetchWithAuth(API_BASE_URL, {
         method: "DELETE",
+        body: JSON.stringify({ keyId }),
       });
       return response.ok;
     } catch (error) {
@@ -54,12 +55,11 @@ export const ApiKeyService = {
     }
   },
 
-  // Commented out since not used in page.tsx
-  /*
   async regenerateApiKey(keyId: string): Promise<ApiKey> {
     try {
-      const response = await authUtils.fetchWithAuth(`${API_BASE_URL}/${keyId}/regenerate`, {
+      const response = await authUtils.fetchWithAuth(API_BASE_URL, {
         method: "POST",
+        body: JSON.stringify({ action: "regenerate", keyId }),
       });
       if (!response.ok) {
         throw new Error(`Error regenerating API key: ${response.status}`);
@@ -70,5 +70,4 @@ export const ApiKeyService = {
       throw error;
     }
   },
-  */
 };
