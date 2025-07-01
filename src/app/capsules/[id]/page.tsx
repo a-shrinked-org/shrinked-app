@@ -397,6 +397,7 @@ export default function CapsuleView() {
           setIsRegenerating(false);
           setIsAddingFiles(false);
           setStatusMonitorActive(false);
+          setIsStreaming(false); // Ensure streaming state is reset
           if (statusCheckIntervalRef.current) clearInterval(statusCheckIntervalRef.current);
 
           await debouncedRefetch();
@@ -771,6 +772,13 @@ export default function CapsuleView() {
 
     const currentStatus = record?.status?.toLowerCase();
     const shouldStream = currentStatus === 'processing' && !isStreaming && capsuleId && identity?.token;
+
+    // If status is no longer processing, stop streaming
+    if (currentStatus !== 'processing' && isStreaming) {
+      if (IS_DEV) console.log("[SSE] Status changed, stopping streaming.");
+      setIsStreaming(false);
+      return;
+    }
 
     if (shouldStream) {
       if (IS_DEV) console.log("[SSE] Starting summary stream");
@@ -1578,7 +1586,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                   </Stack>
                 ) : hasContentForDisplay ? (
                   <DocumentMarkdownWrapper 
-                    markdown={isStreaming ? streamedContent : (enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || '')} 
+                    markdown={enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''} 
                   />
                 ) : hasFiles ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
