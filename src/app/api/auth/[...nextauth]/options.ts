@@ -67,7 +67,15 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          const user = await response.json();
+          const data = await response.json();
+          // Assuming the API returns accessToken and refreshToken directly in the response body
+          const user = {
+            id: data.user.id, // Or whatever unique identifier your API provides
+            name: data.user.name,
+            email: data.user.email,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+          };
           return user;
         } catch (error) {
           return null;
