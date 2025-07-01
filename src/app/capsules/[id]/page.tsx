@@ -272,35 +272,92 @@ export default function CapsuleView() {
     }
   ], [summaryPrompt, highlightsPrompt]);
 
-  // Helper function to parse override prompt data
-  const parseOverridePrompt = useCallback((overridePrompt?: string) => {
-    if (!overridePrompt) return null;
-    
-    // Check if the plain text matches any of our cards exactly
-    const allCards = [...defaultCards, ...prototypeCards];
-    const matchingCard = allCards.find(card => card.prompt === overridePrompt);
-    
-    if (matchingCard) {
-      return {
-        cardId: matchingCard.id,
-        cardName: matchingCard.name,
-        prompt: matchingCard.prompt,
-        section: matchingCard.section
-      };
-    }
-    
-    // If it's a custom prompt that doesn't match any card, treat as custom
-    if (overridePrompt.trim()) {
-      return {
-        cardId: 'custom',
-        cardName: 'Custom Prompt',
-        prompt: overridePrompt,
-        section: 'capsule.custom'
-      };
-    }
-    
-    return null;
-  }, [defaultCards, prototypeCards]);
+ // Helper function to normalize text for comparison
+ const normalizeText = (text: string): string => {
+   return text
+     .trim()
+     .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+     .replace(/\n\s*/g, '\n') // Normalize line breaks
+     .toLowerCase();
+ };
+ 
+ // Helper function to parse override prompt data
+ const parseOverridePrompt = useCallback((overridePrompt?: string) => {
+   if (!overridePrompt) return null;
+   
+   const normalizedOverride = normalizeText(overridePrompt);
+   
+   // Check if the text matches any of our cards (with normalization)
+   const allCards = [...defaultCards, ...prototypeCards];
+   const matchingCard = allCards.find(card => {
+     const normalizedCardPrompt = normalizeText(card.prompt);
+     return normalizedCardPrompt === normalizedOverride;
+   });
+   
+   if (matchingCard) {
+     return {
+       cardId: matchingCard.id,
+       cardName: matchingCard.name,
+       prompt: matchingCard.prompt,
+       section: matchingCard.section
+     };
+   }
+   
+   // For debugging: try partial matching on key unique phrases
+   const debugMatch = allCards.find(card => {
+     const cardPrompt = normalizeText(card.prompt);
+     const overrideText = normalizedOverride;
+     
+     // Check for unique identifiers in each card
+     if (card.id === 'narrative-analyst' && 
+         overrideText.includes('paul graham') && 
+         overrideText.includes('tech newsletter') &&
+         overrideText.includes('tbpn')) {
+       console.log('Found narrative-analyst match by unique phrases');
+       return true;
+     }
+     
+     // Add similar checks for other cards with unique phrases
+     if (card.id === 'competitor-analysis' && 
+         overrideText.includes('competitor analysis') &&
+         overrideText.includes('market positioning')) {
+       return true;
+     }
+     
+     if (card.id === 'linkedin-connection' && 
+         overrideText.includes('linkedin connection') &&
+         overrideText.includes('prospect research')) {
+       return true;
+     }
+     
+     // Add more unique phrase checks as needed
+     
+     return false;
+   });
+   
+   if (debugMatch) {
+     console.log('Matched card via unique phrases:', debugMatch.name);
+     return {
+       cardId: debugMatch.id,
+       cardName: debugMatch.name,
+       prompt: debugMatch.prompt,
+       section: debugMatch.section
+     };
+   }
+   
+   // If it's a custom prompt that doesn't match any card, treat as custom
+   if (overridePrompt.trim()) {
+     console.log('No card match found, treating as custom prompt');
+     return {
+       cardId: 'custom',
+       cardName: 'Custom Prompt',
+       prompt: overridePrompt,
+       section: 'capsule.custom'
+     };
+   }
+   
+   return null;
+ }, [defaultCards, prototypeCards]);
 
   // Updated helper functions
   const getCurrentPurposeName = useCallback(() => {
