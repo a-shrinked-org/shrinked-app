@@ -25,14 +25,6 @@ interface Identity {
   subscriptionPlan?: { name?: string };
 }
 
-interface Identity {
-  token?: string;
-  email?: string;
-  name?: string;
-  id?: string;
-  subscriptionPlan?: { name?: string };
-}
-
 interface CapsuleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -42,8 +34,12 @@ interface CapsuleSettingsModalProps {
   summaryPrompt: string;
   highlightsPrompt: string;
   testSummaryPrompt: string;
+  onSummaryChange: (value: string) => void;
+  onHighlightsChange: (value: string) => void;
+  onTestSummaryChange: (value: string) => void;
+  onSave: () => void;
+  saveStatus: string;
   onUpdateSuccess: () => void;
-  onPromptUpdateSuccess: () => void;
   identity?: Identity;
 }
 
@@ -55,115 +51,29 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
   capsuleId,
   capsuleName,
   capsuleSlug,
+  summaryPrompt,
+  highlightsPrompt,
+  testSummaryPrompt,
+  onSummaryChange,
+  onHighlightsChange,
+  onTestSummaryChange,
+  onSave,
+  saveStatus,
   onUpdateSuccess,
   identity,
 }) => {
   const { fetchWithAuth, handleAuthError } = useAuth();
   const [name, setName] = useState(capsuleName);
   const [slug, setSlug] = useState(capsuleSlug);
-  const [summaryPrompt, setSummaryPrompt] = useState('');
-  const [highlightsPrompt, setHighlightsPrompt] = useState('');
-  const [testSummaryPrompt, setTestSummaryPrompt] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setName(capsuleName);
     setSlug(capsuleSlug);
   }, [capsuleName, capsuleSlug]);
 
-  const loadPrompts = async () => {
-    if (!capsuleId || !identity?.id) return;
-    
-    setIsLoadingPrompts(true);
-    try {
-      const response = await fetchWithAuth(`/api/admin/prompts?capsuleId=${capsuleId}`);
-      if (!response.ok) throw new Error(`Failed to fetch prompts: ${response.status}`);
-
-      const data = await response.json();
-      setSummaryPrompt(data.find((p: any) => p.section === 'capsule.summary')?.prompt || '');
-      setHighlightsPrompt(data.find((p: any) => p.section === 'capsule.highlights')?.prompt || '');
-      setTestSummaryPrompt(data.find((p: any) => p.section === 'capsule.testSummary')?.prompt || '');
-    } catch (error) {
-      if (IS_DEV) console.error('Failed to fetch prompts:', error);
-      setSummaryPrompt('Generate a comprehensive summary of the provided documents');
-      setHighlightsPrompt('Extract key highlights and important points from documents');
-      setTestSummaryPrompt('Create a test summary of the content');
-    } finally {
-      setIsLoadingPrompts(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen && identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
-      loadPrompts();
-    }
-  }, [isOpen, identity?.subscriptionPlan?.name]);
-
-  const formatErrorMessage = (error: any): string => {
-    if (!error) return "An unknown error occurred";
-    const status = error?.status ?? error?.statusCode ?? error?.response?.status;
-    const message = error?.message || "An unexpected error occurred";
-    if (status === 401 || status === 403) return "Your session has expired. Please log in again.";
-    if (status === 404) return "The requested resource was not found.";
-    if (status >= 500) return "The server encountered an error. Please try again later.";
-    return message;
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    setErrorMessage(null);
-    try {
-      const capsuleUpdatePromise = fetchWithAuth(`/api/capsule/${capsuleId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, slug }),
-      });
-  
-      const promises = [capsuleUpdatePromise];
-  
-      if (identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN') {
-        // Build prompts array only for non-empty prompts
-        const promptsToUpdate = [];
-        
-        // Add summary prompt if it has a non-empty value
-        const sanitizedSummaryPrompt = summaryPrompt.trim();
-        if (sanitizedSummaryPrompt) {
-          promptsToUpdate.push({ section: 'capsule.summary', prompt: sanitizedSummaryPrompt });
-        }
-  
-        // Add highlights prompt if it has a non-empty value
-        const sanitizedHighlightsPrompt = highlightsPrompt.trim();
-        if (sanitizedHighlightsPrompt) {
-          promptsToUpdate.push({ section: 'capsule.highlights', prompt: sanitizedHighlightsPrompt });
-        }
-  
-        // Add test summary prompt if it has a non-empty value
-        const sanitizedTestSummaryPrompt = testSummaryPrompt.trim();
-        if (sanitizedTestSummaryPrompt) {
-          promptsToUpdate.push({ section: 'capsule.testSummary', prompt: sanitizedTestSummaryPrompt });
-        }
-  
-        // Only send the prompts request if there are prompts to update
-        if (promptsToUpdate.length > 0) {
-          promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompts: promptsToUpdate }),
-          }));
-        }
-      }
-  
-      const responses = await Promise.all(promises);
-  
-      for (const response of responses) {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Failed to update: ${response.status}`);
-        }
-      }
-  
+  const handleSaveClick = () => {
+    onSave();
+    if (saveStatus === 'Saved successfully') {
       notifications.show({
         title: 'Settings Updated',
         message: 'Capsule settings and prompts saved successfully.',
@@ -171,20 +81,15 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       });
       onUpdateSuccess();
       onClose();
-    } catch (error) {
-      if (IS_DEV) console.error('Failed to update settings:', error);
-      setErrorMessage(formatErrorMessage(error));
-      handleAuthError(error);
+    } else if (saveStatus && saveStatus !== 'Saving...') {
       notifications.show({
         title: 'Error',
-        message: formatErrorMessage(error),
+        message: saveStatus,
         color: 'red',
       });
-    } finally {
-      setIsSaving(false);
-    };
+    }
   };
-  
+
   return (
     <Modal
       opened={isOpen}
@@ -225,9 +130,14 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
           </ActionIcon>
         </Flex>
 
-        {errorMessage && (
-          <Text color="red" size="sm" mb="md">
-            {errorMessage}
+        {saveStatus && (
+          <Text 
+            size="sm" 
+            c={saveStatus === 'Saved successfully' ? 'green' : 
+               saveStatus === 'Saving...' ? 'orange' : 'red'} 
+            mb="md"
+          >
+            {saveStatus}
           </Text>
         )}
 
@@ -272,7 +182,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
         {identity?.subscriptionPlan?.name?.toUpperCase() === 'ADMIN' && (
           <Box mb="lg">
             <Text fw={500} size="md" mb="md">Default Prompts (Admin Only)</Text>
-            <LoadingOverlay visible={isLoadingPrompts} overlayProps={{ blur: 2 }} />
+            <LoadingOverlay visible={saveStatus === 'Saving...'} overlayProps={{ blur: 2 }} />
             <ScrollArea h={300} scrollbarSize={6} scrollHideDelay={500} type="auto" offsetScrollbars>
               <Box mb="md">
                 <Divider 
@@ -293,7 +203,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
                 <Textarea
                   placeholder="Generate a comprehensive summary of the provided documents."
                   value={summaryPrompt}
-                  onChange={(e) => setSummaryPrompt(e.target.value)}
+                  onChange={(e) => onSummaryChange(e.target.value)}
                   minRows={4}
                   autosize
                   maxRows={8}
@@ -343,7 +253,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
                 <Textarea
                   placeholder="Extract key highlights and important points from documents."
                   value={highlightsPrompt}
-                  onChange={(e) => setHighlightsPrompt(e.target.value)}
+                  onChange={(e) => onHighlightsChange(e.target.value)}
                   minRows={4}
                   autosize
                   maxRows={8}
@@ -393,7 +303,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
                 <Textarea
                   placeholder="Generate a test summary to verify functionality and language support."
                   value={testSummaryPrompt}
-                  onChange={(e) => setTestSummaryPrompt(e.target.value)}
+                  onChange={(e) => onTestSummaryChange(e.target.value)}
                   minRows={4}
                   autosize
                   maxRows={8}
@@ -432,11 +342,37 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
         )}
 
         <Group justify="flex-end" mt="lg">
-          <Button variant="outline" onClick={onClose}>
+          <Button
+            variant="default"
+            onClick={onClose}
+            styles={{
+              root: {
+                borderColor: '#2b2b2b',
+                color: '#ffffff',
+                height: '44px',
+                '&:hover': {
+                  backgroundColor: '#2b2b2b',
+                },
+              }
+            }}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} loading={isSaving}>
-            Save Changes
+          <Button
+            onClick={handleSaveClick}
+            loading={saveStatus === 'Saving...'}
+            styles={{
+              root: {
+                backgroundColor: '#F5A623',
+                color: '#000000',
+                height: '44px',
+                '&:hover': {
+                  backgroundColor: '#E09612',
+                },
+              },
+            }}
+          >
+            Save Settings
           </Button>
         </Group>
       </Box>
