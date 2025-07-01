@@ -647,7 +647,7 @@ export default function JobShow() {
     try {
       // Refetch job data first to ensure latest status and resultId
       const jobResult = await refetch();
-      const newResultId = extractResultId(jobResult.data?.data);
+      const newResultId = extractResultId(jobResult.data?.data ?? null);
       if (newResultId && newResultId !== processingDocId) {
         setProcessingDocId(newResultId);
       }
