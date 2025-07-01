@@ -307,7 +307,7 @@ export default function ApiKeysList() {
             mb="md"
             styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
           >
-            Keep a record of the key below. You won't be able to view it again.
+            Keep a record of the key below. You won&apos;t be able to view it again.
           </Alert>
           <Box p="md" style={{ backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
             <Group justify="apart">
@@ -349,7 +349,7 @@ export default function ApiKeysList() {
                 },
               }}
             >
-              I've saved my API key
+              I&apos;ve saved my API key
             </Button>
           </Group>
         </Paper>
