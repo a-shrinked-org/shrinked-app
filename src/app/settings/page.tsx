@@ -253,24 +253,17 @@ export default function SettingsPage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const fetchUsageData = useCallback(async (subscriptionId: string) => {
-    console.log(`[Usage] Starting to fetch usage data for subscription ID: ${subscriptionId}`);
-    
+    setIsLoading(true); // Start loading for usage data
     try {
       // Jobs usage
-      console.log(`[Usage] Fetching jobs usage data...`);
       const jobsUrl = `/api/subscriptions-proxy/${subscriptionId}/jobs`;
-      console.log(`[Usage] Request URL: ${jobsUrl}`);
-      
       const jobsResponse = await fetch(jobsUrl, {
         headers: authUtils.getAuthHeaders(),
         cache: 'no-store'
       });
       
-      console.log(`[Usage] Jobs response status: ${jobsResponse.status}`);
-      
       if (jobsResponse.ok) {
         const jobsData = await jobsResponse.json();
-        console.log(`[Usage] Jobs data received:`, jobsData);
         setUsage(prev => ({
           ...prev,
           jobs: {
@@ -279,30 +272,18 @@ export default function SettingsPage() {
           }
         }));
       } else {
-        console.error(`[Usage] Failed to fetch jobs usage: ${jobsResponse.status}`);
-        try {
-          const errorText = await jobsResponse.text();
-          console.error(`[Usage] Error details:`, errorText);
-        } catch (e) {
-          console.error('[Usage] Could not read error response body');
-        }
+        console.error(`Failed to fetch jobs usage: ${jobsResponse.status}`);
       }
   
       // Processing time usage
-      console.log(`[Usage] Fetching processing usage data...`);
       const processingUrl = `/api/subscriptions-proxy/${subscriptionId}/processing`;
-      console.log(`[Usage] Request URL: ${processingUrl}`);
-      
       const processingResponse = await fetch(processingUrl, {
         headers: authUtils.getAuthHeaders(),
         cache: 'no-store'
       });
       
-      console.log(`[Usage] Processing response status: ${processingResponse.status}`);
-      
       if (processingResponse.ok) {
         const processingData = await processingResponse.json();
-        console.log(`[Usage] Processing data received:`, processingData);
         setUsage(prev => ({
           ...prev,
           processing: {
@@ -311,30 +292,18 @@ export default function SettingsPage() {
           }
         }));
       } else {
-        console.error(`[Usage] Failed to fetch processing usage: ${processingResponse.status}`);
-        try {
-          const errorText = await processingResponse.text();
-          console.error(`[Usage] Error details:`, errorText);
-        } catch (e) {
-          console.error('[Usage] Could not read error response body');
-        }
+        console.error(`Failed to fetch processing usage: ${processingResponse.status}`);
       }
   
       // API calls usage
-      console.log(`[Usage] Fetching API usage data...`);
       const apiUrl = `/api/subscriptions-proxy/${subscriptionId}/api`;
-      console.log(`[Usage] Request URL: ${apiUrl}`);
-      
       const apiResponse = await fetch(apiUrl, {
         headers: authUtils.getAuthHeaders(),
         cache: 'no-store'
       });
       
-      console.log(`[Usage] API response status: ${apiResponse.status}`);
-      
       if (apiResponse.ok) {
         const apiData = await apiResponse.json();
-        console.log(`[Usage] API data received:`, apiData);
         setUsage(prev => ({
           ...prev,
           api: {
@@ -343,13 +312,7 @@ export default function SettingsPage() {
           }
         }));
       } else {
-        console.error(`[Usage] Failed to fetch API usage: ${apiResponse.status}`);
-        try {
-          const errorText = await apiResponse.text();
-          console.error(`[Usage] Error details:`, errorText);
-        } catch (e) {
-          console.error('[Usage] Could not read error response body');
-        }
+        console.error(`Failed to fetch API usage: ${apiResponse.status}`);
       }
     } catch (error) {
       console.error("Error fetching usage data:", error);
@@ -358,6 +321,8 @@ export default function SettingsPage() {
         message: "Failed to fetch usage data. Please try refreshing the page.",
         color: "red",
       });
+    } finally {
+      setIsLoading(false); // End loading for usage data
     }
   }, []);
 
@@ -428,7 +393,7 @@ export default function SettingsPage() {
     };
 
     fetchData();
-  }, [router, fetchUsageData, profile]);
+  }, [router]);
 
   useEffect(() => {
     if (profile?.subscriptionPlan?._id) {
