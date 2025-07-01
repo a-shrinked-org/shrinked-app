@@ -316,7 +316,7 @@ export default function CapsuleView() {
      }
    }
  
-   if (highestSimilarity >= SIMILARITY_THRESHOLD) {
+   if (bestMatch && highestSimilarity >= SIMILARITY_THRESHOLD) {
      console.log(`Best match found for card: ${bestMatch.name} (similarity: ${highestSimilarity})`);
      return {
        cardId: bestMatch.id,
