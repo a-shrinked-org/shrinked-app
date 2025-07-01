@@ -105,11 +105,15 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
           { section: 'capsule.highlights', prompt: highlightsPrompt },
           { section: 'capsule.testSummary', prompt: testSummaryPrompt },
         ];
-        promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompts: promptsToUpdate }),
-        }));
+
+        // Send each prompt update individually
+        for (const promptData of promptsToUpdate) {
+          promises.push(fetchWithAuth(`/api/admin/prompts/upsert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(promptData), // Send individual prompt data
+          }));
+        }
       }
 
       const responses = await Promise.all(promises);
@@ -131,6 +135,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
       onClose();
     } catch (error) {
       if (IS_DEV) console.error('Failed to update settings:', error);
+      console.log(error);
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
       notifications.show({
@@ -156,6 +161,7 @@ const CapsuleSettingsModal: React.FC<CapsuleSettingsModalProps> = ({
     if (!error) return "An unknown error occurred";
     const status = error?.status ?? error?.statusCode ?? error?.response?.status;
     const message = error?.message || "An unexpected error occurred";
+    if (status) return `Error ${status}: ${message}`;
     if (status === 401 || status === 403) return "Your session has expired. Please log in again.";
     if (status >= 500) return "The server encountered an error. Please try again later.";
     return message;
