@@ -1597,7 +1597,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                     </Button>
                   </Stack>
                 ) : (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px', backgroundColor: 'transparent' }}>
+                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
                     <FileText size={48} style={{ opacity: 0.3, marginBottom: '20px' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0' }}>No Content Yet</Text>
                     <Text ta="center" c="dimmed" mb="xl">
