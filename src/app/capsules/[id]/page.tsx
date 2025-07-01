@@ -38,6 +38,7 @@ import {
   Settings
 } from 'lucide-react';
 import { Loader } from '@mantine/core';
+import CliLoadingAnimation from '@/components/CliLoadingAnimation';
 import { Select } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useParams, useRouter } from "next/navigation";
@@ -1471,10 +1472,9 @@ export default function CapsuleView() {
               
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
-                  <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
-                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.8 }} loaderProps={{ color: 'orange', type: 'dots' }} />
-                    <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
-                    <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
+                  <Stack align="flex-start" justify="flex-start" style={{ height: '300px', color: '#a0a0a0', paddingTop: '20px', paddingLeft: '20px' }}>
+                    <CliLoadingAnimation message="Generating context" />
+                    <Text c="dimmed" style={{ zIndex: 1, marginLeft: '20px' }}>
                       Analyzing files and creating the capsule summary.
                     </Text>
                   </Stack>
