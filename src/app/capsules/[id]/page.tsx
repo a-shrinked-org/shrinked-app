@@ -284,43 +284,7 @@ export default function CapsuleView() {
      .toLowerCase();
  };
  
- // Helper function to calculate Levenshtein distance (if not using string-similarity)
- const levenshteinDistance = (a: string, b: string): number => {
-   const matrix: number[][] = [];
  
-   // Initialize matrix
-   for (let i = 0; i <= b.length; i++) {
-     matrix[i] = [i];
-   }
-   for (let j = 0; j <= a.length; j++) {
-     matrix[0][j] = j;
-   }
- 
-   // Fill matrix
-   for (let i = 1; i <= b.length; i++) {
-     for (let j = 1; j <= a.length; j++) {
-       if (b.charAt(i - 1) === a.charAt(j - 1)) {
-         matrix[i][j] = matrix[i - 1][j - 1];
-       } else {
-         matrix[i][j] = Math.min(
-           matrix[i - 1][j - 1] + 1, // substitution
-           matrix[i][j - 1] + 1, // insertion
-           matrix[i - 1][j] + 1 // deletion
-         );
-       }
-     }
-   }
- 
-   return matrix[b.length][a.length];
- };
- 
- // Helper function to calculate similarity score (if not using string-similarity)
- const similarityScore = (a: string, b: string): number => {
-   const maxLength = Math.max(a.length, b.length);
-   if (maxLength === 0) return 1.0;
-   const distance = levenshteinDistance(a, b);
-   return 1 - distance / maxLength;
- };
  
  // Updated parseOverridePrompt
  const parseOverridePrompt = useCallback((overridePrompt?: string) => {
@@ -329,44 +293,31 @@ export default function CapsuleView() {
    const normalizedOverride = normalizeText(overridePrompt);
    const allCards = [...defaultCards, ...prototypeCards];
  
-   // First, try exact match (after normalization)
-   const exactMatch = allCards.find(card => {
-     const normalizedCardPrompt = normalizeText(card.prompt);
-     return normalizedCardPrompt === normalizedOverride;
-   });
- 
-   if (exactMatch) {
-     console.log('Exact match found for card:', exactMatch.name);
-     return {
-       cardId: exactMatch.id,
-       cardName: exactMatch.name,
-       prompt: exactMatch.prompt,
-       section: exactMatch.section
-     };
-   }
- 
-   // If exact match fails, try fuzzy matching
-   const SIMILARITY_THRESHOLD = 0.9; // Adjust based on testing
+   // Word-based similarity check
+   const SIMILARITY_THRESHOLD = 0.5; // 50% word overlap
    let bestMatch = null;
    let highestSimilarity = 0;
  
+   const overrideWords = new Set(normalizedOverride.split(/\s+/));
+ 
    for (const card of allCards) {
      const normalizedCardPrompt = normalizeText(card.prompt);
-     // Use string-similarity if available, otherwise use custom similarityScore
-     const similarity = stringSimilarity
-       ? stringSimilarity.compareTwoStrings(normalizedOverride, normalizedCardPrompt)
-       : similarityScore(normalizedOverride, normalizedCardPrompt);
+     const cardWords = new Set(normalizedCardPrompt.split(/\s+/));
  
-     console.log(`Comparing with card '${card.name}': similarity = ${similarity}`);
+     const intersection = new Set([...overrideWords].filter(word => cardWords.has(word)));
+     const union = new Set([...overrideWords, ...cardWords]);
+     const similarity = union.size > 0 ? intersection.size / union.size : 0;
  
-     if (similarity >= SIMILARITY_THRESHOLD && similarity > highestSimilarity) {
+     console.log(`Comparing with card '${card.name}': Jaccard similarity = ${similarity}`);
+ 
+     if (similarity > highestSimilarity) {
        bestMatch = card;
        highestSimilarity = similarity;
      }
    }
  
-   if (bestMatch) {
-     console.log(`Fuzzy match found for card: ${bestMatch.name} (similarity: ${highestSimilarity})`);
+   if (highestSimilarity >= SIMILARITY_THRESHOLD) {
+     console.log(`Best match found for card: ${bestMatch.name} (similarity: ${highestSimilarity})`);
      return {
        cardId: bestMatch.id,
        cardName: bestMatch.name,
