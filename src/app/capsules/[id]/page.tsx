@@ -111,7 +111,7 @@ interface Capsule {
   createdAt: string;
   status: string;
   summaryContext?: string;
-  highlights?: Array<{ xml?: string; text?: string }>;
+  highlights?: string;
   summary?: string;
   testSummary?: string;
   overridePrompt?: string;
@@ -831,13 +831,10 @@ export default function CapsuleView() {
     return summaryMatch?.[1]?.trim() ?? summaryContext.trim();
   };
 
-  const extractHighlightsContent = (highlights?: Array<{ xml?: string; text?: string }>): string | null => {
-    if (!highlights || highlights.length === 0) return null;
-    return highlights.map(h => h.xml || h.text).join('\n\n');
-  };
+  
 
   const handleDownloadMarkdown = useCallback(() => {
-    const contentToDownload = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
+    const contentToDownload = enrichedContent || record?.highlights || extractContextSummary(record?.summaryContext);
     if (!contentToDownload || !record) return;
 
     try {
@@ -1048,9 +1045,9 @@ export default function CapsuleView() {
   const displayFiles = record.files?.length ? record.files : loadedFiles;
   const hasFiles = displayFiles.length > 0;
   const isProcessing = record.status?.toLowerCase() === 'processing' || isRegenerating;
-  const hasContentForDisplay = !!(extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext));
+  const hasContentForDisplay = !!(record.highlights || extractContextSummary(record.summaryContext));
   
-  const debugContent = enrichedContent || extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext);
+  const debugContent = enrichedContent || record?.highlights || extractContextSummary(record?.summaryContext);
   console.log('PAGE DEBUG: Content being passed to renderer:', debugContent?.substring(0, 2000));
   
   const malformedInPage = debugContent?.match(/\*{3,}\[/g);
@@ -1480,8 +1477,7 @@ export default function CapsuleView() {
                   </Stack>
                 ) : hasContentForDisplay ? (
                   <DocumentMarkdownWrapper 
-                    highlights={record.highlights} 
-                    markdown={(enrichedContent || extractContextSummary(record.summaryContext)) ?? ""} 
+                    markdown={(enrichedContent || record.highlights || extractContextSummary(record.summaryContext)) ?? ""} 
                   />
                 ) : hasFiles ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0', padding: '20px' }}>
@@ -1550,7 +1546,7 @@ export default function CapsuleView() {
                       whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {enrichedContent || extractHighlightsContent(record.highlights) || extractContextSummary(record.summaryContext) || 'No markdown content available'}
+                    {enrichedContent || record.highlights || extractContextSummary(record.summaryContext) || 'No markdown content available'}
                   </Code>
                 ) : (
                   <Text c="dimmed" ta="center" mt="xl">
@@ -1726,7 +1722,7 @@ export default function CapsuleView() {
         onClose={() => {
           setIsReferenceModalOpen(false);
         }}
-        originalContent={extractHighlightsContent(record?.highlights) || extractContextSummary(record?.summaryContext) || ''}
+        originalContent={record?.highlights || extractContextSummary(record?.summaryContext) || ''}
         onContentUpdate={handleContentEnrichment}
       />
       <CapsulePurposeModal

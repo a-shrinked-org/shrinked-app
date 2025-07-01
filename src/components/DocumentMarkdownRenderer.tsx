@@ -78,7 +78,7 @@ function DocumentMarkdocRenderer({
           <Clock size={48} style={{ opacity: 0.7, margin: '0 auto 20px' }} />
           <Text size="xl" fw={600} mb="md">Your document is being processed</Text>
           <Text size="sm" c="dimmed" mb="lg">
-            We're analyzing your content and generating a comprehensive document. 
+            We&apos;re analyzing your content and generating a comprehensive document. 
             This may take a few minutes depending on the file size and complexity.
           </Text>
           <Progress 
