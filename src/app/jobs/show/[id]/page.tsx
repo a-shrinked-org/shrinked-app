@@ -155,7 +155,7 @@ export default function JobShow() {
         }
         
         // Extract upload file link from UPLOAD_FILE step
-        const uploadLink = extractUploadFileLink(data.data);
+        const uploadLink = extractUploadFileLink(data.data || null);
         if (uploadLink) {
           setUploadFileLink(uploadLink);
           console.log("Found upload file link:", uploadLink);
