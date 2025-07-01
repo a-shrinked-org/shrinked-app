@@ -25,7 +25,6 @@ import { authUtils, API_CONFIG } from "@/utils/authUtils";
 import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
-import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';
 
 interface ExtendedApiKey extends ProcessedDocument {
@@ -34,7 +33,6 @@ interface ExtendedApiKey extends ProcessedDocument {
   customStatus?: string;
 }
 
-// Custom title renderer to only show title without description
 const titleRenderer = (doc: ExtendedApiKey) => {
   return (
     <div style={{ overflow: 'hidden' }}>
@@ -51,7 +49,6 @@ const titleRenderer = (doc: ExtendedApiKey) => {
   );
 };
 
-// Custom status renderer for API keys
 const renderApiKeyStatus = (doc: ExtendedApiKey) => {
   return (
     <Box style={{ 
@@ -60,7 +57,6 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
       gap: '8px',
       paddingLeft: '4px'
     }}>
-      {/* Status text */}
       <Text size="sm" style={{ 
         color: '#ffffff',
         fontFamily: GeistMono.style.fontFamily,
@@ -78,16 +74,14 @@ export default function ApiKeysList() {
   const [keyName, setKeyName] = useState("");
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  // Add refresh counter state to force re-renders
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   const { data, isLoading: isLoadingKeys, refetch, error } = useList<ApiKey>({
-    resource: "",
+    resource: "api-keys-proxy", // Updated to match new route
     queryOptions: {
       enabled: !!authUtils.isAuthenticated(),
-      // Add cache options for better refresh behavior
-      cacheTime: 5000, // 5 seconds cache
-      staleTime: 0, // Always consider data stale
+      cacheTime: 5000,
+      staleTime: 0,
     },
     pagination: {
       pageSize: 100,
@@ -113,7 +107,7 @@ export default function ApiKeysList() {
     if (authUtils.isAuthenticated()) {
       refetch();
     }
-  }, [refetch, refreshCounter]); // Add refreshCounter to dependencies
+  }, [refetch, refreshCounter]);
 
   const handleViewDocument = (apiKey: ExtendedApiKey) => {
     console.log("Viewing API key:", apiKey);
@@ -126,7 +120,7 @@ export default function ApiKeysList() {
         const success = await ApiKeyService.deleteApiKey(id);
         if (success) {
           alert("API key deleted successfully");
-          refetch();
+          setRefreshCounter(prev => prev + 1);
         }
       } catch (error: any) {
         console.error("Error deleting API key:", error);
@@ -135,12 +129,9 @@ export default function ApiKeysList() {
     }
   };
 
-  // Improved handleRefresh function
   const handleRefresh = () => {
     console.log("Refresh button clicked in API Keys page");
-    // Call refetch without parameters to avoid type errors
     refetch();
-    // Update counter to force re-render
     setRefreshCounter(prev => prev + 1);
   };
 
@@ -149,11 +140,16 @@ export default function ApiKeysList() {
 
     setIsLoading(true);
     try {
-      const newKey = await ApiKeyService.createApiKey(keyName);
+      const session = await authUtils.getSession(); // Get user session
+      const userId = session?.user?.id; // Assume session.user.id contains the userId
+      if (!userId) {
+        throw new Error("User ID not found in session");
+      }
+      const newKey = await ApiKeyService.createApiKey(keyName, userId);
       setNewApiKey(newKey.key);
       setIsCreateModalOpen(false);
       setIsModalOpen(true);
-      refetch();
+      setRefreshCounter(prev => prev + 1);
     } catch (error) {
       console.error("Error creating API key:", error);
       alert(`Error creating API key: ${error instanceof Error ? error.message : String(error)}`);
@@ -171,24 +167,19 @@ export default function ApiKeysList() {
   const formatApiKeyData = (apiKeys: ApiKey[]): ExtendedApiKey[] => {
     return apiKeys.map(key => ({
       _id: key.id,
-      // Change title to all caps
       title: (key.name || 'UNNAMED API KEY').toUpperCase(),
       fileName: key.key.length > 16 ? 
         `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
         key.key,
       createdAt: key.createdAt || new Date().toISOString(),
-      // Use "active" for the status field which controls the circle color
       status: 'active',
-      // Add custom status for rendering
       customStatus: 'API KEY',
       output: { 
         title: (key.name || 'UNNAMED API KEY').toUpperCase(),
-        // Remove description by setting to empty string
         description: ''
       },
       keyName: key.name,
       keyValue: key.key,
-      // Explicitly set description to empty to ensure it doesn't show
       description: ''
     }));
   };
@@ -218,7 +209,7 @@ export default function ApiKeysList() {
   return (
     <>
       <DocumentsTable<ExtendedApiKey>
-        key={`api-keys-${refreshCounter}`} // Add key to force re-render
+        key={`api-keys-${refreshCounter}`}
         data={formatApiKeyData(data?.data || [])}
         onView={handleViewDocument}
         onDelete={handleDelete}
@@ -226,13 +217,10 @@ export default function ApiKeysList() {
         isLoading={isLoadingKeys}
         onRefresh={handleRefresh}
         error={error}
-        // Change title to all caps
         title="API KEYS"
         noDataMessage="No API keys found."
         onAddNew={() => setIsCreateModalOpen(true)}
-        // Add titleRenderer to customize title display
         titleRenderer={titleRenderer}
-        // Add custom status renderer
         statusRenderer={renderApiKeyStatus}
         buttonText="CREATE KEY"
       />
@@ -313,7 +301,7 @@ export default function ApiKeysList() {
         }}
       >
         <Alert title="Important!" color="red" mb="md">
-          Keep a record of the key below. You won&apos;t be able to view it again.
+          Keep a record of the key below. You won't be able to view it again.
         </Alert>
         
         <Box p="md" style={{ backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
@@ -354,7 +342,7 @@ export default function ApiKeysList() {
               },
             }}
           >
-            I&apos;ve saved my API key
+            I've saved my API key
           </Button>
         </Group>
       </Modal>

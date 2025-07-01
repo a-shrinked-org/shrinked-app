@@ -26,11 +26,11 @@ export const ApiKeyService = {
     }
   },
 
-  async createApiKey(name: string): Promise<ApiKey> {
+  async createApiKey(name: string, userId: string): Promise<ApiKey> {
     try {
       const response = await authUtils.fetchWithAuth(API_BASE_URL, {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, userId }), // Include userId
       });
       if (!response.ok) {
         throw new Error(`Error creating API key: ${response.status}`);
@@ -54,6 +54,8 @@ export const ApiKeyService = {
     }
   },
 
+  // Commented out since not used in page.tsx
+  /*
   async regenerateApiKey(keyId: string): Promise<ApiKey> {
     try {
       const response = await authUtils.fetchWithAuth(`${API_BASE_URL}/${keyId}/regenerate`, {
@@ -68,4 +70,5 @@ export const ApiKeyService = {
       throw error;
     }
   },
+  */
 };
