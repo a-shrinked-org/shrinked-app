@@ -275,24 +275,7 @@ export default function CapsuleView() {
   const parseOverridePrompt = useCallback((overridePrompt?: string) => {
     if (!overridePrompt) return null;
     
-    try {
-      // Try to parse as JSON first (new structured format)
-      const parsed = JSON.parse(overridePrompt);
-      if (parsed.cardId && parsed.cardName && parsed.prompt) {
-        return parsed as {
-          cardId: string;
-          cardName: string;
-          prompt: string;
-          section: string;
-          timestamp?: string;
-        };
-      }
-    } catch (error) {
-      // If JSON parsing fails, it might be a legacy plain text prompt
-      if (IS_DEV) console.log('overridePrompt is not JSON, checking if it matches known cards');
-    }
-    
-    // Check if the plain text matches any of our prototype card prompts
+    // Check if the plain text matches any of our cards exactly
     const allCards = [...defaultCards, ...prototypeCards];
     const matchingCard = allCards.find(card => card.prompt === overridePrompt);
     
