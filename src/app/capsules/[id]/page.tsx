@@ -644,70 +644,48 @@ export default function CapsuleView() {
     setLoadedFiles(prev => prev.filter(f => f._id !== fileId));
 
     setIsRegenerating(true);
-    startStatusMonitoring(); // Start monitoring immediately
 
     try {
-      // Send API calls without awaiting them to avoid blocking UI
-      fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
+      const response = await fetchWithAuth(`/api/capsule/${capsuleId}/files/${fileId}`, {
         method: 'DELETE',
-      })
-        .then(response => {
-          if (!response.ok && response.status !== 204) throw new Error(`Failed to remove file: ${response.status}`);
-          notifications.show({
-            title: 'File Removed',
-            message: 'File removal initiated.',
-            color: 'green',
-          });
+      });
 
-          // Trigger regeneration if files remain, but don't block
-          const remainingFiles = (record?.files || loadedFiles).filter(f => f._id !== fileId);
-          if (remainingFiles.length > 0) {
-            fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' })
-              .then(regenResponse => {
-                if (!regenResponse.ok) throw new Error(`Failed to trigger regeneration: ${regenResponse.status}`);
-              })
-              .catch(regenError => {
-                if (IS_DEV) console.error("[CapsuleView] Failed to trigger regeneration after file removal:", regenError);
-                notifications.show({
-                  title: 'Regeneration Error',
-                  message: formatErrorMessage(regenError),
-                  color: 'red',
-                });
-                handleAuthError(regenError);
-              });
-          }
-        })
-        .catch(error => {
-          if (IS_DEV) console.error("[CapsuleView] Failed to remove file:", error);
-          // Revert optimistic update if API call fails
-          setLoadedFiles(prev => {
-            const file = record?.files?.find(f => f._id === fileId) || {
-              _id: fileId,
-              title: `File ${fileId.slice(-6)}`,
-              createdAt: new Date().toISOString(),
-              size: 0,
-              contentType: 'application/octet-stream'
-            };
-            return prev.some(f => f._id === fileId) ? prev : [...prev, file];
-          });
-          setErrorMessage(formatErrorMessage(error));
-          handleAuthError(error);
-          setIsRegenerating(false); // Stop regenerating state if initial setup fails
-          notifications.show({
-            title: 'Error Removing File',
-            message: formatErrorMessage(error),
-            color: 'red',
-          });
-        });
+      if (!response.ok && response.status !== 204) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to remove file: ${response.status}`);
+      }
+
+      notifications.show({
+        title: 'File Removed',
+        message: 'File removal initiated.',
+        color: 'green',
+      });
+
+      await refetch(); // Explicitly refetch after successful deletion
 
     } catch (error) {
-      // This catch block will primarily handle errors from optimistic updates or initial setup
-      if (IS_DEV) console.error("[CapsuleView] General error in handleRemoveFile:", error);
+      if (IS_DEV) console.error("[CapsuleView] Failed to remove file:", error);
+      // Revert optimistic update if API call fails
+      setLoadedFiles(prev => {
+        const file = record?.files?.find(f => f._id === fileId) || {
+          _id: fileId,
+          title: `File ${fileId.slice(-6)}`,
+          createdAt: new Date().toISOString(),
+          size: 0,
+          contentType: 'application/octet-stream'
+        };
+        return prev.some(f => f._id === fileId) ? prev : [...prev, file];
+      });
       setErrorMessage(formatErrorMessage(error));
       handleAuthError(error);
-      setIsRegenerating(false);
+      setIsRegenerating(false); // Stop regenerating state if initial setup fails
+      notifications.show({
+        title: 'Error Removing File',
+        message: formatErrorMessage(error),
+        color: 'red',
+      });
     }
-  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, startStatusMonitoring]);
+  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, refetch]);
 
   // Regeneration with immediate UI feedback
   const handleRegenerateCapsule = useCallback(async () => {
@@ -715,6 +693,7 @@ export default function CapsuleView() {
 
     setErrorMessage(null);
     setIsRegenerating(true);
+    setEnrichedContent(''); // Clear content immediately
 
     try {
       const response = await fetchWithAuth(`/api/capsule/${capsuleId}/regenerate`, { method: 'GET' });
@@ -738,7 +717,7 @@ export default function CapsuleView() {
         color: 'red',
       });
     }
-  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating]);
+  }, [capsuleId, fetchWithAuth, handleAuthError, startStatusMonitoring, isRegenerating, setEnrichedContent]);
 
   // Load prompts for purpose modal
   const loadPrompts = useCallback(async () => {
@@ -1119,7 +1098,7 @@ export default function CapsuleView() {
             styles={{
               root: {
                 width: 'auto',
-                minWidth: '200px', // Increased for better visibility
+                minWidth: '200px',
               },
               wrapper: {
                 width: 'auto',
@@ -1137,7 +1116,7 @@ export default function CapsuleView() {
                 lineHeight: 1,
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase',
-                cursor: 'pointer', // Added cursor pointer
+                cursor: 'pointer',
                 '&:focus': {
                   outline: 'none',
                 },
@@ -1149,23 +1128,27 @@ export default function CapsuleView() {
               section: {
                 color: '#a0a0a0',
                 width: 'auto',
+                position: 'absolute',
+                right: '5px',
+                top: '50%',
+                transform: 'translateY(-50%)',
               },
               dropdown: {
                 backgroundColor: '#000000',
                 border: '1px solid #2b2b2b',
                 width: 'auto',
                 minWidth: 'max-content',
-                maxHeight: '300px', // Added max height for scrolling
+                maxHeight: '300px',
                 overflowY: 'auto',
               },
               option: {
                 color: '#ffffff',
                 fontSize: '14px',
                 fontFamily: GeistMono.style.fontFamily,
-                padding: '8px 12px', // Better padding
+                padding: '8px 12px',
                 '&[data-selected]': {
                   backgroundColor: '#202020',
-                  color: '#F5A623', // Highlight selected option
+                  color: '#F5A623',
                 },
                 '&:hover:not([data-disabled])': {
                   backgroundColor: '#1c1c1c',
@@ -1489,7 +1472,7 @@ export default function CapsuleView() {
               <Tabs.Panel value="preview" pt="md">
                 {isProcessing ? (
                   <Stack align="center" justify="center" style={{ height: '300px', color: '#a0a0a0' }}>
-                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.6 }} loaderProps={{ color: 'orange', type: 'dots' }} />
+                    <LoadingOverlay visible={true} overlayProps={{ blur: 1, color: '#0a0a0a', opacity: 0.8 }} loaderProps={{ color: 'orange', type: 'dots' }} />
                     <Text mb="md" fw={600} size="lg" style={{ color: '#e0e0e0', zIndex: 1 }}>Generating context...</Text>
                     <Text ta="center" c="dimmed" mb="md" style={{ zIndex: 1 }}>
                       Analyzing files and creating the capsule summary.
