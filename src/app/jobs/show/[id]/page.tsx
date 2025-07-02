@@ -513,7 +513,7 @@ export default function JobShow() {
       }
   
       // Verify processingDocId matches job context
-      const expectedResultId = extractResultId(record);
+      const expectedResultId = extractResultId(record ?? null);
       if (processingDocId !== expectedResultId) {
         console.warn(`Mismatch: processingDocId (${processingDocId}) does not match expected resultId (${expectedResultId})`);
       }
@@ -599,7 +599,7 @@ export default function JobShow() {
   
       // Check if combinedData has usable fields
       const hasCombinedData = combinedData && Object.keys(combinedData).some(key => 
-        ['abstract', 'contributors', 'chapters', 'introduction', 'passages', 'conclusion', 'references'].includes(key) && combinedData[key]
+        ['abstract', 'contributors', 'chapters', 'introduction', 'passages', 'conclusion', 'references'].includes(key) && combinedData[key as keyof typeof combinedData]
       );
   
       console.log('Combined data:', combinedData);
