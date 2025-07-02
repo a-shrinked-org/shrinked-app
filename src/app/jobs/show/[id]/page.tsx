@@ -488,110 +488,101 @@ export default function JobShow() {
   }, [processingDocId, queryResult.data, markdownContent, fetchMarkdownContent, processingDoc]);
   
   const handleShareDocument = useCallback(async () => {
-    if (!processingDocId) {
-      setErrorMessage("No document ID found to share");
-      return;
+  if (!processingDocId) {
+    setErrorMessage("No document ID found to share");
+    return;
+  }
+  
+  try {
+    // If we already have a link, just open the share dialog
+    if (record?.link && record.link.includes('/docs/')) {
+    setSharedUrl(record.link);
+    openShareDialog();
+    return;
     }
     
-    try {
-      // If we already have a link, just open the share dialog
-      if (record?.link && record.link.includes('/docs/')) {
-        setSharedUrl(record.link);
-        openShareDialog();
-        return;
-      }
+    // Otherwise, create a new shared document
+    setIsSharing(true);
+    setErrorMessage(null);
   
-      // Otherwise, create a new shared document
-      setIsSharing(true);
-      setErrorMessage(null);
+    // Get a title for the slug
+    const title = processingDoc?.title || 
+          record?.output?.title || 
+          record?.jobName || 
+          'document';
+    
+    // Create a slug from the title
+    const slug = title.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || processingDocId;
   
-      // Get a title for the slug - try markdown title first, then fallback to jobId
-      let title = processingDoc?.title || record?.output?.title || record?.jobName;
-      
-      // If no title found, try to extract from markdown
-      if (!title && markdownContent) {
-        const firstLine = markdownContent.split('\n')[0];
-        if (firstLine.startsWith('# ')) {
-          title = firstLine.substring(2).trim();
-        }
-      }
-      
-      // Final fallback to jobId or 'document'
-      title = title || jobId || 'document';
+    // Prepare the content payload
+    const content = {
+    title: title,
+    origin: uploadFileLink || '',
+    abstract: combinedData.abstract || '',
+    contributors: combinedData.contributors || '',
+    chapters: Array.isArray(combinedData.chapters) 
+      ? combinedData.chapters.map(ch => `- ${ch.title}`).join('\n') 
+      : (combinedData.chapters || ''),
+    introduction: combinedData.introduction || '',
+    passages: Array.isArray(combinedData.passages) 
+      ? combinedData.passages.join('\n\n') 
+      : (combinedData.passages || ''),
+    conclusion: combinedData.conclusion || '',
+    references: Array.isArray(combinedData.references) 
+      ? combinedData.references.map(ref => ref.item).join('\n') 
+      : (combinedData.references || '')
+    };
   
-      // Create a slug from the title
-      const slug = title.toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || processingDocId;
+    // Send the request to create a shared document
+    const response = await fetchWithAuth('/api/share-document', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      slug,
+      content,
+      jobId: jobId // Include the job ID for updating the job record
+    })
+    });
   
-      // Prepare the content payload
-      const content = {
-        title: title,
-        origin: uploadFileLink || '',
-        abstract: combinedData.abstract || '',
-        contributors: combinedData.contributors || '',
-        chapters: Array.isArray(combinedData.chapters) 
-          ? combinedData.chapters.map(ch => `- ${ch.title}`).join('\n') 
-          : (combinedData.chapters || ''),
-        introduction: combinedData.introduction || '',
-        passages: Array.isArray(combinedData.passages) 
-          ? combinedData.passages.join('\n\n') 
-          : (combinedData.passages || ''),
-        conclusion: combinedData.conclusion || '',
-        references: Array.isArray(combinedData.references) 
-          ? combinedData.references.map(ref => ref.item).join('\n') 
-          : (combinedData.references || '')
-      };
-  
-      // Send the request to create a shared document
-      const response = await fetchWithAuth('/api/share-document', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          slug,
-          content,
-          jobId: jobId // Include the job ID for updating the job record
-        })
-      });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to share document: ${response.status}`);
-      }
-  
-      const result = await response.json();
-      
-      if (result.status === 'created' && result.link) {
-        // Set the shared URL and open the dialog
-        setSharedUrl(result.link);
-        openShareDialog();
-  
-        // Update the job data in our state if possible
-        if (queryResult.refetch) {
-          queryResult.refetch();
-        }
-      } else if (result.error) {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      console.error("Failed to share document:", error);
-      setErrorMessage(`Error sharing document: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsSharing(false);
+    if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || `Failed to share document: ${response.status}`);
     }
+  
+    const result = await response.json();
+  
+    if (result.status === 'created' && result.link) {
+    // Set the shared URL and open the dialog
+    setSharedUrl(result.link);
+    openShareDialog();
+    
+    // Update the job data in our state if possible
+    if (queryResult.refetch) {
+      queryResult.refetch();
+    }
+    } else if (result.error) {
+    throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error("Failed to share document:", error);
+    setErrorMessage(`Error sharing document: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    setIsSharing(false);
+  }
   }, [
-    processingDocId,
-    record,
-    processingDoc,
-    uploadFileLink,
-    jobId,
-    fetchWithAuth,
-    queryResult,
-    openShareDialog,
-    combinedData,
-    markdownContent
+  processingDocId, 
+  record, 
+  processingDoc, 
+  uploadFileLink, 
+  jobId, 
+  fetchWithAuth, 
+  queryResult, 
+  openShareDialog,
+  combinedData
   ]);
 
   const renderSkeletonLoader = () => (
