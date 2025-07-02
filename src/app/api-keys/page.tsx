@@ -1,28 +1,23 @@
 "use client";
 
 import { useList, useGetIdentity } from "@refinedev/core";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Stack,
   Button,
-  Group,
   Text,
-  TextInput,
   LoadingOverlay,
-  CopyButton,
   Alert,
   Box,
-  Code,
-  Paper,
 } from "@mantine/core";
-import { Trash, Copy, Check, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { authUtils } from "@/utils/authUtils";
-import { IconWrapper } from "@/utils/ui-utils";
 import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';
 import { Identity } from "@/@types/logic";
+import ApiKeyCreateModal from '@/components/ApiKeyCreateModal';
 
 interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
@@ -67,9 +62,7 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
 
 export default function ApiKeysList() {
   const { data: identity } = useGetIdentity<Identity>();
-  const [keyName, setKeyName] = useState("");
-  const [newApiKey, setNewApiKey] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -130,38 +123,18 @@ export default function ApiKeysList() {
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     console.log("[ApiKeysList] Refreshing API keys");
     refetch();
     setRefreshCounter(prev => prev + 1);
     setErrorMessage(null);
-  };
+  }, [refetch]);
 
-  const handleCreateApiKey = async () => {
-    if (!keyName) {
-      setErrorMessage("API key name is required.");
-      return;
-    }
-    if (!identity?.id) {
-      setErrorMessage("User not authenticated.");
-      return;
-    }
-
-    setIsLoading(true);
+  const handleApiKeyCreated = useCallback(() => {
+    setRefreshCounter(prev => prev + 1);
     setErrorMessage(null);
-    try {
-      console.log("[ApiKeysList] Creating API key:", { name: keyName, userId: identity.id });
-      const newKey = await ApiKeyService.createApiKey(keyName, identity.id);
-      setNewApiKey(newKey.key);
-      setRefreshCounter(prev => prev + 1);
-      setKeyName("");
-    } catch (error: any) {
-      console.error("[ApiKeysList] Error creating API key:", error);
-      setErrorMessage(`Error creating API key: ${error.message || "Unknown error"}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setIsCreateModalOpen(false);
+  }, []);
 
   const formatApiKeyData = (apiKeys: ApiKey[]): ExtendedApiKey[] => {
     return apiKeys.map(key => ({
@@ -217,144 +190,6 @@ export default function ApiKeysList() {
       color: '#ffffff',
       minHeight: '100vh'
     }}>
-      <LoadingOverlay visible={isLoading} overlayProps={{ blur: 2 }} />
-      <Text
-        size="lg"
-        fw={500}
-        mb="md"
-        style={{ fontFamily: GeistMono.style.fontFamily, textTransform: 'uppercase', letterSpacing: '0.5px' }}
-      >
-        API Keys
-      </Text>
-
-      <Paper
-        withBorder
-        radius="md"
-        p="lg"
-        bg="#0a0a0a"
-        mb="lg"
-        style={{ borderColor: "#2B2B2B" }}
-      >
-        <Text size="sm" mb="md" style={{ fontFamily: GeistMono.style.fontFamily }}>
-          Create a new API key
-        </Text>
-        <Stack gap="md">
-          <TextInput
-            label="API Key Name"
-            placeholder="e.g., Development, Production"
-            value={keyName}
-            onChange={(e) => setKeyName(e.target.value)}
-            required
-            styles={{
-              input: {
-                backgroundColor: '#0d0d0d',
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-              },
-              label: {
-                color: '#ffffff',
-                fontFamily: GeistMono.style.fontFamily,
-              },
-            }}
-          />
-          <Group justify="flex-end">
-            <Button 
-              onClick={handleCreateApiKey} 
-              disabled={!keyName || isLoading}
-              styles={{
-                root: {
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  fontFamily: GeistMono.style.fontFamily,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  '&:hover': {
-                    backgroundColor: '#E09612',
-                  },
-                },
-              }}
-            >
-              Create Key
-            </Button>
-          </Group>
-        </Stack>
-      </Paper>
-
-      {errorMessage && (
-        <Alert
-          icon={<AlertCircle size={16} />}
-          title="Error"
-          color="red"
-          mb="lg"
-          styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
-        >
-          {errorMessage}
-        </Alert>
-      )}
-
-      {newApiKey && (
-        <Paper
-          withBorder
-          radius="md"
-          p="lg"
-          bg="#0a0a0a"
-          mb="lg"
-          style={{ borderColor: "#2B2B2B" }}
-        >
-          <Alert
-            title="Important!"
-            color="red"
-            mb="md"
-            styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
-          >
-            Keep a record of the key below. You won&apos;t be able to view it again.
-          </Alert>
-          <Box p="md" style={{ backgroundColor: '#1a1a1a', borderRadius: '4px' }}>
-            <Group justify="apart">
-              <Code style={{ fontSize: '14px', wordBreak: 'break-all', backgroundColor: '#1a1a1a', color: '#ffffff' }}>
-                {newApiKey}
-              </Code>
-              <CopyButton value={newApiKey} timeout={2000}>
-                {({ copied, copy }) => (
-                  <Button 
-                    size="xs"
-                    color={copied ? 'teal' : 'blue'} 
-                    onClick={copy}
-                    leftSection={copied ? <IconWrapper icon={Check} size={16} /> : <IconWrapper icon={Copy} size={16} />}
-                    styles={{ root: { fontFamily: GeistMono.style.fontFamily } }}
-                  >
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                )}
-              </CopyButton>
-            </Group>
-          </Box>
-          <Text size="sm" mt="lg" style={{ fontFamily: GeistMono.style.fontFamily }}>
-            You can use this API key to authenticate with the Shrinked API.
-            Include it in the <Code style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>x-api-key</Code> header in your requests.
-          </Text>
-          <Group justify="center" mt="md">
-            <Button 
-              onClick={() => setNewApiKey(null)}
-              styles={{
-                root: {
-                  backgroundColor: '#F5A623',
-                  color: '#000000',
-                  fontFamily: GeistMono.style.fontFamily,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  '&:hover': {
-                    backgroundColor: '#E09612',
-                  },
-                },
-              }}
-            >
-              I&apos;ve saved my API key
-            </Button>
-          </Group>
-        </Paper>
-      )}
-
       <DocumentsTable<ExtendedApiKey>
         key={`api-keys-${refreshCounter}`}
         data={formatApiKeyData(data?.data || [])}
@@ -364,12 +199,18 @@ export default function ApiKeysList() {
         isLoading={isLoadingKeys}
         onRefresh={handleRefresh}
         error={error}
-        title="Existing API Keys"
+        title="API Keys"
         noDataMessage="No API keys found."
-        onAddNew={handleCreateApiKey}
+        onAddNew={() => setIsCreateModalOpen(true)}
         titleRenderer={titleRenderer}
         statusRenderer={renderApiKeyStatus}
-        buttonText="CREATE KEY"
+        buttonText="CREATE NEW KEY"
+      />
+
+      <ApiKeyCreateModal
+        opened={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleApiKeyCreated}
       />
     </Box>
   );
