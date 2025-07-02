@@ -112,11 +112,13 @@ export default function ApiKeysList() {
 
   const handleDelete = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    console.log("[ApiKeysList] handleDelete called for ID:", id);
     setApiKeyToDeleteId(id);
     setIsConfirmModalOpen(true);
   };
 
   const confirmDeleteApiKey = async () => {
+    console.log("[ApiKeysList] confirmDeleteApiKey called. apiKeyToDeleteId:", apiKeyToDeleteId);
     if (!apiKeyToDeleteId) return;
 
     try {

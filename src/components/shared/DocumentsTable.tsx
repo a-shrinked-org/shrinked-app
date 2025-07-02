@@ -731,22 +731,20 @@ function DocumentsTable<T extends ProcessedDocument>({
                             </Tooltip>
                           )}
                           {onDelete && (
-                            <Tooltip label="Delete">
-                              <ActionIcon 
-                                variant="subtle"
-                                color="red"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  console.log("Delete icon clicked for doc ID:", doc._id);
-                                  onDelete(doc._id, e);
-                                }}
-                                style={{
-                                  '&:hover': { backgroundColor: '#2b2b2b' }
-                                }}
-                              >
-                                <Trash size={16} />
-                              </ActionIcon>
-                            </Tooltip>
+                            <ActionIcon 
+                              variant="subtle"
+                              color="red"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log("Delete icon clicked for doc ID:", doc._id);
+                                onDelete(doc._id, e);
+                              }}
+                              style={{
+                                '&:hover': { backgroundColor: '#2b2b2b' }
+                              }}
+                            >
+                              <Trash size={16} />
+                            </ActionIcon>
                           )}
                         </Group>
                       )}
