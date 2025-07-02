@@ -1,6 +1,6 @@
 "use client";
 
-import { useList, useGetIdentity } from "@refinedev/core";
+import { useList, useGetIdentity, useNotification } from "@refinedev/core";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Stack,
@@ -18,7 +18,7 @@ import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';
 import { Identity } from "@/@types/logic";
 import ApiKeyCreateModal from '@/components/ApiKeyCreateModal';
-import ConfirmationModal from '@/components/shared/ConfirmationModal';
+import { ConfirmationModal } from '@/components/shared/ConfirmationModal';
 
 interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
@@ -117,6 +117,8 @@ export default function ApiKeysList() {
     setIsConfirmModalOpen(true);
   };
 
+  const { open } = useNotification();
+
   const confirmDeleteApiKey = async () => {
     console.log("[ApiKeysList] confirmDeleteApiKey called. apiKeyToDeleteId:", apiKeyToDeleteId);
     if (!apiKeyToDeleteId) return;
@@ -126,13 +128,13 @@ export default function ApiKeysList() {
       const success = await ApiKeyService.deleteApiKey(apiKeyToDeleteId);
       if (success) {
         setRefreshCounter(prev => prev + 1);
-        setErrorMessage(null);
+        open?.({ type: "success", message: "API key deleted successfully" });
       } else {
-        setErrorMessage("Failed to delete API key.");
+        open?.({ type: "error", message: "Failed to delete API key" });
       }
     } catch (error: any) {
       console.error("[ApiKeysList] Error deleting API key:", error);
-      setErrorMessage(`Failed to delete API key: ${error.message || "Unknown error"}`);
+      open?.({ type: "error", message: `Failed to delete API key: ${error.message || "Unknown error"}` });
     } finally {
       setIsConfirmModalOpen(false);
       setApiKeyToDeleteId(null);

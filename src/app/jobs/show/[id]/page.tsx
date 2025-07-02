@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigation, useShow, useGetIdentity } from "@refinedev/core";
+import { useOne, useNavigation, useGetIdentity, useShow } from "@refinedev/core";
+import { showNotification } from "@mantine/notifications";
 import { 
   Text, 
   Box,
@@ -30,7 +31,9 @@ import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 import { useDisclosure } from '@mantine/hooks';
 import ShareDialog from "@/components/ShareDialog"; 
+import { JobActionsMenu } from "@/components/JobActionsMenu";
 import { useForm } from 'react-hook-form';
+import { GeistMono } from 'geist/font/mono';
 import { debounce } from 'lodash';
 import '@/styles/blink.css';
 
@@ -120,73 +123,10 @@ export default function JobShow() {
     }
   }, [identity, identityRefetch]);
   
-  const { open } = useNotification();
+  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const renameForm = useForm();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleRegenerate = async () => {
-    setIsSubmitting(true);
-    try {
-      const token = await ensureValidToken();
-      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}/restart`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to restart job');
-      open({ type: 'success', message: 'Job successfully restarted!' });
-      refetch();
-    } catch (error) {
-      console.error("Failed to restart job:", error);
-      open({ type: 'error', message: `Error restarting job: ${error instanceof Error ? error.message : String(error)}` });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRename = async (newName: string) => {
-    setIsSubmitting(true);
-    try {
-      const token = await ensureValidToken();
-      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}`,
-        {
-          method: 'PATCH',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ jobName: newName })
-        });
-      if (!response.ok) throw new Error('Failed to rename job');
-      open({ type: 'success', message: 'Job successfully renamed!' });
-      refetch();
-    } catch (error) {
-      console.error("Failed to rename job:", error);
-      open({ type: 'error', message: `Error renaming job: ${error instanceof Error ? error.message : String(error)}` });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    setIsSubmitting(true);
-    try {
-      const token = await ensureValidToken();
-      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Failed to delete job');
-      open({ type: 'success', message: 'Job successfully deleted!' });
-      list('jobs');
-    } catch (error) {
-      console.error("Failed to delete job:", error);
-      open({ type: 'error', message: `Error deleting job: ${error instanceof Error ? error.message : String(error)}` });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  
   // Add this helper function to extract the upload file link
   const extractUploadFileLink = useCallback((jobData: Job | null) => {
     if (!jobData) return null;
@@ -195,7 +135,7 @@ export default function JobShow() {
     const uploadStep = jobData.steps?.find(step => step.name === "UPLOAD_FILE");
     return uploadStep?.data?.link || uploadStep?.data?.output?.link || null;
   }, []);
-  
+
   // Update your useShow query's onSuccess callback
   const { queryResult } = useShow<Job>({
     resource: "jobs",
@@ -240,6 +180,68 @@ export default function JobShow() {
   });
 
   const { refetch } = queryResult;
+
+  const handleRegenerate = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      const token = await ensureValidToken();
+      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}/restart`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to restart job');
+      showNotification({ message: 'Job successfully restarted!', color: 'green' });
+      refetch();
+    } catch (error) {
+      console.error("Failed to restart job:", error);
+      showNotification({ message: `Error restarting job: ${error instanceof Error ? error.message : String(error)}`, color: 'red' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [jobId, refetch, ensureValidToken, fetchWithAuth]);
+
+  const handleRename = useCallback(async (newName: string) => {
+    setIsSubmitting(true);
+    try {
+      const token = await ensureValidToken();
+      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}`,
+        {
+          method: 'PATCH',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ jobName: newName })
+        });
+      if (!response.ok) throw new Error('Failed to rename job');
+      showNotification({ message: 'Job successfully renamed!', color: 'green' });
+      refetch();
+    } catch (error) {
+      console.error("Failed to rename job:", error);
+      showNotification({ message: `Error renaming job: ${error instanceof Error ? error.message : String(error)}`, color: 'red' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [jobId, refetch, ensureValidToken, fetchWithAuth, setIsSubmitting]);
+
+  const handleDelete = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      const token = await ensureValidToken();
+      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to delete job');
+      showNotification({ message: 'Job successfully deleted!', color: 'green' });
+      list('jobs');
+    } catch (error) {
+      console.error("Failed to delete job:", error);
+      showNotification({ message: `Error deleting job: ${error instanceof Error ? error.message : String(error)}`, color: 'red' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [jobId, list, ensureValidToken, fetchWithAuth, setIsSubmitting]);
 
   const { data, isLoading, isError } = queryResult;
   const record = data?.data;
@@ -361,7 +363,7 @@ export default function JobShow() {
       setIsLoadingDoc(false);
       isFetchingProcessingDoc.current = false;
     }
-  }, [processingDocId]);
+  }, [processingDocId, setErrorMessage, setIsLoadingDoc, setProcessingDoc]);
 
   useEffect(() => {
     const status = getProcessingStatus();
@@ -385,7 +387,7 @@ export default function JobShow() {
       // Trigger immediate markdown fetch when job is completed
       fetchMarkdownContent(true);
     }
-  }, [getProcessingStatus, refetch, processingDocId, markdownContent, fetchMarkdownContent]);
+  }, [getProcessingStatus, refetch, processingDocId, markdownContent, fetchMarkdownContent, extractResultId]);
   
   const isLoadingMarkdown = useRef(false);
   const isFetchingProcessingDoc = useRef(false);
@@ -413,7 +415,7 @@ export default function JobShow() {
         fetchMarkdownContent();
       }
     }
-  }, [processingDocId, getProcessingDocument, fetchMarkdownContent, markdownContent, queryResult.data]);
+  }, [processingDocId, getProcessingDocument, fetchMarkdownContent, markdownContent, queryResult.data, processingDoc]);
 
   const handleDownloadPDF = useCallback(async () => {
     if (!processingDocId) return;

@@ -296,7 +296,7 @@ export default function CapsuleView() {
      prompt: overridePrompt,
      section: 'capsule.custom'
    };
- }, [defaultCards, prototypeCards]);
+ }, [defaultCards]);
 
   // Updated helper functions
   const getCurrentPurposeName = useCallback(() => {
@@ -496,7 +496,7 @@ export default function CapsuleView() {
       setIsLoadingFiles(false);
       setFetchRetries(prev => prev + 1);
     }
-  }, [capsuleId, identity?.id, fetchWithAuth, loadedFiles, isLoadingFiles]);
+  }, [capsuleId, identity?.id, fetchWithAuth, isLoadingFiles, loadedFiles]);
 
   const handleAddFile = useCallback(() => {
     setIsFileSelectorOpen(true);

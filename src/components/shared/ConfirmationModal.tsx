@@ -1,6 +1,6 @@
-import { Modal, Button, Text, Group, TextInput } from '@mantine/core';
+import { Modal, Button, Text, Group } from '@mantine/core';
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { UseFormReturn } from 'react-hook-form';
 
 interface ConfirmationModalProps {
   opened: boolean;
@@ -12,7 +12,7 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmColor?: string;
-  form?: any;
+  form?: UseFormReturn<any>;
 }
 
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({

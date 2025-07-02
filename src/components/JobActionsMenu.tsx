@@ -12,14 +12,15 @@ interface JobActionsMenuProps {
   onRegenerate: () => void;
   onRename: (newName: string) => void;
   onDelete: () => void;
+  form: any;
 }
 
-export const JobActionsMenu: React.FC<JobActionsMenuProps> = ({ 
-  jobId, 
-  jobName, 
-  onRegenerate, 
-  onRename, 
-  onDelete 
+export const JobActionsMenu: React.FC<JobActionsMenuProps> = ({
+  jobId,
+  jobName,
+  onRegenerate,
+  onRename,
+  onDelete,
 }) => {
   const [renameModalOpened, { open: openRenameModal, close: closeRenameModal }] = useDisclosure(false);
   const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);

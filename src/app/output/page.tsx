@@ -1,8 +1,8 @@
 "use client";
 
-import { useList, useGetIdentity } from "@refinedev/core";
+import { useList, useGetIdentity, useNotification } from "@refinedev/core";
 import React, { useEffect, useState, useCallback } from "react";
-import ConfirmationModal from '@/components/shared/ConfirmationModal';
+import { ConfirmationModal } from '@/components/shared/ConfirmationModal';
 import { 
   Stack, 
   LoadingOverlay, 
@@ -63,6 +63,7 @@ export default function ProcessingList() {
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [docToDeleteId, setDocToDeleteId] = useState<string | null>(null);
+  const { open } = useNotification();
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
@@ -171,18 +172,19 @@ export default function ProcessingList() {
       if (result.success) {
         console.log("Document deleted successfully");
         setRefreshCounter(prev => prev + 1);
+        open?.({ type: "success", message: "Document deleted successfully" });
       } else {
         console.error("Failed to delete document:", result.error?.message || "Unknown error");
-        alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
+        open?.({ type: "error", message: `Failed to delete document: ${result.error?.message || "Unknown error"}` });
       }
     } catch (error) {
       console.error("Error deleting document:", error);
-      alert("Failed to delete document: Unknown error");
+      open?.({ type: "error", message: `Failed to delete document: ${error instanceof Error ? error.message : "Unknown error"}` });
     } finally {
       setIsConfirmModalOpen(false);
       setDocToDeleteId(null);
     }
-  }, [docToDeleteId, refetch]);
+  }, [docToDeleteId, open]);
 
   // Improved handleRefresh function - removed { force: true } parameter
   const handleRefresh = () => {
