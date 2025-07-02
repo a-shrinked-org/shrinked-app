@@ -505,7 +505,7 @@ export default function JobShow() {
       setIsSharing(true);
       setErrorMessage(null);
   
-      // Get the title from processingDoc or record output, fallback to 'document'
+      // Get the title from processingDoc, record output, or fallback to 'document'
       const title = processingDoc?.title || record?.output?.title || 'document';
   
       // Create a slug from the title
@@ -546,28 +546,39 @@ export default function JobShow() {
           markdown = await response.text();
         }
   
-        if (!markdown || markdown.trim() === '') throw new Error('No content available to share');
-        setMarkdownContent(markdown);
+        console.log('Fetched markdown content:', markdown); // Log markdown for debugging
+        if (!markdown || markdown.trim() === '') {
+          console.warn('Markdown content is empty or unavailable');
+          setMarkdownContent('');
+        } else {
+          setMarkdownContent(markdown);
+        }
       }
   
-      // Parse markdown to extract sections (simplified parsing for key sections)
+      // Parse markdown to extract sections
       const extractSection = (markdown: string, sectionHeader: string) => {
-        const regex = new RegExp(`^#{1,6}\s*${sectionHeader}\s*\n([\s\S]*?)(?=(?:^#{1,6})|$)`, 'im');
+        // Match headers with 1-6 #, optional spaces, colons, or case-insensitive section names
+        const regex = new RegExp(`^#{1,6}\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=^#{1,6}|$)`, 'im');
         const match = markdown.match(regex);
-        return match ? match[1].trim() : '';
+        const content = match ? match[1].trim() : '';
+        console.log(`Extracted ${sectionHeader}:`, content); // Log extracted content
+        return content;
       };
   
+      // Use combinedData as primary source, fallback to markdown parsing if fields are missing
       const content = {
         title,
-        abstract: extractSection(markdown, 'Abstract') || '',
-        contributors: extractSection(markdown, 'Contributors') || '',
-        chapters: extractSection(markdown, 'Chapters') || '',
-        introduction: extractSection(markdown, 'Introduction') || '',
-        passages: extractSection(markdown, 'Passages') || '',
-        conclusion: extractSection(markdown, 'Conclusion') || '',
-        references: extractSection(markdown, 'References') || '',
+        abstract: combinedData?.abstract || (markdown ? extractSection(markdown, 'Abstract') : '') || '',
+        contributors: combinedData?.contributors || (markdown ? extractSection(markdown, 'Contributors') : '') || '',
+        chapters: combinedData?.chapters ? JSON.stringify(combinedData.chapters) : (markdown ? extractSection(markdown, 'Chapters') : '') || '',
+        introduction: combinedData?.introduction || (markdown ? extractSection(markdown, 'Introduction') : '') || '',
+        passages: combinedData?.passages ? JSON.stringify(combinedData.passages) : (markdown ? extractSection(markdown, 'Passages') : '') || '',
+        conclusion: combinedData?.conclusion || (markdown ? extractSection(markdown, 'Conclusion') : '') || '',
+        references: combinedData?.references ? JSON.stringify(combinedData.references) : (markdown ? extractSection(markdown, 'References') : '') || '',
         origin: uploadFileLink || '',
       };
+  
+      console.log('Content object for sharing:', content); // Log content object
   
       // Send the request to create a shared document
       const response = await fetchWithAuth('/api/share-document', {
@@ -618,6 +629,7 @@ export default function JobShow() {
     ensureValidToken,
     refreshToken,
     getAccessToken,
+    combinedData,
   ]);
 
   const renderSkeletonLoader = () => (
