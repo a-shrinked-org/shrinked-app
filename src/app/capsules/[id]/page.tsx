@@ -1104,11 +1104,6 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
               },
-              // Remove the complex section styling - let Mantine handle positioning
-              rightSection: {
-                color: '#a0a0a0',
-                // Mantine handles positioning automatically with absolute positioning
-              },
               dropdown: {
                 backgroundColor: '#000000',
                 border: '1px solid #2b2b2b',
