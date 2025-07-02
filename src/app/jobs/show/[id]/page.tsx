@@ -493,6 +493,17 @@ export default function JobShow() {
       return;
     }
   
+    if (!jobId) {
+      setErrorMessage("No job ID found to share");
+      return;
+    }
+  
+    const status = getProcessingStatus();
+    if (status !== 'completed') {
+      setErrorMessage("Cannot share document: Job is not yet completed");
+      return;
+    }
+  
     try {
       // If we already have a shared link, open the share dialog
       if (record?.link && record.link.includes('/docs/')) {
@@ -501,20 +512,17 @@ export default function JobShow() {
         return;
       }
   
+      // Verify processingDocId matches job context
+      const expectedResultId = extractResultId(record);
+      if (processingDocId !== expectedResultId) {
+        console.warn(`Mismatch: processingDocId (${processingDocId}) does not match expected resultId (${expectedResultId})`);
+      }
+  
       // Otherwise, create a new shared document
       setIsSharing(true);
       setErrorMessage(null);
   
-      // Get the title from processingDoc, record output, or fallback to 'document'
-      const title = processingDoc?.title || record?.output?.title || 'document';
-  
-      // Create a slug from the title
-      const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || processingDocId;
-  
-      // Fetch the full markdown content
+      // Fetch markdown content
       let markdown = markdownContent;
       if (!markdown) {
         const token = await ensureValidToken();
@@ -539,6 +547,8 @@ export default function JobShow() {
             } else {
               throw new Error('Token refresh failed');
             }
+          } else if (response.status === 404) {
+            throw new Error('Content not available yet');
           } else {
             throw new Error(`Markdown fetch failed with status: ${response.status}`);
           }
@@ -546,39 +556,71 @@ export default function JobShow() {
           markdown = await response.text();
         }
   
-        console.log('Fetched markdown content:', markdown); // Log markdown for debugging
+        console.log('Fetched markdown content:', markdown);
         if (!markdown || markdown.trim() === '') {
           console.warn('Markdown content is empty or unavailable');
           setMarkdownContent('');
-        } else {
-          setMarkdownContent(markdown);
+          throw new Error('No content available to share');
+        }
+        setMarkdownContent(markdown);
+      }
+  
+      // Extract title from markdown, processingDoc, record, or jobName
+      let title = processingDoc?.title || record?.output?.title || record?.jobName || 'document';
+      if (title === 'document' && markdown) {
+        const titleMatch = markdown.match(/^#\s*(.+)$/m); // Allow zero spaces after #
+        if (titleMatch) {
+          title = titleMatch[1].trim();
+          console.log('Extracted title from markdown:', title);
         }
       }
   
+      // Create a slug from the title
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || processingDocId;
+  
       // Parse markdown to extract sections
       const extractSection = (markdown: string, sectionHeader: string) => {
-        // Match headers with 1-6 #, optional spaces, colons, or case-insensitive section names
-        const regex = new RegExp(`^#{1,6}\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=^#{1,6}|$)`, 'im');
-        const match = markdown.match(regex);
-        const content = match ? match[1].trim() : '';
-        console.log(`Extracted ${sectionHeader}:`, content); // Log extracted content
+        // Match headers with 1-6 #, case-insensitive, include all content until next header or end
+        const regex = new RegExp(`^#{1,6}\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^#{1,6}\\s)|$|^$)`, 'im');
+        const matches = markdown.matchAll(regex);
+        let content = '';
+        for (const match of matches) {
+          const sectionContent = match[1].trim();
+          if (sectionContent) {
+            content = sectionContent; // Use the last non-empty match
+            break;
+          }
+        }
+        console.log(`Extracted ${sectionHeader}:`, content || '[empty]');
         return content;
       };
   
-      // Use combinedData as primary source, fallback to markdown parsing if fields are missing
+      // Check if combinedData has usable fields
+      const hasCombinedData = combinedData && Object.keys(combinedData).some(key => 
+        ['abstract', 'contributors', 'chapters', 'introduction', 'passages', 'conclusion', 'references'].includes(key) && combinedData[key]
+      );
+  
+      console.log('Combined data:', combinedData);
+      console.log('Has usable combined data:', hasCombinedData);
+  
+      // Use combinedData as primary source, fallback to markdown parsing
       const content = {
         title,
-        abstract: combinedData?.abstract || (markdown ? extractSection(markdown, 'Abstract') : '') || '',
-        contributors: combinedData?.contributors || (markdown ? extractSection(markdown, 'Contributors') : '') || '',
-        chapters: combinedData?.chapters ? JSON.stringify(combinedData.chapters) : (markdown ? extractSection(markdown, 'Chapters') : '') || '',
-        introduction: combinedData?.introduction || (markdown ? extractSection(markdown, 'Introduction') : '') || '',
-        passages: combinedData?.passages ? JSON.stringify(combinedData.passages) : (markdown ? extractSection(markdown, 'Passages') : '') || '',
-        conclusion: combinedData?.conclusion || (markdown ? extractSection(markdown, 'Conclusion') : '') || '',
-        references: combinedData?.references ? JSON.stringify(combinedData.references) : (markdown ? extractSection(markdown, 'References') : '') || '',
+        abstract: hasCombinedData && combinedData.abstract ? combinedData.abstract : (markdown ? extractSection(markdown, 'Abstract') : '') || '',
+        contributors: hasCombinedData && combinedData.contributors ? combinedData.contributors : (markdown ? extractSection(markdown, 'Contributors') : '') || '',
+        chapters: hasCombinedData && combinedData.chapters ? JSON.stringify(combinedData.chapters) : (markdown ? extractSection(markdown, 'Chapters') : '') || '',
+        introduction: hasCombinedData && combinedData.introduction ? combinedData.introduction : (markdown ? extractSection(markdown, 'Introduction') : '') || '',
+        passages: hasCombinedData && combinedData.passages ? JSON.stringify(combinedData.passages) : (markdown ? extractSection(markdown, 'Passages') : '') || '',
+        conclusion: hasCombinedData && combinedData.conclusion ? combinedData.conclusion : (markdown ? extractSection(markdown, 'Conclusion') : '') || '',
+        references: hasCombinedData && combinedData.references ? JSON.stringify(combinedData.references) : (markdown ? extractSection(markdown, 'References') : '') || '',
         origin: uploadFileLink || '',
+        markdown: markdown || '' // Include full markdown as fallback
       };
   
-      console.log('Content object for sharing:', content); // Log content object
+      console.log('Content object for sharing:', content);
   
       // Send the request to create a shared document
       const response = await fetchWithAuth('/api/share-document', {
@@ -630,6 +672,8 @@ export default function JobShow() {
     refreshToken,
     getAccessToken,
     combinedData,
+    getProcessingStatus,
+    extractResultId,
   ]);
 
   const renderSkeletonLoader = () => (
