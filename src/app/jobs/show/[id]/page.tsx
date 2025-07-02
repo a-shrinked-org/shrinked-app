@@ -568,7 +568,7 @@ export default function JobShow() {
       // Extract title from markdown, processingDoc, record, or jobName
       let title = processingDoc?.title || record?.output?.title || record?.jobName || 'document';
       if (title === 'document' && markdown) {
-        const titleMatch = markdown.match(/^#\s*(.+)$/m); // Allow zero spaces after #
+        const titleMatch = markdown.match(/^#\s*(.+)$/m); // Allow zero or more spaces after #
         if (titleMatch) {
           title = titleMatch[1].trim();
           console.log('Extracted title from markdown:', title);
@@ -583,15 +583,14 @@ export default function JobShow() {
   
       // Parse markdown to extract sections
       const extractSection = (markdown: string, sectionHeader: string) => {
-        // Match headers with 1-6 #, case-insensitive, include all content until next header or end
-        const regex = new RegExp(`^#{1,6}\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^#{1,6}\\s)|$|^$)`, 'im');
+        // Match headers with 1-6 #, case-insensitive, capture until next same-or-higher level header or end
+        const regex = new RegExp(`^#{1,2}\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^#{1,2}\\s)|$)`, 'im');
         const matches = markdown.matchAll(regex);
         let content = '';
         for (const match of matches) {
           const sectionContent = match[1].trim();
           if (sectionContent) {
             content = sectionContent; // Use the last non-empty match
-            break;
           }
         }
         console.log(`Extracted ${sectionHeader}:`, content || '[empty]');
@@ -617,7 +616,6 @@ export default function JobShow() {
         conclusion: hasCombinedData && combinedData.conclusion ? combinedData.conclusion : (markdown ? extractSection(markdown, 'Conclusion') : '') || '',
         references: hasCombinedData && combinedData.references ? JSON.stringify(combinedData.references) : (markdown ? extractSection(markdown, 'References') : '') || '',
         origin: uploadFileLink || '',
-        markdown: markdown || '' // Include full markdown as fallback
       };
   
       console.log('Content object for sharing:', content);
