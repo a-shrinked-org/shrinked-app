@@ -195,7 +195,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
                 <path d="M14.9553 12.7029V9.51538H13.7018V12.7029C13.7018 13.2897 13.2342 13.7654 12.6573 13.7654H9.52356V15.0403H12.6573C13.2668 15.0403 13.8513 14.7941 14.2822 14.3557C14.7132 13.9173 14.9553 13.3228 14.9553 12.7029Z" fill="#0D0D0D"/>
                 <path d="M3.29431 15.0859L6.43273 11.8936V14.4165H7.69822V10.3404C7.69822 9.98493 7.41493 9.69678 7.06548 9.69678H3.05808V10.984H5.53845L2.40002 14.1763L3.29431 15.0859Z" fill="#0D0D0D"/>
               </svg>
-              <Text fw={700}>SHRINKED.AI</Text>
+              <Text fw={500}>SHRINKED.AI</Text>
             </Flex>
           </Link>
           
@@ -220,8 +220,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             BUILD WITH SHRINKED.<br />
             DEVELOP DYNAMIC CONTEXT SOURCES<br />
             WITH STRUCTURED DATA, ENABLING<br />
-            CITATION FOR AI SYSTEMS<br />
-            EXACTLY WHERE IT&apos;S NEEDED.
+            CITATION FOR AI SYSTEMS.
           </Text>
           <a 
             href="https://shrinked.ai/manifesto" 
