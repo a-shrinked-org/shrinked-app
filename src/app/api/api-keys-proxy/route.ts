@@ -7,7 +7,7 @@ const API_URL = "https://api.shrinked.ai";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-  const token = session?.user?.token;
+  const token = session?.accessToken;
 
   if (!token) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  const token = session?.user?.token;
+  const token = session?.accessToken;
 
   if (!token) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
