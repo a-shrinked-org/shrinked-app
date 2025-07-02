@@ -6,8 +6,13 @@ import { NextResponse } from "next/server";
 const API_URL = "https://api.shrinked.ai";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const token = session?.accessToken;
+  let token = req.headers.get('Authorization')?.split(' ')[1]; // Attempt to get token from header
+
+  if (!token) {
+    // Fallback to session if header token is not found
+    const session = await getServerSession(authOptions);
+    token = session?.accessToken;
+  }
 
   if (!token) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
@@ -36,8 +41,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const token = session?.accessToken;
+  let token = req.headers.get('Authorization')?.split(' ')[1]; // Attempt to get token from header
+
+  if (!token) {
+    // Fallback to session if header token is not found
+    const session = await getServerSession(authOptions);
+    token = session?.accessToken;
+  }
 
   if (!token) {
     return NextResponse.json({ message: "Not authenticated" }, { status: 401 });
