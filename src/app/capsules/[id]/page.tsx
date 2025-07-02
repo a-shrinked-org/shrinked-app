@@ -1087,7 +1087,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 fontSize: '14px',
                 fontWeight: 500,
                 padding: '0',
-                paddingRight: '8px', // Space for chevron - adjust as needed
+                paddingRight: '14px', // Space for chevron - adjust as needed
                 height: 'auto',
                 minHeight: 'auto',
                 lineHeight: 1,
