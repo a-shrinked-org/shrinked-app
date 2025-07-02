@@ -23,6 +23,7 @@ interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
   keyValue?: string;
   customStatus?: string;
+  displayToken?: React.ReactNode; // New field for the formatted token
 }
 
 const titleRenderer = (doc: ExtendedApiKey) => {
@@ -44,11 +45,18 @@ const titleRenderer = (doc: ExtendedApiKey) => {
 const renderApiKeyStatus = (doc: ExtendedApiKey) => {
   return (
     <Box style={{ 
-      display: 'flex',
-      alignItems: 'center',
+      display: 'flex', 
+      alignItems: 'center', 
       gap: '8px',
       paddingLeft: '4px'
     }}>
+      <Box style={{ 
+        height: '12px', 
+        width: '12px', 
+        borderRadius: '50%', 
+        backgroundColor: '#185a2f',
+        flexShrink: 0
+      }} />
       <Text size="sm" style={{ 
         color: '#ffffff',
         fontFamily: GeistMono.style.fontFamily,
@@ -152,9 +160,31 @@ export default function ApiKeysList() {
       },
       keyName: key.name,
       keyValue: key.key,
-      description: ''
+      description: '',
+      displayToken: (
+        <Box
+          style={{
+            backgroundColor: '#1a1a1a',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            display: 'inline-block',
+            fontFamily: GeistMono.style.fontFamily,
+            fontSize: '12px',
+            color: '#ffffff',
+          }}
+        >
+          {key.key.substring(0, 4)}...{key.key.substring(key.key.length - 4)}
+        </Box>
+      ),
     }));
   };
+
+  const extraColumns = [
+    {
+      header: "Token",
+      accessor: (doc: ExtendedApiKey) => doc.displayToken,
+    },
+  ];
 
   if (isLoadingKeys && authUtils.isAuthenticated()) {
     return (
@@ -180,20 +210,10 @@ export default function ApiKeysList() {
   }
 
   return (
-    <Box style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      maxWidth: '1200px', 
-      margin: '0 auto', 
-      padding: '24px', 
-      backgroundColor: '#0a0a0a', 
-      color: '#ffffff',
-      minHeight: '100vh'
-    }}>
+    <>
       <DocumentsTable<ExtendedApiKey>
         key={`api-keys-${refreshCounter}`}
         data={formatApiKeyData(data?.data || [])}
-        onView={handleViewDocument}
         onDelete={handleDelete}
         formatDate={formatDate}
         isLoading={isLoadingKeys}
@@ -205,6 +225,7 @@ export default function ApiKeysList() {
         titleRenderer={titleRenderer}
         statusRenderer={renderApiKeyStatus}
         buttonText="CREATE NEW KEY"
+        extraColumns={extraColumns}
       />
 
       <ApiKeyCreateModal
@@ -212,6 +233,6 @@ export default function ApiKeysList() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleApiKeyCreated}
       />
-    </Box>
+    </>
   );
 }
