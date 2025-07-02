@@ -1070,12 +1070,11 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
             searchable={false}
             readOnly={false}
             rightSection={<ChevronsUpDown size={14} style={{ color: '#a0a0a0' }} />}
+            rightSectionPointerEvents="none" // Key addition - allows clicks to pass through
             styles={{
               root: {
                 width: 'auto',
                 flex: 1,
-                position: 'relative',
-                display: 'inline-flex', // Ensure container supports inline alignment
               },
               wrapper: {
                 width: 'auto',
@@ -1088,6 +1087,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 fontSize: '14px',
                 fontWeight: 500,
                 padding: '0',
+                paddingRight: '8px', // Space for chevron - adjust as needed
                 height: 'auto',
                 minHeight: 'auto',
                 lineHeight: 1,
@@ -1103,17 +1103,11 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 textOverflow: 'ellipsis',
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
-                flexGrow: 1, // Allow text to take available space
-                minWidth: 0, // Prevent text from overflowing
               },
-              section: {
+              // Remove the complex section styling - let Mantine handle positioning
+              rightSection: {
                 color: '#a0a0a0',
-                width: 'auto',
-                marginLeft: 'auto', // Push chevron to the end
-                display: 'flex', // Use flex to align chevron
-                alignItems: 'center', // Vertically center with text
-                position: 'static', // Keep static to follow text flow
-                paddingLeft: '6px', // Add some padding between text and chevron
+                // Mantine handles positioning automatically with absolute positioning
               },
               dropdown: {
                 backgroundColor: '#000000',
