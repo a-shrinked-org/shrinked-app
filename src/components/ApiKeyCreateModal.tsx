@@ -73,142 +73,143 @@ export default function ApiKeyCreateModal({
 
   return (
     <Modal
-      opened={opened}
-      onClose={handleCloseModal}
-      title="Create New API Key"
-      centered
-      styles={{
-        header: { backgroundColor: "#000000", color: "#ffffff" },
-        body: { backgroundColor: "#000000", color: "#ffffff" },
-        close: { color: "#ffffff" },
-      }}
-    >
-      <Stack gap="md">
-        {!newApiKey ? (
-          <>
-            <TextInput
-              label="API Key Name"
-              placeholder="e.g., Development, Production"
-              value={keyName}
-              onChange={(e) => setKeyName(e.target.value)}
-              required
-              styles={{
-                input: {
-                  backgroundColor: "#0d0d0d",
-                  borderColor: "#2b2b2b",
-                  color: "#ffffff",
-                },
-                label: {
-                  color: "#ffffff",
-                  fontFamily: GeistMono.style.fontFamily,
-                },
-              }}
-            />
-            {errorMessage && (
-              <Alert
-                icon={<AlertCircle size={16} />}
-                title="Error"
-                color="red"
-                styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
-              >
-                {errorMessage}
-              </Alert>
-            )}
-            <Group justify="flex-end">
-              <Button
-                onClick={handleCreateApiKey}
-                disabled={!keyName || isLoading}
-                loading={isLoading}
+        opened={opened}
+        onClose={handleCloseModal}
+        title={newApiKey ? "API Key Created" : "Create New API Key"}
+        centered
+        styles={{
+          header: { backgroundColor: "#000000", color: "#ffffff" },
+          body: { backgroundColor: "#000000", color: "#ffffff" },
+          close: { color: "#ffffff" },
+        }}
+      >
+        <Stack gap="md">
+          {!newApiKey ? (
+            <>
+              <TextInput
+                label="API Key Name"
+                placeholder="e.g., Development, Production"
+                value={keyName}
+                onChange={(e) => setKeyName(e.target.value)}
+                required
                 styles={{
-                  root: {
-                    backgroundColor: "#F5A623",
-                    color: "#000000",
+                  input: {
+                    backgroundColor: "#0d0d0d",
+                    borderColor: "#2b2b2b",
+                    color: "#ffffff",
+                  },
+                  label: {
+                    color: "#ffffff",
                     fontFamily: GeistMono.style.fontFamily,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    "&:hover": {
-                      backgroundColor: "#E09612",
-                    },
                   },
                 }}
-              >
-                Create Key
-              </Button>
-            </Group>
-          </>
-        ) : (
-          <>
-            <Alert
-              title="Important!"
-              color="red"
-              mb="md"
-              styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
-            >
-              Keep a record of the key below. You won&apos;t be able to view it again.
-            </Alert>
-            <Box p="md" style={{ backgroundColor: "#1a1a1a", borderRadius: "4px" }}>
-              <Group justify="apart">
-                <Code
-                  style={{
-                    fontSize: "14px",
-                    wordBreak: "break-all",
-                    backgroundColor: "#1a1a1a",
-                    color: "#ffffff",
+              />
+              {errorMessage && (
+                <Alert
+                  icon={<AlertCircle size={16} />}
+                  title="Error"
+                  color="red"
+                  styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
+                >
+                  {errorMessage}
+                </Alert>
+              )}
+              <Group justify="flex-end">
+                <Button
+                  onClick={handleCreateApiKey}
+                  disabled={!keyName || isLoading}
+                  loading={isLoading}
+                  styles={{
+                    root: {
+                      backgroundColor: "#F5A623",
+                      color: "#000000",
+                      fontFamily: GeistMono.style.fontFamily,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      "&:hover": {
+                        backgroundColor: "#E09612",
+                      },
+                    },
                   }}
                 >
-                  {newApiKey}
-                </Code>
-                <CopyButton value={newApiKey} timeout={2000}>
-                  {({ copied, copy }) => (
-                    <Button
-                      size="xs"
-                      color={copied ? "teal" : "blue"}
-                      onClick={copy}
-                      leftSection={
-                        copied ? (
-                          <IconWrapper icon={Check} size={16} />
-                        ) : (
-                          <IconWrapper icon={Copy} size={16} />
-                        )
-                      }
-                      styles={{ root: { fontFamily: GeistMono.style.fontFamily } }}
-                    >
-                      {copied ? "Copied" : "Copy"}
-                    </Button>
-                  )}
-                </CopyButton>
+                  Create Key
+                </Button>
               </Group>
-            </Box>
-            <Text size="sm" mt="lg" style={{ fontFamily: GeistMono.style.fontFamily }}>
-              You can use this API key to authenticate with the Shrinked API.
-              Include it in the{" "}
-              <Code style={{ backgroundColor: "#1a1a1a", color: "#ffffff" }}>
-                x-api-key
-              </Code>{" "}
-              header in your requests.
-            </Text>
-            <Group justify="center" mt="md">
-              <Button
-                onClick={handleCloseModal}
-                styles={{
-                  root: {
-                    backgroundColor: "#F5A623",
-                    color: "#000000",
-                    fontFamily: GeistMono.style.fontFamily,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    "&:hover": {
-                      backgroundColor: "#E09612",
-                    },
-                  },
-                }}
+            </>
+          ) : (
+            <>
+              <Alert
+                title="Important!"
+                color="red"
+                mb="md"
+                styles={{ title: { fontFamily: GeistMono.style.fontFamily } }}
               >
-                I&apos;ve saved my API key
-              </Button>
-            </Group>
-          </>
-        )}
-      </Stack>
-    </Modal>
+                Keep a record of the key below. You won&apos;t be able to view it again.
+              </Alert>
+              <Box p="md" style={{ backgroundColor: "#1a1a1a", borderRadius: "4px" }}>
+                <Group justify="apart">
+                  <Code
+                    style={{
+                      fontSize: "14px",
+                      wordBreak: "break-all",
+                      backgroundColor: "#1a1a1a",
+                      color: "#ffffff",
+                    }}
+                  >
+                    {newApiKey}
+                  </Code>
+                  <CopyButton value={newApiKey} timeout={2000}>
+                    {({ copied, copy }) => (
+                      <Button
+                        size="xs"
+                        color={copied ? "teal" : "blue"}
+                        onClick={copy}
+                        leftSection={
+                          copied ? (
+                            <IconWrapper icon={Check} size={16} />
+                          ) : (
+                            <IconWrapper icon={Copy} size={16} />
+                          )
+                        }
+                        styles={{ root: { fontFamily: GeistMono.style.fontFamily } }}
+                      >
+                        {copied ? "Copied" : "Copy"}
+                      </Button>
+                    )}
+                  </CopyButton>
+                </Group>
+              </Box>
+              <Text size="sm" mt="lg" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                You can use this API key to authenticate with the Shrinked API.
+                Include it in the{" "}
+                <Code style={{ backgroundColor: "#1a1a1a", color: "#ffffff" }}>
+                  x-api-key
+                </Code>{" "}
+                header in your requests.
+              </Text>
+              <Group justify="center" mt="md">
+                <Button
+                  onClick={handleCloseModal}
+                  styles={{
+                    root: {
+                      backgroundColor: "#F5A623",
+                      color: "#000000",
+                      fontFamily: GeistMono.style.fontFamily,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      fontWeight: 400, // Changed to regular
+                      "&:hover": {
+                        backgroundColor: "#E09612",
+                      },
+                    },
+                  }}
+                >
+                  I&apos;ve saved my API key
+                </Button>
+              </Group>
+            </>
+          )}
+        </Stack>
+      </Modal>
   );
 }

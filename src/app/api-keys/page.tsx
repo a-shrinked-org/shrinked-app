@@ -50,13 +50,6 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
       gap: '8px',
       paddingLeft: '4px'
     }}>
-      <Box style={{ 
-        height: '12px', 
-        width: '12px', 
-        borderRadius: '50%', 
-        backgroundColor: '#185a2f',
-        flexShrink: 0
-      }} />
       <Text size="sm" style={{ 
         color: '#ffffff',
         fontFamily: GeistMono.style.fontFamily,
@@ -141,7 +134,6 @@ export default function ApiKeysList() {
   const handleApiKeyCreated = useCallback(() => {
     setRefreshCounter(prev => prev + 1);
     setErrorMessage(null);
-    setIsCreateModalOpen(false);
   }, []);
 
   const formatApiKeyData = (apiKeys: ApiKey[]): ExtendedApiKey[] => {
@@ -152,7 +144,7 @@ export default function ApiKeysList() {
         `${key.key.substring(0, 8)}...${key.key.substring(key.key.length - 8)}` : 
         key.key,
       createdAt: key.createdAt || new Date().toISOString(),
-      status: 'active',
+      status: 'completed', // Set status to 'completed' for green dot
       customStatus: 'API KEY',
       output: { 
         title: (key.name || 'UNNAMED API KEY').toUpperCase(),
