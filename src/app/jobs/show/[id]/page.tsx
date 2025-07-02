@@ -494,57 +494,77 @@ export default function JobShow() {
     }
   
     try {
-      // If we already have a link, just open the share dialog
+      // If we already have a shared link, open the share dialog
       if (record?.link && record.link.includes('/docs/')) {
         setSharedUrl(record.link);
         openShareDialog();
         return;
       }
-      
+  
       // Otherwise, create a new shared document
       setIsSharing(true);
       setErrorMessage(null);
   
-      // Get a title for the slug
-      const title = (combinedData.title ||
-                    record?.jobName ||
-                    'document').trim();
-      
+      // Get the title from processingDoc or record output, fallback to 'document'
+      const title = processingDoc?.title || record?.output?.title || 'document';
+  
       // Create a slug from the title
-      const slug = title.toLowerCase()
+      const slug = title
+        .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '') || processingDocId;
   
-      // Prepare the content payload
-      const content = {
-        title: title,
-        origin: uploadFileLink || '',
-        abstract: combinedData.abstract || '',
-        contributors: combinedData.contributors || '',
-        chapters: Array.isArray(combinedData.chapters) 
-          ? combinedData.chapters.map(ch => `- ${ch.title}`).join('\n') 
-          : (combinedData.chapters || ''),
-        introduction: combinedData.introduction || '',
-        passages: Array.isArray(combinedData.passages) 
-          ? combinedData.passages.join('\n\n') 
-          : (combinedData.passages || ''),
-        conclusion: combinedData.conclusion || '',
-        references: Array.isArray(combinedData.references) 
-          ? combinedData.references.map(ref => ref.item).join('\n') 
-          : (combinedData.references || '')
-      };
+      // Fetch the full markdown content
+      let markdown = markdownContent;
+      if (!markdown) {
+        const token = await ensureValidToken();
+        if (!token) throw new Error('Authentication failed - unable to get valid token');
+  
+        const response = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          cache: 'no-store',
+        });
+  
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            const refreshSuccess = await refreshToken();
+            if (refreshSuccess) {
+              const newToken = getAccessToken();
+              const retryResponse = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
+                headers: { 'Authorization': `Bearer ${newToken || ''}` },
+                cache: 'no-store',
+              });
+              if (!retryResponse.ok) throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
+              markdown = await retryResponse.text();
+            } else {
+              throw new Error('Token refresh failed');
+            }
+          } else {
+            throw new Error(`Markdown fetch failed with status: ${response.status}`);
+          }
+        } else {
+          markdown = await response.text();
+        }
+  
+        if (!markdown || markdown.trim() === '') throw new Error('No content available to share');
+        setMarkdownContent(markdown);
+      }
   
       // Send the request to create a shared document
       const response = await fetchWithAuth('/api/share-document', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           slug,
-          content,
-          jobId: jobId // Include the job ID for updating the job record
-        })
+          content: {
+            title,
+            markdown, // Send full markdown content as returned by the endpoint
+            origin: uploadFileLink || '',
+          },
+          jobId: jobId, // Include the job ID for updating the job record
+        }),
       });
   
       if (!response.ok) {
@@ -555,11 +575,8 @@ export default function JobShow() {
       const result = await response.json();
   
       if (result.status === 'created' && result.link) {
-        // Set the shared URL and open the dialog
         setSharedUrl(result.link);
         openShareDialog();
-        
-        // Update the job data in our state if possible
         if (queryResult.refetch) {
           queryResult.refetch();
         }
@@ -573,15 +590,19 @@ export default function JobShow() {
       setIsSharing(false);
     }
   }, [
-    processingDocId, 
-    record, 
-    processingDoc, 
-    uploadFileLink, 
-    jobId, 
-    fetchWithAuth, 
-    queryResult, 
+    processingDocId,
+    record,
+    processingDoc,
+    uploadFileLink,
+    jobId,
+    fetchWithAuth,
+    queryResult,
     openShareDialog,
-    combinedData
+    markdownContent,
+    setMarkdownContent,
+    ensureValidToken,
+    refreshToken,
+    getAccessToken,
   ]);
 
   const renderSkeletonLoader = () => (
