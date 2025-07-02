@@ -220,7 +220,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             BUILD WITH SHRINKED.<br />
             DEVELOP DYNAMIC CONTEXT SOURCES<br />
             WITH STRUCTURED DATA, ENABLING<br />
-            CITATION FOR AI SYSTEMS.
+            DEEP RETRIEVAL FOR AI SYSTEMS.
           </Text>
           <a 
             href="https://shrinked.ai/manifesto" 
@@ -299,6 +299,7 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
             backgroundColor: '#0d0d0d', 
             border: '1px solid #2b2b2b',
             borderRadius: '4px',
+            marginBottom: '5px'
           }}
         >
           <Text size="xs" mb="xs">
