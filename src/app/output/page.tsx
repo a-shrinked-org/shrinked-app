@@ -219,7 +219,8 @@ export default function ProcessingList() {
   console.log("Prepared documents for table:", preparedData);
 
   return (
-    <DocumentsTable<ProcessedDocument>
+    <>
+      <DocumentsTable<ProcessedDocument>
       key={`processing-list-${refreshCounter}`} // Key prop forces complete re-render when refreshCounter changes
       data={preparedData}
       onView={handleViewDocument}
@@ -242,5 +243,6 @@ export default function ProcessingList() {
       message="Are you sure you want to delete this document? This action cannot be undone."
       confirmText="Delete"
     />
+    </>
   );
 }
