@@ -1073,7 +1073,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
             styles={{
               root: {
                 width: 'auto',
-                maxWidth: '300px',
+                flex: 1,
                 position: 'relative',
                 display: 'inline-flex', // Ensure container supports inline alignment
               },
@@ -1087,7 +1087,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 fontFamily: GeistMono.style.fontFamily,
                 fontSize: '14px',
                 fontWeight: 500,
-                padding: '0 24px 0 0',
+                padding: '0',
                 height: 'auto',
                 minHeight: 'auto',
                 lineHeight: 1,
@@ -1103,14 +1103,17 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 textOverflow: 'ellipsis',
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
+                flexGrow: 1, // Allow text to take available space
+                minWidth: 0, // Prevent text from overflowing
               },
               section: {
                 color: '#a0a0a0',
                 width: 'auto',
-                marginLeft: '6px', // Changed to marginLeft to position 6px after text
-                display: 'inline-flex', // Ensure chevron stays inline
+                marginLeft: 'auto', // Push chevron to the end
+                display: 'flex', // Use flex to align chevron
                 alignItems: 'center', // Vertically center with text
                 position: 'static', // Keep static to follow text flow
+                paddingLeft: '6px', // Add some padding between text and chevron
               },
               dropdown: {
                 backgroundColor: '#000000',

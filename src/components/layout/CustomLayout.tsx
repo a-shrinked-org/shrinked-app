@@ -294,11 +294,11 @@ const CustomLayout: React.FC<CustomLayoutProps> = ({ children }) => {
         {/* Usage Stats */}
         <Box 
           p="md" 
-          mb="l" 
           style={{ 
             backgroundColor: '#0d0d0d', 
             border: '1px solid #2b2b2b',
-            borderRadius: '4px'
+            borderRadius: '4px',
+            marginBottom: '12px'
           }}
         >
           <Text size="xs" mb="xs">
