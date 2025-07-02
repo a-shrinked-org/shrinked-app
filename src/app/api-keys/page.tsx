@@ -18,6 +18,7 @@ import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';
 import { Identity } from "@/@types/logic";
 import ApiKeyCreateModal from '@/components/ApiKeyCreateModal';
+import ConfirmationModal from '@/components/shared/ConfirmationModal';
 
 interface ExtendedApiKey extends ProcessedDocument {
   keyName?: string;
@@ -64,6 +65,8 @@ const renderApiKeyStatus = (doc: ExtendedApiKey) => {
 export default function ApiKeysList() {
   const { data: identity } = useGetIdentity<Identity>();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [apiKeyToDeleteId, setApiKeyToDeleteId] = useState<string | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -107,20 +110,30 @@ export default function ApiKeysList() {
     console.log("[ApiKeysList] Viewing API key:", apiKey);
   };
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (confirm("Are you sure you want to delete this API key?")) {
-      try {
-        console.log("[ApiKeysList] Deleting API key:", id);
-        const success = await ApiKeyService.deleteApiKey(id);
-        if (success) {
-          setRefreshCounter(prev => prev + 1);
-          setErrorMessage(null);
-        }
-      } catch (error: any) {
-        console.error("[ApiKeysList] Error deleting API key:", error);
-        setErrorMessage(`Failed to delete API key: ${error.message || "Unknown error"}`);
+    setApiKeyToDeleteId(id);
+    setIsConfirmModalOpen(true);
+  };
+
+  const confirmDeleteApiKey = async () => {
+    if (!apiKeyToDeleteId) return;
+
+    try {
+      console.log("[ApiKeysList] Deleting API key:", apiKeyToDeleteId);
+      const success = await ApiKeyService.deleteApiKey(apiKeyToDeleteId);
+      if (success) {
+        setRefreshCounter(prev => prev + 1);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage("Failed to delete API key.");
       }
+    } catch (error: any) {
+      console.error("[ApiKeysList] Error deleting API key:", error);
+      setErrorMessage(`Failed to delete API key: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsConfirmModalOpen(false);
+      setApiKeyToDeleteId(null);
     }
   };
 
@@ -224,6 +237,15 @@ export default function ApiKeysList() {
         opened={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleApiKeyCreated}
+      />
+
+      <ConfirmationModal
+        opened={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={confirmDeleteApiKey}
+        title="Confirm Deletion"
+        message="Are you sure you want to delete this API key? This action cannot be undone."
+        confirmText="Delete"
       />
     </>
   );

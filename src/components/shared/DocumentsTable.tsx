@@ -178,7 +178,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   docToJobMapping?: Record<string, string>;
   onView?: (doc: T, e?: React.MouseEvent) => void;
   onSendEmail?: (id: string, email?: string, e?: React.MouseEvent) => Promise<void>;
-  onDelete?: (id: string, e?: React.MouseEvent) => Promise<void>;
+  onDelete?: (id: string, e?: React.MouseEvent) => void | Promise<void>;
   onRowClick?: (doc: T) => void;
   formatDate: (dateString: string) => string;
   isLoading?: boolean;
