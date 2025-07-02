@@ -713,25 +713,6 @@ function DocumentsTable<T extends ProcessedDocument>({
                     <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                       {actionsRenderer ? actionsRenderer(doc) : (
                         <Group>
-                          {onView && (
-                            <Tooltip label="View Document">
-                              <ActionIcon 
-                                variant="subtle"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onView(doc, e);
-                                }}
-                                loading={loadingDocId === doc._id}
-                                disabled={loadingDocId === doc._id}
-                                style={{
-                                  color: '#ffffff',
-                                  '&:hover': { backgroundColor: '#2b2b2b' }
-                                }}
-                              >
-                                <Eye size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                          )}
                           {onSendEmail && (
                             <Tooltip label="Send to Email">
                               <ActionIcon 
