@@ -88,6 +88,16 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }: { token: CustomToken; account: any; user: any }) {
       // Initial sign in
       if (account && user) {
+        // For Credentials provider, tokens are directly in the user object returned by authorize
+        if (account.provider === "credentials") {
+          return {
+            ...token,
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
+            user,
+          };
+        }
+        // For other providers (e.g., Google), tokens might be in the account object
         return {
           ...token,
           accessToken: account.access_token,
