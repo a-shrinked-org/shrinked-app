@@ -551,7 +551,7 @@ export default function JobShow() {
       }
   
       // Parse markdown to extract sections (simplified parsing for key sections)
-      const extractSection = (markdown, sectionHeader) => {
+      const extractSection = (markdown: string, sectionHeader: string) => {
         const regex = new RegExp(`##\s*${sectionHeader}\s*([\s\S]*?)(?=\n##|$)`, 'i');
         const match = markdown.match(regex);
         return match ? match[1].trim() : '';
