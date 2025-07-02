@@ -737,6 +737,7 @@ function DocumentsTable<T extends ProcessedDocument>({
                                 color="red"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  console.log("Delete icon clicked for doc ID:", doc._id);
                                   onDelete(doc._id, e);
                                 }}
                                 style={{

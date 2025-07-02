@@ -1,7 +1,8 @@
 "use client";
 
 import { useList, useGetIdentity } from "@refinedev/core";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import ConfirmationModal from '@/components/shared/ConfirmationModal';
 import { 
   Stack, 
   LoadingOverlay, 
@@ -59,8 +60,9 @@ const titleRenderer = (doc: ProcessedDocument) => {
 export default function ProcessingList() {
   const { data: identity, isLoading: identityLoading } = useGetIdentity<Identity>();
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
-  // Add refresh counter state to force re-renders
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [docToDeleteId, setDocToDeleteId] = useState<string | null>(null);
   
   const { data, isLoading, refetch, error } = useList<ProcessedDocument>({
     resource: identity?.id ? `processing/user/${identity.id}/documents` : "",
@@ -155,23 +157,32 @@ export default function ProcessingList() {
     }
   };
 
-  const handleDelete = async (id: string, e?: React.MouseEvent) => {
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (confirm("Are you sure you want to delete this document?")) {
-      try {
-        const result = await documentOperations.deleteDocument(id, API_CONFIG.API_URL);
-        if (result.success) {
-          alert("Document deleted successfully");
-          refetch();
-        } else {
-          alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
-        }
-      } catch (error) {
-        console.error("Error deleting document:", error);
-        alert("Failed to delete document: Unknown error");
-      }
-    }
+    setDocToDeleteId(id);
+    setIsConfirmModalOpen(true);
   };
+
+  const confirmDeleteDocument = useCallback(async () => {
+    if (!docToDeleteId) return;
+
+    try {
+      const result = await documentOperations.deleteDocument(docToDeleteId, API_CONFIG.API_URL);
+      if (result.success) {
+        console.log("Document deleted successfully");
+        setRefreshCounter(prev => prev + 1);
+      } else {
+        console.error("Failed to delete document:", result.error?.message || "Unknown error");
+        alert("Failed to delete document: " + (result.error?.message || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      alert("Failed to delete document: Unknown error");
+    } finally {
+      setIsConfirmModalOpen(false);
+      setDocToDeleteId(null);
+    }
+  }, [docToDeleteId, refetch]);
 
   // Improved handleRefresh function - removed { force: true } parameter
   const handleRefresh = () => {
@@ -221,7 +232,15 @@ export default function ProcessingList() {
       showStatus={false}
       titleRenderer={titleRenderer}
       loadingDocId={loadingDocId}
-      // Email functionality is completely removed by not providing onSendEmail
+    />
+
+    <ConfirmationModal
+      opened={isConfirmModalOpen}
+      onClose={() => setIsConfirmModalOpen(false)}
+      onConfirm={confirmDeleteDocument}
+      title="Confirm Deletion"
+      message="Are you sure you want to delete this document? This action cannot be undone."
+      confirmText="Delete"
     />
   );
 }
