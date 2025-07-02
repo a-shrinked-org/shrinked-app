@@ -1073,7 +1073,8 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
             styles={{
               root: {
                 width: 'auto',
-                minWidth: '200px',
+                maxWidth: '300px', // Added maxWidth to prevent overly long names
+                position: 'relative',
               },
               wrapper: {
                 width: 'auto',
@@ -1085,7 +1086,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 fontFamily: GeistMono.style.fontFamily,
                 fontSize: '14px',
                 fontWeight: 500,
-                padding: '0',
+                padding: '0 24px 0 0', // Adjusted padding to accommodate chevron
                 height: 'auto',
                 minHeight: 'auto',
                 lineHeight: 1,
@@ -1098,15 +1099,15 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
                 '&::placeholder': {
                   color: '#a0a0a0',
                 },
-                paddingRight: '24px !important',
+                textOverflow: 'ellipsis', // Handle long names
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
               },
               section: {
                 color: '#a0a0a0',
                 width: 'auto',
-                position: 'absolute',
-                right: '5px',
-                top: '50%',
-                transform: 'translateY(-50%)',
+                marginRight: '6px', // Position chevron 6px from text
+                position: 'static', // Remove absolute positioning
               },
               dropdown: {
                 backgroundColor: '#000000',
