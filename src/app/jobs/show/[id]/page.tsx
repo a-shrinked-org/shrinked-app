@@ -30,7 +30,7 @@ import { useAuth, API_CONFIG } from "@/utils/authUtils";
 import DocumentMarkdownRenderer from "@/components/DocumentMarkdownRenderer";
 import { useDisclosure } from '@mantine/hooks';
 import ShareDialog from "@/components/ShareDialog"; 
-import { GeistMono } from 'geist/font/mono';
+import { useForm } from 'react-hook-form';
 import { debounce } from 'lodash';
 import '@/styles/blink.css';
 
@@ -120,7 +120,72 @@ export default function JobShow() {
     }
   }, [identity, identityRefetch]);
   
-  const { refreshToken, handleAuthError, getAccessToken, fetchWithAuth, ensureValidToken } = useAuth();
+  const { open } = useNotification();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const renameForm = useForm();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRegenerate = async () => {
+    setIsSubmitting(true);
+    try {
+      const token = await ensureValidToken();
+      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}/restart`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to restart job');
+      open({ type: 'success', message: 'Job successfully restarted!' });
+      refetch();
+    } catch (error) {
+      console.error("Failed to restart job:", error);
+      open({ type: 'error', message: `Error restarting job: ${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRename = async (newName: string) => {
+    setIsSubmitting(true);
+    try {
+      const token = await ensureValidToken();
+      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}`,
+        {
+          method: 'PATCH',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ jobName: newName })
+        });
+      if (!response.ok) throw new Error('Failed to rename job');
+      open({ type: 'success', message: 'Job successfully renamed!' });
+      refetch();
+    } catch (error) {
+      console.error("Failed to rename job:", error);
+      open({ type: 'error', message: `Error renaming job: ${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsSubmitting(true);
+    try {
+      const token = await ensureValidToken();
+      const response = await fetchWithAuth(`/api/jobs-proxy/${jobId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to delete job');
+      open({ type: 'success', message: 'Job successfully deleted!' });
+      list('jobs');
+    } catch (error) {
+      console.error("Failed to delete job:", error);
+      open({ type: 'error', message: `Error deleting job: ${error instanceof Error ? error.message : String(error)}` });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Add this helper function to extract the upload file link
   const extractUploadFileLink = useCallback((jobData: Job | null) => {
@@ -912,6 +977,14 @@ export default function JobShow() {
           >
             SHARE
           </Button>
+          <JobActionsMenu 
+            jobId={jobId} 
+            jobName={record?.jobName || ''} 
+            onRegenerate={handleRegenerate} 
+            onRename={handleRename} 
+            onDelete={handleDelete} 
+            form={renameForm}
+          />
           <Button 
             variant="filled"
             leftSection={<Download size={14} />}

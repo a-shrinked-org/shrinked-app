@@ -1,35 +1,34 @@
+import { Modal, Button, Text, Group, TextInput } from '@mantine/core';
 import React from 'react';
-import {
-  Modal,
-  Button,
-  Group,
-  Text,
-  Stack,
-  Box
-} from '@mantine/core';
-import { GeistMono } from 'geist/font/mono';
+import { useForm } from 'react-hook-form';
 
 interface ConfirmationModalProps {
   opened: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (data: any) => void;
   title: string;
-  message: string;
+  message?: string;
+  children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
-  loading?: boolean;
+  confirmColor?: string;
+  form?: any;
 }
 
-export default function ConfirmationModal({
+export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   opened,
   onClose,
   onConfirm,
   title,
   message,
+  children,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
-  loading = false,
-}: ConfirmationModalProps) {
+  confirmColor = 'red',
+  form,
+}) => {
+  const { handleSubmit, register } = form || {};
+
   return (
     <Modal
       opened={opened}
@@ -37,51 +36,34 @@ export default function ConfirmationModal({
       title={title}
       centered
       styles={{
-        header: { backgroundColor: '#000000', color: '#ffffff', borderBottom: '1px solid #2b2b2b' },
-        body: { backgroundColor: '#000000', color: '#ffffff' },
-        close: { color: '#ffffff' },
+        header: {
+          backgroundColor: '#000000',
+          color: '#ffffff',
+          borderBottom: '1px solid #2B2B2B',
+        },
+        body: {
+          backgroundColor: '#000000',
+          color: '#ffffff',
+        },
+        content: {
+          borderRadius: '10px',
+          border: '0.5px solid #2B2B2B',
+          overflow: 'hidden',
+        },
       }}
     >
-      <Stack gap="md">
-        <Text size="sm" style={{ fontFamily: GeistMono.style.fontFamily }}>
-          {message}
-        </Text>
-        <Group justify="flex-end">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            styles={{
-              root: {
-                borderColor: '#2b2b2b',
-                color: '#ffffff',
-                '&:hover': {
-                  backgroundColor: '#1a1a1a',
-                },
-              },
-            }}
-          >
+      <form onSubmit={handleSubmit ? handleSubmit(onConfirm) : (e) => { e.preventDefault(); onConfirm({}); }}>
+        {message && <Text size="sm">{message}</Text>}
+        {children}
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={onClose}>
             {cancelText}
           </Button>
-          <Button
-            onClick={onConfirm}
-            loading={loading}
-            styles={{
-              root: {
-                backgroundColor: '#F5A623',
-                color: '#000000',
-                fontFamily: GeistMono.style.fontFamily,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                '&:hover': {
-                  backgroundColor: '#E09612',
-                },
-              },
-            }}
-          >
+          <Button color={confirmColor} type="submit">
             {confirmText}
           </Button>
         </Group>
-      </Stack>
+      </form>
     </Modal>
   );
-}
+};
