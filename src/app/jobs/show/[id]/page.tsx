@@ -439,10 +439,9 @@ export default function JobShow() {
       setErrorMessage(null);
   
       // Get a title for the slug
-      const title = processingDoc?.title || 
-                    record?.output?.title || 
-                    record?.jobName || 
-                    'document';
+      const title = (combinedData.title ||
+                    record?.jobName ||
+                    'document').trim();
       
       // Create a slug from the title
       const slug = title.toLowerCase()
