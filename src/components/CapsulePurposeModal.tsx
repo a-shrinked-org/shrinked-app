@@ -53,8 +53,8 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
   const defaultCards: PurposeCard[] = [
     {
       id: 'summary',
-      name: 'Summary',
-      description: 'Generate a comprehensive summary of the provided documents',
+      name: 'Narrative Analysis Summary',
+      description: 'Compelling fact-driven narratives that reveal hidden patterns and counterintuitive insights',
       prompt: summary,
       section: 'capsule.summary',
       isDefault: true
