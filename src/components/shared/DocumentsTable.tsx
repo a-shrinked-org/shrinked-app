@@ -207,7 +207,7 @@ interface DocumentsTableProps<T extends ProcessedDocument> {
   buttonText?: string;
 }
 
-function DocumentsTable<T extends ProcessedDocument>({
+export function DocumentsTable<T extends ProcessedDocument>({
   data, 
   docToJobMapping = {},
   onView, 
@@ -713,6 +713,25 @@ function DocumentsTable<T extends ProcessedDocument>({
                     <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                       {actionsRenderer ? actionsRenderer(doc) : (
                         <Group>
+                          {onView && (
+                            <Tooltip label="View Document">
+                              <ActionIcon 
+                                variant="subtle"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onView(doc, e);
+                                }}
+                                loading={loadingDocId === doc._id}
+                                disabled={loadingDocId === doc._id}
+                                style={{
+                                  color: '#ffffff',
+                                  '&:hover': { backgroundColor: '#2b2b2b' }
+                                }}
+                              >
+                                <Eye size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
                           {onSendEmail && (
                             <Tooltip label="Send to Email">
                               <ActionIcon 
@@ -874,210 +893,225 @@ function DocumentsTable<T extends ProcessedDocument>({
                       ))}
                     </Flex>
                     
-                    {(onSendEmail || onDelete || actionsRenderer) && (
+                    {(onSendEmail || onDelete || actionsRenderer || onView) && (
                       <Flex justify="flex-start" mt="xs">
                         {actionsRenderer ? actionsRenderer(doc) : (
                           <Group>
+                            {onView && (
+                              <ActionIcon 
+                                variant="subtle"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onView(doc, e);
+                                }}
+                                loading={loadingDocId === doc._id}
+                                disabled={loadingDocId === doc._id}
+                                style={{
+                                  color: '#ffffff',
+                                }}
+                              >
+                                <Eye size={14} />
+                              </ActionIcon>
+                            )}
                             {onSendEmail && (
                               <ActionIcon 
                                 variant="subtle"
                                 size="sm"
                                 onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  handleEmailClick(doc._id, e);
-                                                                }}
-                                                                style={{
-                                                                  color: '#ffffff',
-                                                                }}
-                                                              >
-                                                                <Mail size={14} />
-                                                              </ActionIcon>
-                                                            )}
-                                                            {onDelete && (
-                                                              <ActionIcon 
-                                                                variant="subtle"
-                                                                size="sm"
-                                                                color="red"
-                                                                onClick={(e) => {
-                                                                  e.stopPropagation();
-                                                                  onDelete(doc._id, e);
-                                                                }}
-                                                              >
-                                                                <Trash size={14} />
-                                                              </ActionIcon>
-                                                            )}
-                                                          </Group>
-                                                        )}
-                                                      </Flex>
-                                                    )}
-                                                  </Box>
-                                                </Flex>
-                                              </Box>
-                                            );
-                                          })}
-                                        </Stack>
-                                      ) : (
-                                        <Box p="xl" style={{ textAlign: 'center' }}>
-                                          <Text c="#a1a1a1">{noDataMessage}</Text>
-                                        </Box>
-                                      )}
-                                    </Box>
-                                  );
-                                  
-                                  return (
-                                    <Box style={{ 
-                                      backgroundColor: '#000000', 
-                                      color: '#ffffff', 
-                                      height: '100%',
-                                      width: '100%',
-                                      maxWidth: '100%',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      overflow: 'hidden'
-                                    }}>
-                                      <Flex justify="space-between" ta="center" p="sm" style={{ 
-                                        borderBottom: '1px solid #2b2b2b',
-                                        flexShrink: 0
-                                      }}>
-                                        <Text size="sm" fw={500} style={{ 
-                                          fontFamily: GeistMono.style.fontFamily, 
-                                          letterSpacing: '0.5px',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          height: '100%'
-                                        }}>{title}</Text>
-                                        <Group>
-                                          {(onRefresh || comingSoon) && (
-                                            <Button
-                                              variant="subtle"
-                                              onClick={handleRefreshClick}
-                                              leftSection={<RefreshCw size={14} />}
-                                              loading={isLoading || isRefreshing}
-                                              styles={{
-                                                root: {
-                                                  backgroundColor: 'transparent',
-                                                  color: '#ffffff',
-                                                  fontWeight: 500,
-                                                  textTransform: 'uppercase',
-                                                  fontFamily: GeistMono.style.fontFamily,
-                                                  fontSize: '14px',
-                                                  letterSpacing: '0.5px',
-                                                  padding: '8px 16px',
-                                                  border: 'none',
-                                                  '&:hover': {
-                                                    backgroundColor: '#1a1a1a',
-                                                  },
-                                                },
-                                              }}
-                                            >
-                                              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
-                                            </Button>
-                                          )}
-                                          
-                                          {onAddNew && !comingSoon && (
-                                            <Button
-                                              variant="filled"
-                                              onClick={onAddNew}
-                                              rightSection={<Plus size={16} />}
-                                              styles={{
-                                                root: {
-                                                  fontFamily: GeistMono.style.fontFamily,
-                                                  fontSize: '14px',
-                                                  fontWeight: 400,
-                                                  textTransform: 'uppercase',
-                                                  letterSpacing: '0.5px',
-                                                  padding: '8px 16px',
-                                                  backgroundColor: '#F5A623',
-                                                  color: '#000000',
-                                                  '&:hover': {
-                                                    backgroundColor: '#E09612',
-                                                  },
-                                                },
-                                              }}
-                                            >
-                                              <Text size="xs">{buttonText || "ADD NEW JOB"}</Text>
-                                            </Button>
-                                          )}
-                                        </Group>
-                                      </Flex>
-                                  
-                                      {comingSoon ? (
-                                        renderComingSoonState()
-                                      ) : (
-                                        <Box style={{ 
-                                          width: '100%', 
-                                          maxWidth: '100%', 
-                                          overflowX: 'hidden',
-                                          flex: 1
-                                        }}>
-                                          {!isMobile ? renderDesktopView() : renderMobileView()}
-                                        </Box>
-                                      )}
-                                
-                                      <Modal
-                                        opened={emailModalOpen}
-                                        onClose={() => setEmailModalOpen(false)}
-                                        title="Send to Email"
-                                        centered
-                                        styles={{
-                                          header: { backgroundColor: '#000000', color: '#ffffff' },
-                                          body: { backgroundColor: '#000000', color: '#ffffff' },
-                                          close: { color: '#ffffff' },
-                                        }}
-                                      >
-                                        <Box>
-                                          <TextInput
-                                            label="Email Address"
-                                            placeholder="Enter email address"
-                                            value={emailAddress}
-                                            onChange={(e) => setEmailAddress(e.target.value)}
-                                            required
-                                            styles={{
-                                              input: {
-                                                backgroundColor: '#0d0d0d',
-                                                borderColor: '#2b2b2b',
-                                                color: '#ffffff',
-                                              },
-                                              label: {
-                                                color: '#ffffff',
-                                              },
-                                            }}
-                                          />
-                                          <Group justify="flex-end" mt="md">
-                                            <Button
-                                              variant="outline"
-                                              onClick={() => setEmailModalOpen(false)}
-                                              styles={{
-                                                root: {
-                                                  borderColor: '#2b2b2b',
-                                                  color: '#ffffff',
-                                                },
-                                              }}
-                                            >
-                                              Cancel
-                                            </Button>
-                                            <Button
-                                              onClick={handleSendEmail}
-                                              leftSection={<Send size={16} />}
-                                              loading={sendingEmail}
-                                              disabled={!emailAddress}
-                                              styles={{
-                                                root: {
-                                                  backgroundColor: '#ffffff',
-                                                  color: '#000000',
-                                                  '&:hover': {
-                                                    backgroundColor: '#e0e0e0',
-                                                  },
-                                                },
-                                              }}
-                                            >
-                                              Send
-                                            </Button>
-                                          </Group>
-                                        </Box>
-                                      </Modal>
-                                    </Box>
-                                  );
-                                }
-                                
-                                export default DocumentsTable;
+                                  e.stopPropagation();
+                                  handleEmailClick(doc._id, e);
+                                }}
+                                style={{
+                                  color: '#ffffff',
+                                }}
+                              >
+                                <Mail size={14} />
+                              </ActionIcon>
+                            )}
+                            {onDelete && (
+                              <ActionIcon 
+                                variant="subtle"
+                                size="sm"
+                                color="red"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDelete(doc._id, e);
+                                }}
+                              >
+                                <Trash size={14} />
+                              </ActionIcon>
+                            )}
+                          </Group>
+                        )}
+                      </Flex>
+                    )}
+                  </Box>
+                </Flex>
+              </Box>
+            );
+          })}
+        </Stack>
+      ) : (
+        <Box p="xl" style={{ textAlign: 'center' }}>
+          <Text c="#a1a1a1">{noDataMessage}</Text>
+        </Box>
+      )}
+    </Box>
+  );
+  
+  return (
+    <Box style={{ 
+      backgroundColor: '#000000', 
+      color: '#ffffff', 
+      height: '100%',
+      width: '100%',
+      maxWidth: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
+      <Flex justify="space-between" ta="center" p="sm" style={{ 
+        borderBottom: '1px solid #2b2b2b',
+        flexShrink: 0
+      }}>
+        <Text size="sm" fw={500} style={{ 
+          fontFamily: GeistMono.style.fontFamily, 
+          letterSpacing: '0.5px',
+          display: 'flex',
+          alignItems: 'center',
+          height: '100%'
+        }}>{title}</Text>
+        <Group>
+          {(onRefresh || comingSoon) && (
+            <Button
+              variant="subtle"
+              onClick={handleRefreshClick}
+              leftSection={<RefreshCw size={14} />}
+              loading={isLoading || isRefreshing}
+              styles={{
+                root: {
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  border: 'none',
+                  '&:hover': {
+                    backgroundColor: '#1a1a1a',
+                  },
+                },
+              }}
+            >
+              {!isMobile && <Text size="xs" fw={500}>REFRESH</Text>}
+            </Button>
+          )}
+          
+          {onAddNew && !comingSoon && (
+            <Button
+              variant="filled"
+              onClick={onAddNew}
+              rightSection={<Plus size={16} />}
+              styles={{
+                root: {
+                  fontFamily: GeistMono.style.fontFamily,
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 16px',
+                  backgroundColor: '#F5A623',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#E09612',
+                  },
+                },
+              }}
+            >
+              <Text size="xs">{buttonText || "ADD NEW JOB"}</Text>
+            </Button>
+          )}
+        </Group>
+      </Flex>
+  
+      {comingSoon ? (
+        renderComingSoonState()
+      ) : (
+        <Box style={{ 
+          width: '100%', 
+          maxWidth: '100%', 
+          overflowX: 'hidden',
+          flex: 1
+        }}>
+          {!isMobile ? renderDesktopView() : renderMobileView()}
+        </Box>
+      )}
+
+      <Modal
+        opened={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        title="Send to Email"
+        centered
+        styles={{
+          header: { backgroundColor: '#000000', color: '#ffffff' },
+          body: { backgroundColor: '#000000', color: '#ffffff' },
+          close: { color: '#ffffff' },
+        }}
+      >
+        <Box>
+          <TextInput
+            label="Email Address"
+            placeholder="Enter email address"
+            value={emailAddress}
+            onChange={(e) => setEmailAddress(e.target.value)}
+            required
+            styles={{
+              input: {
+                backgroundColor: '#0d0d0d',
+                borderColor: '#2b2b2b',
+                color: '#ffffff',
+              },
+              label: {
+                color: '#ffffff',
+              },
+            }}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="outline"
+              onClick={() => setEmailModalOpen(false)}
+              styles={{
+                root: {
+                  borderColor: '#2b2b2b',
+                  color: '#ffffff',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              leftSection={<Send size={16} />}
+              loading={sendingEmail}
+              disabled={!emailAddress}
+              styles={{
+                root: {
+                  backgroundColor: '#ffffff',
+                  color: '#000000',
+                  '&:hover': {
+                    backgroundColor: '#e0e0e0',
+                  },
+                },
+              }}
+            >
+              Send
+            </Button>
+          </Group>
+        </Box>
+      </Modal>
+    </Box>
+  );
+}

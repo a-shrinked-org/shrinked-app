@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
+import { DocumentsTable, ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { GeistMono } from 'geist/font/mono';
 import { GeistSans } from 'geist/font/sans'; // Added GeistSans import

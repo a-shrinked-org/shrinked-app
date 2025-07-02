@@ -24,7 +24,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useAuth, authUtils, API_CONFIG } from "@/utils/authUtils";
-import DocumentsTable, { ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
+import { DocumentsTable, ProcessedDocument, ExtraColumn } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { GeistMono } from 'geist/font/mono';
 import JobCreateModal from '@/components/JobCreateModal'; // Import your modal component

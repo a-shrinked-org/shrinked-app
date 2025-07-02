@@ -12,7 +12,7 @@ import {
 } from "@mantine/core";
 import { AlertCircle } from 'lucide-react';
 import { authUtils } from "@/utils/authUtils";
-import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
+import { DocumentsTable, ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { ApiKeyService, ApiKey } from "@/services/api-key-service";
 import { GeistMono } from 'geist/font/mono';

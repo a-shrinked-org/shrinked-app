@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
-import DocumentsTable from '@/components/shared/DocumentsTable';
+import { DocumentsTable } from '@/components/shared/DocumentsTable';
 import { Modal, Box, Text, Textarea, Button, Flex, ActionIcon } from '@mantine/core';
 import { X } from 'lucide-react';
 import { GeistMono } from 'geist/font/mono';

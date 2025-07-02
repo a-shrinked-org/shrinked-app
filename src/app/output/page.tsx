@@ -10,7 +10,7 @@ import {
 } from '@mantine/core';
 import { AlertCircle } from 'lucide-react';
 import { authUtils, API_CONFIG } from "@/utils/authUtils";
-import DocumentsTable, { ProcessedDocument } from '@/components/shared/DocumentsTable';
+import { DocumentsTable, ProcessedDocument } from '@/components/shared/DocumentsTable';
 import { formatDate } from '@/utils/formatting';
 import { documentOperations } from '@/providers/data-provider/shrinked-data-provider';
 
