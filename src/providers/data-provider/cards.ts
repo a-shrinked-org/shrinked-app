@@ -17,7 +17,7 @@ export const prototypeCards: PurposeCard[] = [
     Source Material:
     |<context_buffer> {{fullContext}} </context_buffer>
 
-    CRITICAL: Every statement, number, and quote must be tied to exact timestamps from the source material. Use the actual timestamps like [14:23] exactly as they appear.
+    CRITICAL: Every statement, number, and quote must be tied to exact timestamps from the source material. Use the actual timestamps like [14:23] exactly as they appear. ONLY include information explicitly present in the source material.
 
     Create a board intelligence memo with:
 
@@ -25,27 +25,27 @@ export const prototypeCards: PurposeCard[] = [
     Open with how this meeting changes your investment thesis. What shifted? Quote exact CEO language with timestamps that reveals strategic thinking or concerning gaps.
 
     **PERFORMANCE SCORECARD**
-    Revenue: [14:23] "Q3 revenue hit $2.4M" vs. previous projections with timestamps
-    Burn/Runway: Current metrics with timestamps, trajectory analysis
-    Key Metrics: Customer acquisition, retention, unit economics - all with timestamps
-    Team Performance: Critical hires/departures, leadership effectiveness with timestamps
+    Revenue: ONLY if specific revenue figures are mentioned with timestamps
+    Burn/Runway: ONLY if current metrics are discussed with timestamps
+    Key Metrics: ONLY if customer acquisition, retention, or unit economics are mentioned with timestamps
+    Team Performance: ONLY if hires/departures or leadership effectiveness are discussed with timestamps
 
     **STRATEGIC INFLECTION POINTS**
-    Market opportunities or threats discussed with timestamps. Pivots or major strategic shifts with exact timestamps and reasoning. Competitive dynamics that emerged with timestamps.
+    ONLY include market opportunities, threats, pivots, or strategic shifts that were explicitly discussed with timestamps. Do not create strategic analysis not present in the source.
 
     **RISK ASSESSMENT**
-    Execution risks with timestamps where revealed. Market risks discussed with timestamps. Team/leadership risks with timestamps. Capital needs and timing with timestamps.
+    ONLY include risks that were explicitly discussed in the meeting with timestamps. If specific risk categories are not mentioned, indicate "Not discussed in this meeting."
 
     **BOARD DYNAMICS & GOVERNANCE**
-    Decision-making effectiveness with timestamp observations. Management-board alignment with timestamps. Key disagreements and resolutions with timestamps.
+    ONLY include governance issues or board dynamics that were explicitly evident in the source material with timestamps.
 
     **NEXT MILESTONES & ACCOUNTABILITY**
-    Specific commitments with timestamps [e.g., [23:45] "I commit to hiring VP Engineering by month end"]. Success metrics and timelines with timestamps. Next board meeting priorities with timestamps.
+    ONLY include specific commitments that were made with timestamps. If no commitments were made, state "No specific commitments made in this meeting."
 
     **PORTFOLIO IMPLICATIONS**
-    How does this compare to similar portfolio companies? What patterns emerge? Should this influence other investments or exits?
+    ONLY if there are clear connections to portfolio strategy discussed in the meeting.
 
-    Focus on what a partner needs to know for: next board meeting preparation, LP updates, follow-on investment decisions, and exit planning. Every significant data point must include its exact timestamp.`,
+    Focus on what a partner needs to know based solely on what was discussed in this specific meeting. Every significant data point must include its exact timestamp from the source material.`,
     section: 'capsule.vc-board-analyst',
     isDefault: false
   },
@@ -58,38 +58,39 @@ export const prototypeCards: PurposeCard[] = [
     Source Material:
     |<context_buffer> {{fullContext}} </context_buffer>
 
-    CRITICAL: Every observation must be tied to exact timestamps from the source material. Use actual timestamps like [14:23] exactly as they appear.
+    CRITICAL: Every observation must be tied to exact timestamps from the source material. Use actual timestamps like [14:23] exactly as they appear. ONLY include information explicitly present in the source material.
 
     Create a personal narrative report with:
 
     **Today's Unexpected Story**
-    Start with the most surprising contradiction or pattern. What would surprise them about their own day? Lead with the insight that reveals something they didn't realize about themselves.
+    Start with the most surprising pattern that emerges from the timestamped data. ONLY include insights that can be directly supported by the source material.
 
     **The Arc of Your Day**
-    Morning Self: Energy, priorities, voice tone at [08:15] timestamps
-    Midday Shift: How decisions and focus changed at [12:30] timestamps  
-    Evening Reflection: What emerged by [22:30] timestamps
-    Show the evolution of their mindset through exact timestamped moments.
+    ONLY describe patterns that are evident in the timestamped source material:
+    - Morning activities and tone (if present with timestamps)
+    - Midday shifts (if evident with timestamps)
+    - Evening patterns (if present with timestamps)
+    If certain time periods lack data, note "Limited data available for this period."
 
     **Cross-Stream Connections**
-    Voice + Location: What they said at [09:15] vs. where they were at [15:42]
-    Spending + Emotions: Purchase at [11:30] connects to voice memo at [14:20]
-    Words + Actions: "I prioritize family" at [12:30] vs. location data [07:00-21:00]
-    Show the gaps between intention and reality through timestamps.
+    ONLY make connections between data streams that are explicitly present in the source material:
+    - Voice + Location correlations (if both are present with timestamps)
+    - Actions + Expressions (if both are documented with timestamps)
+    - Patterns + Behaviors (if both are evident with timestamps)
 
     **Breakthrough Moments**
-    Growth Signals: When they articulated something new at [16:45]
-    Confidence Shifts: Helping others differently at [19:20] than usual
-    Decision Evolution: How they approached choices differently with timestamps
-    Relationship Dynamics: New patterns in interactions with timestamps
+    ONLY highlight moments that are clearly documented in the source material with timestamps:
+    - New expressions or decisions (if present)
+    - Confidence or behavioral shifts (if evident)
+    - Relationship dynamics (if documented)
 
     **The Deeper Pattern**
-    What do these timestamped moments reveal about their evolving identity? How are they changing in ways they haven't noticed? What story is their data telling about who they're becoming?
+    ONLY discuss patterns that emerge from the actual timestamped data provided. If insufficient data exists for pattern analysis, state "Insufficient data for pattern analysis."
 
     **Tomorrow's Thread**
-    Based on today's patterns, what questions might be worth exploring? What growth edges are emerging? Connect today's timestamped insights to their larger journey.
+    ONLY suggest areas for exploration if they naturally emerge from today's documented patterns.
 
-    Write as if you're helping them see the story they're already living. Quote their exact words with timestamps. Focus on illumination, not optimization. Show them who they are through the lens of their own data.`,
+    Write based solely on what the data actually shows. Quote exact phrases with timestamps. If data is sparse in certain areas, acknowledge the limitation rather than creating insights.`,
     section: 'capsule.personal-historian',
     isDefault: false
   },
@@ -102,45 +103,45 @@ export const prototypeCards: PurposeCard[] = [
     Source Material:
     |<context_buffer> {{fullContext}} </context_buffer>
 
-    CRITICAL: Every speaker quote, session detail, and networking observation must be tied to exact timestamps from the source material.
+    CRITICAL: Every speaker quote, session detail, and networking observation must be tied to exact timestamps from the source material. ONLY include information explicitly present in the source material.
 
     Create an event intelligence briefing with:
 
     **Market Signal Detection**
-    Lead with the most significant trend or shift that emerged from timestamped source material. What would industry insiders be surprised to learn? What counterintuitive pattern changes how you'd interpret the event's real impact?
+    Lead with the most significant trend or shift that emerged from timestamped source material. ONLY include signals that were explicitly discussed or observed with timestamps.
 
     **Power Dynamics Mapping**
-    Who Was Center Stage: Which speakers drew crowds with timestamps, whose sessions had overflow attendance
-    Influence Shifts: Companies/leaders gaining/losing mindshare with timestamps
-    New Voices: Emerging thought leaders or breakthrough presentations with timestamps
-    Strategic Positioning: How companies used their presence to signal market intent with timestamps
+    ONLY include dynamics that were explicitly documented in the source material:
+    - Speaker attention and audience response (if documented with timestamps)
+    - Influence indicators (if mentioned with timestamps)
+    - Emerging voices (if specifically noted with timestamps)
+    - Strategic positioning (if explicitly discussed with timestamps)
 
     **Content Intelligence Analysis**
-    Dominant Themes: What everyone was talking about with timestamps vs. what they avoided
-    Contradictory Signals: Where speakers disagreed with timestamps, revealing market uncertainty
-    Breakthrough Ideas: New concepts or approaches that gained traction with timestamps
-    Technical Evolution: How the conversation advanced from previous events with timestamps
+    ONLY analyze content that was explicitly covered in the source material:
+    - Themes that were actually discussed (with timestamps)
+    - Disagreements that were documented (with timestamps)
+    - New ideas that were presented (with timestamps)
+    - Technical discussions that occurred (with timestamps)
 
     **Competitive Landscape Shifts**
-    Partnership Announcements: Strategic alliances revealed with timestamps
-    Talent Movement: Key hiring signals or team changes discussed with timestamps
-    Product Strategy: Roadmap hints and positioning changes with timestamps
-    Market Positioning: How companies differentiated themselves with timestamps
+    ONLY include developments that were explicitly mentioned in the source material:
+    - Partnership announcements (if made with timestamps)
+    - Hiring or team changes (if discussed with timestamps)
+    - Product strategy revelations (if shared with timestamps)
+    - Market positioning (if demonstrated with timestamps)
 
     **Investment & Innovation Signals**
-    Funding Patterns: What investors were backing with timestamps
-    Technology Bets: Which technical approaches gained momentum with timestamps
-    Market Timing: Readiness indicators for emerging technologies with timestamps
-    Risk Factors: Concerns or challenges repeatedly mentioned with timestamps
+    ONLY include signals that were explicitly discussed in the source material:
+    - Funding discussions (if mentioned with timestamps)
+    - Technology trends (if covered with timestamps)
+    - Market timing indicators (if discussed with timestamps)
+    - Risk factors (if raised with timestamps)
 
     **Future Trajectory Analysis**
-    Based on timestamped patterns, what does this event predict about:
-    - Next 6 months of industry evolution
-    - Emerging competitive threats
-    - Investment opportunities
-    - Strategic partnership potential
+    ONLY make predictions based on patterns that are clearly evident in the timestamped source material. If insufficient data exists for trajectory analysis, state "Limited data for future trajectory analysis."
 
-    Transform event data into intelligence that reveals not just what happened, but what it means for competitive positioning and market direction. Every significant insight must include its exact timestamp.`,
+    Transform event data into intelligence based solely on what was documented. Every significant insight must include its exact timestamp from the source material.`,
     section: 'capsule.event-intelligence',
     isDefault: false
   },
@@ -153,43 +154,46 @@ export const prototypeCards: PurposeCard[] = [
     Source Material:
     |<context_buffer> {{fullContext}} </context_buffer>
 
-    CRITICAL: Every decision, action item, deadline, and commitment must be tied to exact timestamps from the source material.
+    CRITICAL: Every decision, action item, deadline, and commitment must be tied to exact timestamps from the source material. ONLY include information explicitly present in the source material. Do not create placeholder content or example data.
 
     Create a professional meeting follow-up email with:
 
-    **Subject Line:** [Meeting Type] - [Key Outcome/Decision] - [Critical Date if applicable]
-    Based on the most important timestamped outcome from the meeting.
+    **Subject Line:** Based on the most important timestamped outcome from the meeting (if identifiable)
 
     **Executive Summary**
-    One paragraph capturing the meeting's impact: key decision made, problem solved, or direction set. Include timestamp where this crystallized.
+    One paragraph capturing the meeting's impact based solely on what was discussed. Include timestamp where key outcomes were established. If no clear outcome emerged, state "Meeting focused on discussion and information sharing."
 
     **Decisions Made**
-    • [14:23] **Budget Approved:** $50K for Q1 marketing campaign, approved by [Name]
-    • [18:45] **Strategy Pivot:** Moving from B2B to B2C focus, effective immediately
-    • [25:30] **Vendor Selected:** Acme Corp chosen for implementation, contract by Friday
+    ONLY include decisions that were explicitly made and documented with timestamps:
+    • [timestamp] **Decision Type:** Specific decision made by specific person (if documented)
+    If no formal decisions were made, state "No formal decisions reached in this meeting."
 
     **Action Items**
+    ONLY include action items that were explicitly assigned with timestamps:
     **Owner** | **Task** | **Due Date** | **Success Criteria** | **Timestamp**
-    John Smith | Vendor analysis | March 15 | 3 options with costs | [23:45]
-    Sarah Lee | Budget forecast | March 12 | Q2 projections | [31:20]
-    Mike Chen | Team hiring | March 30 | 2 developers onboarded | [44:15]
+    [Name] | [Specific task] | [Date if specified] | [Criteria if specified] | [timestamp]
+
+    If no action items were assigned, state "No specific action items assigned in this meeting."
+    If owners, dates, or criteria were not specified, indicate "Not specified in meeting."
 
     **Key Context for Future Reference**
-    Important discussion points that inform future decisions:
-    • [18:30] Sarah's concern about timeline feasibility given current resources
-    • [22:15] Client feedback indicating need for mobile-first approach
-    • [35:40] Budget constraints requiring phased rollout approach
+    ONLY include discussion points that were explicitly raised with timestamps:
+    • [timestamp] Important context that was actually discussed
+    If limited context was provided, state "Limited contextual discussion in this meeting."
 
     **Decisions Deferred**
-    • [38:15] Office relocation discussion → Q2 budget review meeting
-    • [42:30] Salary review process → HR policy meeting next week
+    ONLY include items that were explicitly deferred with timestamps:
+    • [timestamp] Specific item deferred → Next meeting/timeline if specified
+    If no deferrals occurred, state "No decisions were deferred."
 
     **Next Steps**
-    • **Next meeting:** [Date from timestamp] at [Time from timestamp]
-    • **Interim check-in:** [Date from timestamp] for [specific milestone from timestamp]
-    • **Reporting:** Weekly updates on [specific metrics from timestamp]
+    ONLY include next steps that were explicitly discussed with timestamps:
+    • **Next meeting:** [Date and time if specified with timestamp]
+    • **Interim check-in:** [Details if specified with timestamp]
+    • **Reporting:** [Requirements if specified with timestamp]
+    If next steps were not discussed, state "Next steps not specified in this meeting."
 
-    Every action item should pass the "Monday morning clarity test" - anyone reading this knows exactly what they committed to do and when, based on timestamped meeting commitments.`,
+    Focus on delivering exactly what was committed to in the meeting. When information is incomplete or not specified, acknowledge the limitation rather than fabricating details.`,
     section: 'capsule.meeting-assistant',
     isDefault: false
   },
@@ -246,54 +250,47 @@ export const prototypeCards: PurposeCard[] = [
     Source Material:
     |<context_buffer> {{fullContext}} </context_buffer>
 
-    CRITICAL: Every measurement, observation, and finding must be tied to exact timestamps from the source material.
+    CRITICAL: Every measurement, observation, and finding must be tied to exact timestamps from the source material. ONLY include information explicitly present in the source material.
 
     Create a comprehensive inspection report with:
 
     **Executive Summary & Risk Assessment**
-    Overall property condition and immediate safety concerns with timestamps. Lead with the 3 most critical findings that impact safety or require immediate attention, with exact timestamps where observed.
+    ONLY include property conditions and safety concerns that were explicitly documented with timestamps. If no safety hazards were identified, state "No immediate safety concerns identified during inspection."
 
     **IMMEDIATE ACTION REQUIRED**
-    Safety hazards that need immediate attention:
-    • [09:15] **Electrical Hazard:** Exposed wiring in basement near water heater
-    • [14:45] **Gas Leak:** Detected at kitchen stove connection
-    • [11:30] **Structural:** Foundation settlement crack >1/4 inch in north wall
+    ONLY include safety hazards that were specifically identified in the source material:
+    • [timestamp] **Hazard Type:** Specific description of hazard as documented
+    If no immediate hazards were found, state "No immediate action items identified."
 
     **MAJOR SYSTEMS ASSESSMENT**
 
-    **Structural & Foundation** [Overall Grade: ___ based on timestamps]
-    Foundation condition at [08:30], settlement evidence at [09:45], crack measurements at [10:15]
-    Load-bearing integrity at [11:00], floor level variations at [12:30]
+    **Structural & Foundation** [Grade based on actual findings with timestamps]
+    ONLY include structural observations that were made with timestamps. If system was not inspected, state "System not inspected" or "Limited access prevented full inspection."
 
-    **Electrical System** [Overall Grade: ___ based on timestamps]  
-    Panel capacity at [13:15], wire types at [13:45], outlet functionality at [14:00]
-    GFCI protection at [14:30], code compliance at [15:00]
+    **Electrical System** [Grade based on actual findings with timestamps]
+    ONLY include electrical observations that were documented with timestamps.
 
-    **Plumbing System** [Overall Grade: ___ based on timestamps]
-    Water pressure at [16:00], pipe materials at [16:30], drain functionality at [17:00]
-    Water heater condition at [17:30], fixture operations at [18:00]
+    **Plumbing System** [Grade based on actual findings with timestamps]
+    ONLY include plumbing observations that were documented with timestamps.
 
-    **HVAC System** [Overall Grade: ___ based on timestamps]
-    System capacity at [19:00], ductwork at [19:30], filter status at [20:00]
-    Efficiency ratings at [21:00], thermostat functionality at [20:30]
+    **HVAC System** [Grade based on actual findings with timestamps]
+    ONLY include HVAC observations that were documented with timestamps.
 
-    **Roofing & Exterior** [Overall Grade: ___ based on timestamps]
-    Shingle condition at [22:00], flashing at [22:30], gutters at [23:00]
-    Attic ventilation at [23:30], insulation at [24:00]
+    **Roofing & Exterior** [Grade based on actual findings with timestamps]
+    ONLY include roofing and exterior observations that were documented with timestamps.
 
-    **REPAIR COST ESTIMATES** (only if provided in source)
-    **Immediate (0-30 days):** Items with timestamps and costs
-    **Short-term (1-6 months):** Items with timestamps and costs  
-    **Long-term (6+ months):** Items with timestamps and costs
+    **REPAIR COST ESTIMATES**
+    ONLY include cost estimates that were explicitly provided in the source material with timestamps. If no cost estimates were given, state "Cost estimates not provided in inspection."
 
     **DETAILED FINDINGS LOG**
-    For each significant issue:
-    Location | Issue | Timestamp | Severity | Photo # | Recommendation
+    ONLY include findings that were explicitly documented:
+    Location | Issue | Timestamp | Severity | Photo Reference | Recommendation
+    [Actual location] | [Actual issue] | [timestamp] | [stated severity] | [if referenced] | [if provided]
 
     **MAINTENANCE RECOMMENDATIONS**
-    Preventive measures with timestamps: Filter changes at [25:30], annual inspections at [26:00]
+    ONLY include maintenance recommendations that were explicitly provided in the source material with timestamps. If no recommendations were given, state "No specific maintenance recommendations provided."
 
-    Focus on giving clients clear priorities: what needs immediate attention, what can wait, and what impacts property value. Every finding must include its exact timestamp from the inspection source material.`,
+    Focus on delivering exactly what was observed and documented during the inspection. When information is incomplete or systems were not fully inspected, acknowledge the limitation rather than providing generic recommendations.`,
     section: 'capsule.home-inspector',
     isDefault: false
   }
