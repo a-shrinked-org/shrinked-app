@@ -521,192 +521,193 @@ export default function JobShow() {
     }
   }, [processingDocId, queryResult.data, markdownContent, fetchMarkdownContent, processingDoc]);
 
-  const handleShareDocument = useCallback(async () => {
-    console.log('handleShareDocument called', { processingDocId, jobId });
+const handleShareDocument = useCallback(async () => {
+  console.log('handleShareDocument called', { processingDocId, jobId });
   
-    if (!processingDocId) {
-      const errorMsg = "No document ID found to share";
-      console.error(errorMsg);
-      setErrorMessage(errorMsg);
+  if (!processingDocId) {
+    const errorMsg = "No document ID found to share";
+    console.error(errorMsg);
+    setErrorMessage(errorMsg);
+    return;
+  }
+  
+  if (!jobId) {
+    const errorMsg = "No job ID found to share";
+    console.error(errorMsg);
+    setErrorMessage(errorMsg);
+    return;
+  }
+  
+  try {
+    // If we already have a shared link, open the share dialog
+    if (record?.link && record.link.includes('/docs/')) {
+      console.log('Using existing shared link:', record.link);
+      setSharedUrl(record.link);
+      openShareDialog();
       return;
     }
   
-    if (!jobId) {
-      const errorMsg = "No job ID found to share";
-      console.error(errorMsg);
-      setErrorMessage(errorMsg);
-      return;
+    // Verify processingDocId matches job context
+    const expectedResultId = extractResultId(record ?? null);
+    if (processingDocId !== expectedResultId) {
+      console.warn(`Mismatch: processingDocId (${processingDocId}) does not match expected resultId (${expectedResultId})`);
     }
   
-    try {
-      // If we already have a shared link, open the share dialog
-      if (record?.link && record.link.includes('/docs/')) {
-        console.log('Using existing shared link:', record.link);
-        setSharedUrl(record.link);
-        openShareDialog();
-        return;
+    // Create a new shared document
+    setIsSharing(true);
+    setErrorMessage(null);
+    console.log('Starting share process', { processingDocId, jobId });
+  
+    // Fetch markdown content
+    let markdown = markdownContent;
+    if (!markdown) {
+      console.log('Fetching markdown content for:', processingDocId);
+      const token = await ensureValidToken();
+      if (!token) {
+        const errorMsg = 'Authentication failed - unable to get valid token';
+        console.error(errorMsg);
+        throw new Error(errorMsg);
       }
   
-      // Verify processingDocId matches job context
-      const expectedResultId = extractResultId(record ?? null);
-      if (processingDocId !== expectedResultId) {
-        console.warn(`Mismatch: processingDocId (${processingDocId}) does not match expected resultId (${expectedResultId})`);
-      }
+      const response = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store',
+      });
   
-      // Create a new shared document
-      setIsSharing(true);
-      setErrorMessage(null);
-      console.log('Starting share process', { processingDocId, jobId });
-  
-      // Fetch markdown content
-      let markdown = markdownContent;
-      if (!markdown) {
-        console.log('Fetching markdown content for:', processingDocId);
-        const token = await ensureValidToken();
-        if (!token) {
-          const errorMsg = 'Authentication failed - unable to get valid token';
-          console.error(errorMsg);
-          throw new Error(errorMsg);
-        }
-  
-        const response = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-          cache: 'no-store',
-        });
-  
-        if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            console.log('Token expired, attempting refresh');
-            const refreshSuccess = await refreshToken();
-            if (refreshSuccess) {
-              const newToken = getAccessToken();
-              const retryResponse = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
-                headers: { 'Authorization': `Bearer ${newToken || ''}` },
-                cache: 'no-store',
-              });
-              if (!retryResponse.ok) {
-                const errorMsg = `Markdown fetch failed with status: ${retryResponse.status}`;
-                console.error(errorMsg);
-                throw new Error(errorMsg);
-              }
-              markdown = await retryResponse.text();
-            } else {
-              const errorMsg = 'Token refresh failed';
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          console.log('Token expired, attempting refresh');
+          const refreshSuccess = await refreshToken();
+          if (refreshSuccess) {
+            const newToken = getAccessToken();
+            const retryResponse = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
+              headers: { 'Authorization': `Bearer ${newToken || ''}` },
+              cache: 'no-store',
+            });
+            if (!retryResponse.ok) {
+              const errorMsg = `Markdown fetch failed with status: ${retryResponse.status}`;
               console.error(errorMsg);
               throw new Error(errorMsg);
             }
-          } else if (response.status === 404) {
-            const errorMsg = 'Content not available yet';
-            console.error(errorMsg);
-            throw new Error(errorMsg);
+            markdown = await retryResponse.text();
           } else {
-            const errorMsg = `Markdown fetch failed with status: ${response.status}`;
+            const errorMsg = 'Token refresh failed';
             console.error(errorMsg);
             throw new Error(errorMsg);
           }
+        } else if (response.status === 404) {
+          const errorMsg = 'Content not available yet';
+          console.error(errorMsg);
+          throw new Error(errorMsg);
         } else {
-          markdown = await response.text();
-        }
-  
-        console.log('Fetched markdown content:', markdown);
-        if (!markdown || markdown.trim() === '') {
-          const errorMsg = 'Markdown content is empty or unavailable';
-          console.warn(errorMsg);
-          setMarkdownContent('');
+          const errorMsg = `Markdown fetch failed with status: ${response.status}`;
+          console.error(errorMsg);
           throw new Error(errorMsg);
         }
-        setMarkdownContent(markdown);
+      } else {
+        markdown = await response.text();
       }
   
-      // Clean markdown content by removing headers, preserving paragraph breaks
-      const cleanMarkdownContent = (content: string, sectionHeader: string) => {
-        const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
-        const match = content.match(regex);
-        if (match && match[1]) {
-          // Remove ### headers, keep paragraph breaks (\n\n)
-          return match[1].trim().replace(/^###\s*[^\n]*\n+/gm, '');
+      console.log('Fetched markdown content:', markdown);
+      if (!markdown || markdown.trim() === '') {
+        const errorMsg = 'Markdown content is empty or unavailable';
+        console.warn(errorMsg);
+        setMarkdownContent('');
+        throw new Error(errorMsg);
+      }
+      setMarkdownContent(markdown);
+    }
+  
+    // Clean markdown content by removing headers, preserving paragraph breaks
+    const cleanMarkdownContent = (content: string, sectionHeader: string) => {
+      const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
+      const match = content.match(regex);
+      if (match && match[1]) {
+        // Remove ### headers, keep paragraph breaks (\n\n)
+        return match[1].trim().replace(/^###\s*[^\n]*\n+/gm, '');
+      }
+      return '';
+    };
+  
+    // Clean field, handling strings and arrays, preserving paragraph breaks and lists
+    const cleanField = (field: string | any[] | undefined, isArray = false, isList = false) => {
+      if (!field) return '';
+      if (isArray && Array.isArray(field)) {
+        if (field.every(item => typeof item === 'object' && 'title' in item)) {
+          // Handle chapters (array of { title: string })
+          return field
+            .map(item => {
+              const title = item.title.trim();
+              // Convert [N] to [[N]](#ts-N)
+              return `- ${title.replace(/\[(\d+)\]$/, '[[$1]](#ts-$1)')}`;
+            })
+            .join('\n')
+            .trim();
+        } else if (field.every(item => typeof item === 'object' && 'item' in item)) {
+          // Handle references (array of { item: string })
+          return field
+            .map((item, index) => {
+              const line = item.item.trim();
+              // Match format: "N. [timestamp](None#t=seconds): text"
+              const match = line.match(/^(\d+)\.\s+\[([\d:]+)\]\(None#t=(\d+)\):\s*(.+)$/);
+              if (match) {
+                const [, num, timestamp, seconds, text] = match;
+                return `##### {#ts-${num}}\n${num}. [${timestamp}](None#t=${seconds}): ${text}`;
+              }
+              return line;
+            })
+            .join('\n\n')
+            .trim();
+        } else {
+          // Handle passages (array of strings)
+          return field
+            .map(item => item.replace(/^###\s*[^\n]*\n+/g, '').trim())
+            .filter(item => item)
+            .join('\n\n')
+            .trim();
         }
-        return '';
-      };
-  
-      // Clean field, handling strings and arrays, preserving paragraph breaks and lists
-      const cleanField = (field: string | any[] | undefined, isArray = false, isList = false) => {
-        if (!field) return '';
-        if (isArray && Array.isArray(field)) {
-          if (field.every(item => typeof item === 'object' && 'title' in item)) {
-            // Handle chapters (array of { title: string })
-            return field
-              .map(item => {
-                const title = item.title.trim();
-                // Convert [N] to [[N]](#ts-N)
-                return `- ${title.replace(/\[(\d+)\]$/, '[[$1]](#ts-$1)')}`;
-              })
-              .join('\n')
-              .trim();
-          } else if (field.every(item => typeof item === 'object' && 'item' in item)) {
-            // Handle references (array of { item: string })
-            return field
-              .map((item, index) => {
-                const line = item.item.trim();
-                // Match format: "N. [timestamp](None#t=seconds): text"
-                const match = line.match(/^(\d+)\.\s+\[([\d:]+)\]\(None#t=(\d+)\):\s*(.+)$/);
-                if (match) {
-                  const [, num, timestamp, seconds, text] = match;
-                  return `##### {#ts-${num}}\n${num}. [${timestamp}](None#t=${seconds}): ${text}`;
-                }
-                return line;
-              })
-              .join('\n\n')
-              .trim();
-          } else {
-            // Handle passages (array of strings)
-            return field
-              .map(item => item.replace(/^###\s*[^\n]*\n+/g, '').trim())
-              .filter(item => item)
-              .join('\n\n')
-              .trim();
-          }
+      }
+      if (typeof field === 'string') {
+        if (isList) {
+          // For contributors, remove headers, preserve bullet points, and add empty line
+          const cleaned = field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').trim();
+          return cleaned ? `\n${cleaned}` : '';
         }
-        if (typeof field === 'string') {
-          if (isList) {
-            // For contributors, remove headers but preserve bullet points and paragraph breaks
-            return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').trim();
-          }
-          // For other fields, remove headers, preserve paragraph breaks
-          return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').trim();
-        }
-        return '';
-      };
+        // For other fields, remove headers, preserve paragraph breaks
+        return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').trim();
+      }
+      return '';
+    };
   
-      // Extract title, prioritizing combinedData.title
-      let title = (combinedData?.title || processingDoc?.title || record?.output?.title || markdown?.match(/^#\s*(.+)$/m)?.[1] || record?.jobName || 'document').trim().replace(/\n+/g, '');
-      console.log('Extracted title:', title);
+    // Extract title, prioritizing combinedData.title
+    let title = (combinedData?.title || processingDoc?.title || record?.output?.title || markdown?.match(/^#\s*(.+)$/m)?.[1] || record?.jobName || 'document').trim().replace(/\n+/g, '');
+    console.log('Extracted title:', title);
   
-      // Create a slug from the title
-      const slug = title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || processingDocId;
+    // Create a slug from the title
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || processingDocId;
   
-      // Check combinedData
-      const hasCombinedData = combinedData && Object.keys(combinedData).some(key => 
-        ['abstract', 'contributors', 'chapters', 'introduction', 'passages', 'conclusion', 'references'].includes(key) && combinedData[key as keyof typeof combinedData]
-      );
-      console.log('Combined data:', combinedData);
-      console.log('Has usable combined data:', hasCombinedData);
+    // Check combinedData
+    const hasCombinedData = combinedData && Object.keys(combinedData).some(key => 
+      ['abstract', 'contributors', 'chapters', 'introduction', 'passages', 'conclusion', 'references'].includes(key) && combinedData[key as keyof typeof combinedData]
+    );
+    console.log('Combined data:', combinedData);
+    console.log('Has usable combined data:', hasCombinedData);
   
-      // Build content object with clean markdown
-      const content = {
-        title,
-        abstract: hasCombinedData && combinedData.abstract ? cleanField(combinedData.abstract) : (markdown ? cleanMarkdownContent(markdown, 'Abstract') : '') || '',
-        contributors: hasCombinedData && combinedData.contributors ? cleanField(combinedData.contributors, false, true) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
-        chapters: hasCombinedData && combinedData.chapters ? cleanField(combinedData.chapters, true) : (markdown ? cleanMarkdownContent(markdown, 'Chapters') : '') || '',
-        introduction: hasCombinedData && combinedData.introduction ? cleanField(combinedData.introduction) : (markdown ? cleanMarkdownContent(markdown, 'Introduction') : '') || '',
-        passages: hasCombinedData && combinedData.passages ? cleanField(combinedData.passages, true) : (markdown ? cleanMarkdownContent(markdown, 'Discussion') : '') || '',
-        conclusion: hasCombinedData && combinedData.conclusion ? cleanField(combinedData.conclusion) : (markdown ? cleanMarkdownContent(markdown, 'Conclusion') : '') || '',
-        references: hasCombinedData && combinedData.references ? cleanField(combinedData.references, true) : (markdown ? cleanMarkdownContent(markdown, 'References') : '') || '',
-        origin: uploadFileLink || '',
-      };
+    // Build content object with clean markdown
+    const content = {
+      title,
+      abstract: hasCombinedData && combinedData.abstract ? cleanField(combinedData.abstract) : (markdown ? cleanMarkdownContent(markdown, 'Abstract') : '') || '',
+      contributors: hasCombinedData && combinedData.contributors ? cleanField(combinedData.contributors, false, true) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
+      chapters: hasCombinedData && combinedData.chapters ? cleanField(combinedData.chapters, true) : (markdown ? cleanMarkdownContent(markdown, 'Chapters') : '') || '',
+      introduction: hasCombinedData && combinedData.introduction ? cleanField(combinedData.introduction) : (markdown ? cleanMarkdownContent(markdown, 'Introduction') : '') || '',
+      passages: hasCombinedData && combinedData.passages ? cleanField(combinedData.passages, true) : (markdown ? cleanMarkdownContent(markdown, 'Discussion') : '') || '',
+      conclusion: hasCombinedData && combinedData.conclusion ? cleanField(combinedData.conclusion) : (markdown ? cleanMarkdownContent(markdown, 'Conclusion') : '') || '',
+      references: hasCombinedData && combinedData.references ? cleanField(combinedData.references, true) : (markdown ? cleanMarkdownContent(markdown, 'References') : '') || '',
+      origin: uploadFileLink || '',
+    };
   
       console.log('Content object for sharing:', content);
   
