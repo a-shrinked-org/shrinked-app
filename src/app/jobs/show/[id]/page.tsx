@@ -345,17 +345,51 @@ export default function JobShow() {
       setIsLoadingDoc(true);
       setErrorMessage(null);
       console.log('Fetching processing document with ID:', processingDocId);
+      const token = await ensureValidToken();
+      if (!token) throw new Error('Authentication failed - unable to get valid token');
+
       const fields = '_id,title,status,createdAt,output';
-      const response = await fetch(`/api/processing/${processingDocId}?fields=${fields}`);
-      if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
-      const data = await response.json();
-      const sanitizedData = JSON.parse(
-        JSON.stringify(data, (key, value) => {
-          if (typeof value === 'number' && !Number.isSafeInteger(value)) return value.toString();
-          return value;
-        })
-      );
-      setProcessingDoc(sanitizedData);
+      const response = await fetch(`/api/processing/${processingDocId}?fields=${fields}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          const refreshSuccess = await refreshToken();
+          if (refreshSuccess) {
+            const newToken = getAccessToken();
+            const retryResponse = await fetch(`/api/processing/${processingDocId}?fields=${fields}`, {
+              headers: { 'Authorization': `Bearer ${newToken || ''}` },
+              cache: 'no-store'
+            });
+            if (!retryResponse.ok) throw new Error(`Processing document fetch failed with status: ${retryResponse.status}`);
+            const data = await retryResponse.json();
+            const sanitizedData = JSON.parse(
+              JSON.stringify(data, (key, value) => {
+                if (typeof value === 'number' && !Number.isSafeInteger(value)) return value.toString();
+                return value;
+              })
+            );
+            setProcessingDoc(sanitizedData);
+            console.log('Fetched processing document after token refresh:', processingDocId);
+          } else {
+            throw new Error('Token refresh failed');
+          }
+        } else {
+          throw new Error(`Processing document fetch failed with status: ${response.status}`);
+        }
+      } else {
+        const data = await response.json();
+        const sanitizedData = JSON.parse(
+          JSON.stringify(data, (key, value) => {
+            if (typeof value === 'number' && !Number.isSafeInteger(value)) return value.toString();
+            return value;
+          })
+        );
+        setProcessingDoc(sanitizedData);
+        console.log('Fetched processing document successfully:', processingDocId);
+      }
     } catch (error) {
       console.error("Failed to fetch document:", error);
       setErrorMessage(`Error loading document: ${error instanceof Error ? error.message : String(error)}`);
@@ -363,7 +397,7 @@ export default function JobShow() {
       setIsLoadingDoc(false);
       isFetchingProcessingDoc.current = false;
     }
-  }, [processingDocId, setErrorMessage, setIsLoadingDoc, setProcessingDoc]);
+  }, [processingDocId, setErrorMessage, setIsLoadingDoc, setProcessingDoc, ensureValidToken, refreshToken, getAccessToken]);
 
   useEffect(() => {
     const status = getProcessingStatus();
@@ -488,25 +522,26 @@ export default function JobShow() {
   }, [processingDocId, queryResult.data, markdownContent, fetchMarkdownContent, processingDoc]);
   
   const handleShareDocument = useCallback(async () => {
+    console.log('handleShareDocument called', { processingDocId, jobId });
+  
     if (!processingDocId) {
-      setErrorMessage("No document ID found to share");
+      const errorMsg = "No document ID found to share";
+      console.error(errorMsg);
+      setErrorMessage(errorMsg);
       return;
     }
   
     if (!jobId) {
-      setErrorMessage("No job ID found to share");
-      return;
-    }
-  
-    const status = getProcessingStatus();
-    if (status !== 'completed') {
-      setErrorMessage("Cannot share document: Job is not yet completed");
+      const errorMsg = "No job ID found to share";
+      console.error(errorMsg);
+      setErrorMessage(errorMsg);
       return;
     }
   
     try {
       // If we already have a shared link, open the share dialog
       if (record?.link && record.link.includes('/docs/')) {
+        console.log('Using existing shared link:', record.link);
         setSharedUrl(record.link);
         openShareDialog();
         return;
@@ -518,15 +553,21 @@ export default function JobShow() {
         console.warn(`Mismatch: processingDocId (${processingDocId}) does not match expected resultId (${expectedResultId})`);
       }
   
-      // Otherwise, create a new shared document
+      // Create a new shared document
       setIsSharing(true);
       setErrorMessage(null);
+      console.log('Starting share process', { processingDocId, jobId });
   
       // Fetch markdown content
       let markdown = markdownContent;
       if (!markdown) {
+        console.log('Fetching markdown content for:', processingDocId);
         const token = await ensureValidToken();
-        if (!token) throw new Error('Authentication failed - unable to get valid token');
+        if (!token) {
+          const errorMsg = 'Authentication failed - unable to get valid token';
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
   
         const response = await fetch(`/api/pdf/${processingDocId}/markdown?includeReferences=true`, {
           headers: { 'Authorization': `Bearer ${token}` },
@@ -535,6 +576,7 @@ export default function JobShow() {
   
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
+            console.log('Token expired, attempting refresh');
             const refreshSuccess = await refreshToken();
             if (refreshSuccess) {
               const newToken = getAccessToken();
@@ -542,15 +584,25 @@ export default function JobShow() {
                 headers: { 'Authorization': `Bearer ${newToken || ''}` },
                 cache: 'no-store',
               });
-              if (!retryResponse.ok) throw new Error(`Markdown fetch failed with status: ${retryResponse.status}`);
+              if (!retryResponse.ok) {
+                const errorMsg = `Markdown fetch failed with status: ${retryResponse.status}`;
+                console.error(errorMsg);
+                throw new Error(errorMsg);
+              }
               markdown = await retryResponse.text();
             } else {
-              throw new Error('Token refresh failed');
+              const errorMsg = 'Token refresh failed';
+              console.error(errorMsg);
+              throw new Error(errorMsg);
             }
           } else if (response.status === 404) {
-            throw new Error('Content not available yet');
+            const errorMsg = 'Content not available yet';
+            console.error(errorMsg);
+            throw new Error(errorMsg);
           } else {
-            throw new Error(`Markdown fetch failed with status: ${response.status}`);
+            const errorMsg = `Markdown fetch failed with status: ${response.status}`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
           }
         } else {
           markdown = await response.text();
@@ -558,20 +610,23 @@ export default function JobShow() {
   
         console.log('Fetched markdown content:', markdown);
         if (!markdown || markdown.trim() === '') {
-          console.warn('Markdown content is empty or unavailable');
+          const errorMsg = 'Markdown content is empty or unavailable';
+          console.warn(errorMsg);
           setMarkdownContent('');
-          throw new Error('No content available to share');
+          throw new Error(errorMsg);
         }
         setMarkdownContent(markdown);
       }
   
-      // Extract title from markdown, processingDoc, record, or jobName
+      // Extract title
       let title = processingDoc?.title || record?.output?.title || record?.jobName || 'document';
       if (title === 'document' && markdown) {
-        const titleMatch = markdown.match(/^#\s*(.+)$/m); // Allow zero or more spaces after #
+        const titleMatch = markdown.match(/^#\s*(.+)$/m);
         if (titleMatch) {
           title = titleMatch[1].trim();
           console.log('Extracted title from markdown:', title);
+        } else {
+          console.warn('No title found in markdown');
         }
       }
   
@@ -583,29 +638,27 @@ export default function JobShow() {
   
       // Parse markdown to extract sections
       const extractSection = (markdown: string, sectionHeader: string) => {
-        // Match headers with 1-6 #, case-insensitive, capture until next same-or-higher level header or end
-        const regex = new RegExp(`^#{1,2}\s*${sectionHeader}\s*(?::\s*)?([\s\S]*?)(?=(?:^#{1,2}\s)|$)`, 'img');
+        const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
         const matches = markdown.matchAll(regex);
         let content = '';
         for (const match of matches) {
           const sectionContent = match[1].trim();
           if (sectionContent) {
-            content = sectionContent; // Use the last non-empty match
+            content = sectionContent; // Use last non-empty match
           }
         }
         console.log(`Extracted ${sectionHeader}:`, content || '[empty]');
         return content;
       };
   
-      // Check if combinedData has usable fields
+      // Check combinedData
       const hasCombinedData = combinedData && Object.keys(combinedData).some(key => 
         ['abstract', 'contributors', 'chapters', 'introduction', 'passages', 'conclusion', 'references'].includes(key) && combinedData[key as keyof typeof combinedData]
       );
-  
       console.log('Combined data:', combinedData);
       console.log('Has usable combined data:', hasCombinedData);
   
-      // Use combinedData as primary source, fallback to markdown parsing
+      // Build content object
       const content = {
         title,
         abstract: hasCombinedData && combinedData.abstract ? combinedData.abstract : (markdown ? extractSection(markdown, 'Abstract') : '') || '',
@@ -620,7 +673,8 @@ export default function JobShow() {
   
       console.log('Content object for sharing:', content);
   
-      // Send the request to create a shared document
+      // Send share request
+      console.log('Sending share request to /api/share-document', { slug, jobId });
       const response = await fetchWithAuth('/api/share-document', {
         method: 'POST',
         headers: {
@@ -629,30 +683,40 @@ export default function JobShow() {
         body: JSON.stringify({
           slug,
           content,
-          jobId: jobId,
+          jobId,
         }),
       });
   
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to share document: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.error || `Failed to share document: ${response.status}`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
       }
   
       const result = await response.json();
+      console.log('Share response:', result);
   
       if (result.status === 'created' && result.link) {
+        console.log('Share successful, opening dialog with link:', result.link);
         setSharedUrl(result.link);
         openShareDialog();
         if (queryResult.refetch) {
           queryResult.refetch();
         }
       } else if (result.error) {
+        console.error('Share error:', result.error);
         throw new Error(result.error);
+      } else {
+        console.error('Unexpected share response:', result);
+        throw new Error('Unexpected response from share endpoint');
       }
     } catch (error) {
-      console.error("Failed to share document:", error);
-      setErrorMessage(`Error sharing document: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMsg = `Error sharing document: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMsg, error);
+      setErrorMessage(errorMsg);
     } finally {
+      console.log('Share process completed, isSharing:', false);
       setIsSharing(false);
     }
   }, [
@@ -670,7 +734,6 @@ export default function JobShow() {
     refreshToken,
     getAccessToken,
     combinedData,
-    getProcessingStatus,
     extractResultId,
   ]);
 
