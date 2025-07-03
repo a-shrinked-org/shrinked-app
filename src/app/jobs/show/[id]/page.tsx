@@ -618,38 +618,44 @@ export default function JobShow() {
         setMarkdownContent(markdown);
       }
   
-      // Extract title
-      let title = processingDoc?.title || record?.output?.title || record?.jobName || 'document';
-      if (title === 'document' && markdown) {
-        const titleMatch = markdown.match(/^#\s*(.+)$/m);
-        if (titleMatch) {
-          title = titleMatch[1].trim();
-          console.log('Extracted title from markdown:', title);
-        } else {
-          console.warn('No title found in markdown');
+      // Clean markdown content by removing headers and extra newlines
+      const cleanMarkdownContent = (content: string, sectionHeader: string) => {
+        const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
+        const match = content.match(regex);
+        if (match && match[1]) {
+          return match[1].trim().replace(/\n{2,}/g, '\n');
         }
-      }
+        return '';
+      };
+  
+      // Clean JSON-stringified fields
+      const cleanJsonField = (field: string | any[] | undefined, isArray = false) => {
+        if (!field) return isArray ? '[]' : '';
+        if (isArray && Array.isArray(field)) {
+          return JSON.stringify(field.map(item => {
+            if (typeof item === 'string') {
+              return item.replace(/^##\s*[^\n]*\n+/, '').replace(/\n{2,}/g, '\n').trim();
+            } else if (item.item) {
+              return { item: item.item.replace(/^##\s*[^\n]*\n+/, '').replace(/\n{2,}/g, '\n').trim() };
+            }
+            return item;
+          }));
+        }
+        if (typeof field === 'string') {
+          return field.replace(/^##\s*[^\n]*\n+/, '').replace(/\n{2,}/g, '\n').trim();
+        }
+        return JSON.stringify(field);
+      };
+  
+      // Extract title, prioritizing combinedData.title
+      let title = (combinedData?.title || processingDoc?.title || record?.output?.title || markdown?.match(/^#\s*(.+)$/m)?.[1] || record?.jobName || 'document').trim().replace(/\n+/g, '');
+      console.log('Extracted title:', title);
   
       // Create a slug from the title
       const slug = title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '') || processingDocId;
-  
-      // Parse markdown to extract sections
-      const extractSection = (markdown: string, sectionHeader: string) => {
-        const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
-        const matches = markdown.matchAll(regex);
-        let content = '';
-        for (const match of matches) {
-          const sectionContent = match[1].trim();
-          if (sectionContent) {
-            content = sectionContent; // Use last non-empty match
-          }
-        }
-        console.log(`Extracted ${sectionHeader}:`, content || '[empty]');
-        return content;
-      };
   
       // Check combinedData
       const hasCombinedData = combinedData && Object.keys(combinedData).some(key => 
@@ -661,13 +667,13 @@ export default function JobShow() {
       // Build content object
       const content = {
         title,
-        abstract: hasCombinedData && combinedData.abstract ? combinedData.abstract : (markdown ? extractSection(markdown, 'Abstract') : '') || '',
-        contributors: hasCombinedData && combinedData.contributors ? combinedData.contributors : (markdown ? extractSection(markdown, 'Contributors') : '') || '',
-        chapters: hasCombinedData && combinedData.chapters ? JSON.stringify(combinedData.chapters) : (markdown ? extractSection(markdown, 'Chapters') : '') || '',
-        introduction: hasCombinedData && combinedData.introduction ? combinedData.introduction : (markdown ? extractSection(markdown, 'Introduction') : '') || '',
-        passages: hasCombinedData && combinedData.passages ? JSON.stringify(combinedData.passages) : (markdown ? extractSection(markdown, 'Passages') : '') || '',
-        conclusion: hasCombinedData && combinedData.conclusion ? combinedData.conclusion : (markdown ? extractSection(markdown, 'Conclusion') : '') || '',
-        references: hasCombinedData && combinedData.references ? JSON.stringify(combinedData.references) : (markdown ? extractSection(markdown, 'References') : '') || '',
+        abstract: hasCombinedData && combinedData.abstract ? cleanJsonField(combinedData.abstract) : (markdown ? cleanMarkdownContent(markdown, 'Abstract') : '') || '',
+        contributors: hasCombinedData && combinedData.contributors ? cleanJsonField(combinedData.contributors) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
+        chapters: hasCombinedData && combinedData.chapters ? cleanJsonField(combinedData.chapters, true) : (markdown ? cleanMarkdownContent(markdown, 'Chapters') : '') || '',
+        introduction: hasCombinedData && combinedData.introduction ? cleanJsonField(combinedData.introduction) : (markdown ? cleanMarkdownContent(markdown, 'Introduction') : '') || '',
+        passages: hasCombinedData && combinedData.passages ? cleanJsonField(combinedData.passages, true) : (markdown ? cleanMarkdownContent(markdown, 'Passages') : '') || '',
+        conclusion: hasCombinedData && combinedData.conclusion ? cleanJsonField(combinedData.conclusion) : (markdown ? cleanMarkdownContent(markdown, 'Conclusion') : '') || '',
+        references: hasCombinedData && combinedData.references ? cleanJsonField(combinedData.references, true) : (markdown ? cleanMarkdownContent(markdown, 'References') : '') || '',
         origin: uploadFileLink || '',
       };
   
