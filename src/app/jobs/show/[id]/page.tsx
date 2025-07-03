@@ -520,7 +520,7 @@ export default function JobShow() {
       fetchMarkdownContent();
     }
   }, [processingDocId, queryResult.data, markdownContent, fetchMarkdownContent, processingDoc]);
-  
+
   const handleShareDocument = useCallback(async () => {
     console.log('handleShareDocument called', { processingDocId, jobId });
   
@@ -618,38 +618,62 @@ export default function JobShow() {
         setMarkdownContent(markdown);
       }
   
-      // Clean markdown content by removing headers and extra newlines
+      // Clean markdown content by removing headers, preserving paragraph breaks
       const cleanMarkdownContent = (content: string, sectionHeader: string) => {
         const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
         const match = content.match(regex);
         if (match && match[1]) {
-          // Remove ### headers and extra newlines
-          return match[1].trim().replace(/^###\s*[^\n]*\n+/gm, '').replace(/\n{2,}/g, '\n').trim();
+          // Remove ### headers, keep paragraph breaks (\n\n)
+          return match[1].trim().replace(/^###\s*[^\n]*\n+/gm, '');
         }
         return '';
       };
   
-      // Clean field, handling both strings and arrays
-      const cleanField = (field: string | any[] | undefined, isArray = false) => {
+      // Clean field, handling strings and arrays, preserving paragraph breaks and lists
+      const cleanField = (field: string | any[] | undefined, isArray = false, isList = false) => {
         if (!field) return '';
         if (isArray && Array.isArray(field)) {
           if (field.every(item => typeof item === 'object' && 'title' in item)) {
             // Handle chapters (array of { title: string })
-            return field.map(item => `- ${item.title}`).join('\n').trim();
+            return field
+              .map(item => {
+                const title = item.title.trim();
+                // Convert [N] to [[N]](#ts-N)
+                return `- ${title.replace(/\[(\d+)\]$/, '[[$1]](#ts-$1)')}`;
+              })
+              .join('\n')
+              .trim();
           } else if (field.every(item => typeof item === 'object' && 'item' in item)) {
             // Handle references (array of { item: string })
-            return field.map(item => item.item).join('\n').trim();
+            return field
+              .map((item, index) => {
+                const line = item.item.trim();
+                // Match format: "N. [timestamp](None#t=seconds): text"
+                const match = line.match(/^(\d+)\.\s+\[([\d:]+)\]\(None#t=(\d+)\):\s*(.+)$/);
+                if (match) {
+                  const [, num, timestamp, seconds, text] = match;
+                  return `##### {#ts-${num}}\n${num}. [${timestamp}](None#t=${seconds}): ${text}`;
+                }
+                return line;
+              })
+              .join('\n\n')
+              .trim();
           } else {
             // Handle passages (array of strings)
             return field
-              .map(item => item.replace(/^###\s*[^\n]*\n+/g, '').replace(/\n{2,}/g, '\n').trim())
+              .map(item => item.replace(/^###\s*[^\n]*\n+/g, '').trim())
               .filter(item => item)
               .join('\n\n')
               .trim();
           }
         }
         if (typeof field === 'string') {
-          return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').replace(/\n{2,}/g, '\n').trim();
+          if (isList) {
+            // For contributors, remove headers but preserve bullet points and paragraph breaks
+            return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').trim();
+          }
+          // For other fields, remove headers, preserve paragraph breaks
+          return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').trim();
         }
         return '';
       };
@@ -675,7 +699,7 @@ export default function JobShow() {
       const content = {
         title,
         abstract: hasCombinedData && combinedData.abstract ? cleanField(combinedData.abstract) : (markdown ? cleanMarkdownContent(markdown, 'Abstract') : '') || '',
-        contributors: hasCombinedData && combinedData.contributors ? cleanField(combinedData.contributors) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
+        contributors: hasCombinedData && combinedData.contributors ? cleanField(combinedData.contributors, false, true) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
         chapters: hasCombinedData && combinedData.chapters ? cleanField(combinedData.chapters, true) : (markdown ? cleanMarkdownContent(markdown, 'Chapters') : '') || '',
         introduction: hasCombinedData && combinedData.introduction ? cleanField(combinedData.introduction) : (markdown ? cleanMarkdownContent(markdown, 'Introduction') : '') || '',
         passages: hasCombinedData && combinedData.passages ? cleanField(combinedData.passages, true) : (markdown ? cleanMarkdownContent(markdown, 'Discussion') : '') || '',
