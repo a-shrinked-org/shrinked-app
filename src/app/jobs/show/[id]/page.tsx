@@ -623,28 +623,35 @@ export default function JobShow() {
         const regex = new RegExp(`^##\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^##\\s)|$)`, 'im');
         const match = content.match(regex);
         if (match && match[1]) {
-          return match[1].trim().replace(/\n{2,}/g, '\n');
+          // Remove ### headers and extra newlines
+          return match[1].trim().replace(/^###\s*[^\n]*\n+/gm, '').replace(/\n{2,}/g, '\n').trim();
         }
         return '';
       };
   
-      // Clean JSON-stringified fields
-      const cleanJsonField = (field: string | any[] | undefined, isArray = false) => {
-        if (!field) return isArray ? '[]' : '';
+      // Clean field, handling both strings and arrays
+      const cleanField = (field: string | any[] | undefined, isArray = false) => {
+        if (!field) return '';
         if (isArray && Array.isArray(field)) {
-          return JSON.stringify(field.map(item => {
-            if (typeof item === 'string') {
-              return item.replace(/^##\s*[^\n]*\n+/, '').replace(/\n{2,}/g, '\n').trim();
-            } else if (item.item) {
-              return { item: item.item.replace(/^##\s*[^\n]*\n+/, '').replace(/\n{2,}/g, '\n').trim() };
-            }
-            return item;
-          }));
+          if (field.every(item => typeof item === 'object' && 'title' in item)) {
+            // Handle chapters (array of { title: string })
+            return field.map(item => `- ${item.title}`).join('\n').trim();
+          } else if (field.every(item => typeof item === 'object' && 'item' in item)) {
+            // Handle references (array of { item: string })
+            return field.map(item => item.item).join('\n').trim();
+          } else {
+            // Handle passages (array of strings)
+            return field
+              .map(item => item.replace(/^###\s*[^\n]*\n+/g, '').replace(/\n{2,}/g, '\n').trim())
+              .filter(item => item)
+              .join('\n\n')
+              .trim();
+          }
         }
         if (typeof field === 'string') {
-          return field.replace(/^##\s*[^\n]*\n+/, '').replace(/\n{2,}/g, '\n').trim();
+          return field.replace(/^##\s*[^\n]*\n+/g, '').replace(/^###\s*[^\n]*\n+/gm, '').replace(/\n{2,}/g, '\n').trim();
         }
-        return JSON.stringify(field);
+        return '';
       };
   
       // Extract title, prioritizing combinedData.title
@@ -664,16 +671,16 @@ export default function JobShow() {
       console.log('Combined data:', combinedData);
       console.log('Has usable combined data:', hasCombinedData);
   
-      // Build content object
+      // Build content object with clean markdown
       const content = {
         title,
-        abstract: hasCombinedData && combinedData.abstract ? cleanJsonField(combinedData.abstract) : (markdown ? cleanMarkdownContent(markdown, 'Abstract') : '') || '',
-        contributors: hasCombinedData && combinedData.contributors ? cleanJsonField(combinedData.contributors) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
-        chapters: hasCombinedData && combinedData.chapters ? cleanJsonField(combinedData.chapters, true) : (markdown ? cleanMarkdownContent(markdown, 'Chapters') : '') || '',
-        introduction: hasCombinedData && combinedData.introduction ? cleanJsonField(combinedData.introduction) : (markdown ? cleanMarkdownContent(markdown, 'Introduction') : '') || '',
-        passages: hasCombinedData && combinedData.passages ? cleanJsonField(combinedData.passages, true) : (markdown ? cleanMarkdownContent(markdown, 'Passages') : '') || '',
-        conclusion: hasCombinedData && combinedData.conclusion ? cleanJsonField(combinedData.conclusion) : (markdown ? cleanMarkdownContent(markdown, 'Conclusion') : '') || '',
-        references: hasCombinedData && combinedData.references ? cleanJsonField(combinedData.references, true) : (markdown ? cleanMarkdownContent(markdown, 'References') : '') || '',
+        abstract: hasCombinedData && combinedData.abstract ? cleanField(combinedData.abstract) : (markdown ? cleanMarkdownContent(markdown, 'Abstract') : '') || '',
+        contributors: hasCombinedData && combinedData.contributors ? cleanField(combinedData.contributors) : (markdown ? cleanMarkdownContent(markdown, 'Contributors') : '') || '',
+        chapters: hasCombinedData && combinedData.chapters ? cleanField(combinedData.chapters, true) : (markdown ? cleanMarkdownContent(markdown, 'Chapters') : '') || '',
+        introduction: hasCombinedData && combinedData.introduction ? cleanField(combinedData.introduction) : (markdown ? cleanMarkdownContent(markdown, 'Introduction') : '') || '',
+        passages: hasCombinedData && combinedData.passages ? cleanField(combinedData.passages, true) : (markdown ? cleanMarkdownContent(markdown, 'Discussion') : '') || '',
+        conclusion: hasCombinedData && combinedData.conclusion ? cleanField(combinedData.conclusion) : (markdown ? cleanMarkdownContent(markdown, 'Conclusion') : '') || '',
+        references: hasCombinedData && combinedData.references ? cleanField(combinedData.references, true) : (markdown ? cleanMarkdownContent(markdown, 'References') : '') || '',
         origin: uploadFileLink || '',
       };
   
