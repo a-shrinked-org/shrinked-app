@@ -346,7 +346,7 @@ export default function JobShow() {
       setErrorMessage(null);
       console.log('Fetching processing document with ID:', processingDocId);
       const fields = '_id,title,status,createdAt,output';
-      const response = await fetch(`/api/jobs-proxy/${processingDocId}/processing?fields=${fields}`);
+      const response = await fetch(`/api/processing/${processingDocId}?fields=${fields}`);
       if (!response.ok) throw new Error(`Fetch failed with status: ${response.status}`);
       const data = await response.json();
       const sanitizedData = JSON.parse(
@@ -584,7 +584,7 @@ export default function JobShow() {
       // Parse markdown to extract sections
       const extractSection = (markdown: string, sectionHeader: string) => {
         // Match headers with 1-6 #, case-insensitive, capture until next same-or-higher level header or end
-        const regex = new RegExp(`^#{1,2}\\s*${sectionHeader}\\s*(?::\\s*)?([\\s\\S]*?)(?=(?:^#{1,2}\\s)|$)`, 'im');
+        const regex = new RegExp(`^#{1,2}\s*${sectionHeader}\s*(?::\s*)?([\s\S]*?)(?=(?:^#{1,2}\s)|$)`, 'img');
         const matches = markdown.matchAll(regex);
         let content = '';
         for (const match of matches) {
