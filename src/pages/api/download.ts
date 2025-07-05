@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 // Use Node.js wrappers instead of direct Python executables
-import ytdlp from 'yt-dlp-exec';
+import YTDlpWrap from 'yt-dlp-wrap';
 import youtubedl from 'youtube-dl-exec';
 
 const platformPatterns: { [key: string]: RegExp[] } = {
@@ -36,15 +36,19 @@ const detectPlatform = (url: string): string | null => {
 
 const downloadYouTube = async (url: string, tempDir: string): Promise<string> => {
   try {
-    const output = await ytdlp(url, {
-      extractAudio: true,
-      audioFormat: 'mp3',
-      audioQuality: 0,
-      embedMetadata: true,
-      embedThumbnail: true,
-      output: path.join(tempDir, '%(title)s.%(ext)s'),
-      printJson: false
-    });
+    const ytDlpWrap = new YTDlpWrap();
+    const fileName = `${Date.now()}.mp3`;
+    const filePath = path.join(tempDir, fileName);
+    
+    await ytDlpWrap.execPromise([
+      url,
+      '--extract-audio',
+      '--audio-format', 'mp3',
+      '--audio-quality', '0',
+      '--embed-metadata',
+      '--embed-thumbnail',
+      '--output', filePath.replace('.mp3', '.%(ext)s')
+    ]);
     
     // Find the downloaded file
     const files = await fs.readdir(tempDir);
@@ -62,13 +66,17 @@ const downloadYouTube = async (url: string, tempDir: string): Promise<string> =>
 
 const downloadApplePodcast = async (url: string, tempDir: string): Promise<string> => {
   try {
-    const output = await ytdlp(url, {
-      extractAudio: true,
-      audioFormat: 'mp3',
-      embedMetadata: true,
-      output: path.join(tempDir, '%(podcast)s - %(title)s.%(ext)s'),
-      printJson: false
-    });
+    const ytDlpWrap = new YTDlpWrap();
+    const fileName = `${Date.now()}.mp3`;
+    const filePath = path.join(tempDir, fileName);
+    
+    await ytDlpWrap.execPromise([
+      url,
+      '--extract-audio',
+      '--audio-format', 'mp3',
+      '--embed-metadata',
+      '--output', filePath.replace('.mp3', '.%(ext)s')
+    ]);
     
     // Find the downloaded file
     const files = await fs.readdir(tempDir);

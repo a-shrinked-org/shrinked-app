@@ -50,8 +50,8 @@
     "resend": "^4.1.2",
     "string-similarity": "^4.0.4",
     "zustand": "^4.5.2",
-    "yt-dlp-exec": "^2.0.0",
-    "youtube-dl-exec": "^3.0.22"
+    "yt-dlp-wrap": "^2.3.12",
+    "youtube-dl-exec": "^3.0.21"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.16",
