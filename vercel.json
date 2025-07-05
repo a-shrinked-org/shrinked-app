@@ -3,14 +3,9 @@
     "app/api/capsule/**": {
       "maxDuration": 60
     },
-    "app/api/download.ts": {
+    "pages/api/download.ts": {
       "maxDuration": 60
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/download",
-      "destination": "/api/download"
-    }
-  ]
+  
 }

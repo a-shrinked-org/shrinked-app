@@ -10,7 +10,8 @@
     "build": "refine build",
     "start": "refine start",
     "lint": "next lint",
-    "refine": "refine"
+    "refine": "refine",
+    "postinstall": "chmod +x bin/yt-dlp"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.x.x",
@@ -50,8 +51,7 @@
     "resend": "^4.1.2",
     "string-similarity": "^4.0.4",
     "zustand": "^4.5.2",
-    "yt-dlp-wrap": "^2.3.12",
-    "youtube-dl-exec": "^3.0.21"
+    "yt-dlp-wrap": "^2.3.12"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.16",

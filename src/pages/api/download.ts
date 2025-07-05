@@ -1,29 +1,33 @@
+// app/api/download.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-// Use Node.js wrappers instead of direct Python executables
 import YTDlpWrap from 'yt-dlp-wrap';
-import youtubedl from 'youtube-dl-exec';
 
 const platformPatterns: { [key: string]: RegExp[] } = {
   youtube: [
     /youtube\.com/,
     /youtu\.be/,
-    /m\.youtube\.com/
+    /m\.youtube\.com/,
   ],
   spotify: [
     /open\.spotify\.com/,
     /spotify\.com/,
-    /spotify:/
+    /spotify:/,
   ],
   apple_podcasts: [
     /podcasts\.apple\.com/,
-    /itunes\.apple\.com\/.*podcast/
-  ]
+    /itunes\.apple\.com\/.*podcast/,
+  ],
 };
 
 const detectPlatform = (url: string): string | null => {
+  try {
+    new URL(url); // Validate URL format
+  } catch {
+    return null;
+  }
   for (const platform in platformPatterns) {
     for (const pattern of platformPatterns[platform]) {
       if (pattern.test(url)) {
@@ -36,10 +40,12 @@ const detectPlatform = (url: string): string | null => {
 
 const downloadYouTube = async (url: string, tempDir: string): Promise<string> => {
   try {
-    const ytDlpWrap = new YTDlpWrap();
+    // Use bundled yt-dlp binary
+    const ytDlpBinaryPath = path.join(process.cwd(), 'bin', 'yt-dlp');
+    const ytDlpWrap = new YTDlpWrap(ytDlpBinaryPath);
     const fileName = `${Date.now()}.mp3`;
     const filePath = path.join(tempDir, fileName);
-    
+
     await ytDlpWrap.execPromise([
       url,
       '--extract-audio',
@@ -47,17 +53,17 @@ const downloadYouTube = async (url: string, tempDir: string): Promise<string> =>
       '--audio-quality', '0',
       '--embed-metadata',
       '--embed-thumbnail',
-      '--output', filePath.replace('.mp3', '.%(ext)s')
+      '--output', filePath.replace('.mp3', '.%(ext)s'),
     ]);
-    
+
     // Find the downloaded file
     const files = await fs.readdir(tempDir);
-    const mp3File = files.find(f => f.endsWith('.mp3'));
-    
+    const mp3File = files.find((f) => f.endsWith('.mp3'));
+
     if (!mp3File) {
       throw new Error('No MP3 file found after download');
     }
-    
+
     return path.join(tempDir, mp3File);
   } catch (error) {
     throw new Error(`YouTube download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -66,40 +72,36 @@ const downloadYouTube = async (url: string, tempDir: string): Promise<string> =>
 
 const downloadApplePodcast = async (url: string, tempDir: string): Promise<string> => {
   try {
-    const ytDlpWrap = new YTDlpWrap();
+    const ytDlpBinaryPath = path.join(process.cwd(), 'bin', 'yt-dlp');
+    const ytDlpWrap = new YTDlpWrap(ytDlpBinaryPath);
     const fileName = `${Date.now()}.mp3`;
     const filePath = path.join(tempDir, fileName);
-    
+
     await ytDlpWrap.execPromise([
       url,
       '--extract-audio',
       '--audio-format', 'mp3',
       '--embed-metadata',
-      '--output', filePath.replace('.mp3', '.%(ext)s')
+      '--output', filePath.replace('.mp3', '.%(ext)s'),
     ]);
-    
+
     // Find the downloaded file
     const files = await fs.readdir(tempDir);
-    const mp3File = files.find(f => f.endsWith('.mp3'));
-    
+    const mp3File = files.find((f) => f.endsWith('.mp3'));
+
     if (!mp3File) {
       throw new Error('No MP3 file found after download');
     }
-    
+
     return path.join(tempDir, mp3File);
   } catch (error) {
     throw new Error(`Apple Podcast download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
-// For Spotify, we'll use a fallback approach since spotDL isn't available as a Node.js package
 const downloadSpotify = async (url: string, tempDir: string): Promise<string> => {
-  // This is a simplified approach - in production, you'd want to:
-  // 1. Use Spotify API to get track metadata
-  // 2. Search for the track on YouTube
-  // 3. Download from YouTube using the metadata
-  
-  throw new Error('Spotify download not implemented yet. Please use YouTube or Apple Podcasts URLs for now.');
+  // Placeholder: Implement Spotify download by searching YouTube
+  throw new Error('Spotify download not implemented. Please use YouTube or Apple Podcasts URLs.');
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -110,9 +112,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const platform = detectPlatform(url);
-
   if (!platform) {
-    return res.status(400).json({ error: 'Unsupported platform' });
+    return res.status(400).json({ error: 'Invalid or unsupported URL' });
   }
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'downloader-'));
@@ -144,7 +145,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Cleanup
     await fs.unlink(filePath);
     await fs.rmdir(tempDir, { recursive: true });
-
   } catch (error) {
     // Cleanup on error
     try {
@@ -153,10 +153,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Cleanup error:', cleanupError);
     }
 
-    if (error instanceof Error) {
-      res.status(500).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: 'An unknown error occurred' });
-    }
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'An unknown error occurred',
+    });
   }
 }

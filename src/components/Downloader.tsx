@@ -1,3 +1,4 @@
+// app/Downloader.tsx
 "use client";
 
 import React, { useState } from 'react';
@@ -21,6 +22,13 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       return;
     }
 
+    try {
+      new URL(url); // Basic URL validation
+    } catch {
+      setError('Invalid URL format');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setProgress(0);
@@ -37,7 +45,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       }
 
       const fileBlob = await downloadRes.blob();
-      const fileName = downloadRes.headers.get('content-disposition')?.split('filename=')[1].replace(/"/g, '') || 'downloaded-file';
+      const fileName = downloadRes.headers.get('content-disposition')?.split('filename=')[1].replace(/"/g, '') || 'downloaded-file.mp3';
       const file = new File([fileBlob], fileName, { type: fileBlob.type });
 
       // Step 2: Upload the file to your storage (e.g., S3)
@@ -63,18 +71,17 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       if (!uploadRes.ok) {
         throw new Error('Failed to upload file to storage');
       }
-      
+
       // Step 3: Processing the file
       setStatus('Processing file...');
       setProgress(75);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate processing time
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate processing time
 
       // Step 4: Get the internal link and pass it to the parent component
       setProgress(100);
       setStatus('Complete!');
       const fileUrl = `${presignedUrl}${fields.key}`;
       onUploadComplete(fileUrl, url);
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
@@ -90,8 +97,9 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
         value={url}
         onChange={(e) => setUrl(e.currentTarget.value)}
         disabled={isLoading}
+        error={error}
       />
-      <Button onClick={handleDownload} loading={isLoading} leftSection={<UploadCloud size={16}/>}>
+      <Button onClick={handleDownload} loading={isLoading} leftSection={<UploadCloud size={16} />}>
         Download and Upload
       </Button>
       {isLoading && <Progress value={progress} animated />}
