@@ -10,11 +10,11 @@
   "rewrites": [
     {
       "source": "/api/download",
-      "destination": "/app/api/download/index"
+      "destination": "/api/download/index"
     },
     {
       "source": "/api/download/(.*)",
-      "destination": "/app/api/download/index"
+      "destination": "/api/download/index"
     }
   ]
 }
