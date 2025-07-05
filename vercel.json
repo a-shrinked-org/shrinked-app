@@ -6,6 +6,5 @@
     "pages/api/download.ts": {
       "maxDuration": 60
     }
-  },
-  
+  }
 }
