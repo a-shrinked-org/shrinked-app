@@ -11,7 +11,7 @@
     "start": "refine start",
     "lint": "next lint",
     "refine": "refine",
-    "vercel-build": "pip install yt-dlp spotdl"
+    
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.x.x",
