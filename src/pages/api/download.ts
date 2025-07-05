@@ -32,7 +32,10 @@ const detectPlatform = (url: string): string | null => {
   return null;
 };
 
-const downloadYouTube = (url: string): Promise<string> => {
+const getYouTubeDownloadCommand = (url: string, tempDir: string): string => {
+  const outputPath = path.join(tempDir, '%(title)s.%(ext)s');
+  return `yt-dlp --extract-audio --audio-format mp3 --audio-quality 0 --embed-metadata --embed-thumbnail --output "${outputPath}" "${url}" --print filename`;
+};
   return new Promise((resolve, reject) => {
     const tempDir = os.tmpdir();
     const outputPath = path.join(tempDir, '%(title)s.%(ext)s');
@@ -72,22 +75,9 @@ const downloadSpotify = (url: string): Promise<string> => {
   });
 };
 
-const downloadApplePodcasts = (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const tempDir = os.tmpdir();
-    const outputPath = path.join(tempDir, '%(podcast)s - %(title)s.%(ext)s');
-    const command = `yt-dlp --extract-audio --audio-format mp3 --embed-metadata --output "${outputPath}" "${url}"`;
-
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Apple Podcasts download failed: ${stderr}`);
-        return reject(new Error(`Apple Podcasts download failed: ${stderr}`));
-      }
-      console.log(`Apple Podcasts download success: ${stdout}`);
-      // Again, a more robust solution is needed to get the downloaded file path.
-      resolve(stdout || "Downloaded successfully");
-    });
-  });
+const getApplePodcastsDownloadCommand = (url: string, tempDir: string): string => {
+  const outputPath = path.join(tempDir, '%(podcast)s - %(title)s.%(ext)s');
+  return `yt-dlp --extract-audio --audio-format mp3 --embed-metadata --output "${outputPath}" "${url}" --print filename`;
 };
 
 
