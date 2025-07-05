@@ -1,10 +1,26 @@
 {
   "functions": {
-    "app/api/capsule/**": {
-      "maxDuration": 60
+    "app/api/download/**": {
+      "maxDuration": 60,
+      "runtime": "python@3.11"
     },
-    "pages/api/download.ts": {
-      "maxDuration": 60
+    "app/api/presign.ts": {
+      "maxDuration": 60,
+      "runtime": "node@18"
+    },
+    "app/api/capsule/**": {
+      "maxDuration": 60,
+      "runtime": "node@18"
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/download",
+      "destination": "/app/api/download/route.py"
+    },
+    {
+      "source": "/api/download/(.*)",
+      "destination": "/app/api/download/route.py"
+    }
+  ]
 }
