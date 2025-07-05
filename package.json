@@ -10,8 +10,8 @@
     "build": "refine build",
     "start": "refine start",
     "lint": "next lint",
-    "refine": "refine",
-    
+    "refine": "refine"
+  },
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.x.x",
