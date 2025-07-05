@@ -1,8 +1,7 @@
 {
   "functions": {
     "src/pages/api/route.py": {
-      "maxDuration": 60,
-      "runtime": "python3.11"
+      "maxDuration": 60
     },
   "app/api/capsule/**": {
     "maxDuration": 60
