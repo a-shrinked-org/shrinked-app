@@ -1,10 +1,21 @@
 {
   "functions": {
     "src/pages/api/route.py": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "runtime": "python3.11"
     },
-  "app/api/capsule/**": {
-    "maxDuration": 60
-  }
-}
+    "app/api/capsule/**": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/download",
+      "destination": "/src/pages/api/route.py"
+    },
+    {
+      "source": "/api/download/(.*)",
+      "destination": "/src/pages/api/route.py"
+    }
+  ]
 }
