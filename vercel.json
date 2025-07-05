@@ -1,6 +1,6 @@
 {
   "functions": {
-    "app/api/download/**": {
+    "src/pages/api/route.py": {
       "maxDuration": 60,
       "runtime": "python@3.11"
     },
@@ -16,11 +16,11 @@
   "rewrites": [
     {
       "source": "/api/download",
-      "destination": "/app/api/download/route.py"
+      "destination": "/src/pages/api/route.py"
     },
     {
       "source": "/api/download/(.*)",
-      "destination": "/app/api/download/route.py"
+      "destination": "/src/pages/api/route.py"
     }
   ]
 }

@@ -1,9 +1,11 @@
 // app/Downloader.tsx
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TextInput, Button, Group, Text, Progress, Alert, Stack } from '@mantine/core';
 import { UploadCloud, AlertCircle } from 'lucide-react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 interface DownloaderProps {
   onUploadComplete: (uploadedUrl: string, originalUrl: string) => void;
@@ -15,6 +17,62 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [ffmpeg, setFFmpeg] = useState<FFmpeg | null>(null);
+  const [ffmpegLoaded, setFFmpegLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadFFmpeg = async () => {
+      const ffmpegInstance = new FFmpeg();
+      ffmpegInstance.on('log', ({ message }) => console.log(message));
+      ffmpegInstance.on('progress', ({ progress }) => setProgress(Math.floor(progress * 100)));
+      try {
+        await ffmpegInstance.load({
+          coreURL: '/ffmpeg-cache/ffmpeg-core.js',
+          wasmURL: '/ffmpeg-cache/ffmpeg-core.wasm',
+          workerURL: '/ffmpeg-cache/ffmpeg-core.worker.js',
+        });
+        setFFmpeg(ffmpegInstance);
+        setFFmpegLoaded(true);
+      } catch (e) {
+        console.error('Failed to load FFmpeg:', e);
+        setError('Failed to load video processing tools.');
+      }
+    };
+    loadFFmpeg();
+  }, []);
+
+  const platformPatterns: { [key: string]: RegExp[] } = {
+    youtube: [
+      /youtube\.com/,
+      /youtu\.be/,
+      /m\.youtube\.com/,
+    ],
+    spotify: [
+      /open\.spotify\.com/,
+      /spotify\.com/,
+      /spotify:/,
+    ],
+    apple_podcasts: [
+      /podcasts\.apple\.com/,
+      /itunes\.apple\.com\/.*podcast/,
+    ],
+  };
+
+  const detectPlatform = (url: string): string | null => {
+    try {
+      new URL(url);
+    } catch {
+      return null;
+    }
+    for (const platform in platformPatterns) {
+      for (const pattern of platformPatterns[platform]) {
+        if (pattern.test(url)) {
+          return platform;
+        }
+      }
+    }
+    return null;
+  };
 
   const handleDownload = async () => {
     if (!url) {
@@ -22,10 +80,19 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       return;
     }
 
-    try {
-      new URL(url); // Basic URL validation
-    } catch {
-      setError('Invalid URL format');
+    const platform = detectPlatform(url);
+    if (!platform) {
+      setError('Invalid or unsupported URL');
+      return;
+    }
+
+    if (platform === 'spotify') {
+      setError('Spotify download not implemented. Please use YouTube or Apple Podcasts URLs.');
+      return;
+    }
+
+    if (!ffmpegLoaded || !ffmpeg) {
+      setError('FFmpeg is not loaded yet. Please wait.');
       return;
     }
 
@@ -34,24 +101,37 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
     setProgress(0);
 
     try {
-      // Step 1: Download the file from the provided URL
+      // Step 1: Download the file from the Python API
       setStatus('Downloading...');
-      setProgress(25);
-      const downloadRes = await fetch(`/api/download?url=${encodeURIComponent(url)}`);
+      setProgress(10);
+      const downloadRes = await fetch(`/api/download?url=${encodeURIComponent(url)}&platform=${platform}`);
 
       if (!downloadRes.ok) {
         const err = await downloadRes.json();
-        throw new Error(err.error || 'Failed to download file');
+        throw new Error(err.detail || 'Failed to download file');
       }
 
       const fileBlob = await downloadRes.blob();
-      const fileName = downloadRes.headers.get('content-disposition')?.split('filename=')[1].replace(/"/g, '') || 'downloaded-file.mp3';
-      const file = new File([fileBlob], fileName, { type: fileBlob.type });
+      const originalFileName = downloadRes.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'downloaded-file';
+      const originalFileExtension = originalFileName.split('.').pop() || 'mp4';
+      const inputFileName = `input.${originalFileExtension}`;
+      const outputFileName = `output.mp3`;
 
-      // Step 2: Upload the file to your storage (e.g., S3)
+      // Step 2: Convert to MP3 using FFmpeg.wasm
+      setStatus('Converting to MP3...');
+      setProgress(30);
+
+      await ffmpeg.writeFile(inputFileName, await fetchFile(fileBlob));
+      await ffmpeg.exec(['-i', inputFileName, outputFileName]);
+      const data = await ffmpeg.readFile(outputFileName);
+
+      const mp3Blob = new Blob([data], { type: 'audio/mpeg' });
+      const mp3File = new File([mp3Blob], outputFileName, { type: 'audio/mpeg' });
+
+      // Step 3: Upload the file to S3
       setStatus('Uploading to storage...');
-      setProgress(50);
-      const presignRes = await fetch(`/api/presign?file=${encodeURIComponent(fileName)}&fileType=${encodeURIComponent(file.type)}`);
+      setProgress(70);
+      const presignRes = await fetch(`/api/presign?file=${encodeURIComponent(outputFileName)}&fileType=${encodeURIComponent(mp3File.type)}`);
       if (!presignRes.ok) {
         throw new Error('Failed to get presigned URL for upload');
       }
@@ -61,7 +141,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       Object.entries(fields).forEach(([key, value]) => {
         formData.append(key, value as string);
       });
-      formData.append('file', file);
+      formData.append('file', mp3File);
 
       const uploadRes = await fetch(presignedUrl, {
         method: 'POST',
@@ -72,12 +152,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
         throw new Error('Failed to upload file to storage');
       }
 
-      // Step 3: Processing the file
-      setStatus('Processing file...');
-      setProgress(75);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate processing time
-
-      // Step 4: Get the internal link and pass it to the parent component
+      // Step 4: Complete
       setProgress(100);
       setStatus('Complete!');
       const fileUrl = `${presignedUrl}${fields.key}`;

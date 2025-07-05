@@ -30,26 +30,10 @@ async def download(url: str, platform: Union[str, None] = None):
     file_name = f"{int(os.times()[4] * 1000)}.mp3"  # Use timestamp for filename
     file_path = os.path.join(temp_dir, file_name)
 
-    # FFmpeg binary path
-    ffmpeg_path = os.path.join(os.getcwd(), "bin", "ffmpeg")
-    if not os.path.exists(ffmpeg_path):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"FFmpeg binary not found at {ffmpeg_path}",
-            headers={"Cache-Control": "no-store, max-age=0"},
-        )
-
     ydl_options = {
         "format": "bestaudio/best",
         "extractaudio": True,
-        "audioformat": "mp3",
-        "outtmpl": file_path.replace(".mp3", ".%(ext)s"),
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "0",
-        }],
-        "ffmpeg_location": ffmpeg_path,
+        "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
         "retries": 3,
         "encoding": "utf-8",
         "noplaylist": True,
@@ -60,27 +44,27 @@ async def download(url: str, platform: Union[str, None] = None):
 
     try:
         with YoutubeDL(ydl_options) as ytdl:
-            ytdl.download([url])
+            info_dict = ytdl.extract_info(url, download=True)
+            downloaded_filepath = ytdl.prepare_filename(info_dict)
 
-        # Find the downloaded MP3 file
-        mp3_file = None
-        for file in os.listdir(temp_dir):
-            if file.endswith(".mp3"):
-                mp3_file = os.path.join(temp_dir, file)
-                break
-
-        if not mp3_file or not os.path.exists(mp3_file):
+        if not downloaded_filepath or not os.path.exists(downloaded_filepath):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No MP3 file found after download",
+                detail="No file found after download",
                 headers={"Cache-Control": "no-store, max-age=0"},
             )
 
+        # Determine media type based on file extension
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(downloaded_filepath)
+        if not mime_type:
+            mime_type = "application/octet-stream" # Default if type cannot be guessed
+
         # Return the file
         return FileResponse(
-            mp3_file,
-            media_type="audio/mpeg",
-            filename=os.path.basename(mp3_file),
+            downloaded_filepath,
+            media_type=mime_type,
+            filename=os.path.basename(downloaded_filepath),
             headers={"Cache-Control": "no-store, max-age=0"},
         )
 
