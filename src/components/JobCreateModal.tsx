@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from "@/components/FileUpload";
+import Downloader from "./Downloader";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import ConversationVisualizer from "./ConversationVisualizer";
@@ -47,8 +48,9 @@ interface Identity {
 }
 
 interface FileItem {
-  type: "link" | "upload";
+  type: "link" | "upload" | "download";
   url: string;
+  originalUrl?: string;
   filename?: string;
   size?: number;
   isLoading?: boolean;
@@ -273,7 +275,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   };
 
   // Handle file upload success
-  const handleFileUploaded = (fileUrl: string, index: number = 0) => {
+  const handleFileUploaded = (fileUrl: string, index: number = 0, originalUrl?: string) => {
     // Simulate loading process
     setValue(`files.${index}.isLoading`, true);
     setValue(`files.${index}.progress`, 0);
@@ -287,6 +289,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         clearInterval(progressInterval);
         setValue(`files.${index}.isLoading`, false);
         setValue(`files.${index}.url`, fileUrl);
+        if (originalUrl) {
+          setValue(`files.${index}.originalUrl`, originalUrl);
+        }
 
         // Extract filename from URL for display purposes only
         const urlParts = fileUrl.split("/");
@@ -414,6 +419,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           isPublic: data.isPublic,
           createPage: data.createPage,
           link: validFiles[0].url,
+          originalLink: validFiles[0].originalUrl
         };
       } else {
         apiData = {
@@ -423,7 +429,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           lang: data.lang,
           isPublic: data.isPublic,
           createPage: data.createPage,
-          links: validFiles.map((file) => file.url),
+          links: validFiles.map((file) => ({ url: file.url, originalUrl: file.originalUrl })),
         };
       }
 
@@ -862,7 +868,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                             </Group>
                           )}
                         </Box>
-                      ) : (
+                      ) : fileType === "upload" ? (
                         <Box style={{ width: "100%", height: "100%" }}>
                           {!watch(`files.${index}.url`) ? (
                             <div
@@ -908,6 +914,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                             </Group>
                           )}
                         </Box>
+                      ) : (
+                        <Downloader onUploadComplete={(fileUrl) => handleFileUploaded(fileUrl, index)} />
                       )}
                     </Box>
 
@@ -934,7 +942,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload" | "download")}
                           variant="pills"
                           color="rgba(32, 32, 32, 1)"
                           styles={{
@@ -982,6 +990,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           <Tabs.List>
                             <Tabs.Tab value="link">Url</Tabs.Tab>
                             <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
+                            <Tabs.Tab value="download">Download</Tabs.Tab>
                             <Tabs.Tab value="emails" disabled>
                               Emails
                             </Tabs.Tab>
