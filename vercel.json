@@ -6,15 +6,5 @@
   "app/api/capsule/**": {
     "maxDuration": 60
   }
-  },
- "rewrites": [
-     {
-       "source": "/api/download",
-       "destination": "/src/pages/api/route.py"
-     },
-     {
-       "source": "/api/download/(.*)",
-       "destination": "/src/pages/api/route.py"
-     }
-   ]
- }
+  }
+}
