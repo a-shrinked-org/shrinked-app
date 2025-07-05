@@ -650,7 +650,7 @@ export default function CapsuleView() {
         color: 'red',
       });
     }
-  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, loadedFiles, refetch]);
+  }, [capsuleId, fetchWithAuth, handleAuthError, record?.files, refetch]);
 
   // Load prompts for purpose modal
   const loadPrompts = useCallback(async () => {

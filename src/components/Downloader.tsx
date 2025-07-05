@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { TextInput, Button, Group, Text, Progress, Alert } from '@mantine/core';
+import { TextInput, Button, Group, Text, Progress, Alert, Stack } from '@mantine/core';
 import { UploadCloud, AlertCircle } from 'lucide-react';
 
 interface DownloaderProps {

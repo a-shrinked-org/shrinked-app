@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 
-const platformPatterns = {
+const platformPatterns: { [key: string]: RegExp[] } = {
   youtube: [
     /youtube\.com/,
     /youtu\.be/,

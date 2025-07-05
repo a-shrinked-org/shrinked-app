@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box } from '@mantine/core';
 
 interface ConversationVisualizerProps {
-  files: Array<{ url: string; filename?: string; type: 'link' | 'upload' }>;
+  files: Array<{ url: string; filename?: string; type: 'link' | 'upload' | 'download' }>;
   isActive?: boolean;
 }
 
