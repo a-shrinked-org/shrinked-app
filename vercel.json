@@ -2,7 +2,9 @@
   "functions": {
     "api/download.py": {
       "maxDuration": 60,
-      "runtime": "python3.12"
+    },
+    "app/api/capsule/**": {
+      "maxDuration": 60
     }
   }
 }
