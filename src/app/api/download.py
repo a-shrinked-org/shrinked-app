@@ -8,7 +8,7 @@ import mimetypes
 from yt_dlp import YoutubeDL
 from yt_dlp.version import __version__ as yt_dlp_version
 
-class handler(BaseHTTPRequestHandler):
+class Handler(BaseHTTPRequestHandler):  # Changed to uppercase
     def do_GET(self):
         # Parse the URL and query parameters
         parsed_url = urlparse(self.path)
@@ -108,3 +108,6 @@ class handler(BaseHTTPRequestHandler):
                 print(f"Cleanup error: {cleanup_error}")
             except:
                 pass
+
+# Export the handler - this is crucial for Vercel
+handler = Handler
