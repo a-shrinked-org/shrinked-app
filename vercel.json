@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/download.py": {
-      "maxDuration": 60,
+      "maxDuration": 60
     },
     "app/api/capsule/**": {
       "maxDuration": 60
