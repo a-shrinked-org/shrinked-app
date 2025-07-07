@@ -2,10 +2,10 @@
   "functions": {
     "api/download.py": {
       "maxDuration": 60,
-      "runtime": "python"
+      "runtime": "python3.9"
     },
     "app/api/capsule/**": {
       "maxDuration": 60
     }
   }
-}
+}w
