@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/download.py": {
+    "app/api/download.py": {
       "maxDuration": 60
     },
     "app/api/capsule/**": {
