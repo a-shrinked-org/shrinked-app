@@ -15,7 +15,7 @@ class Handler(BaseHTTPRequestHandler):  # Changed to uppercase
         query_params = parse_qs(parsed_url.query)
         
         # Handle version endpoint
-        if parsed_url.path == '/api/version':
+        if parsed_url.path == '/version':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -23,8 +23,8 @@ class Handler(BaseHTTPRequestHandler):  # Changed to uppercase
             self.wfile.write(json.dumps(response).encode())
             return
         
-        # Handle download endpoint
-        if parsed_url.path == '/api/download':
+        # Handle download endpoint (root path for this function)
+        if parsed_url.path == '/':
             url = query_params.get('url', [None])[0]
             platform = query_params.get('platform', [None])[0]
             
