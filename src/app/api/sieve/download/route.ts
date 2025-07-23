@@ -102,24 +102,31 @@ export async function POST(request: NextRequest) {
           if (sievePushResponse.ok) {
             break;
           }
-          const errorBody = await sievePushResponse.text();
-          throw new Error(`HTTP ${sievePushResponse.status}: ${await sievePushResponse.text()}`);
-        } catch (error) {
-          console.error(`Error during Sieve push attempt ${attempt + 1}:`, error);
+          const errorBody = await sievePushResponse.text(); // Read body once
+          throw new Error(`HTTP ${sievePushResponse.status}: ${errorBody}`);
+        } catch (error: any) {
+          console.error(`Error during Sieve push attempt ${attempt + 1}:`, error.message);
           attempt++;
           if (attempt === maxRetries) {
             throw error;
           }
-          const backoff = Math.pow(2, attempt) * 2000; // Start at 2s, then 4s, 8s
+          const backoff = Math.pow(2, attempt) * 2000;
           console.log(`Retrying job submission (attempt ${attempt + 1}/${maxRetries}) after ${backoff}ms...`);
           await new Promise(resolve => setTimeout(resolve, backoff));
         }
       }
 
       if (!sievePushResponse || !sievePushResponse.ok) {
-        const errorBody = await sievePushResponse?.text();
-        console.error(`Failed to push job to Sieve. Status: ${sievePushResponse?.status}, StatusText: ${sievePushResponse?.statusText}, Body: ${errorBody}`);
-        throw new Error(`Failed to push job to Sieve: ${sievePushResponse?.statusText}. Body: ${errorBody}`);
+        let finalErrorBody = '';
+        if (sievePushResponse) {
+          try {
+            finalErrorBody = await sievePushResponse.text();
+          } catch (e) {
+            console.warn('Could not read sievePushResponse body after error (it might have been read already):', e);
+          }
+        }
+        console.error(`Failed to push job to Sieve. Status: ${sievePushResponse?.status}, StatusText: ${sievePushResponse?.statusText}, Body: ${finalErrorBody}`);
+        throw new Error(`Failed to push job to Sieve: ${sievePushResponse?.statusText}. Body: ${finalErrorBody}`);
       }
 
       const sieveJobData = await sievePushResponse.json();
