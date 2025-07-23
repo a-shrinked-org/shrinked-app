@@ -103,8 +103,9 @@ export async function POST(request: NextRequest) {
             break;
           }
           const errorBody = await sievePushResponse.text();
-          throw new Error(`HTTP ${sievePushResponse.status}: ${errorBody}`);
+          throw new Error(`HTTP ${sievePushResponse.status}: ${await sievePushResponse.text()}`);
         } catch (error) {
+          console.error(`Error during Sieve push attempt ${attempt + 1}:`, error);
           attempt++;
           if (attempt === maxRetries) {
             throw error;
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
 
       if (!sievePushResponse || !sievePushResponse.ok) {
         const errorBody = await sievePushResponse?.text();
+        console.error(`Failed to push job to Sieve. Status: ${sievePushResponse?.status}, StatusText: ${sievePushResponse?.statusText}, Body: ${errorBody}`);
         throw new Error(`Failed to push job to Sieve: ${sievePushResponse?.statusText}. Body: ${errorBody}`);
       }
 
