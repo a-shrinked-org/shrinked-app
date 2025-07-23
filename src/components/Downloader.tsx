@@ -53,7 +53,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       const responseData = await response.json();
       if (responseData.jobId) {
         setJobId(responseData.jobId);
-        setStatus(`Sieve job initiated: ${responseData.jobId}. Waiting for completion...`);
+        setStatus(`Sieve job initiated: ${responseData.jobId}. Waiting for start...`);
         setProgress(20);
       } else {
         throw new Error('Sieve job ID not received.');
