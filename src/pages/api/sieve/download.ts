@@ -2,12 +2,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import Sieve from 'sieve-js';
 
-const sieve = new Sieve({
-  apiKey: process.env.SIEVE_API_KEY,
-});
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log('--- Sieve Download API Start ---');
+
+  if (!process.env.SIEVE_API_KEY) {
+    console.error('FATAL: SIEVE_API_KEY environment variable is not set.');
+    return res.status(500).json({ message: 'Server configuration error: Missing Sieve API Key.' });
+  }
+
+  const sieve = new Sieve({
+    apiKey: process.env.SIEVE_API_KEY,
+  });
+
   if (req.method !== 'POST') {
     console.log('Invalid method:', req.method);
     return res.status(405).json({ message: 'Method Not Allowed' });
