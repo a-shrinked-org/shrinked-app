@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         const filename = `sieve-download-${job_id}.${extension}`;
 
         // Get presigned URL for Cloudflare R2
-        const { presignedUrl: uploadUrl } = await getPresignedUploadUrl(filename);
+        const { presignedUrl: uploadUrl } = await getPresignedUploadUrl(filename, `audio/${extension}`);
 
         // Upload to Cloudflare R2
         const uploadResponse = await fetch(uploadUrl, {
@@ -169,11 +169,17 @@ export async function POST(request: NextRequest) {
         const r2FileUrl = `https://your-r2-bucket.s3.amazonaws.com/${filename}`;
 
         // Update job metadata
-        jobStore.set(job_id, { ...jobMetadata, status, fileUrl: r2FileUrl });
+        jobStore.set(job_id, { ...jobMetadata!, status, fileUrl: r2FileUrl, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' });
 
         return NextResponse.json({ status: 'received' }, { status: 200 });
       } else if (status === 'error') {
-        jobStore.set(job_id, { ...jobStore.get(job_id), status, fileUrl: null });
+        const jobMetadata = jobStore.get(job_id);
+        jobStore.set(job_id, {
+          status,
+          fileUrl: undefined,
+          originalUrl: jobMetadata?.originalUrl || '',
+          output_format: jobMetadata?.output_format || '',
+        });
         return NextResponse.json({ status: 'received' }, { status: 200 });
       }
 
