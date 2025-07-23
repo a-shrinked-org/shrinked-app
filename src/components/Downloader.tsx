@@ -19,6 +19,8 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [notFoundRetryCount, setNotFoundRetryCount] = useState(0);
+  const MAX_NOT_FOUND_RETRIES = 5; // Allow 5 retries for 'job_not_found'
 
   const handleDownload = async () => {
     if (!url) {
@@ -30,6 +32,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
     setError(null);
     setProgress(0);
     setJobId(null);
+    setNotFoundRetryCount(0); // Reset retry count for new job
 
     try {
       setStatus('Sending to Sieve...');
@@ -91,9 +94,15 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
           setError(`Sieve job ${jobId} ${jobStatus}. Details: ${statusData.error || 'No details provided.'}`);
           setIsLoading(false);
         } else if (jobStatus === 'job_not_found') {
-          clearInterval(pollingInterval);
-          setError(`Sieve job ${jobId} not found. It might have completed or failed.`);
-          setIsLoading(false);
+          if (notFoundRetryCount < MAX_NOT_FOUND_RETRIES) {
+            console.warn(`Sieve job ${jobId} not found (retry ${notFoundRetryCount + 1}/${MAX_NOT_FOUND_RETRIES}). Continuing to poll.`);
+            setNotFoundRetryCount((prev) => prev + 1);
+            // Do not clearInterval, continue polling
+          } else {
+            clearInterval(pollingInterval);
+            setError(`Sieve job ${jobId} not found after multiple attempts. It might have completed or failed without providing a result.`);
+            setIsLoading(false);
+          }
         } else {
           // Update progress based on polling attempts or a more sophisticated logic if Sieve provides it
           setProgress((prev) => Math.min(90, prev + 5)); // Increment progress up to 90%
@@ -111,7 +120,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
     }
 
     return () => clearInterval(pollingInterval);
-  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url]);
+  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, notFoundRetryCount]);
 
   return (
     <Stack>
