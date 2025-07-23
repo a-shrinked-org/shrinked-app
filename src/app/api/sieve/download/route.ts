@@ -35,7 +35,7 @@ function handleApiError(error: any, defaultMessage: string): NextResponse {
 }
 
 /**
- * Handles video download from a URL via Sieve, and uploads the result to Cloudflare R2.
+ * Handles audio download from a URL via Sieve, and uploads the result to Cloudflare R2.
  */
 export async function POST(request: NextRequest) {
   // 1. Verify Authentication
@@ -55,13 +55,13 @@ export async function POST(request: NextRequest) {
   console.log('Sieve API key found.');
 
   try {
-    // 3. Get the video URL from the request body
-    const { url } = await request.json();
+    // 3. Get the URL and other parameters from the request body
+    const { url, output_format = 'mp3' } = await request.json();
     if (!url) {
       console.log('URL is missing from request body.');
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
-    console.log('Received URL:', url);
+    console.log('Received URL:', url, 'Output format:', output_format);
 
     // 4. Push job to Sieve via HTTP POST
     console.log('Pushing job to Sieve via HTTP POST...');
@@ -72,9 +72,11 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        function: 'damn/youtube_to_audio',
+        function: 'damn/audio_downloader',
         inputs: {
           url: url,
+          output_format: output_format,
+          cookies_file: '/sieve/cookies.txt'  // Assumes cookies.txt is pre-uploaded to Sieve
         },
       }),
     });
@@ -93,6 +95,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error during Sieve download process:', error);
-    return handleApiError(error, 'Failed to process and upload video');
+    return handleApiError(error, 'Failed to process and upload audio');
   }
 }
