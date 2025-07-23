@@ -88,79 +88,8 @@ export async function POST(request: NextRequest) {
     const jobId = sieveJobData.id; // Assuming the response contains a job ID
     console.log('Sieve job pushed. Job ID:', jobId);
 
-    // 5. Poll for job result
-    console.log('Polling for Sieve job result...');
-    let jobStatus = '';
-    let sieveFileUrl: string | null = null;
-    const MAX_POLLING_ATTEMPTS = 60; // e.g., 5 minutes with 5-second intervals
-    const POLLING_INTERVAL_MS = 5000; // 5 seconds
-
-    for (let i = 0; i < MAX_POLLING_ATTEMPTS; i++) {
-      await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-
-      const statusResponse = await fetch(`https://mango.sievedata.com/v2/job/${jobId}`, {
-        headers: { 'X-API-Key': SIEVE_API_KEY }
-      });
-
-      if (!statusResponse.ok) {
-        const errorBody = await statusResponse.text();
-        console.error(`Failed to fetch job status for ${jobId}: ${statusResponse.statusText}. Body: ${errorBody}`);
-        continue; // Try again
-      }
-
-      const statusData = await statusResponse.json();
-      jobStatus = statusData.status;
-      console.log(`Job ${jobId} status: ${jobStatus}`);
-
-      if (jobStatus === 'completed') {
-        // Assuming the output is an array and the first element is the URL
-        if (statusData.output && Array.isArray(statusData.output) && statusData.output.length > 0) {
-          sieveFileUrl = statusData.output[0];
-        } else {
-          throw new Error(`Sieve job completed but no output URL found for job ${jobId}. Output: ${JSON.stringify(statusData.output)}`);
-        }
-        break;
-      } else if (jobStatus === 'failed' || jobStatus === 'cancelled') {
-        throw new Error(`Sieve job ${jobId} ${jobStatus}. Details: ${JSON.stringify(statusData.error || statusData)}`);
-      }
-    }
-
-    if (!sieveFileUrl) {
-      throw new Error(`Sieve job ${jobId} did not complete within the expected time.`);
-    }
-    console.log('Sieve job completed. Sieve file URL:', sieveFileUrl);
-
-    // 6. Fetch the processed file from Sieve
-    console.log('Fetching processed file from Sieve...');
-    const response = await fetch(sieveFileUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch file from Sieve: ${response.statusText}`);
-    }
-    const fileBlob = await response.blob();
-    console.log('File fetched from Sieve successfully.');
-
-    // 7. Get a presigned URL for uploading to our R2 bucket
-    const fileName = `sieve-${Date.now()}.mp3`;
-    console.log('Getting presigned URL for R2 upload...');
-    const { presignedUrl, fileUrl } = await getPresignedUploadUrl(fileName, 'audio/mpeg');
-    console.log('Presigned URL obtained. R2 file URL:', fileUrl);
-
-    // 8. Upload the file from Sieve directly to R2
-    console.log('Uploading file to R2...');
-    const uploadResponse = await fetch(presignedUrl, {
-      method: 'PUT',
-      body: fileBlob,
-      headers: { 'Content-Type': 'audio/mpeg' },
-    });
-
-    if (!uploadResponse.ok) {
-      const errorBody = await uploadResponse.text();
-      throw new Error(`Failed to upload to R2. Status: ${uploadResponse.status} Body: ${errorBody}`);
-    }
-    console.log('File uploaded to R2 successfully.');
-
-    // 9. Return the final public URL
-    return NextResponse.json({ fileUrl });
+    // 5. Return the job ID immediately. Frontend will poll for status.
+    return NextResponse.json({ jobId: jobId });
 
   } catch (error) {
     console.error('Error during Sieve download process:', error);
