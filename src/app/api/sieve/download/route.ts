@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
                 output_format: output_format,
                 cookies_file: '/sieve/cookies.txt',
               },
-              webhooks: [{ type: 'job_completed', url: webhookUrl }],
+              webhooks: [{ type: 'job_complete', url: webhookUrl }],
             }),
           });
 
