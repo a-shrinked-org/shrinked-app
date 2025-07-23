@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         const filename = `sieve-download-${job_id}.${extension}`;
 
         // Get presigned URL for Cloudflare R2
-        const { url: uploadUrl } = await getPresignedUploadUrl(filename);
+        const { presignedUrl: uploadUrl } = await getPresignedUploadUrl(filename);
 
         // Upload to Cloudflare R2
         const uploadResponse = await fetch(uploadUrl, {
