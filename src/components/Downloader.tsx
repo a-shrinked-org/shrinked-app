@@ -90,6 +90,10 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
           clearInterval(pollingInterval);
           setError(`Sieve job ${jobId} ${jobStatus}. Details: ${statusData.error || 'No details provided.'}`);
           setIsLoading(false);
+        } else if (jobStatus === 'job_not_found') {
+          clearInterval(pollingInterval);
+          setError(`Sieve job ${jobId} not found. It might have completed or failed.`);
+          setIsLoading(false);
         } else {
           // Update progress based on polling attempts or a more sophisticated logic if Sieve provides it
           setProgress((prev) => Math.min(90, prev + 5)); // Increment progress up to 90%

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
  * Handle API errors with consistent formatting
  */
 function handleApiError(error: any, defaultMessage: string): NextResponse {
-  console.error(`API error in sieve/download/status:`, error);
+  console.error(`API error in sieve/download/status:`, error, error.stack); // Added error.stack
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
   return NextResponse.json(
     { error: defaultMessage, details: errorMessage },
@@ -47,6 +47,15 @@ export async function GET(request: NextRequest) {
 
     if (!statusResponse.ok) {
       const errorBody = await statusResponse.text();
+      // If Sieve returns 404, it means the job is not found (e.g., completed and removed)
+      if (statusResponse.status === 404) {
+        console.warn(`Sieve job ${jobId} not found. It might have completed and been removed.`);
+        return NextResponse.json({
+          status: 'job_not_found',
+          fileUrl: null,
+          error: `Job ${jobId} not found on Sieve. ${errorBody}`,
+        });
+      }
       throw new Error(`Failed to fetch job status from Sieve for ${jobId}: ${statusResponse.statusText}. Body: ${errorBody}`);
     }
 
