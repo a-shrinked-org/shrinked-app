@@ -78,7 +78,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       if (!jobId) return;
 
       try {
-        const statusResponse = await fetchWithAuth(`/api/sieve/webhook?jobId=${jobId}`);
+        const statusResponse = await fetchWithAuth(`/api/sieve/download/status?jobId=${jobId}`);
         if (!statusResponse.ok) {
           const err = await statusResponse.json();
           throw new Error(err.message || `Failed to fetch job status for ${jobId}`);
