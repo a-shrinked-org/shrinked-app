@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              function: 'sieve/audio_downloader',
+              function: 'damn/audio_downloader',
               inputs: {
                 url: url,
                 output_format: output_format,
