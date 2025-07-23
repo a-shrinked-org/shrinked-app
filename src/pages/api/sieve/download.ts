@@ -12,9 +12,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { url } = req.body;
+  const authHeader = req.headers.authorization;
 
   if (!url) {
     return res.status(400).json({ message: 'URL is required' });
+  }
+
+  if (!authHeader) {
+    return res.status(401).json({ message: 'Unauthorized' });
   }
 
   try {
@@ -33,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: authHeader,
       },
       body: JSON.stringify({
         fileName,
