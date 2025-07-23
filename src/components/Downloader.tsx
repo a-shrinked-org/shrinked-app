@@ -11,68 +11,15 @@ interface DownloaderProps {
   onUploadComplete: (uploadedUrl: string, originalUrl: string) => void;
 }
 
+import { useAuth } from '@/utils/authUtils';
+
 const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
+  const { fetchWithAuth, handleAuthError } = useAuth();
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [ffmpeg, setFFmpeg] = useState<FFmpeg | null>(null);
-  const [ffmpegLoaded, setFFmpegLoaded] = useState(false);
-
-  useEffect(() => {
-    const loadFFmpeg = async () => {
-      const ffmpegInstance = new FFmpeg();
-      ffmpegInstance.on('log', ({ message }) => console.log(message));
-      ffmpegInstance.on('progress', ({ progress }) => setProgress(Math.floor(progress * 100)));
-      try {
-        await ffmpegInstance.load({
-          coreURL: '/ffmpeg-cache/ffmpeg-core.js',
-          wasmURL: '/ffmpeg-cache/ffmpeg-core.wasm',
-          workerURL: '/ffmpeg-cache/ffmpeg-core.worker.js',
-        });
-        setFFmpeg(ffmpegInstance);
-        setFFmpegLoaded(true);
-      } catch (e) {
-        console.error('Failed to load FFmpeg:', e);
-        setError('Failed to load video processing tools.');
-      }
-    };
-    loadFFmpeg();
-  }, []);
-
-  const platformPatterns: { [key: string]: RegExp[] } = {
-    youtube: [
-      /youtube\.com/,
-      /youtu\.be/,
-      /m\.youtube\.com/,
-    ],
-    spotify: [
-      /open\.spotify\.com/,
-      /spotify\.com/,
-      /spotify:/,
-    ],
-    apple_podcasts: [
-      /podcasts\.apple\.com/,
-      /itunes\.apple\.com\/.*podcast/,
-    ],
-  };
-
-  const detectPlatform = (url: string): string | null => {
-    try {
-      new URL(url);
-    } catch {
-      return null;
-    }
-    for (const platform in platformPatterns) {
-      for (const pattern of platformPatterns[platform]) {
-        if (pattern.test(url)) {
-          return platform;
-        }
-      }
-    }
-    return null;
-  };
 
   const handleDownload = async () => {
     if (!url) {
@@ -88,11 +35,8 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       setStatus('Sending to Sieve...');
       setProgress(25);
 
-      const response = await fetch('/api/sieve/download', {
+      const response = await fetchWithAuth('/api/sieve/download', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ url }),
       });
 
@@ -114,6 +58,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       onUploadComplete(fileUrl, url);
 
     } catch (err) {
+      handleAuthError(err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
