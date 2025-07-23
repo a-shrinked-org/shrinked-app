@@ -276,36 +276,26 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
   // Handle file upload success
   const handleFileUploaded = (fileUrl: string, index: number = 0, originalUrl?: string) => {
-    // Simulate loading process
-    setValue(`files.${index}.isLoading`, true);
-    setValue(`files.${index}.progress`, 0);
+    setValue(`files.${index}.url`, fileUrl);
+    if (originalUrl) {
+      setValue(`files.${index}.originalUrl`, originalUrl);
+    }
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      const currentProgress = watch(`files.${index}.progress`) || 0;
-      if (currentProgress < 100) {
-        setValue(`files.${index}.progress`, currentProgress + 10);
-      } else {
-        clearInterval(progressInterval);
-        setValue(`files.${index}.isLoading`, false);
-        setValue(`files.${index}.url`, fileUrl);
-        if (originalUrl) {
-          setValue(`files.${index}.originalUrl`, originalUrl);
-        }
+    // Extract filename from URL for display purposes only
+    const urlParts = fileUrl.split("/");
+    const filenameWithParams = urlParts[urlParts.length - 1];
+    const filename = filenameWithParams.split("?")[0];
+    setValue(`files.${index}.filename`, filename);
 
-        // Extract filename from URL for display purposes only
-        const urlParts = fileUrl.split("/");
-        const filenameWithParams = urlParts[urlParts.length - 1];
-        const filename = filenameWithParams.split("?")[0];
-        setValue(`files.${index}.filename`, filename);
+    // Downloader component now handles its own loading and progress
+    setValue(`files.${index}.isLoading`, false);
+    setValue(`files.${index}.progress`, 100);
 
-        showNotification({
-          title: "Success",
-          message: "File URL has been added",
-          color: "green",
-        });
-      }
-    }, 200);
+    showNotification({
+      title: "Success",
+      message: "File URL has been added",
+      color: "green",
+    });
   };
 
   const handleAddFile = () => {

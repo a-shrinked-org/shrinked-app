@@ -1,6 +1,4 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import Sieve from 'sieve-js';
 import { getPresignedUploadUrl } from '@/utils/r2-utils';
 
 export const runtime = 'nodejs';
@@ -48,13 +46,13 @@ export async function POST(request: NextRequest) {
   }
   console.log('Authentication successful.');
 
-  // 2. Initialize Sieve client, checking for the API key
+  // 2. Check for the API key
   if (!process.env.SIEVE_API_KEY) {
     console.error('SIEVE_API_KEY environment variable is not set.');
     return handleApiError(new Error('SIEVE_API_KEY environment variable is not set.'), 'Server configuration error');
   }
-  const sieve = new Sieve({ apiKey: process.env.SIEVE_API_KEY });
-  console.log('Sieve client initialized.');
+  const SIEVE_API_KEY = process.env.SIEVE_API_KEY;
+  console.log('Sieve API key found.');
 
   try {
     // 3. Get the video URL from the request body
@@ -65,17 +63,74 @@ export async function POST(request: NextRequest) {
     }
     console.log('Received URL:', url);
 
-    // 4. Process the video through the Sieve 'youtube_to_audio' function
-    console.log('Getting Sieve function "damn/youtube_to_audio"...');
-    const youtubeToAudio = sieve.function.get('damn/youtube_to_audio');
-    console.log('Pushing job to Sieve...');
-    const job = await youtubeToAudio.push({ url });
-    console.log('Waiting for Sieve job result...');
-    const result = await job.result();
-    const sieveFileUrl = result[0];
+    // 4. Push job to Sieve via HTTP POST
+    console.log('Pushing job to Sieve via HTTP POST...');
+    const sievePushResponse = await fetch('https://mango.sievedata.com/v2/push', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': SIEVE_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        function: 'damn/youtube_to_audio',
+        inputs: {
+          url: url,
+        },
+      }),
+    });
+
+    if (!sievePushResponse.ok) {
+      const errorBody = await sievePushResponse.text();
+      throw new Error(`Failed to push job to Sieve: ${sievePushResponse.statusText}. Body: ${errorBody}`);
+    }
+
+    const sieveJobData = await sievePushResponse.json();
+    const jobId = sieveJobData.id; // Assuming the response contains a job ID
+    console.log('Sieve job pushed. Job ID:', jobId);
+
+    // 5. Poll for job result
+    console.log('Polling for Sieve job result...');
+    let jobStatus = '';
+    let sieveFileUrl: string | null = null;
+    const MAX_POLLING_ATTEMPTS = 60; // e.g., 5 minutes with 5-second intervals
+    const POLLING_INTERVAL_MS = 5000; // 5 seconds
+
+    for (let i = 0; i < MAX_POLLING_ATTEMPTS; i++) {
+      await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
+
+      const statusResponse = await fetch(`https://mango.sievedata.com/v2/job/${jobId}`, {
+        headers: { 'X-API-Key': SIEVE_API_KEY }
+      });
+
+      if (!statusResponse.ok) {
+        const errorBody = await statusResponse.text();
+        console.error(`Failed to fetch job status for ${jobId}: ${statusResponse.statusText}. Body: ${errorBody}`);
+        continue; // Try again
+      }
+
+      const statusData = await statusResponse.json();
+      jobStatus = statusData.status;
+      console.log(`Job ${jobId} status: ${jobStatus}`);
+
+      if (jobStatus === 'completed') {
+        // Assuming the output is an array and the first element is the URL
+        if (statusData.output && Array.isArray(statusData.output) && statusData.output.length > 0) {
+          sieveFileUrl = statusData.output[0];
+        } else {
+          throw new Error(`Sieve job completed but no output URL found for job ${jobId}. Output: ${JSON.stringify(statusData.output)}`);
+        }
+        break;
+      } else if (jobStatus === 'failed' || jobStatus === 'cancelled') {
+        throw new Error(`Sieve job ${jobId} ${jobStatus}. Details: ${JSON.stringify(statusData.error || statusData)}`);
+      }
+    }
+
+    if (!sieveFileUrl) {
+      throw new Error(`Sieve job ${jobId} did not complete within the expected time.`);
+    }
     console.log('Sieve job completed. Sieve file URL:', sieveFileUrl);
 
-    // 5. Fetch the processed file from Sieve
+    // 6. Fetch the processed file from Sieve
     console.log('Fetching processed file from Sieve...');
     const response = await fetch(sieveFileUrl);
     if (!response.ok) {
@@ -84,13 +139,13 @@ export async function POST(request: NextRequest) {
     const fileBlob = await response.blob();
     console.log('File fetched from Sieve successfully.');
 
-    // 6. Get a presigned URL for uploading to our R2 bucket
+    // 7. Get a presigned URL for uploading to our R2 bucket
     const fileName = `sieve-${Date.now()}.mp3`;
     console.log('Getting presigned URL for R2 upload...');
     const { presignedUrl, fileUrl } = await getPresignedUploadUrl(fileName, 'audio/mpeg');
     console.log('Presigned URL obtained. R2 file URL:', fileUrl);
 
-    // 7. Upload the file from Sieve directly to R2
+    // 8. Upload the file from Sieve directly to R2
     console.log('Uploading file to R2...');
     const uploadResponse = await fetch(presignedUrl, {
       method: 'PUT',
@@ -104,7 +159,7 @@ export async function POST(request: NextRequest) {
     }
     console.log('File uploaded to R2 successfully.');
 
-    // 8. Return the final public URL
+    // 9. Return the final public URL
     return NextResponse.json({ fileUrl });
 
   } catch (error) {
