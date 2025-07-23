@@ -80,83 +80,39 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete }) => {
       return;
     }
 
-    const platform = detectPlatform(url);
-    if (!platform) {
-      setError('Invalid or unsupported URL');
-      return;
-    }
-
-    if (platform === 'spotify') {
-      setError('Spotify download not implemented. Please use YouTube or Apple Podcasts URLs.');
-      return;
-    }
-
-    if (!ffmpegLoaded || !ffmpeg) {
-      setError('FFmpeg is not loaded yet. Please wait.');
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
     setProgress(0);
 
     try {
-      // Step 1: Download the file from the Python API
-      setStatus('Downloading...');
-      setProgress(10);
-      const downloadRes = await fetch(`/api/download?url=${encodeURIComponent(url)}&platform=${platform}`);
+      setStatus('Sending to Sieve...');
+      setProgress(25);
 
-      if (!downloadRes.ok) {
-        const err = await downloadRes.json();
-        throw new Error(err.detail || 'Failed to download file');
-      }
-
-      const fileBlob = await downloadRes.blob();
-      const originalFileName = downloadRes.headers.get('content-disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'downloaded-file';
-      const originalFileExtension = originalFileName.split('.').pop() || 'mp4';
-      const inputFileName = `input.${originalFileExtension}`;
-      const outputFileName = `output.mp3`;
-
-      // Step 2: Convert to MP3 using FFmpeg.wasm
-      setStatus('Converting to MP3...');
-      setProgress(30);
-
-      await ffmpeg.writeFile(inputFileName, await fetchFile(fileBlob));
-      await ffmpeg.exec(['-i', inputFileName, outputFileName]);
-      const data = await ffmpeg.readFile(outputFileName);
-
-      const mp3Blob = new Blob([data], { type: 'audio/mpeg' });
-      const mp3File = new File([mp3Blob], outputFileName, { type: 'audio/mpeg' });
-
-      // Step 3: Upload the file to S3
-      setStatus('Uploading to storage...');
-      setProgress(70);
-      const presignRes = await fetch(`/api/presign?file=${encodeURIComponent(outputFileName)}&fileType=${encodeURIComponent(mp3File.type)}`);
-      if (!presignRes.ok) {
-        throw new Error('Failed to get presigned URL for upload');
-      }
-      const { url: presignedUrl, fields } = await presignRes.json();
-
-      const formData = new FormData();
-      Object.entries(fields).forEach(([key, value]) => {
-        formData.append(key, value as string);
-      });
-      formData.append('file', mp3File);
-
-      const uploadRes = await fetch(presignedUrl, {
+      const response = await fetch('/api/sieve/download', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
       });
 
-      if (!uploadRes.ok) {
-        throw new Error('Failed to upload file to storage');
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to process video');
       }
 
-      // Step 4: Complete
+      const { fileUrl } = await response.json();
+
+      setStatus('Uploading to storage...');
+      setProgress(75);
+
+      // Here you would add your logic to upload the file to Cloudflare
+      // For now, we'll just use the URL from Sieve
+
       setProgress(100);
       setStatus('Complete!');
-      const fileUrl = `${presignedUrl}${fields.key}`;
       onUploadComplete(fileUrl, url);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {

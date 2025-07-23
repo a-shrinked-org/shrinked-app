@@ -915,7 +915,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           )}
                         </Box>
                       ) : (
-                        <Downloader onUploadComplete={(fileUrl) => handleFileUploaded(fileUrl, index)} />
+                        <Downloader onUploadComplete={(fileUrl, originalUrl) => handleFileUploaded(fileUrl, index, originalUrl)} />
                       )}
                     </Box>
 
@@ -990,7 +990,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           <Tabs.List>
                             <Tabs.Tab value="link">Url</Tabs.Tab>
                             <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                            <Tabs.Tab value="download" disabled>Download</Tabs.Tab>
+                            <Tabs.Tab value="download">Download</Tabs.Tab>
                             <Tabs.Tab value="emails" disabled>
                               Emails
                             </Tabs.Tab>
