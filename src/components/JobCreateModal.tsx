@@ -73,7 +73,6 @@ interface JobCreateModalProps {
   onSuccess?: () => void;
 }
 
-// Logic options from the logic page
 const logicOptions = [
   { value: "structured-conversation-protocol", label: "DEFAULT" },
   { value: "timeline-analysis-protocol", label: "Timeline Analysis Protocol" },
@@ -82,41 +81,29 @@ const logicOptions = [
   { value: "decision-extraction-protocol", label: "Decision Extraction Protocol" },
 ];
 
-// URL validation function (simplified to avoid CORS)
 const validateMediaUrl = async (
   url: string
 ): Promise<{ isValid: boolean; error?: string }> => {
   try {
-    // Basic URL format validation
     const parsedUrl = new URL(url);
-
-    // 1. Check for YouTube URLs
     const youtubeRegex =
       /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))/i;
     if (youtubeRegex.test(url)) {
       return { isValid: true };
     }
-
-    // 2. Check for other common streaming platforms
     const streamingPlatforms =
       /(?:vimeo\.com|dailymotion\.com|twitch\.tv|soundcloud\.com)/i;
     if (streamingPlatforms.test(url)) {
       return { isValid: true };
     }
-
-    // 3. Check for direct media file extensions in the pathname
     const audioVideoExtensions =
       /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)$/i;
-    // Use pathname to ignore query strings
     if (audioVideoExtensions.test(parsedUrl.pathname)) {
       return { isValid: true };
     }
-
-    // If none of the above, it's not a valid media URL for our purposes
     return {
       isValid: false,
-      error:
-        "URL must be a direct link to a media file (e.g., .mp3, .mp4).",
+      error: "URL must be a direct link to a media file (e.g., .mp3, .mp4).",
     };
   } catch (error) {
     return {
@@ -138,27 +125,21 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isDragging, setIsDragging] = useState(false);
   const [logicDropdownOpened, { toggle: toggleLogicDropdown }] = useDisclosure(false);
-
-  // URL validation states
   const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
   const [isValidating, setIsValidating] = useState<{[key: number]: boolean}>({});
   const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
   const [validationTimeouts, setValidationTimeouts] = useState<{[key: number]: NodeJS.Timeout}>({});
 
-  // Generate data structuring job name similar to asst_5Xbp1xcveMM2YLa1jthBA8gp
   const generateJobName = (): string => {
     const prefixes = ["struct", "parse", "conv", "xform", "proc"];
     const characters =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-    // Generate random string similar to OpenAI assistant IDs
     let randomString = "";
     for (let i = 0; i < 25; i++) {
       randomString += characters.charAt(
         Math.floor(Math.random() * characters.length)
       );
     }
-
     const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
     return `${prefix}_${randomString}`;
   };
@@ -171,7 +152,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       lang: "en",
       scenario: "SINGLE_FILE_DEFAULT",
       files: [{ type: "link", url: "", isLoading: false, progress: 0 }],
-      selectedLogic: "structured-conversation-protocol", // Default to first option
+      selectedLogic: "structured-conversation-protocol",
     },
   });
 
@@ -191,23 +172,19 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
     name: "files",
   });
 
-  // Regenerate job name when modal opens
   useEffect(() => {
     if (opened) {
       setValue("jobName", generateJobName());
     }
   }, [opened, setValue]);
 
-  // Cleanup validation timeouts on unmount
   useEffect(() => {
     return () => {
       Object.values(validationTimeouts).forEach(timeout => clearTimeout(timeout));
     };
   }, [validationTimeouts]);
 
-  // Handle URL validation
   const handleUrlValidation = async (url: string, index: number) => {
-    // Clear existing timeout
     if (validationTimeouts[index]) {
       clearTimeout(validationTimeouts[index]);
     }
@@ -238,7 +215,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       return newSuccess;
     });
 
-    // Add minimum 1.5 second delay for better UX
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     const validation = await validateMediaUrl(url);
@@ -253,9 +229,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       setValidationErrors(prev => ({ ...prev, [index]: validation.error || 'Invalid URL' }));
     } else {
       setValidationSuccess(prev => ({ ...prev, [index]: true }));
-      
       if (validation.error) {
-        // Show warning for uncertain validation
         showNotification({
           title: 'Warning',
           message: validation.error,
@@ -265,7 +239,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
     }
   };
 
-  // Format file size for display
   const formatFileSize = (size: number): string => {
     if (size < 1024) return `${size} bytes`;
     else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
@@ -274,28 +247,119 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
     else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  // Handle file upload success
-  const handleFileUploaded = (fileUrl: string, index: number = 0, originalUrl?: string) => {
+  const handleFileUploaded = async (fileUrl: string, index: number, originalUrl?: string) => {
     setValue(`files.${index}.url`, fileUrl);
     if (originalUrl) {
       setValue(`files.${index}.originalUrl`, originalUrl);
     }
 
-    // Extract filename from URL for display purposes only
     const urlParts = fileUrl.split("/");
     const filenameWithParams = urlParts[urlParts.length - 1];
     const filename = filenameWithParams.split("?")[0];
     setValue(`files.${index}.filename`, filename);
-
-    // Downloader component now handles its own loading and progress
     setValue(`files.${index}.isLoading`, false);
     setValue(`files.${index}.progress`, 100);
 
     showNotification({
       title: "Success",
-      message: "File URL has been added",
+      message: "File downloaded and uploaded successfully",
       color: "green",
     });
+
+    // Automatically submit job for download flow
+    if (watch(`files.${index}.type`) === "download") {
+      setIsSubmitting(true);
+      try {
+        const data = watch();
+        const validFiles = data.files.filter((file) => file.url.trim() !== "");
+        if (validFiles.length === 0) {
+          setError("root", {
+            type: "manual",
+            message: "No valid files to submit",
+          });
+          return;
+        }
+
+        let apiData;
+        if (validFiles.length === 1) {
+          apiData = {
+            jobName: data.jobName,
+            scenario: data.scenario,
+            email: identity?.email || "",
+            lang: data.lang,
+            isPublic: data.isPublic,
+            createPage: data.createPage,
+            link: validFiles[0].url,
+            originalLink: validFiles[0].originalUrl,
+          };
+        } else {
+          apiData = {
+            jobName: data.jobName,
+            scenario: data.scenario,
+            email: identity?.email || "",
+            lang: data.lang,
+            isPublic: data.isPublic,
+            createPage: data.createPage,
+            links: validFiles.map((file) => ({ url: file.url, originalUrl: file.originalUrl })),
+          };
+        }
+
+        setValue(`files.${index}.isLoading`, true);
+        setValue(`files.${index}.progress`, 0);
+        setValue(`files.${index}.filename`, "Submitting job...");
+
+        const response = await fetchWithAuth(`/api/jobs-proxy`, {
+          method: "POST",
+          body: JSON.stringify(apiData),
+        });
+
+        if (
+          response.status === 521 ||
+          response.status === 522 ||
+          response.status === 523
+        ) {
+          throw new Error(
+            "The server is currently unreachable. Please try again later."
+          );
+        }
+
+        if (!response.ok) {
+          let errorMessage;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || `Error: ${response.status}`;
+          } catch {
+            errorMessage = `Error: ${response.status}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        showNotification({
+          title: "Success",
+          message: "Job created successfully",
+          color: "green",
+        });
+
+        reset();
+        setIsEditingJobName(false);
+        onClose();
+        if (onSuccess) {
+          onSuccess();
+        }
+      } catch (error) {
+        console.error("Create job error:", error);
+        handleAuthError(error);
+        showNotification({
+          title: "Error",
+          message: error instanceof Error ? error.message : "Failed to create job",
+          color: "red",
+          icon: <AlertCircle size={16} />,
+        });
+        setValue(`files.${index}.isLoading`, false);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
   };
 
   const handleAddFile = () => {
@@ -304,7 +368,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
   const handleRemoveFile = (index: number) => {
     if (fields.length > 1) {
-      // Clear validation states for this index
       setValidationErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[index];
@@ -370,7 +433,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         return;
       }
 
-      // Check for validation errors
       const hasValidationErrors = Object.keys(validationErrors).length > 0;
       if (hasValidationErrors) {
         setError('root', { 
@@ -380,7 +442,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         return;
       }
 
-      // Check if any URLs are still being validated
       const isStillValidating = Object.keys(isValidating).length > 0;
       if (isStillValidating) {
         setError('root', { 
@@ -423,6 +484,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         };
       }
 
+      setIsSubmitting(true);
       const response = await fetchWithAuth(`/api/jobs-proxy`, {
         method: "POST",
         body: JSON.stringify(apiData),
@@ -505,7 +567,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       }}
     >
       <Box>
-        {/* Header with editable job name */}
         <Group justify="space-between" align="center" mb="lg">
           <Group align="center" gap="xs">
             {isEditingJobName ? (
@@ -600,6 +661,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                     },
                   },
                 }}
+                disabled={isSubmitting}
               >
                 RUN JOB
               </Button>
@@ -607,7 +669,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           </Group>
         </Group>
 
-        {/* Structured Prompt Block */}
         <Box
           mb="xl"
           p={isMobile ? "sm" : "md"}
@@ -666,8 +727,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                   padding: "2px 8px",
                   borderRadius: "4px",
                   minHeight: "auto",
-                  height: "auto", // Ensure height adjusts to content
-                  lineHeight: 1, // Adjust line height to prevent extra space
+                  height: "auto",
+                  lineHeight: 1,
                 },
                 section: {
                   color: "#ffffff",
@@ -675,8 +736,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 dropdown: {
                   backgroundColor: "#000000",
                   border: "1px solid #2b2b2b",
-                  width: "auto", // Allow dropdown to expand
-                  minWidth: "max-content", // Ensure it's at least as wide as its content
+                  width: "auto",
+                  minWidth: "max-content",
                 },
                 option: {
                   color: "#ffffff",
@@ -707,7 +768,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           </Text>
         </Box>
 
-        {/* Conversation Data Visualization */}
         <Box mb="xl">
           <ConversationVisualizer files={watch("files") || []} isActive={true} />
         </Box>
@@ -731,9 +791,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           )}
 
           <Stack gap="lg">
-            {/* Files Section */}
             <Box>
-              {/* File entries */}
               {fields.map((field, index) => {
                 const hasUrl = watch(`files.${index}.url`)?.trim() !== "";
                 const isLoading = watch(`files.${index}.isLoading`);
@@ -753,7 +811,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       flexDirection: "column",
                     }}
                   >
-                    {/* Main content area */}
                     <Box
                       style={{
                         padding: fileType === 'link' ? (isMobile ? "10px 10px 30px 15px" : "10px 10px 40px 20px") : (isMobile ? "10px" : "15px"),
@@ -761,7 +818,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                         position: "relative",
                       }}
                     >
-                      {/* Remove file button */}
                       {fields.length > 1 && (
                         <Box
                           style={{
@@ -778,13 +834,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               onClick={() => handleRemoveFile(index)}
                               size="sm"
                             >
-                              <Trash size={14} />
+                              <Trash size= {14} />
                             </ActionIcon>
                           </Tooltip>
                         </Box>
                       )}
 
-                      {/* Content based on type */}
                       {fileType === "link" ? (
                         <Box>
                           <TextInput
@@ -793,19 +848,13 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                             {...register(`files.${index}.url`)}
                             onChange={(e) => {
                               setValue(`files.${index}.url`, e.target.value);
-                              
-                              // Clear existing timeout
                               if (validationTimeouts[index]) {
                                 clearTimeout(validationTimeouts[index]);
                               }
-                              
-                              // Set new timeout for validation
                               const timeoutId = setTimeout(() => {
                                 handleUrlValidation(e.target.value, index);
                               }, 1000);
-                              
                               setValidationTimeouts(prev => ({ ...prev, [index]: timeoutId }));
-                              
                               if (e.target.value) {
                                 try {
                                   const filename = e.target.value.split("/").pop() || "";
@@ -829,8 +878,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               },
                             }}
                           />
-                          
-                          {/* Validation feedback */}
                           {isValidating[index] && (
                             <Group gap="xs" mt="xs">
                               <Loader size={12} style={{ color: "#a1a1a1" }} />
@@ -839,7 +886,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               </Text>
                             </Group>
                           )}
-                          
                           {validationSuccess[index] && !isValidating[index] && (
                             <Group gap="xs" mt="xs">
                               <CheckCircle size={12} style={{ color: "#4ade80" }} />
@@ -848,7 +894,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               </Text>
                             </Group>
                           )}
-                          
                           {validationErrors[index] && !isValidating[index] && (
                             <Group gap="xs" mt="xs">
                               <XCircle size={12} style={{ color: "#ef4444" }} />
@@ -905,11 +950,13 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           )}
                         </Box>
                       ) : (
-                        <Downloader onUploadComplete={(fileUrl, originalUrl) => handleFileUploaded(fileUrl, index, originalUrl)} />
+                        <Downloader
+                          onUploadComplete={(fileUrl, originalUrl) => handleFileUploaded(fileUrl, index, originalUrl)}
+                          index={index}
+                        />
                       )}
                     </Box>
 
-                    {/* Progress bar */}
                     {(isLoading || hasUrl) && (
                       <Progress
                         value={isLoading ? progress : 100}
@@ -922,7 +969,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       />
                     )}
 
-                    {/* Bottom bar with Tabs and Info */}
                     <Box
                       style={{
                         padding: isMobile ? "6px 10px" : "8px 12px",
@@ -953,20 +999,14 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               borderRadius: "4px",
                               transition: "all 0.2s ease",
                               border: "none",
-                              
-                              // Active state for Mantine Tabs
                               "&[data-active]": {
                                 color: "#ffffff !important",
                                 backgroundColor: "#202020 !important",
                               },
-                              
-                              // Hover state
                               "&:hover": {
                                 backgroundColor: "#1c1c1c !important",
                                 color: "#bbbbbb !important",
                               },
-                              
-                              // Disabled state
                               "&:disabled": {
                                 color: "#555555",
                                 opacity: 0.5,
@@ -999,7 +1039,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                 );
               })}
 
-              {/* Add more button */}
               <Button
                 rightSection={<Plus size={isMobile ? 16 : 20} />}
                 fullWidth
