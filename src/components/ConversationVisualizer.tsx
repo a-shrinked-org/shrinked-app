@@ -6,6 +6,26 @@ interface ConversationVisualizerProps {
   isActive?: boolean;
 }
 
+// Simple string hash function to generate a deterministic seed
+const simpleHash = (str: string): number => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash);
+};
+
+// Seeded random number generator
+const createSeededRandom = (seed: number) => {
+  let state = seed;
+  return () => {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+};
+
 const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }) => {
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
 
@@ -20,42 +40,63 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
   // Derive hasFiles here, as it's used in useEffect and renderDots
   const hasFiles = files && files.length > 0 && files.some(f => f.url.trim() !== '');
 
-  // Generate a static pattern once on mount or when files change
+  // Generate a dynamic pattern based on file data
   useEffect(() => {
-    const data = [];
+    const data: number[] = new Array(COLS).fill(0);
 
-    for (let i = 0; i < COLS; i++) {
-      const position = i / COLS;
-      let intensity = 0;
+    if (hasFiles) {
+      // Combine file data to create a unique seed
+      const fileString = files
+        .filter(f => f.url.trim() !== '')
+        .map(f => f.url + (f.filename || ''))
+        .join('');
+      const fileCount = files.filter(f => f.url.trim() !== '').length;
+      const seed = simpleHash(fileString) + fileCount;
+      const random = createSeededRandom(seed);
 
-      if (hasFiles) { // Use the derived hasFiles
-        // Generate colored pattern
-        const wave1 = Math.sin(Math.random() * 2 + position * 10) * 0.5 + 0.5;
-        const wave2 = Math.sin(Math.random() * 1.3 + position * 8) * 0.4 + 0.4;
-        const wave3 = Math.sin(Math.random() * 0.7 + position * 6) * 0.6 + 0.6;
+      // Generate intensities based on file count and file-specific hash
+      for (let i = 0; i < COLS; i++) {
+        const position = i / COLS;
+        let intensity = 0;
+
+        // Use file count to modulate intensity range
+        const fileCountFactor = Math.min(1, fileCount / 3); // Scale intensity with number of files (up to 3)
         
-        const speakerA = Math.random() > 0.3 ? 1 : 0.1;
-        const speakerB = Math.random() > 0.2 ? 1 : 0.1;
-        const overlap = Math.random() > 0.4 ? 1 : 0.1;
-        
+        // Create distinct zones based on position
         if (position < 0.33) {
-          intensity = wave1 * speakerA;
+          // First third: Emphasize first file's hash
+          const file = files[0] && files[0].url.trim() !== '' ? files[0] : { url: '', filename: '' };
+          const fileSeed = simpleHash(file.url + (file.filename || '')) || 1;
+          const fileRandom = createSeededRandom(fileSeed + i);
+          intensity = fileRandom() * 0.6 * fileCountFactor + 0.2;
         } else if (position < 0.67) {
-          intensity = wave2 * overlap;
+          // Middle third: Blend all files
+          intensity = random() * 0.5 * fileCountFactor + 0.3;
         } else {
-          intensity = wave3 * speakerB;
+          // Last third: Emphasize last file or random variation
+          const file = files[files.length - 1] && files[files.length - 1].url.trim() !== '' 
+            ? files[files.length - 1] 
+            : { url: '', filename: '' };
+          const fileSeed = simpleHash(file.url + (file.filename || '')) || 1;
+          const fileRandom = createSeededRandom(fileSeed + i);
+          intensity = fileRandom() * 0.7 * fileCountFactor + 0.1;
         }
-      } else {
-        // Generate grey pattern
-        intensity = Math.random() * 0.3 + 0.1; // Low intensity grey
-      }
-      
-      data.push(Math.max(0, Math.min(1, intensity)));
-    }
-    setFrequencyData(data);
-  }, [files, hasFiles]); // Add hasFiles to dependency array
 
-  const renderDots = (currentHasFiles: boolean) => { // Accept hasFiles as parameter
+        data[i] = Math.max(0, Math.min(1, intensity));
+      }
+    } else {
+      // Generate grey pattern for no files
+      const seed = simpleHash(Date.now().toString()); // Use timestamp for slight variation
+      const random = createSeededRandom(seed);
+      for (let i = 0; i < COLS; i++) {
+        data[i] = random() * 0.3 + 0.1; // Low intensity grey
+      }
+    }
+
+    setFrequencyData(data);
+  }, [files, hasFiles]);
+
+  const renderDots = (currentHasFiles: boolean) => {
     const dots = [];
     
     for (let col = 0; col < COLS; col++) {
@@ -70,10 +111,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
         let color = '#1a1a1a'; // Default background color for inactive dots
         let opacity = 0.2;
         
-        if (currentHasFiles) { // If files are present, use colored logic for active dots
+        if (currentHasFiles) {
           if (isActiveDot) {
             const baseIntensity = intensity;
-            // Color zones based on frequency ranges (for active dots)
             if (col < COLS * 0.33) {
               color = '#3b82f6'; // Blue
               opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
@@ -85,17 +125,14 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
               opacity = Math.min(0.9, 0.3 + baseIntensity * 0.7);
             }
           } else {
-            // Inactive dots when files are present (subtle grey)
             color = '#404040';
             opacity = 0.1;
           }
-        } else { // If no files are present, all dots are shades of grey
+        } else {
           if (isActiveDot) {
-            // Active dots, but no files, so grey shades
-            color = '#404040'; // A slightly darker grey for active dots
-            opacity = Math.min(0.9, 0.3 + intensity * 0.7); // Vary opacity based on intensity
+            color = '#404040';
+            opacity = Math.min(0.9, 0.3 + intensity * 0.7);
           } else {
-            // Inactive dots when no files are present (very subtle grey)
             color = '#404040';
             opacity = 0.05;
           }
@@ -129,9 +166,9 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
         width: '100%',
         height: '100%',
         padding: '10px',
-        display: 'flex', // Add flexbox to center content
-        justifyContent: 'center', // Center horizontally
-        alignItems: 'center', // Center vertically
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
       <svg
@@ -143,7 +180,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
           background: 'transparent',
         }}
       >
-        {renderDots(hasFiles)} {/* Pass hasFiles to renderDots */}
+        {renderDots(hasFiles)}
       </svg>
     </Box>
   );

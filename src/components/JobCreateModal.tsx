@@ -898,48 +898,83 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
                       {fileType === "link" ? (
                         <Box>
-                          <TextInput
-                            variant="unstyled"
-                            placeholder="URL TO A SOURCE AUDIO OR VIDEO"
-                            {...register(`files.${index}.url`)}
-                            onChange={(e) => {
-                              const url = e.target.value || "";
-                              setValue(`files.${index}.url`, url);
-                              if (validationTimeouts[index]) {
-                                clearTimeout(validationTimeouts[index]);
-                              }
-                              const timeoutId = setTimeout(() => {
-                                handleUrlValidation(url, index);
-                              }, 1000);
-                              setValidationTimeouts((prev) => ({
-                                ...prev,
-                                [index]: timeoutId,
-                              }));
-                              if (url) {
-                                try {
-                                  const filename = url.split("/").pop() || "";
-                                  setValue(`files.${index}.filename`, filename);
-                                } catch (error) {
-                                  console.warn(
-                                    "Failed to extract filename from URL"
-                                  );
+                          {!extractionSuccess[index] ? (
+                            <TextInput
+                              variant="unstyled"
+                              placeholder="URL TO A SOURCE AUDIO OR VIDEO"
+                              {...register(`files.${index}.url`)}
+                              onChange={(e) => {
+                                const url = e.target.value || "";
+                                setValue(`files.${index}.url`, url);
+                                if (validationTimeouts[index]) {
+                                  clearTimeout(validationTimeouts[index]);
                                 }
-                              }
-                            }}
-                            styles={{
-                              input: {
-                                backgroundColor: "transparent",
-                                border: "none",
-                                color: "#ffffff",
-                                fontFamily: GeistMono.style.fontFamily,
-                                fontSize: isMobile ? "12px" : "14px",
-                                padding: "0",
-                                "&::placeholder": {
-                                  color: "#666",
+                                const timeoutId = setTimeout(() => {
+                                  handleUrlValidation(url, index);
+                                }, 1000);
+                                setValidationTimeouts((prev) => ({
+                                  ...prev,
+                                  [index]: timeoutId,
+                                }));
+                                if (url) {
+                                  try {
+                                    const filename = url.split("/").pop() || "";
+                                    setValue(`files.${index}.filename`, filename);
+                                  } catch (error) {
+                                    console.warn(
+                                      "Failed to extract filename from URL"
+                                    );
+                                  }
+                                }
+                              }}
+                              styles={{
+                                input: {
+                                  backgroundColor: "transparent",
+                                  border: "none",
+                                  color: "#ffffff",
+                                  fontFamily: GeistMono.style.fontFamily,
+                                  fontSize: isMobile ? "12px" : "14px",
+                                  padding: "0",
+                                  "&::placeholder": {
+                                    color: "#666",
+                                  },
                                 },
-                              },
-                            }}
-                          />
+                              }}
+                            />
+                          ) : (
+                            <Group
+                              style={{ padding: isMobile ? "4px 0" : "8px 0" }}
+                              wrap="nowrap"
+                            >
+                              <FileText size={16} />
+                              <Box style={{ flex: 1, overflow: "hidden" }}>
+                                <Text size="sm" truncate>
+                                  {watch(`files.${index}.filename`) ||
+                                    "Extracted file"}
+                                </Text>
+                                {watch(`files.${index}.size`) && (
+                                  <Text size="xs" c="dimmed">
+                                    {formatFileSize(
+                                      watch(`files.${index}.size`) as number
+                                    )}
+                                  </Text>
+                                )}
+                              </Box>
+                              <Button
+                                size="xs"
+                                variant="light"
+                                color="gray"
+                                onClick={() => {
+                                  setValue(`files.${index}.url`, "");
+                                  setValue(`files.${index}.filename`, "");
+                                  setValue(`files.${index}.size`, undefined);
+                                  setExtractionSuccess(prev => ({...prev, [index]: false}));
+                                }}
+                              >
+                                Change
+                              </Button>
+                            </Group>
+                          )}
                           {isValidating[index] && (
                             <Group gap="xs" mt="xs">
                               <Loader size={12} style={{ color: "#a1a1a1" }} />
@@ -1069,11 +1104,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       ) : null}
                     </Box>
 
-                    {(isLoading || hasUrl) && (
+                    {(isLoading || extractionSuccess[index] || isExtracting[index]) && (
                       <Progress
-                        value={isLoading ? progress : 100}
+                        value={isLoading || extractionSuccess[index] ? 100 : 50}
                         size="xs"
                         color="#F5A623"
+                        animated={isExtracting[index]}
                         styles={{
                           root: { backgroundColor: "transparent" },
                           section: { transition: "width 0.2s ease" },
