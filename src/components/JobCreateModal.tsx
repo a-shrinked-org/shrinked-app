@@ -129,6 +129,10 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [extractionErrors, setExtractionErrors] = useState<{[key: number]: string}>({});
   const [extractionSuccess, setExtractionSuccess] = useState<{[key: number]: boolean}>({});
 
+  const generateJobName = () => {
+    return `New Job - ${new Date().toLocaleString()}`;
+  };
+
   const {
     register,
     handleSubmit,
@@ -159,11 +163,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [isValidating, setIsValidating] = useState<{[key: number]: boolean}>({});
   const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
   const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
-
-  const generateJobName = () => {
-    return `New Job - ${new Date().toLocaleString()}`;
-  };
-
 
   const handleUrlValidation = async (url: string, index: number) => {
     if (validationTimeouts[index]) {
