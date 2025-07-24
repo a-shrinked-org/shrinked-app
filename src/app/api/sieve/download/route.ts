@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized', details: 'Invalid token' }, { status: 401 });
     }
     console.log('Authentication successful for user:', userId);
+    const supabase = createClient();
 
     // IMPORTANT: Ensure SIEVE_API_KEY is set in your environment variables.
     // If not set, this API route will return a 500 error.
