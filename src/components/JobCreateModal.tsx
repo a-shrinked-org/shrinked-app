@@ -140,7 +140,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
     control,
   } = useForm<JobCreateForm>({
     defaultValues: {
-      jobName: "New Job",
+      jobName: generateJobName(),
       scenario: "structured-conversation-protocol",
       lang: "en",
       isPublic: false,
@@ -768,7 +768,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           <Stack gap="lg">
             <Box>
               {fields.map((field, index) => {
-                const hasUrl = watch(`files.${index}.url`)?.trim() !== "";
+                const hasUrl = (watch(`files.${index}.url`) || "").trim() !== "";
                 const isLoading = watch(`files.${index}.isLoading`);
                 const progress = watch(`files.${index}.progress`) || 0;
                 const fileType = watch(`files.${index}.type`) || "link";
