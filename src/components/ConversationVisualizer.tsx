@@ -26,7 +26,7 @@ const createSeededRandom = (seed: number) => {
   };
 };
 
-const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }) => {
+const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files, isActive }) => {
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
 
   // Grid configuration
@@ -40,7 +40,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
   // Derive hasFiles here, as it's used in useEffect and renderDots
   const hasFiles = files && files.length > 0 && files.some(f => f.url.trim() !== '');
 
-  // Generate a dynamic pattern based on file data
+  // Generate a dynamic pattern based on file data or modal open
   useEffect(() => {
     const data: number[] = new Array(COLS).fill(0);
 
@@ -85,16 +85,17 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files }
         data[i] = Math.max(0, Math.min(1, intensity));
       }
     } else {
-      // Generate grey pattern for no files
-      const seed = simpleHash(Date.now().toString()); // Use timestamp for slight variation
+      // Generate grey pattern for no files, triggered on modal open
+      const seed = simpleHash(Date.now().toString() + (isActive ? 'active' : 'inactive'));
       const random = createSeededRandom(seed);
       for (let i = 0; i < COLS; i++) {
-        data[i] = random() * 0.3 + 0.1; // Low intensity grey
+        // Slightly increased intensity range for more noticeable variation
+        data[i] = random() * 0.5 + 0.1; // Intensity between 0.1 and 0.6
       }
     }
 
     setFrequencyData(data);
-  }, [files, hasFiles]);
+  }, [files, hasFiles, isActive]); // Added isActive to dependencies
 
   const renderDots = (currentHasFiles: boolean) => {
     const dots = [];

@@ -86,26 +86,8 @@ const validateMediaUrl = async (
   url: string
 ): Promise<{ isValid: boolean; error?: string }> => {
   try {
-    const parsedUrl = new URL(url);
-    const youtubeRegex =
-      /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))/i;
-    if (youtubeRegex.test(url)) {
-      return { isValid: true };
-    }
-    const streamingPlatforms =
-      /(?:vimeo\.com|dailymotion\.com|twitch\.tv|soundcloud\.com)/i;
-    if (streamingPlatforms.test(url)) {
-      return { isValid: true };
-    }
-    const audioVideoExtensions =
-      /\.(mp3|mp4|wav|webm|ogg|avi|mov|mkv|flv|wmv|m4a|aac|flac|opus|3gp|m4v)$/i;
-    if (audioVideoExtensions.test(parsedUrl.pathname)) {
-      return { isValid: true };
-    }
-    return {
-      isValid: false,
-      error: "URL must be a direct link to a media file (e.g., .mp3, .mp4).",
-    };
+    new URL(url);
+    return { isValid: true };
   } catch (error) {
     return {
       isValid: false,
