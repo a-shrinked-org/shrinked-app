@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       // For simplicity, we'll do a basic decode. In production, verify signature.
       const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
       console.log('[Sieve Download API] JWT Payload:', payload); // Log the entire payload
-      userId = payload.sub; // 'sub' is commonly used for user ID in JWTs
+      userId = payload._id; // Use _id as the user ID
       if (!userId) {
         throw new Error('User ID not found in token payload.');
       }
