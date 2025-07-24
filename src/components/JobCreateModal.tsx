@@ -130,8 +130,18 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [extractionErrors, setExtractionErrors] = useState<{[key: number]: string}>({});
   const [extractionSuccess, setExtractionSuccess] = useState<{[key: number]: boolean}>({});
 
-  const generateJobName = () => {
-    return `New Job - ${new Date().toLocaleString()}`;
+  const generateJobName = (): string => {
+    const prefixes = ["struct", "parse", "conv", "xform", "proc"];
+    const characters =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let randomString = "";
+    for (let i = 0; i < 25; i++) {
+      randomString += characters.charAt(
+        Math.floor(Math.random() * characters.length)
+      );
+    }
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    return `${prefix}_${randomString}`;
   };
 
   const {
@@ -164,6 +174,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [isValidating, setIsValidating] = useState<{[key: number]: boolean}>({});
   const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
   const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
+
+  useEffect(() => {
+    if (opened) {
+      setValue("jobName", generateJobName());
+    }
+  }, [opened, setValue]);
 
   const handleUrlValidation = async (url: string | undefined, index: number) => {
     if (!url?.trim()) {
@@ -486,29 +502,18 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         return;
       }
 
-      let apiData;
-      if (validFiles.length === 1) {
-        apiData = {
-          jobName: data.jobName,
-          scenario: data.scenario,
-          email: identity?.email || "",
-          lang: data.lang,
-          isPublic: data.isPublic,
-          createPage: data.createPage,
-          link: validFiles[0].url,
-          originalLink: validFiles[0].originalUrl
-        };
-      } else {
-        apiData = {
-          jobName: data.jobName,
-          scenario: data.scenario,
-          email: identity?.email || "",
-          lang: data.lang,
-          isPublic: data.isPublic,
-          createPage: data.createPage,
-          links: validFiles.map((file) => ({ url: file.url, originalUrl: file.originalUrl })),
-        };
-      }
+      let apiData = {
+        jobName: data.jobName,
+        scenario: data.scenario,
+        email: identity?.email || "",
+        lang: data.lang,
+        isPublic: data.isPublic,
+        createPage: data.createPage,
+        links: validFiles.map((file) => ({
+          url: file.url,
+          originalUrl: file.originalUrl,
+        })),
+      };
 
       setIsSubmitting(true);
       const response = await fetchWithAuth(`/api/jobs-proxy`, {
