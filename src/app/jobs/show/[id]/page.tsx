@@ -89,6 +89,7 @@ interface Job {
     resultId?: string;
   };
   resultId?: string;
+  originalLink?: string;
 }
 
 interface ProcessingDocument {
@@ -1244,7 +1245,8 @@ const handleShareDocument = useCallback(async () => {
                 {processingDoc?.title || record?.jobName || 'Untitled Job'}
               </Text>
               <Text c="dimmed" mt="xs" size="sm">
-                {uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
+                {record?.originalLink ? record.originalLink : 
+                 uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
                  record?.link ? getFilenameFromLink(record.link) : 
                  'No source file'}
               </Text>

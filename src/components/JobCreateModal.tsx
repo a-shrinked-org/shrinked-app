@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/utils/authUtils";
 import { FileUpload } from "@/components/FileUpload";
-import Downloader from "./Downloader";
+
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import ConversationVisualizer from "./ConversationVisualizer";
@@ -48,7 +48,7 @@ interface Identity {
 }
 
 interface FileItem {
-  type: "link" | "upload" | "download";
+  type: "link" | "upload";
   url: string;
   originalUrl?: string;
   filename?: string;
@@ -125,64 +125,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [isDragging, setIsDragging] = useState(false);
   const [logicDropdownOpened, { toggle: toggleLogicDropdown }] = useDisclosure(false);
-  const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
-  const [isValidating, setIsValidating] = useState<{[key: number]: boolean}>({});
-  const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
-  const [validationTimeouts, setValidationTimeouts] = useState<{[key: number]: NodeJS.Timeout}>({});
-
-  const generateJobName = (): string => {
-    const prefixes = ["struct", "parse", "conv", "xform", "proc"];
-    const characters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let randomString = "";
-    for (let i = 0; i < 25; i++) {
-      randomString += characters.charAt(
-        Math.floor(Math.random() * characters.length)
-      );
-    }
-    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-    return `${prefix}_${randomString}`;
-  };
-
-  const form = useForm<JobCreateForm>({
-    defaultValues: {
-      jobName: generateJobName(),
-      isPublic: false,
-      createPage: false,
-      lang: "en",
-      scenario: "SINGLE_FILE_DEFAULT",
-      files: [{ type: "link", url: "", isLoading: false, progress: 0 }],
-      selectedLogic: "structured-conversation-protocol",
-    },
-  });
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    control,
-    watch,
-    setError,
-    reset,
-  } = form;
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "files",
-  });
-
-  useEffect(() => {
-    if (opened) {
-      setValue("jobName", generateJobName());
-    }
-  }, [opened, setValue]);
-
-  useEffect(() => {
-    return () => {
-      Object.values(validationTimeouts).forEach(timeout => clearTimeout(timeout));
-    };
-  }, [validationTimeouts]);
+  const [isExtracting, setIsExtracting] = useState<{[key: number]: boolean}>({});
+  const [extractionErrors, setExtractionErrors] = useState<{[key: number]: string}>({});
+  const [extractionSuccess, setExtractionSuccess] = useState<{[key: number]: boolean}>({});
 
   const handleUrlValidation = async (url: string, index: number) => {
     if (validationTimeouts[index]) {
@@ -200,6 +145,16 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         delete newSuccess[index];
         return newSuccess;
       });
+      setExtractionErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[index];
+        return newErrors;
+      });
+      setExtractionSuccess(prev => {
+        const newSuccess = { ...prev };
+        delete newSuccess[index];
+        return newSuccess;
+      });
       return;
     }
 
@@ -210,6 +165,16 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       return newErrors;
     });
     setValidationSuccess(prev => {
+      const newSuccess = { ...prev };
+      delete newSuccess[index];
+      return newSuccess;
+    });
+    setExtractionErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      return newErrors;
+    });
+    setExtractionSuccess(prev => {
       const newSuccess = { ...prev };
       delete newSuccess[index];
       return newSuccess;
@@ -236,15 +201,62 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
           color: 'yellow',
         });
       }
+      // Start media extraction
+      await handleMediaExtraction(url, index);
     }
   };
 
-  const formatFileSize = (size: number): string => {
-    if (size < 1024) return `${size} bytes`;
-    else if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-    else if (size < 1024 * 1024 * 1024)
-      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-    else return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  const handleMediaExtraction = async (url: string, index: number) => {
+    setIsExtracting(prev => ({ ...prev, [index]: true }));
+    setExtractionErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      return newErrors;
+    });
+    setExtractionSuccess(prev => {
+      const newSuccess = { ...prev };
+      delete newSuccess[index];
+      return newSuccess;
+    });
+
+    try {
+      const response = await fetchWithAuth('/api/sieve/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extract media');
+      }
+
+      const data = await response.json();
+      setValue(`files.${index}.url`, data.fileUrl);
+      setValue(`files.${index}.originalUrl`, url);
+      setValue(`files.${index}.filename`, data.filename || url.split('/').pop());
+      setExtractionSuccess(prev => ({ ...prev, [index]: true }));
+      showNotification({
+        title: 'Success',
+        message: 'Media extracted successfully!',
+        color: 'green',
+      });
+    } catch (error: any) {
+      setExtractionErrors(prev => ({ ...prev, [index]: error.message || 'Failed to extract media' }));
+      showNotification({
+        title: 'Error',
+        message: error.message || 'Failed to extract media',
+        color: 'red',
+      });
+    } finally {
+      setIsExtracting(prev => {
+        const newState = { ...prev };
+        delete newState[index];
+        return newState;
+      });
+    }
   };
 
   const handleFileUploaded = async (fileUrl: string, index: number, originalUrl?: string) => {
@@ -262,104 +274,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
     showNotification({
       title: "Success",
-      message: "File downloaded and uploaded successfully",
+      message: "File uploaded successfully",
       color: "green",
     });
-
-    // Automatically submit job for download flow
-    if (watch(`files.${index}.type`) === "download") {
-      setIsSubmitting(true);
-      try {
-        const data = watch();
-        const validFiles = data.files.filter((file) => file.url.trim() !== "");
-        if (validFiles.length === 0) {
-          setError("root", {
-            type: "manual",
-            message: "No valid files to submit",
-          });
-          return;
-        }
-
-        let apiData;
-        if (validFiles.length === 1) {
-          apiData = {
-            jobName: data.jobName,
-            scenario: data.scenario,
-            email: identity?.email || "",
-            lang: data.lang,
-            isPublic: data.isPublic,
-            createPage: data.createPage,
-            link: validFiles[0].url,
-            originalLink: validFiles[0].originalUrl,
-          };
-        } else {
-          apiData = {
-            jobName: data.jobName,
-            scenario: data.scenario,
-            email: identity?.email || "",
-            lang: data.lang,
-            isPublic: data.isPublic,
-            createPage: data.createPage,
-            links: validFiles.map((file) => ({ url: file.url, originalUrl: file.originalUrl })),
-          };
-        }
-
-        setValue(`files.${index}.isLoading`, true);
-        setValue(`files.${index}.progress`, 0);
-        setValue(`files.${index}.filename`, "Submitting job...");
-
-        const response = await fetchWithAuth(`/api/jobs-proxy`, {
-          method: "POST",
-          body: JSON.stringify(apiData),
-        });
-
-        if (
-          response.status === 521 ||
-          response.status === 522 ||
-          response.status === 523
-        ) {
-          throw new Error(
-            "The server is currently unreachable. Please try again later."
-          );
-        }
-
-        if (!response.ok) {
-          let errorMessage;
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || `Error: ${response.status}`;
-          } catch {
-            errorMessage = `Error: ${response.status}`;
-          }
-          throw new Error(errorMessage);
-        }
-
-        showNotification({
-          title: "Success",
-          message: "Job created successfully",
-          color: "green",
-        });
-
-        reset();
-        setIsEditingJobName(false);
-        onClose();
-        if (onSuccess) {
-          onSuccess();
-        }
-      } catch (error) {
-        console.error("Create job error:", error);
-        handleAuthError(error);
-        showNotification({
-          title: "Error",
-          message: error instanceof Error ? error.message : "Failed to create job",
-          color: "red",
-          icon: <AlertCircle size={16} />,
-        });
-        setValue(`files.${index}.isLoading`, false);
-      } finally {
-        setIsSubmitting(false);
-      }
-    }
   };
 
   const handleAddFile = () => {
@@ -397,6 +314,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
     setValidationErrors({});
     setIsValidating({});
     setValidationSuccess({});
+    setExtractionErrors({});
+    setExtractionSuccess({});
+    setIsExtracting({});
     Object.values(validationTimeouts).forEach(timeout => clearTimeout(timeout));
     setValidationTimeouts({});
     onClose();
@@ -434,19 +354,30 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       }
 
       const hasValidationErrors = Object.keys(validationErrors).length > 0;
-      if (hasValidationErrors) {
+      const hasExtractionErrors = Object.keys(extractionErrors).length > 0;
+      if (hasValidationErrors || hasExtractionErrors) {
         setError('root', { 
           type: 'manual', 
-          message: 'Please fix URL validation errors before submitting' 
+          message: 'Please fix URL/media extraction errors before submitting' 
         });
         return;
       }
 
       const isStillValidating = Object.keys(isValidating).length > 0;
-      if (isStillValidating) {
+      const isStillExtracting = Object.keys(isExtracting).length > 0;
+      if (isStillValidating || isStillExtracting) {
         setError('root', { 
           type: 'manual', 
-          message: 'Please wait for URL validation to complete' 
+          message: 'Please wait for URL validation and media extraction to complete' 
+        });
+        return;
+      }
+
+      const allFilesExtracted = data.files.every(file => file.type === 'upload' || extractionSuccess[data.files.indexOf(file)]);
+      if (!allFilesExtracted) {
+        setError('root', { 
+          type: 'manual', 
+          message: 'Please wait for all media to be extracted' 
         });
         return;
       }
@@ -886,11 +817,11 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               </Text>
                             </Group>
                           )}
-                          {validationSuccess[index] && !isValidating[index] && (
+                          {validationSuccess[index] && !isValidating[index] && !isExtracting[index] && !extractionSuccess[index] && (
                             <Group gap="xs" mt="xs">
                               <CheckCircle size={12} style={{ color: "#4ade80" }} />
                               <Text size="xs" c="#4ade80" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                                Valid media URL
+                                URL Valid
                               </Text>
                             </Group>
                           )}
@@ -899,6 +830,30 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               <XCircle size={12} style={{ color: "#ef4444" }} />
                               <Text size="xs" c="#ef4444" style={{ fontFamily: GeistMono.style.fontFamily }}>
                                 {validationErrors[index]}
+                              </Text>
+                            </Group>
+                          )}
+                          {isExtracting[index] && (
+                            <Group gap="xs" mt="xs">
+                              <Loader size={12} style={{ color: "#a1a1a1" }} />
+                              <Text size="xs" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                                Extracting media...
+                              </Text>
+                            </Group>
+                          )}
+                          {extractionSuccess[index] && !isExtracting[index] && (
+                            <Group gap="xs" mt="xs">
+                              <CheckCircle size={12} style={{ color: "#4ade80" }} />
+                              <Text size="xs" c="#4ade80" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                                Media extracted successfully!
+                              </Text>
+                            </Group>
+                          )}
+                          {extractionErrors[index] && !isExtracting[index] && (
+                            <Group gap="xs" mt="xs">
+                              <XCircle size={12} style={{ color: "#ef4444" }} />
+                              <Text size="xs" c="#ef4444" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                                {extractionErrors[index]}
                               </Text>
                             </Group>
                           )}
@@ -916,6 +871,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                                   handleFileUploaded(fileUrl, index)
                                 }
                                 isDragging={isDragging}
+                                fileType="upload"
                               />
                             </div>
                           ) : (
@@ -949,12 +905,6 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                             </Group>
                           )}
                         </Box>
-                      ) : (
-                        <Downloader
-                          onUploadComplete={(fileUrl, originalUrl) => handleFileUploaded(fileUrl, index, originalUrl)}
-                          index={index}
-                        />
-                      )}
                     </Box>
 
                     {(isLoading || hasUrl) && (
@@ -978,7 +928,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload" | "download")}
+                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
                           variant="pills"
                           color="rgba(32, 32, 32, 1)"
                           styles={{
@@ -1020,7 +970,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           <Tabs.List>
                             <Tabs.Tab value="link">Url</Tabs.Tab>
                             <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                            <Tabs.Tab value="download">Download</Tabs.Tab>
+                            <Tabs.Tab value="download" disabled>Download</Tabs.Tab>
                             <Tabs.Tab value="emails" disabled>
                               Emails
                             </Tabs.Tab>
