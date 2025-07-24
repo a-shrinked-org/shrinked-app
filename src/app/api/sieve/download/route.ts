@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized', details: 'Invalid token' }, { status: 401 });
     }
     console.log('Authentication successful for user:', userId);
-    console.log('Authentication successful for user:', userId);
+    const supabase = createClient();
 
     // 2. Check for the API key
     if (!process.env.SIEVE_API_KEY) {
