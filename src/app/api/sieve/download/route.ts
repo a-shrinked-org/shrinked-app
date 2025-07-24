@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
         });
 
       if (dbError) {
-        console.error('Error saving job to Supabase:', dbError.message || dbError);
+        console.error('Error saving job to Supabase:', JSON.stringify(dbError));
         return handleApiError(dbError, 'Failed to save job metadata');
       }
 

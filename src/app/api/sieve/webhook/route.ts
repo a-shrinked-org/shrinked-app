@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
   const supabase = createClient();
   try {
     const webhookData = await request.json();
+    console.log('Incoming Sieve Webhook Data:', JSON.stringify(webhookData, null, 2)); // Log full webhook data
     const { job_id, status, data } = webhookData;
     console.log(`Webhook received for job ${job_id}: ${status}`);
 
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
         .eq('job_id', job_id);
 
       if (updateError) {
-        console.error('Error updating job status in Supabase (finished):', updateError.message || updateError);
+        console.error('Error updating job status in Supabase (finished):', JSON.stringify(updateError));
         throw new Error('Failed to update job status in Supabase.');
       }
 
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
         .eq('job_id', job_id);
 
       if (updateError) {
-        console.error('Error updating job status in Supabase (error):', updateError.message || updateError);
+        console.error('Error updating job status in Supabase (error):', JSON.stringify(updateError));
         throw new Error('Failed to update job status in Supabase.');
       }
       return NextResponse.json({ status: 'received' }, { status: 200 });
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
         .eq('job_id', job_id);
 
       if (updateError) {
-        console.error('Error updating job status in Supabase (other status):', updateError.message || updateError);
+        console.error('Error updating job status in Supabase (other status):', JSON.stringify(updateError));
         throw new Error('Failed to update job status in Supabase.');
       }
     }
