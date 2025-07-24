@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (status === 'finished' && outputs) {
-      const fileUrl = Array.isArray(outputs) ? outputs[0]?.url || outputs[0] : outputs.url || outputs;
+      const fileUrl = outputs[0][0].Value[0].Value;
       if (!fileUrl || !fileUrl.startsWith('http')) {
         throw new Error('No valid file URL in webhook data');
       }
