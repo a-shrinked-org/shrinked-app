@@ -277,7 +277,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to initiate media extraction");
       }
 
@@ -296,7 +296,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             `/api/sieve/download?jobId=${jobId}`
           );
           if (!statusResponse.ok) {
-            const errorData = await statusResponse.json();
+            const errorData = await statusResponse.json().catch(() => ({}));
             throw new Error(errorData.error || "Failed to fetch job status");
           }
           const statusData = await statusResponse.json();
@@ -327,14 +327,18 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             setTimeout(pollJobStatus, 3000); // Poll every 3 seconds
           }
         } catch (pollError: any) {
+          // Fallback to original URL if extraction fails
+          setValue(`files.${index}.url`, url);
+          setValue(`files.${index}.originalUrl`, url);
+          setValue(`files.${index}.filename`, url.split("/").pop() || "unknown");
           setExtractionErrors((prev) => ({
             ...prev,
-            [index]: pollError.message || "Failed to poll job status",
+            [index]: pollError.message || "Failed to extract media, using original URL",
           }));
           showNotification({
-            title: "Error",
-            message: pollError.message || "Failed to poll job status",
-            color: "red",
+            title: "Warning",
+            message: "Media extraction failed, proceeding with original URL",
+            color: "yellow",
           });
           setIsExtracting((prev) => {
             const newState = { ...prev };
@@ -345,14 +349,18 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       };
       pollJobStatus();
     } catch (error: any) {
+      // Fallback to original URL if extraction fails
+      setValue(`files.${index}.url`, url);
+      setValue(`files.${index}.originalUrl`, url);
+      setValue(`files.${index}.filename`, url.split("/").pop() || "unknown");
       setExtractionErrors((prev) => ({
         ...prev,
-        [index]: error.message || "Failed to extract media",
+        [index]: error.message || "Failed to extract media, using original URL",
       }));
       showNotification({
-        title: "Error",
-        message: error.message || "Failed to extract media",
-        color: "red",
+        title: "Warning",
+        message: "Media extraction failed, proceeding with original URL",
+        color: "yellow",
       });
       setIsExtracting((prev) => {
         const newState = { ...prev };
@@ -399,6 +407,16 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         return newState;
       });
       setValidationSuccess(prev => {
+        const newSuccess = { ...prev };
+        delete newSuccess[index];
+        return newSuccess;
+      });
+      setExtractionErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[index];
+        return newErrors;
+      });
+      setExtractionSuccess(prev => {
         const newSuccess = { ...prev };
         delete newSuccess[index];
         return newSuccess;
@@ -465,30 +483,10 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       }
 
       const hasValidationErrors = Object.keys(validationErrors).length > 0;
-      const hasExtractionErrors = Object.keys(extractionErrors).length > 0;
-      if (hasValidationErrors || hasExtractionErrors) {
+      if (hasValidationErrors) {
         setError('root', { 
           type: 'manual', 
-          message: 'Please fix URL/media extraction errors before submitting' 
-        });
-        return;
-      }
-
-      const isStillValidating = Object.keys(isValidating).length > 0;
-      const isStillExtracting = Object.keys(isExtracting).length > 0;
-      if (isStillValidating || isStillExtracting) {
-        setError('root', { 
-          type: 'manual', 
-          message: 'Please wait for URL validation and media extraction to complete' 
-        });
-        return;
-      }
-
-      const allFilesExtracted = data.files.every(file => file.type === 'upload' || extractionSuccess[data.files.indexOf(file)]);
-      if (!allFilesExtracted) {
-        setError('root', { 
-          type: 'manual', 
-          message: 'Please wait for all media to be extracted' 
+          message: 'Please fix URL validation errors before submitting' 
         });
         return;
       }
@@ -526,9 +524,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         };
       }
 
-      setIsSubmitting(true);
       const response = await fetchWithAuth(`/api/jobs-proxy`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${identity?.token || ""}`,
+        },
         body: JSON.stringify(apiData),
       });
 
@@ -561,6 +562,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
 
       reset();
       setIsEditingJobName(false);
+      setValidationErrors({});
+      setIsValidating({});
+      setValidationSuccess({});
+      setExtractionErrors({});
+      setExtractionSuccess({});
+      setIsExtracting({});
       onClose();
 
       if (onSuccess) {
