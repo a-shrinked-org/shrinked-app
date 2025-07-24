@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPresignedUploadUrl } from '@/utils/r2-utils';
 import { createClient } from '@/utils/supabase';
+import { Buffer } from 'buffer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
