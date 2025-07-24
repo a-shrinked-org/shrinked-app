@@ -85,9 +85,8 @@ export async function POST(request: NextRequest) {
                 cookies_file: '/sieve/cookies.txt',
               },
               webhooks: [
-                { type: 'job_start', url: webhookUrl },
-                { type: 'job_completed', url: webhookUrl },
-                { type: 'job_failed', url: webhookUrl },
+                { type: 'job.start', url: webhookUrl },
+                { type: 'job.complete', url: webhookUrl },
               ],
             }),
             signal: controller.signal,
