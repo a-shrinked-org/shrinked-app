@@ -502,18 +502,29 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         return;
       }
 
-      let apiData = {
-        jobName: data.jobName,
-        scenario: data.scenario,
-        email: identity?.email || "",
-        lang: data.lang,
-        isPublic: data.isPublic,
-        createPage: data.createPage,
-        links: validFiles.map((file) => ({
-          url: file.url,
-          originalUrl: file.originalUrl,
-        })),
-      };
+      let apiData;
+      if (validFiles.length === 1) {
+        apiData = {
+          jobName: data.jobName,
+          scenario: data.scenario,
+          email: identity?.email || "",
+          lang: data.lang,
+          isPublic: data.isPublic,
+          createPage: data.createPage,
+          link: validFiles[0].url,
+          originalLink: validFiles[0].originalUrl
+        };
+      } else {
+        apiData = {
+          jobName: data.jobName,
+          scenario: data.scenario,
+          email: identity?.email || "",
+          lang: data.lang,
+          isPublic: data.isPublic,
+          createPage: data.createPage,
+          links: validFiles.map((file) => ({ url: file.url, originalUrl: file.originalUrl })),
+        };
+      }
 
       setIsSubmitting(true);
       const response = await fetchWithAuth(`/api/jobs-proxy`, {
