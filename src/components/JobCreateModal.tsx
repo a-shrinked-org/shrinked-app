@@ -800,7 +800,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         </Box>
 
         <Box mb="xl">
-          <ConversationVisualizer files={watch("files") || []} isActive={true} />
+          <ConversationVisualizer files={watch("files") || []} isActive={true} extractionSuccess={extractionSuccess} />
         </Box>
 
         <form onSubmit={onSubmit}>
@@ -931,7 +931,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               <FileText size={16} />
                               <Box style={{ flex: 1, overflow: "hidden" }}>
                                 <Text size="sm" truncate>
-                                  {watch(`files.${index}.filename`) ||
+                                  {watch(`files.${index}.originalUrl`) || watch(`files.${index}.filename`) ||
                                     "Extracted file"}
                                 </Text>
                                 {watch(`files.${index}.size`) && (
@@ -948,6 +948,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                                 color="gray"
                                 onClick={() => {
                                   setValue(`files.${index}.url`, "");
+                                  setValue(`files.${index}.originalUrl`, "");
                                   setValue(`files.${index}.filename`, "");
                                   setValue(`files.${index}.size`, undefined);
                                   setExtractionSuccess(prev => ({...prev, [index]: false}));

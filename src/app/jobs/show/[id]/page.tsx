@@ -1248,6 +1248,7 @@ const handleShareDocument = useCallback(async () => {
                 {record?.originalLink ? record.originalLink : 
                  uploadFileLink ? getFilenameFromLink(uploadFileLink) : 
                  record?.link ? getFilenameFromLink(record.link) : 
+                 (record?.steps?.find(step => step.name === "UPLOAD_FILE")?.data?.link) ? getFilenameFromLink(record.steps.find(step => step.name === "UPLOAD_FILE")?.data?.link) :
                  'No source file'}
               </Text>
             </Box>
@@ -1494,7 +1495,7 @@ const handleShareDocument = useCallback(async () => {
                           <Collapse in={true}>
                             <Box mt="md" style={{ paddingLeft: '12px' }}>
                               {step.name === "UPLOAD_FILE" ? (
-                                <Text size="xs" style={{ whiteSpace: 'pre-wrap', color: '#666' }}>
+                                <Text size="xs" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#666' }}>
                                   {JSON.stringify(Object.fromEntries(Object.entries(step.data || {}).filter(([key]) => key !== 'link' && key !== 'mode')), null, 2)}
                                 </Text>
                               ) : (

@@ -4,6 +4,7 @@ import { Box } from '@mantine/core';
 interface ConversationVisualizerProps {
   files: Array<{ url: string; filename?: string; type: 'link' | 'upload' | 'download' }>;
   isActive?: boolean;
+  extractionSuccess?: {[key: number]: boolean};
 }
 
 // Simple string hash function to generate a deterministic seed
@@ -26,7 +27,7 @@ const createSeededRandom = (seed: number) => {
   };
 };
 
-const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files, isActive }) => {
+const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files, isActive, extractionSuccess }) => {
   const [frequencyData, setFrequencyData] = useState<number[]>([]);
 
   // Grid configuration
@@ -38,7 +39,7 @@ const ConversationVisualizer: React.FC<ConversationVisualizerProps> = ({ files, 
   const GRID_HEIGHT = ROWS * (DOT_SIZE + DOT_GAP);
 
   // Derive hasFiles here, as it's used in useEffect and renderDots
-  const hasFiles = files && files.length > 0 && files.some(f => f.url.trim() !== '');
+  const hasFiles = files && files.length > 0 && files.some((f, i) => f.url.trim() !== '' && (f.type !== 'link' || (extractionSuccess && extractionSuccess[i])));
 
   // Generate a dynamic pattern based on file data or modal open
   useEffect(() => {
