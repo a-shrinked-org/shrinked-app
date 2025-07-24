@@ -213,6 +213,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (!jobMetadata) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+
     // Query Sieve for non-final states or if no recent update
     const isNonFinalState = ['queued', 'processing', 'job_not_found', 'started'].includes(jobMetadata.status);
     const isRecentUpdate = jobMetadata.updated_at && (Date.now() - new Date(jobMetadata.updated_at).getTime()) < 30000;
@@ -257,13 +261,13 @@ export async function GET(request: NextRequest) {
         const sieveError = sieveJobData.error;
 
         // Validate state transition
-        const validTransitions = {
+        const validTransitions: Record<string, string[]> = {
           'job_not_found': ['queued', 'started', 'processing'],
           'queued': ['started', 'processing', 'finished', 'error', 'cancelled'],
           'started': ['processing', 'finished', 'error', 'cancelled'],
           'processing': ['finished', 'error', 'cancelled'],
         };
-        if (validTransitions[jobMetadata.status]?.includes(sieveStatus) || jobMetadata.status === 'job_not_found') {
+        if (validTransitions[jobMetadata.status as keyof typeof validTransitions]?.includes(sieveStatus) || jobMetadata.status === 'job_not_found') {
           let updatedFileUrl = jobMetadata.file_url;
           if (sieveStatus === 'finished' && sieveOutputs) {
             const sieveFileUrl = Array.isArray(sieveOutputs) ? sieveOutputs[0]?.url || sieveOutputs[0] : sieveOutputs.url || sieveOutputs;
@@ -334,7 +338,7 @@ export async function GET(request: NextRequest) {
       fileUrl: jobMetadata.file_url || null,
       error: jobMetadata.status === 'error' ? jobMetadata.error || 'Job failed' : null,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error during Sieve job status check:', error, error.stack);
     return handleApiError(error, 'Failed to retrieve job status');
   }

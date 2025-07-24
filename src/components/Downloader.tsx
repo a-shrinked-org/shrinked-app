@@ -10,6 +10,17 @@ interface DownloaderProps {
   index: number;
 }
 
+const MAX_RETRIES = 10;
+const POLLING_INTERVALS = {
+  queued: 2000,
+  started: 3000,
+  processing: 5000,
+  job_not_found: 4000,
+};
+const POLLING_BACKOFF_FACTOR = 1.2;
+const POLLING_MAX_INTERVAL = 10000;
+const TOTAL_TIMEOUT = 5 * 60 * 1000;
+
 const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
   const { fetchWithAuth, handleAuthError } = useAuth();
   const [url, setUrl] = useState('');
@@ -20,16 +31,6 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
   const [jobId, setJobId] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [lastStatus, setLastStatus] = useState<string | null>(null);
-  const MAX_RETRIES = 10;
-  const POLLING_INTERVALS = {
-    queued: 2000,
-    started: 3000,
-    processing: 5000,
-    job_not_found: 4000,
-  };
-  const POLLING_BACKOFF_FACTOR = 1.2;
-  const POLLING_MAX_INTERVAL = 10000;
-  const TOTAL_TIMEOUT = 5 * 60 * 1000;
 
   const handleDownload = async () => {
     if (!url) {

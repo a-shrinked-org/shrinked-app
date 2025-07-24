@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       console.warn(`Unknown status ${status} for job ${job_id}`);
       return NextResponse.json({ status: 'ignored', message: `Unknown status: ${status}` }, { status: 200 });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Webhook processing error:', error, error.stack);
     return handleApiError(error, 'Failed to process webhook');
   }
