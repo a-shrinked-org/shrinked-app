@@ -160,9 +160,118 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ error: 'Invalid endpoint' }, { status: 404 });
 }
 
-/**
- * Retrieves job status from the in-memory store (fallback for frontend)
- */
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ error: 'Invalid endpoint' }, { status: 404 });
+  try {
+    const { searchParams } = new URL(request.url);
+    const jobId = searchParams.get('jobId');
+    if (!jobId) {
+      return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
+    }
+
+    const supabase = createClient();
+    let jobMetadata;
+    let fetchError;
+
+    // 1. Fetch current status from Supabase
+    ({ data: jobMetadata, error: fetchError } = await supabase
+      .from('job_statuses')
+      .select('status, file_url, error, original_url, output_format')
+      .eq('job_id', jobId)
+      .single());
+
+    if (fetchError || !jobMetadata) {
+      console.error('Error fetching job status from Supabase:', JSON.stringify(fetchError));
+      // If job not found in DB, it might be a very new job, try Sieve directly
+      jobMetadata = { status: 'job_not_found' };
+    }
+
+    // 2. If status is queued or processing, query Sieve directly
+    if (jobMetadata.status === 'queued' || jobMetadata.status === 'processing' || jobMetadata.status === 'job_not_found') {
+      if (!process.env.SIEVE_API_KEY) {
+        console.error('SIEVE_API_KEY environment variable is not set for status check.');
+        return handleApiError(new Error('SIEVE_API_KEY environment variable is not set.'), 'Server configuration error');
+      }
+      const SIEVE_API_KEY = process.env.SIEVE_API_KEY;
+
+      try {
+        const sieveStatusResponse = await fetch(`https://mango.sievedata.com/v2/jobs/${jobId}`, {
+          headers: {
+            'X-API-Key': SIEVE_API_KEY,
+          },
+        });
+
+        if (!sieveStatusResponse.ok) {
+          const errorBody = await sieveStatusResponse.text();
+          console.error(`Failed to fetch Sieve job status for ${jobId}: HTTP ${sieveStatusResponse.status}, Body: ${errorBody}`);
+          // If Sieve says job not found, and it was also not found in Supabase, return 404
+          if (sieveStatusResponse.status === 404 && jobMetadata.status === 'job_not_found') {
+            return NextResponse.json(
+              { status: 'job_not_found', fileUrl: null, error: `Job ${jobId} not found` },
+              { status: 404 }
+            );
+          }
+          // Otherwise, return current Supabase status or a generic error
+          return NextResponse.json({
+            status: jobMetadata.status || 'error',
+            fileUrl: jobMetadata.file_url || null,
+            error: jobMetadata.error || `Failed to get Sieve status: ${sieveStatusResponse.statusText}`,
+          });
+        }
+
+        const sieveJobData = await sieveStatusResponse.json();
+        const sieveStatus = sieveJobData.status;
+        const sieveOutputs = sieveJobData.outputs;
+        const sieveError = sieveJobData.error;
+
+        // 3. Update Supabase if Sieve reports a final status
+        if (sieveStatus === 'finished' || sieveStatus === 'error' || sieveStatus === 'cancelled') {
+          let updatedFileUrl = jobMetadata.file_url;
+          if (sieveStatus === 'finished' && sieveOutputs && sieveOutputs.length > 0) {
+            // Assuming the first output is the file URL
+            updatedFileUrl = sieveOutputs[0].url || sieveOutputs[0];
+            // TODO: You might need to re-upload this file to R2 if it's a temporary Sieve URL
+            // For now, we'll just use the Sieve URL directly if it's a final output
+          }
+
+          const { error: updateError } = await supabase
+            .from('job_statuses')
+            .update({
+              status: sieveStatus,
+              file_url: updatedFileUrl,
+              error: sieveError,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('job_id', jobId);
+
+          if (updateError) {
+            console.error('Error updating job status in Supabase from Sieve poll:', JSON.stringify(updateError));
+          }
+          // Update jobMetadata to reflect the new status before returning
+          jobMetadata.status = sieveStatus;
+          jobMetadata.file_url = updatedFileUrl;
+          jobMetadata.error = sieveError;
+        }
+
+        // If Sieve status is still processing/queued, just return that
+        jobMetadata.status = sieveStatus;
+      } catch (sieveErr) {
+        console.error('Error querying Sieve for job status:', sieveErr);
+        // Fallback to Supabase status if Sieve query fails
+        return NextResponse.json({
+          status: jobMetadata.status || 'error',
+          fileUrl: jobMetadata.file_url || null,
+          error: jobMetadata.error || 'Failed to query Sieve for status',
+        });
+      }
+    }
+
+    // 4. Return the latest status
+    return NextResponse.json({
+      status: jobMetadata.status,
+      fileUrl: jobMetadata.file_url || null,
+      error: jobMetadata.status === 'error' ? jobMetadata.error || 'Job failed' : null,
+    });
+  } catch (error) {
+    return handleApiError(error, 'Failed to retrieve job status');
+  }
 }
