@@ -55,6 +55,7 @@ interface FileItem {
   size?: number;
   isLoading?: boolean;
   progress?: number;
+  jobId?: string;
 }
 
 interface JobCreateForm {
@@ -238,54 +239,106 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   };
 
   const handleMediaExtraction = async (url: string, index: number) => {
-    setIsExtracting(prev => ({ ...prev, [index]: true }));
-    setExtractionErrors(prev => {
+    setIsExtracting((prev) => ({ ...prev, [index]: true }));
+    setExtractionErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[index];
       return newErrors;
     });
-    setExtractionSuccess(prev => {
+    setExtractionSuccess((prev) => {
       const newSuccess = { ...prev };
       delete newSuccess[index];
       return newSuccess;
     });
 
     try {
-      const response = await fetchWithAuth('/api/sieve/download', {
-        method: 'POST',
+      const response = await fetchWithAuth("/api/sieve/download", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ url }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to extract media');
+        throw new Error(errorData.error || "Failed to initiate media extraction");
       }
 
-      const data = await response.json();
-      if (!data?.fileUrl) {
-        throw new Error('Invalid response: fileUrl is missing');
+      const { jobId } = await response.json();
+      if (!jobId) {
+        throw new Error("Invalid response: jobId is missing");
       }
-      setValue(`files.${index}.url`, data.fileUrl);
-      setValue(`files.${index}.originalUrl`, url);
-      setValue(`files.${index}.filename`, data.filename || url.split('/').pop() || 'unknown');
-      setExtractionSuccess(prev => ({ ...prev, [index]: true }));
-      showNotification({
-        title: 'Success',
-        message: 'Media extracted successfully!',
-        color: 'green',
-      });
+
+      setValue(`files.${index}.jobId`, jobId);
+      setExtractionSuccess((prev) => ({ ...prev, [index]: false })); // Reset success for polling
+
+      // Start polling for job status
+      const pollJobStatus = async () => {
+        try {
+          const statusResponse = await fetchWithAuth(
+            `/api/sieve/download?jobId=${jobId}`
+          );
+          if (!statusResponse.ok) {
+            const errorData = await statusResponse.json();
+            throw new Error(errorData.error || "Failed to fetch job status");
+          }
+          const statusData = await statusResponse.json();
+
+          if (statusData.status === "finished" && statusData.fileUrl) {
+            setValue(`files.${index}.url`, statusData.fileUrl);
+            setValue(`files.${index}.originalUrl`, url);
+            setValue(
+              `files.${index}.filename`,
+              statusData.filename || url.split("/").pop() || "unknown"
+            );
+            setExtractionSuccess((prev) => ({ ...prev, [index]: true }));
+            showNotification({
+              title: "Success",
+              message: "Media extracted successfully!",
+              color: "green",
+            });
+            setIsExtracting((prev) => {
+              const newState = { ...prev };
+              delete newState[index];
+              return newState;
+            });
+            return; // Stop polling
+          } else if (statusData.status === "error") {
+            throw new Error(statusData.error || "Media extraction failed");
+          } else {
+            // Continue polling
+            setTimeout(pollJobStatus, 3000); // Poll every 3 seconds
+          }
+        } catch (pollError: any) {
+          setExtractionErrors((prev) => ({
+            ...prev,
+            [index]: pollError.message || "Failed to poll job status",
+          }));
+          showNotification({
+            title: "Error",
+            message: pollError.message || "Failed to poll job status",
+            color: "red",
+          });
+          setIsExtracting((prev) => {
+            const newState = { ...prev };
+            delete newState[index];
+            return newState;
+          });
+        }
+      };
+      pollJobStatus();
     } catch (error: any) {
-      setExtractionErrors(prev => ({ ...prev, [index]: error.message || 'Failed to extract media' }));
+      setExtractionErrors((prev) => ({
+        ...prev,
+        [index]: error.message || "Failed to extract media",
+      }));
       showNotification({
-        title: 'Error',
-        message: error.message || 'Failed to extract media',
-        color: 'red',
+        title: "Error",
+        message: error.message || "Failed to extract media",
+        color: "red",
       });
-    } finally {
-      setIsExtracting(prev => {
+      setIsExtracting((prev) => {
         const newState = { ...prev };
         delete newState[index];
         return newState;
