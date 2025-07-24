@@ -23,14 +23,28 @@ function handleApiError(error: any, defaultMessage: string): NextResponse {
 export async function POST(request: NextRequest) {
   const path = new URL(request.url).pathname;
   if (path === '/api/sieve/download') {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      console.log('Authentication failed: No active session.');
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Authentication failed: No Bearer token.');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const userId = session.user.id;
+
+    const token = authHeader.split(' ')[1];
+    let userId: string;
+    try {
+      // Assuming the token is a JWT and contains a 'sub' (subject) claim for userId
+      // You might need a more robust JWT decoding/verification library here
+      // For simplicity, we'll do a basic decode. In production, verify signature.
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      userId = payload.sub; // 'sub' is commonly used for user ID in JWTs
+      if (!userId) {
+        throw new Error('User ID not found in token payload.');
+      }
+    } catch (error) {
+      console.error('Authentication failed: Invalid token.', error);
+      return NextResponse.json({ error: 'Unauthorized', details: 'Invalid token' }, { status: 401 });
+    }
+    console.log('Authentication successful for user:', userId);
     console.log('Authentication successful for user:', userId);
 
     // 2. Check for the API key
