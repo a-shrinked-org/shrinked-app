@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
               },
               webhooks: [
                 { type: 'job_start', url: webhookUrl },
-                { type: 'job_complete', url: webhookUrl },
-                { type: 'job_complete', url: webhookUrl },
+                { type: 'job_completed', url: webhookUrl },
+                { type: 'job_failed', url: webhookUrl },
               ],
             }),
             signal: controller.signal,
@@ -123,10 +123,10 @@ export async function POST(request: NextRequest) {
 
       const maxDbRetries = 3;
       let dbAttempt = 0;
-      let dbError: any;
+      let dbError;
       while (dbAttempt < maxDbRetries) {
         try {
-          const { error } = await supabase
+          ({ error: dbError } = await supabase
             .from('job_statuses')
             .insert({
               job_id: jobId,
@@ -135,11 +135,10 @@ export async function POST(request: NextRequest) {
               original_url: url,
               output_format: output_format,
               updated_at: new Date().toISOString(),
-            });
-          if (!error) {
+            }));
+          if (!dbError) {
             break;
           }
-          dbError = error;
           throw new Error(`Supabase insert failed: ${JSON.stringify(dbError)}`);
         } catch (error: any) {
           console.error(`Supabase insert attempt ${dbAttempt + 1} failed:`, error.message);
@@ -213,10 +212,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (!jobMetadata) {
-      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-    }
-
     // Query Sieve for non-final states or if no recent update
     const isNonFinalState = ['queued', 'processing', 'job_not_found', 'started'].includes(jobMetadata.status);
     const isRecentUpdate = jobMetadata.updated_at && (Date.now() - new Date(jobMetadata.updated_at).getTime()) < 30000;
@@ -261,28 +256,48 @@ export async function GET(request: NextRequest) {
         const sieveError = sieveJobData.error;
 
         // Validate state transition
-        const validTransitions: Record<string, string[]> = {
+        const validTransitions = {
           'job_not_found': ['queued', 'started', 'processing'],
           'queued': ['started', 'processing', 'finished', 'error', 'cancelled'],
           'started': ['processing', 'finished', 'error', 'cancelled'],
           'processing': ['finished', 'error', 'cancelled'],
         };
-        if (validTransitions[jobMetadata.status as keyof typeof validTransitions]?.includes(sieveStatus) || jobMetadata.status === 'job_not_found') {
+        if (validTransitions[jobMetadata.status]?.includes(sieveStatus) || jobMetadata.status === 'job_not_found') {
           let updatedFileUrl = jobMetadata.file_url;
           if (sieveStatus === 'finished' && sieveOutputs) {
-            const sieveFileUrl = Array.isArray(sieveOutputs) ? sieveOutputs[0]?.url || sieveOutputs[0] : sieveOutputs.url || sieveOutputs;
-            if (sieveFileUrl && sieveFileUrl.startsWith('http')) {
-              updatedFileUrl = sieveFileUrl;
+            const findUrl = (obj: any): string | null => {
+              if (!obj) return null;
+              if (Array.isArray(obj)) {
+                for (const item of obj) {
+                  const result = findUrl(item);
+                  if (result) return result;
+                }
+              } else if (typeof obj === 'object') {
+                if (obj.Key === 'url' && typeof obj.Value === 'string' && obj.Value.startsWith('http')) {
+                  return obj.Value;
+                }
+                if (obj.url && typeof obj.url === 'string' && obj.url.startsWith('http')) {
+                  return obj.url;
+                }
+                for (const key in obj) {
+                  const result = findUrl(obj[key]);
+                  if (result) return result;
+                }
+              }
+              return null;
+            };
+            updatedFileUrl = findUrl(sieveOutputs) || findUrl(sieveJobData.output);
+            if (updatedFileUrl && updatedFileUrl.startsWith('http')) {
               console.log(`Using Sieve output URL: ${updatedFileUrl}`);
             }
           }
 
           const maxDbRetriesUpdate = 3;
           let dbUpdateAttempt = 0;
-          let updateError: any;
+          let updateError;
           while (dbUpdateAttempt < maxDbRetriesUpdate) {
             try {
-              const { error } = await supabase
+              ({ error: updateError } = await supabase
                 .from('job_statuses')
                 .update({
                   status: sieveStatus,
@@ -290,11 +305,10 @@ export async function GET(request: NextRequest) {
                   error: sieveError,
                   updated_at: new Date().toISOString(),
                 })
-                .eq('job_id', jobId);
-              if (!error) {
+                .eq('job_id', jobId));
+              if (!updateError) {
                 break;
               }
-              updateError = error;
               throw new Error(`Supabase update failed: ${JSON.stringify(updateError)}`);
             } catch (error: any) {
               console.error(`Supabase update attempt ${dbUpdateAttempt + 1} failed:`, error.message);
@@ -338,7 +352,7 @@ export async function GET(request: NextRequest) {
       fileUrl: jobMetadata.file_url || null,
       error: jobMetadata.status === 'error' ? jobMetadata.error || 'Job failed' : null,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error during Sieve job status check:', error, error.stack);
     return handleApiError(error, 'Failed to retrieve job status');
   }
