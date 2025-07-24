@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       const fileBuffer = await fileResponse.arrayBuffer();
 
       // Generate filename based on job ID and output format
-      const jobMetadata = jobStore.get(job_id);
+      const jobMetadata = await jobStore.get(job_id);
       const extension = jobMetadata?.output_format || 'mp3';
       const filename = `sieve-download-${job_id}.${extension}`;
 
@@ -79,12 +79,12 @@ export async function POST(request: NextRequest) {
       const r2FileUrl = `https://your-r2-bucket.s3.amazonaws.com/${filename}`;
 
       // Update job metadata
-      jobStore.set(job_id, { ...jobMetadata!, status, fileUrl: r2FileUrl, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' });
+      await jobStore.set(job_id, { ...jobMetadata!, status, fileUrl: r2FileUrl, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' });
 
       return NextResponse.json({ status: 'received' }, { status: 200 });
     } else if (status === 'error') {
-      const jobMetadata = jobStore.get(job_id);
-      jobStore.set(job_id, {
+      const jobMetadata = await jobStore.get(job_id);
+      await jobStore.set(job_id, {
         status,
         fileUrl: undefined,
         originalUrl: jobMetadata?.originalUrl || '',
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
     }
 
-    const jobMetadata = jobStore.get(jobId);
+    const jobMetadata = await jobStore.get(jobId);
     if (!jobMetadata) {
       return NextResponse.json(
         { status: 'job_not_found', fileUrl: null, error: `Job ${jobId} not found` },

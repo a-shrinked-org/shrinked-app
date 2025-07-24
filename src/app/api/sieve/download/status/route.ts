@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     console.log('Received Job ID for status check:', jobId);
 
     // 3. Check local jobStore first
-    let jobMetadata = jobStore.get(jobId);
+    let jobMetadata = await jobStore.get(jobId);
 
     if (!jobMetadata || (jobMetadata.status !== 'finished' && jobMetadata.status !== 'error')) {
       // If not found in store or still in progress, fetch from Sieve
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         const errorBody = await statusResponse.text();
         if (statusResponse.status === 404) {
           console.warn(`Sieve job ${jobId} not found on Sieve. It might have completed and been removed.`);
-          jobStore.set(jobId, { ...jobMetadata!, status: 'job_not_found', fileUrl: undefined, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' });
+          await jobStore.set(jobId, { ...jobMetadata!, status: 'job_not_found', fileUrl: undefined, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' });
           return NextResponse.json({
             status: 'job_not_found',
             fileUrl: null,
@@ -106,20 +106,20 @@ export async function GET(request: NextRequest) {
 
           // Construct the final file URL
           const r2FileUrl = `https://your-r2-bucket.s3.amazonaws.com/${filename}`;
-          jobMetadata = { ...jobMetadata!, status: jobStatus, fileUrl: r2FileUrl, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' };
-          jobStore.set(jobId, jobMetadata);
+          jobMetadata = { ...jobMetadata!, status: jobStatus, fileUrl: r2FileUrl, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '', error: jobMetadata?.error };
+          await jobStore.set(jobId, jobMetadata);
         } else {
           // If fileUrl is not valid, treat as error or incomplete
-          jobMetadata = { ...jobMetadata!, status: 'error', fileUrl: undefined, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' };
-          jobStore.set(jobId, jobMetadata);
+          jobMetadata = { ...jobMetadata!, status: 'error', fileUrl: undefined, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '', error: jobMetadata?.error };
+          await jobStore.set(jobId, jobMetadata);
         }
       } else if (jobStatus === 'error') {
-        jobMetadata = { ...jobMetadata!, status: jobStatus, fileUrl: undefined, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' };
-        jobStore.set(jobId, jobMetadata);
+        jobMetadata = { ...jobMetadata!, status: jobStatus, fileUrl: undefined, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '', error: jobMetadata?.error };
+        await jobStore.set(jobId, jobMetadata);
       } else {
         // Update jobMetadata with current Sieve status if still in progress
-        jobMetadata = { ...jobMetadata!, status: jobStatus, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' };
-        jobStore.set(jobId, jobMetadata);
+        jobMetadata = { ...jobMetadata!, status: jobStatus, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '', error: jobMetadata?.error };
+        await jobStore.set(jobId, jobMetadata);
       }
     }
 
@@ -132,6 +132,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error during Sieve job status check:', error);
-    return handleApiError(error, 'Failed to retrieve Sieve job status');
+    return handleApiError(error, 'Failed to retrieve job status');
   }
 }

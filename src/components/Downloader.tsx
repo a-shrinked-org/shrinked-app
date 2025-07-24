@@ -114,11 +114,16 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
             setError(`Sieve job ${jobId} not found after multiple attempts.`);
             setIsLoading(false);
           }
-        } else if (jobStatus === 'queued' || jobStatus === 'started') {
+        } else if (jobStatus === 'queued' || jobStatus === 'started' || jobStatus === 'processing') {
           setProgress((prev) => Math.min(90, prev + (70 / MAX_NOT_FOUND_RETRIES)));
           retryCount++;
           clearInterval(pollingInterval);
           pollingInterval = setInterval(pollJobStatus, getPollingInterval());
+        } else if (jobStatus === 'cancelled') {
+          clearInterval(pollingInterval);
+          clearTimeout(timeoutId);
+          setError(`Sieve job ${jobId} was cancelled.`);
+          setIsLoading(false);
         } else {
           setError(`Unknown job status: ${jobStatus}`);
           setIsLoading(false);

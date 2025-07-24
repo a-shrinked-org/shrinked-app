@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       console.log('Sieve job pushed. Job ID:', jobId);
 
       // 6. Store job metadata
-      jobStore.set(jobId, { status: 'queued', originalUrl: url, output_format });
+      await jobStore.set(jobId, { status: 'queued', originalUrl: url, output_format });
 
       // 7. Return the job ID for frontend tracking
       return NextResponse.json({ jobId });
