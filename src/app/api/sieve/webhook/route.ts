@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
     const { job_id, status, outputs, error: sieveError } = body;
     console.log(`Webhook received for job ${job_id}: ${status} (Type: ${type})`);
 
-    if (status === 'finished' && data) {
-      const fileUrl = Array.isArray(data) ? data[0] : data.url || data;
+    if (status === 'finished' && outputs) {
+      const fileUrl = Array.isArray(outputs) ? outputs[0] : outputs.url || outputs;
       if (!fileUrl || !fileUrl.startsWith('http')) {
         throw new Error('No valid file URL in webhook data');
       }

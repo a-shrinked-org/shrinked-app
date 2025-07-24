@@ -150,7 +150,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       clearInterval(pollingInterval);
       clearTimeout(timeoutId);
     };
-  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, notFoundRetryCount, index]);
+  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, notFoundRetryCount, index, TOTAL_TIMEOUT]);
 
   return (
     <Stack>
