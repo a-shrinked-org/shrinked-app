@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPresignedUploadUrl } from '@/utils/r2-utils';
-import { jobStore } from '@/lib/jobStore';
-import { JobMetadata } from '@/types/job';
+import { createClient } from '@/utils/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/**
- * Verify authentication token from request headers
- */
-async function verifyAuth(request: NextRequest): Promise<boolean> {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
-    }
-    const token = authHeader.split(' ')[1];
-    return !!token; // Replace with robust token verification
-  } catch (error) {
-    console.error('Auth verification error:', error);
-    return false;
-  }
-}
 
 /**
  * Handle API errors with consistent formatting
@@ -41,13 +23,15 @@ function handleApiError(error: any, defaultMessage: string): NextResponse {
 export async function POST(request: NextRequest) {
   const path = new URL(request.url).pathname;
   if (path === '/api/sieve/download') {
-    // 1. Verify Authentication
-    const isAuthenticated = await verifyAuth(request);
-    if (!isAuthenticated) {
-      console.log('Authentication failed.');
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      console.log('Authentication failed: No active session.');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    console.log('Authentication successful.');
+    const userId = session.user.id;
+    console.log('Authentication successful for user:', userId);
 
     // 2. Check for the API key
     if (!process.env.SIEVE_API_KEY) {
@@ -132,8 +116,21 @@ export async function POST(request: NextRequest) {
       const jobId = sieveJobData.id;
       console.log('Sieve job pushed. Job ID:', jobId);
 
-      // 6. Store job metadata
-      await jobStore.set(jobId, { status: 'queued', originalUrl: url, output_format });
+      // 6. Store job metadata in Supabase
+      const { error: dbError } = await supabase
+        .from('job_statuses')
+        .insert({
+          job_id: jobId,
+          user_id: userId,
+          status: 'queued',
+          original_url: url,
+          output_format: output_format,
+        });
+
+      if (dbError) {
+        console.error('Error saving job to Supabase:', dbError);
+        return handleApiError(dbError, 'Failed to save job metadata');
+      }
 
       // 7. Return the job ID for frontend tracking
       return NextResponse.json({ jobId });

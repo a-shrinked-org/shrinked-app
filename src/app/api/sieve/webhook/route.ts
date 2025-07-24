@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPresignedUploadUrl } from '@/utils/r2-utils';
-import { jobStore } from '@/lib/jobStore';
-import { JobMetadata } from '@/types/job';
+import { createClient } from '@/utils/supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/**
- * Verify authentication token from request headers
- */
-async function verifyAuth(request: NextRequest): Promise<boolean> {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
-    }
-    const token = authHeader.split(' ')[1];
-    return !!token; // Replace with robust token verification
-  } catch (error) {
-    console.error('Auth verification error:', error);
-    return false;
-  }
-}
 
 /**
  * Handle API errors with consistent formatting
@@ -39,6 +21,7 @@ function handleApiError(error: any, defaultMessage: string): NextResponse {
  * Webhook handler for Sieve job updates.
  */
 export async function POST(request: NextRequest) {
+  const supabase = createClient();
   try {
     const webhookData = await request.json();
     const { job_id, status, data } = webhookData;
@@ -57,9 +40,19 @@ export async function POST(request: NextRequest) {
       }
       const fileBuffer = await fileResponse.arrayBuffer();
 
-      // Generate filename based on job ID and output format
-      const jobMetadata = await jobStore.get(job_id);
-      const extension = jobMetadata?.output_format || 'mp3';
+      // Get existing job data from Supabase for filename generation
+      const { data: existingJob, error: fetchError } = await supabase
+        .from('job_statuses')
+        .select('original_url, output_format')
+        .eq('job_id', job_id)
+        .single();
+
+      if (fetchError || !existingJob) {
+        console.error('Error fetching existing job for webhook update:', fetchError);
+        throw new Error(`Job ${job_id} not found in DB for webhook update.`);
+      }
+
+      const extension = existingJob.output_format || 'mp3';
       const filename = `sieve-download-${job_id}.${extension}`;
 
       // Get presigned URL for Cloudflare R2
@@ -78,19 +71,52 @@ export async function POST(request: NextRequest) {
       // Construct the final file URL (adjust based on your R2 setup)
       const r2FileUrl = `https://your-r2-bucket.s3.amazonaws.com/${filename}`;
 
-      // Update job metadata
-      await jobStore.set(job_id, { ...jobMetadata!, status, fileUrl: r2FileUrl, originalUrl: jobMetadata?.originalUrl || '', output_format: jobMetadata?.output_format || '' });
+      // Update job metadata in Supabase
+      const { error: updateError } = await supabase
+        .from('job_statuses')
+        .update({
+          status: status,
+          file_url: r2FileUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('job_id', job_id);
+
+      if (updateError) {
+        console.error('Error updating job status in Supabase (finished):', updateError);
+        throw new Error('Failed to update job status in Supabase.');
+      }
 
       return NextResponse.json({ status: 'received' }, { status: 200 });
     } else if (status === 'error') {
-      const jobMetadata = await jobStore.get(job_id);
-      await jobStore.set(job_id, {
-        status,
-        fileUrl: undefined,
-        originalUrl: jobMetadata?.originalUrl || '',
-        output_format: jobMetadata?.output_format || '',
-      });
+      const { error: updateError } = await supabase
+        .from('job_statuses')
+        .update({
+          status: status,
+          file_url: null, // Clear file_url on error
+          error: webhookData.error || 'Sieve job failed', // Assuming webhookData might contain an error message
+          updated_at: new Date().toISOString(),
+        })
+        .eq('job_id', job_id);
+
+      if (updateError) {
+        console.error('Error updating job status in Supabase (error):', updateError);
+        throw new Error('Failed to update job status in Supabase.');
+      }
       return NextResponse.json({ status: 'received' }, { status: 200 });
+    } else {
+      // Update job metadata in Supabase for other statuses
+      const { error: updateError } = await supabase
+        .from('job_statuses')
+        .update({
+          status: status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('job_id', job_id);
+
+      if (updateError) {
+        console.error('Error updating job status in Supabase (other status):', updateError);
+        throw new Error('Failed to update job status in Supabase.');
+      }
     }
 
     return NextResponse.json({ status: 'ignored' }, { status: 200 });
@@ -111,8 +137,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
     }
 
-    const jobMetadata = await jobStore.get(jobId);
-    if (!jobMetadata) {
+    const supabase = createClient();
+    const { data: jobMetadata, error: fetchError } = await supabase
+      .from('job_statuses')
+      .select('status, file_url, error')
+      .eq('job_id', jobId)
+      .single();
+
+    if (fetchError || !jobMetadata) {
+      console.error('Error fetching job status from Supabase:', fetchError);
       return NextResponse.json(
         { status: 'job_not_found', fileUrl: null, error: `Job ${jobId} not found` },
         { status: 404 }
@@ -121,8 +154,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       status: jobMetadata.status,
-      fileUrl: jobMetadata.fileUrl || null,
-      error: jobMetadata.status === 'error' ? 'Job failed' : null,
+      fileUrl: jobMetadata.file_url || null,
+      error: jobMetadata.status === 'error' ? jobMetadata.error || 'Job failed' : null,
     });
   } catch (error) {
     return handleApiError(error, 'Failed to retrieve job status');
