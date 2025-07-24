@@ -387,6 +387,7 @@ export const authUtils = {
 		...defaultHeaders, // Add auth and default content-type
 		...options.headers, // Allow overriding defaults
 	  },
+	  credentials: 'include', // Ensure cookies are sent with the request
 	});
   },
 
