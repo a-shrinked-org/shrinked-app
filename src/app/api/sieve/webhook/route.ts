@@ -35,50 +35,16 @@ export async function POST(request: NextRequest) {
         throw new Error('No valid file URL in webhook data');
       }
 
-      // Fetch the file from Sieve's output URL
-      const fileResponse = await fetch(fileUrl);
-      if (!fileResponse.ok) {
-        throw new Error(`Failed to fetch file from ${fileUrl}: ${fileResponse.statusText}`);
-      }
-      const fileBuffer = await fileResponse.arrayBuffer();
-
-      // Get existing job data from Supabase for filename generation
-      const { data: existingJob, error: fetchError } = await supabase
-        .from('job_statuses')
-        .select('original_url, output_format')
-        .eq('job_id', job_id)
-        .single();
-
-      if (fetchError || !existingJob) {
-        console.error('Error fetching existing job for webhook update:', fetchError);
-        throw new Error(`Job ${job_id} not found in DB for webhook update.`);
-      }
-
-      const extension = existingJob.output_format || 'mp3';
-      const filename = `sieve-download-${job_id}.${extension}`;
-
-      // Get presigned URL for Cloudflare R2
-      const { presignedUrl: uploadUrl } = await getPresignedUploadUrl(filename, `audio/${extension}`);
-
-      // Upload to Cloudflare R2
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: fileBuffer,
-        headers: { 'Content-Type': `audio/${extension}` },
-      });
-      if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload to R2: ${uploadResponse.statusText}`);
-      }
-
-      // Construct the final file URL (adjust based on your R2 setup)
-      const r2FileUrl = `https://your-r2-bucket.s3.amazonaws.com/${filename}`;
+      // Directly use the Sieve output URL
+      const finalFileUrl = fileUrl;
+      console.log(`Using direct Sieve output URL from webhook: ${finalFileUrl}`);
 
       // Update job metadata in Supabase
       const { error: updateError } = await supabase
         .from('job_statuses')
         .update({
           status: status,
-          file_url: r2FileUrl,
+          file_url: finalFileUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('job_id', job_id);
