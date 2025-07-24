@@ -10,11 +10,17 @@ export const createClient = () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name: string) => cookieStore.get(name)?.value,
+        get: (name: string) => {
+          const value = cookieStore.get(name)?.value;
+          console.log(`[Supabase Server Client] Getting cookie: ${name}, Value: ${value ? '***' : 'null'}`);
+          return value;
+        },
         set: (name: string, value: string, options: any) => {
+          console.log(`[Supabase Server Client] Setting cookie: ${name}, Value: ${value ? '***' : 'null'}`);
           cookieStore.set({ name, value, ...options });
         },
         remove: (name: string, options: any) => {
+          console.log(`[Supabase Server Client] Removing cookie: ${name}`);
           cookieStore.set({ name, value: '', ...options });
         },
       },
