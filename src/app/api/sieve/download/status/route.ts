@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     if (!jobMetadata || (jobMetadata.status !== 'finished' && jobMetadata.status !== 'error')) {
       // If not found in store or still in progress, fetch from Sieve
       console.log(`Fetching status for Sieve job ${jobId} from Sieve API...`);
-      const statusResponse = await fetch(`https://mango.sievedata.com/v2/job/${jobId}`, {
+      const statusResponse = await fetch(`https://mango.sievedata.com/v2/jobs/${jobId}`, {
         headers: {
           'X-API-Key': SIEVE_API_KEY,
         },
