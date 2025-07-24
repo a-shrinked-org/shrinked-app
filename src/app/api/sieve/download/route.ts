@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
     if (fetchError || !jobMetadata) {
       console.error('Error fetching job status from Supabase:', JSON.stringify(fetchError));
       // If job not found in DB, it might be a very new job, try Sieve directly
-      jobMetadata = { status: 'job_not_found' };
+      jobMetadata = { status: 'job_not_found', file_url: null, error: null };
     }
 
     // 2. If status is queued or processing, query Sieve directly
