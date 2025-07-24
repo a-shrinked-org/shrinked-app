@@ -1,18 +1,22 @@
-import { createClient as _createClient } from '@supabase/supabase-js';
+import { createServerClient, createBrowserClient as _createBrowserClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // Server-side Supabase client for Route Handlers and Server Components
 export const createClient = () => {
   const cookieStore = cookies();
 
-  return _createClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,
-        set: (name: string, value: string, options: any) => cookieStore.set(name, value, options),
-        remove: (name: string, options: any) => cookieStore.set(name, '', options),
+        set: (name: string, value: string, options: any) => {
+          cookieStore.set({ name, value, ...options });
+        },
+        remove: (name: string, options: any) => {
+          cookieStore.set({ name, value: '', ...options });
+        },
       },
     }
   );
@@ -20,7 +24,7 @@ export const createClient = () => {
 
 // Client-side Supabase client for browser environments
 export const createBrowserClient = () => {
-  return _createClient(
+  return _createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
