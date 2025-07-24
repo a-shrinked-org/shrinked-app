@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
               },
               webhooks: [
                 { type: 'job_start', url: webhookUrl },
-                { type: 'job_completed', url: webhookUrl },
-                { type: 'job_failed', url: webhookUrl },
+                { type: 'job_complete', url: webhookUrl },
+                { type: 'job_complete', url: webhookUrl },
               ],
             }),
             signal: controller.signal,
