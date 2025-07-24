@@ -129,6 +129,42 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [extractionErrors, setExtractionErrors] = useState<{[key: number]: string}>({});
   const [extractionSuccess, setExtractionSuccess] = useState<{[key: number]: boolean}>({});
 
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    setError,
+    reset,
+    formState: { errors },
+    control,
+  } = useForm<JobCreateForm>({
+    defaultValues: {
+      jobName: "New Job",
+      scenario: "structured-conversation-protocol",
+      lang: "en",
+      isPublic: false,
+      createPage: true,
+      files: [{ type: "link", url: "", isLoading: false, progress: 0 }],
+      selectedLogic: "structured-conversation-protocol",
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: control,
+    name: "files",
+  });
+
+  const [validationTimeouts, setValidationTimeouts] = useState<{[key: number]: NodeJS.Timeout}>({});
+  const [isValidating, setIsValidating] = useState<{[key: number]: boolean}>({});
+  const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
+  const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
+
+  const generateJobName = () => {
+    return `New Job - ${new Date().toLocaleString()}`;
+  };
+
+
   const handleUrlValidation = async (url: string, index: number) => {
     if (validationTimeouts[index]) {
       clearTimeout(validationTimeouts[index]);
@@ -338,6 +374,14 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       setValue("jobName", generateJobName());
       setIsEditingJobName(false);
     }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const onSubmit = handleSubmit(async (data: JobCreateForm) => {
@@ -649,7 +693,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                   margin: "0 4px",
                 },
                 input: {
-                  backgroundColor: "#202020",
+                  backgroundColor: "transparent",
                   border: "none",
                   color: "#ffffff",
                   fontFamily: GeistMono.style.fontFamily,
@@ -744,7 +788,14 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                   >
                     <Box
                       style={{
-                        padding: fileType === 'link' ? (isMobile ? "10px 10px 30px 15px" : "10px 10px 40px 20px") : (isMobile ? "10px" : "15px"),
+                        padding:
+                          fileType === "link"
+                            ? isMobile
+                              ? "10px 10px 30px 15px"
+                              : "10px 10px 40px 20px"
+                            : isMobile
+                            ? "10px"
+                            : "15px",
                         flexGrow: 1,
                         position: "relative",
                       }}
@@ -765,7 +816,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               onClick={() => handleRemoveFile(index)}
                               size="sm"
                             >
-                              <Trash size= {14} />
+                              <Trash size={14} />
                             </ActionIcon>
                           </Tooltip>
                         </Box>
@@ -785,13 +836,19 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               const timeoutId = setTimeout(() => {
                                 handleUrlValidation(e.target.value, index);
                               }, 1000);
-                              setValidationTimeouts(prev => ({ ...prev, [index]: timeoutId }));
+                              setValidationTimeouts((prev) => ({
+                                ...prev,
+                                [index]: timeoutId,
+                              }));
                               if (e.target.value) {
                                 try {
-                                  const filename = e.target.value.split("/").pop() || "";
+                                  const filename =
+                                    e.target.value.split("/").pop() || "";
                                   setValue(`files.${index}.filename`, filename);
                                 } catch (error) {
-                                  console.warn("Failed to extract filename from URL");
+                                  console.warn(
+                                    "Failed to extract filename from URL"
+                                  );
                                 }
                               }
                             }}
@@ -812,23 +869,38 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           {isValidating[index] && (
                             <Group gap="xs" mt="xs">
                               <Loader size={12} style={{ color: "#a1a1a1" }} />
-                              <Text size="xs" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                              <Text
+                                size="xs"
+                                c="#a1a1a1"
+                                style={{ fontFamily: GeistMono.style.fontFamily }}
+                              >
                                 Validating URL...
                               </Text>
                             </Group>
                           )}
-                          {validationSuccess[index] && !isValidating[index] && !isExtracting[index] && !extractionSuccess[index] && (
-                            <Group gap="xs" mt="xs">
-                              <CheckCircle size={12} style={{ color: "#4ade80" }} />
-                              <Text size="xs" c="#4ade80" style={{ fontFamily: GeistMono.style.fontFamily }}>
-                                URL Valid
-                              </Text>
-                            </Group>
-                          )}
+                          {validationSuccess[index] &&
+                            !isValidating[index] &&
+                            !isExtracting[index] &&
+                            !extractionSuccess[index] && (
+                              <Group gap="xs" mt="xs">
+                                <CheckCircle size={12} style={{ color: "#4ade80" }} />
+                                <Text
+                                  size="xs"
+                                  c="#4ade80"
+                                  style={{ fontFamily: GeistMono.style.fontFamily }}
+                                >
+                                  URL Valid
+                                </Text>
+                              </Group>
+                            )}
                           {validationErrors[index] && !isValidating[index] && (
                             <Group gap="xs" mt="xs">
                               <XCircle size={12} style={{ color: "#ef4444" }} />
-                              <Text size="xs" c="#ef4444" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                              <Text
+                                size="xs"
+                                c="#ef4444"
+                                style={{ fontFamily: GeistMono.style.fontFamily }}
+                              >
                                 {validationErrors[index]}
                               </Text>
                             </Group>
@@ -836,7 +908,11 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           {isExtracting[index] && (
                             <Group gap="xs" mt="xs">
                               <Loader size={12} style={{ color: "#a1a1a1" }} />
-                              <Text size="xs" c="#a1a1a1" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                              <Text
+                                size="xs"
+                                c="#a1a1a1"
+                                style={{ fontFamily: GeistMono.style.fontFamily }}
+                              >
                                 Extracting media...
                               </Text>
                             </Group>
@@ -844,7 +920,11 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           {extractionSuccess[index] && !isExtracting[index] && (
                             <Group gap="xs" mt="xs">
                               <CheckCircle size={12} style={{ color: "#4ade80" }} />
-                              <Text size="xs" c="#4ade80" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                              <Text
+                                size="xs"
+                                c="#4ade80"
+                                style={{ fontFamily: GeistMono.style.fontFamily }}
+                              >
                                 Media extracted successfully!
                               </Text>
                             </Group>
@@ -852,7 +932,11 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           {extractionErrors[index] && !isExtracting[index] && (
                             <Group gap="xs" mt="xs">
                               <XCircle size={12} style={{ color: "#ef4444" }} />
-                              <Text size="xs" c="#ef4444" style={{ fontFamily: GeistMono.style.fontFamily }}>
+                              <Text
+                                size="xs"
+                                c="#ef4444"
+                                style={{ fontFamily: GeistMono.style.fontFamily }}
+                              >
                                 {extractionErrors[index]}
                               </Text>
                             </Group>
@@ -875,7 +959,10 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                               />
                             </div>
                           ) : (
-                            <Group style={{ padding: isMobile ? "4px 0" : "8px 0" }} wrap="nowrap">
+                            <Group
+                              style={{ padding: isMobile ? "4px 0" : "8px 0" }}
+                              wrap="nowrap"
+                            >
                               <FileText size={16} />
                               <Box style={{ flex: 1, overflow: "hidden" }}>
                                 <Text size="sm" truncate>
@@ -905,6 +992,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                             </Group>
                           )}
                         </Box>
+                      ) : null}
                     </Box>
 
                     {(isLoading || hasUrl) && (
@@ -928,7 +1016,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                       <Group justify="space-between" align="center">
                         <Tabs
                           value={fileType}
-                          onChange={(value) => setValue(`files.${index}.type`, value as "link" | "upload")}
+                          onChange={(value) =>
+                            setValue(`files.${index}.type`, value as "link" | "upload")
+                          }
                           variant="pills"
                           color="rgba(32, 32, 32, 1)"
                           styles={{
@@ -970,7 +1060,9 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                           <Tabs.List>
                             <Tabs.Tab value="link">Url</Tabs.Tab>
                             <Tabs.Tab value="upload">Upload a file</Tabs.Tab>
-                            <Tabs.Tab value="download" disabled>Download</Tabs.Tab>
+                            <Tabs.Tab value="download" disabled>
+                              Download
+                            </Tabs.Tab>
                             <Tabs.Tab value="emails" disabled>
                               Emails
                             </Tabs.Tab>

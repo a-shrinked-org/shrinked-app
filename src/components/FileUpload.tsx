@@ -16,6 +16,7 @@ interface FileUploadProps {
   maxSizeMB?: number;
   acceptedFileTypes?: Record<string, string[]>;
   isDragging?: boolean;
+  fileType?: string;
 }
 
 export function FileUpload({
