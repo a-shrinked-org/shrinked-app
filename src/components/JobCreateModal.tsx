@@ -156,7 +156,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   } = useForm<JobCreateForm>({
     defaultValues: {
       jobName: generateJobName(),
-      scenario: "structured-conversation-protocol",
+      scenario: "SINGLE_FILE_DEFAULT",
       lang: "en",
       isPublic: false,
       createPage: true,
