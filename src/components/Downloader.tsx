@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TextInput, Button, Group, Text, Progress, Alert, Stack } from '@mantine/core';
-import { UploadCloud, AlertCircle } from 'lucide-react';
+import { UploadCloud, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/utils/authUtils';
 
 interface DownloaderProps {
@@ -71,6 +71,12 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
     }
   };
 
+  const handleRetry = () => {
+    setError(null);
+    setRetryCount(0);
+    handleDownload();
+  };
+
   useEffect(() => {
     let pollingInterval: NodeJS.Timeout;
     let timeoutId: NodeJS.Timeout;
@@ -106,9 +112,13 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
           console.warn(`Invalid state transition for job ${jobId}: ${lastStatus} -> ${jobStatus}`);
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
-          setError(`Invalid job status transition: ${lastStatus} -> ${jobStatus}`);
+          setError(`Invalid job status transition: ${lastStatus} -> ${jobStatus}. Retry or contact support.`);
           setIsLoading(false);
           return;
+        }
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Job ${jobId} status: ${jobStatus} (Previous: ${lastStatus})`);
         }
 
         setStatus(`Job ${jobId} status: ${jobStatus}`);
@@ -124,7 +134,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
         } else if (jobStatus === 'error') {
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
-          setError(`Sieve job ${jobId} failed. Details: ${statusData.error || 'No details provided.'}`);
+          setError(`Sieve job ${jobId} failed. Details: ${statusData.error || 'No details provided.'}. Retry or contact support.`);
           setIsLoading(false);
         } else if (jobStatus === 'job_not_found') {
           if (retryCount < MAX_RETRIES) {
@@ -137,7 +147,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
           } else {
             clearInterval(pollingInterval);
             clearTimeout(timeoutId);
-            setError(`Sieve job ${jobId} not found after ${MAX_RETRIES} attempts.`);
+            setError(`Sieve job ${jobId} not found after ${MAX_RETRIES} attempts. Retry or contact support.`);
             setIsLoading(false);
           }
         } else if (['queued', 'started', 'processing'].includes(jobStatus)) {
@@ -148,19 +158,19 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
         } else if (jobStatus === 'cancelled') {
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
-          setError(`Sieve job ${jobId} was cancelled.`);
+          setError(`Sieve job ${jobId} was cancelled. Retry or contact support.`);
           setIsLoading(false);
         } else {
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
-          setError(`Unknown job status: ${jobStatus}`);
+          setError(`Unknown job status: ${jobStatus}. Retry or contact support.`);
           setIsLoading(false);
         }
       } catch (err) {
         clearInterval(pollingInterval);
         clearTimeout(timeoutId);
         handleAuthError(err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred during polling');
+        setError(err instanceof Error ? err.message + '. Retry or contact support.' : 'An unknown error occurred during polling. Retry or contact support.');
         setIsLoading(false);
       }
     };
@@ -169,7 +179,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       pollingInterval = setInterval(() => pollJobStatus(0), POLLING_INTERVALS.queued);
       timeoutId = setTimeout(() => {
         clearInterval(pollingInterval);
-        setError(`Sieve job ${jobId} timed out after ${TOTAL_TIMEOUT / 1000 / 60} minutes.`);
+        setError(`Sieve job ${jobId} timed out after ${TOTAL_TIMEOUT / 1000 / 60} minutes. Retry or contact support.`);
         setIsLoading(false);
       }, TOTAL_TIMEOUT);
     }
@@ -190,9 +200,21 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
         disabled={isLoading}
         error={error}
       />
-      <Button onClick={handleDownload} loading={isLoading} leftSection={<UploadCloud size={16} />}>
-        Download
-      </Button>
+      <Group>
+        <Button onClick={handleDownload} loading={isLoading} leftSection={<UploadCloud size={16} />}>
+          Download
+        </Button>
+        {error && (
+          <Button
+            variant="outline"
+            onClick={handleRetry}
+            leftSection={<RefreshCw size={16} />}
+            disabled={isLoading}
+          >
+            Retry
+          </Button>
+        )}
+      </Group>
       {isLoading && (
         <Stack>
           <Progress value={progress} animated />

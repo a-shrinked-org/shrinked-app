@@ -33,6 +33,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid webhook data' }, { status: 400 });
     }
 
+    // Verify job exists in Supabase
+    const { data: jobExists, error: fetchError } = await supabase
+      .from('job_statuses')
+      .select('job_id')
+      .eq('job_id', job_id)
+      .single();
+
+    if (fetchError || !jobExists) {
+      console.error(`Job ${job_id} not found in Supabase:`, JSON.stringify(fetchError));
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    // Optional: Verify webhook authenticity with a secret token
+    const webhookSecret = request.headers.get('X-Sieve-Webhook-Secret');
+    if (process.env.SIEVE_WEBHOOK_SECRET && webhookSecret !== process.env.SIEVE_WEBHOOK_SECRET) {
+      console.error('Webhook authentication failed: Invalid secret');
+      return NextResponse.json({ error: 'Unauthorized webhook' }, { status: 401 });
+    }
+
     if (status === 'finished' && outputs) {
       const fileUrl = Array.isArray(outputs) ? outputs[0]?.url || outputs[0] : outputs.url || outputs;
       if (!fileUrl || !fileUrl.startsWith('http')) {

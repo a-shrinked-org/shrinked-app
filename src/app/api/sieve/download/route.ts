@@ -121,16 +121,37 @@ export async function POST(request: NextRequest) {
       const jobId = sieveJobData.id;
       console.log('Sieve job pushed. Job ID:', jobId, 'Response:', JSON.stringify(sieveJobData, null, 2));
 
-      const { error: dbError } = await supabase
-        .from('job_statuses')
-        .insert({
-          job_id: jobId,
-          user_id: userId,
-          status: 'queued',
-          original_url: url,
-          output_format: output_format,
-          updated_at: new Date().toISOString(),
-        });
+      const maxDbRetries = 3;
+      let dbAttempt = 0;
+      let dbError: any;
+      while (dbAttempt < maxDbRetries) {
+        try {
+          const { error } = await supabase
+            .from('job_statuses')
+            .insert({
+              job_id: jobId,
+              user_id: userId,
+              status: 'queued',
+              original_url: url,
+              output_format: output_format,
+              updated_at: new Date().toISOString(),
+            });
+          if (!error) {
+            break;
+          }
+          dbError = error;
+          throw new Error(`Supabase insert failed: ${JSON.stringify(dbError)}`);
+        } catch (error: any) {
+          console.error(`Supabase insert attempt ${dbAttempt + 1} failed:`, error.message);
+          dbAttempt++;
+          if (dbAttempt === maxDbRetries) {
+            throw error;
+          }
+          const backoff = Math.pow(2, dbAttempt) * 1000;
+          console.log(`Retrying Supabase insert (attempt ${dbAttempt + 1}/${maxDbRetries}) after ${backoff}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoff));
+        }
+      }
 
       if (dbError) {
         console.error('Error saving job to Supabase:', JSON.stringify(dbError));
@@ -164,16 +185,32 @@ export async function GET(request: NextRequest) {
     let jobMetadata;
     let fetchError;
 
-    // Fetch current status from Supabase
-    ({ data: jobMetadata, error: fetchError } = await supabase
-      .from('job_statuses')
-      .select('status, file_url, error, original_url, output_format, updated_at')
-      .eq('job_id', jobId)
-      .single());
-
-    if (fetchError || !jobMetadata) {
-      console.error('Supabase fetch error:', JSON.stringify(fetchError));
-      jobMetadata = { status: 'job_not_found', file_url: null, error: null, original_url: null, output_format: null, updated_at: null };
+    // Fetch current status from Supabase with retries
+    const maxDbRetries = 3;
+    let dbAttempt = 0;
+    while (dbAttempt < maxDbRetries) {
+      try {
+        ({ data: jobMetadata, error: fetchError } = await supabase
+          .from('job_statuses')
+          .select('status, file_url, error, original_url, output_format, updated_at')
+          .eq('job_id', jobId)
+          .single());
+        if (!fetchError) {
+          break;
+        }
+        throw new Error(`Supabase fetch failed: ${JSON.stringify(fetchError)}`);
+      } catch (error: any) {
+        console.error(`Supabase fetch attempt ${dbAttempt + 1} failed:`, error.message);
+        dbAttempt++;
+        if (dbAttempt === maxDbRetries) {
+          console.error('Supabase fetch error:', JSON.stringify(fetchError));
+          jobMetadata = { status: 'job_not_found', file_url: null, error: null, original_url: null, output_format: null, updated_at: null };
+          break;
+        }
+        const backoff = Math.pow(2, dbAttempt) * 1000;
+        console.log(`Retrying Supabase fetch (attempt ${dbAttempt + 1}/${maxDbRetries}) after ${backoff}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+      }
     }
 
     // Query Sieve for non-final states or if no recent update
@@ -236,15 +273,36 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          const { error: updateError } = await supabase
-            .from('job_statuses')
-            .update({
-              status: sieveStatus,
-              file_url: updatedFileUrl,
-              error: sieveError,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('job_id', jobId);
+          const maxDbRetriesUpdate = 3;
+          let dbUpdateAttempt = 0;
+          let updateError: any;
+          while (dbUpdateAttempt < maxDbRetriesUpdate) {
+            try {
+              const { error } = await supabase
+                .from('job_statuses')
+                .update({
+                  status: sieveStatus,
+                  file_url: updatedFileUrl,
+                  error: sieveError,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('job_id', jobId);
+              if (!error) {
+                break;
+              }
+              updateError = error;
+              throw new Error(`Supabase update failed: ${JSON.stringify(updateError)}`);
+            } catch (error: any) {
+              console.error(`Supabase update attempt ${dbUpdateAttempt + 1} failed:`, error.message);
+              dbUpdateAttempt++;
+              if (dbUpdateAttempt === maxDbRetriesUpdate) {
+                throw error;
+              }
+              const backoff = Math.pow(2, dbUpdateAttempt) * 1000;
+              console.log(`Retrying Supabase update (attempt ${dbUpdateAttempt + 1}/${maxDbRetriesUpdate}) after ${backoff}ms...`);
+              await new Promise(resolve => setTimeout(resolve, backoff));
+            }
+          }
 
           if (updateError) {
             console.error('Supabase update error:', JSON.stringify(updateError));
