@@ -25,8 +25,9 @@ export async function POST(request: NextRequest) {
   try {
     const webhookData = await request.json();
     console.log('Incoming Sieve Webhook Data:', JSON.stringify(webhookData, null, 2)); // Log full webhook data
-    const { job_id, status, data } = webhookData;
-    console.log(`Webhook received for job ${job_id}: ${status}`);
+    const { body, type } = webhookData;
+    const { job_id, status, outputs, error: sieveError } = body;
+    console.log(`Webhook received for job ${job_id}: ${status} (Type: ${type})`);
 
     if (status === 'finished' && data) {
       const fileUrl = Array.isArray(data) ? data[0] : data.url || data;
