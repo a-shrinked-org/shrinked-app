@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
       const sieveJobData = await sievePushResponse.json();
       const jobId = sieveJobData.id;
       console.log('Sieve job pushed. Job ID:', jobId);
+      console.log('Full Sieve push response:', JSON.stringify(sieveJobData, null, 2));
 
       // 6. Store job metadata in Supabase
       const { error: dbError } = await supabase
@@ -228,9 +229,11 @@ export async function GET(request: NextRequest) {
           let updatedFileUrl = jobMetadata.file_url;
           if (sieveStatus === 'finished' && sieveOutputs && sieveOutputs.length > 0) {
             // Assuming the first output is the file URL
-            updatedFileUrl = sieveOutputs[0].url || sieveOutputs[0];
-            // TODO: You might need to re-upload this file to R2 if it's a temporary Sieve URL
-            // For now, we'll just use the Sieve URL directly if it's a final output
+            const sieveFileUrl = sieveOutputs[0].url || sieveOutputs[0];
+            if (sieveFileUrl && sieveFileUrl.startsWith('http')) {
+              updatedFileUrl = sieveFileUrl; // Directly use the Sieve output URL
+              console.log(`Using direct Sieve output URL: ${updatedFileUrl}`);
+            }
           }
 
           const { error: updateError } = await supabase
