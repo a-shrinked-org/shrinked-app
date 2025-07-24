@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { TextInput, Button, Group, Text, Progress, Alert, Stack } from '@mantine/core';
 import { UploadCloud, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/utils/authUtils';
 
 interface DownloaderProps {
   onUploadComplete: (uploadedUrl: string, originalUrl: string, index: number) => void;
   index: number;
 }
-
-import { useAuth } from '@/utils/authUtils';
 
 const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
   const { fetchWithAuth, handleAuthError } = useAuth();
@@ -20,10 +19,10 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [notFoundRetryCount, setNotFoundRetryCount] = useState(0);
-  const MAX_NOT_FOUND_RETRIES = 15;
-  const POLLING_INTERVAL_INITIAL = 5000;
-  const POLLING_BACKOFF_FACTOR = 1.5;
-  const POLLING_MAX_INTERVAL = 30000;
+  const MAX_NOT_FOUND_RETRIES = 10;
+  const POLLING_INTERVAL_INITIAL = 3000;
+  const POLLING_BACKOFF_FACTOR = 1.3;
+  const POLLING_MAX_INTERVAL = 15000;
   const TOTAL_TIMEOUT = 5 * 60 * 1000;
 
   const handleDownload = async () => {
@@ -68,23 +67,22 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
   useEffect(() => {
     let pollingInterval: NodeJS.Timeout;
     let timeoutId: NodeJS.Timeout;
-    let retryCount = 0;
 
-    const getPollingInterval = () => {
-      return Math.min(POLLING_MAX_INTERVAL, POLLING_INTERVAL_INITIAL * Math.pow(POLLING_BACKOFF_FACTOR, retryCount));
+    const getPollingInterval = (retry: number) => {
+      return Math.min(POLLING_MAX_INTERVAL, POLLING_INTERVAL_INITIAL * Math.pow(POLLING_BACKOFF_FACTOR, retry));
     };
 
-    const pollJobStatus = async () => {
+    const pollJobStatus = async (retryCount = 0) => {
       if (!jobId) return;
 
       try {
-        const statusResponse = await fetchWithAuth(`/api/sieve/download/status?jobId=${jobId}`);
-        if (!statusResponse.ok) {
-          const err = await statusResponse.json();
+        const response = await fetchWithAuth(`/api/sieve/download?jobId=${jobId}`);
+        if (!response.ok) {
+          const err = await response.json();
           throw new Error(err.message || `Failed to fetch job status for ${jobId}`);
         }
 
-        const statusData = await statusResponse.json();
+        const statusData = await response.json();
         const jobStatus = statusData.status;
         const fileUrl = statusData.fileUrl;
 
@@ -96,6 +94,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
           setProgress(100);
           setStatus('Download complete! Processing...');
           onUploadComplete(fileUrl, url, index);
+          setIsLoading(false);
         } else if (jobStatus === 'error') {
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
@@ -103,28 +102,30 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
           setIsLoading(false);
         } else if (jobStatus === 'job_not_found') {
           if (notFoundRetryCount < MAX_NOT_FOUND_RETRIES) {
-            console.warn(`Sieve job ${jobId} not found (retry ${notFoundRetryCount + 1}/${MAX_NOT_FOUND_RETRIES}). Continuing to poll.`);
+            console.warn(`Sieve job ${jobId} not found (retry ${notFoundRetryCount + 1}/${MAX_NOT_FOUND_RETRIES}).`);
             setNotFoundRetryCount((prev) => prev + 1);
-            retryCount++;
+            const newInterval = getPollingInterval(retryCount);
             clearInterval(pollingInterval);
-            pollingInterval = setInterval(pollJobStatus, getPollingInterval());
+            pollingInterval = setInterval(() => pollJobStatus(retryCount + 1), newInterval);
           } else {
             clearInterval(pollingInterval);
             clearTimeout(timeoutId);
-            setError(`Sieve job ${jobId} not found after multiple attempts.`);
+            setError(`Sieve job ${jobId} not found after ${MAX_NOT_FOUND_RETRIES} attempts.`);
             setIsLoading(false);
           }
         } else if (jobStatus === 'queued' || jobStatus === 'started' || jobStatus === 'processing') {
-          setProgress((prev) => Math.min(90, prev + (70 / MAX_NOT_FOUND_RETRIES)));
-          retryCount++;
+          setProgress((prev) => Math.min(90, prev + (70 / (MAX_NOT_FOUND_RETRIES * 2))));
+          const newInterval = getPollingInterval(retryCount);
           clearInterval(pollingInterval);
-          pollingInterval = setInterval(pollJobStatus, getPollingInterval());
+          pollingInterval = setInterval(() => pollJobStatus(retryCount + 1), newInterval);
         } else if (jobStatus === 'cancelled') {
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
           setError(`Sieve job ${jobId} was cancelled.`);
           setIsLoading(false);
         } else {
+          clearInterval(pollingInterval);
+          clearTimeout(timeoutId);
           setError(`Unknown job status: ${jobStatus}`);
           setIsLoading(false);
         }
@@ -138,7 +139,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
     };
 
     if (jobId) {
-      pollingInterval = setInterval(pollJobStatus, POLLING_INTERVAL_INITIAL);
+      pollingInterval = setInterval(() => pollJobStatus(0), POLLING_INTERVAL_INITIAL);
       timeoutId = setTimeout(() => {
         clearInterval(pollingInterval);
         setError(`Sieve job ${jobId} timed out after ${TOTAL_TIMEOUT / 1000 / 60} minutes.`);
@@ -150,7 +151,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       clearInterval(pollingInterval);
       clearTimeout(timeoutId);
     };
-  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, notFoundRetryCount, index, TOTAL_TIMEOUT]);
+  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, notFoundRetryCount, index]);
 
   return (
     <Stack>
