@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         .eq('job_id', job_id);
 
       if (updateError) {
-        console.error('Error updating job status in Supabase (finished):', updateError);
+        console.error('Error updating job status in Supabase (finished):', updateError.message || updateError);
         throw new Error('Failed to update job status in Supabase.');
       }
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         .eq('job_id', job_id);
 
       if (updateError) {
-        console.error('Error updating job status in Supabase (error):', updateError);
+        console.error('Error updating job status in Supabase (error):', updateError.message || updateError);
         throw new Error('Failed to update job status in Supabase.');
       }
       return NextResponse.json({ status: 'received' }, { status: 200 });
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         .eq('job_id', job_id);
 
       if (updateError) {
-        console.error('Error updating job status in Supabase (other status):', updateError);
+        console.error('Error updating job status in Supabase (other status):', updateError.message || updateError);
         throw new Error('Failed to update job status in Supabase.');
       }
     }
