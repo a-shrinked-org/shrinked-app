@@ -164,12 +164,8 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
   const [validationSuccess, setValidationSuccess] = useState<{[key: number]: boolean}>({});
   const [validationErrors, setValidationErrors] = useState<{[key: number]: string}>({});
 
-  const handleUrlValidation = async (url: string, index: number) => {
-    if (validationTimeouts[index]) {
-      clearTimeout(validationTimeouts[index]);
-    }
-
-    if (!url.trim()) {
+  const handleUrlValidation = async (url: string | undefined, index: number) => {
+    if (!url?.trim()) {
       setValidationErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[index];
@@ -269,9 +265,12 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
       }
 
       const data = await response.json();
+      if (!data?.fileUrl) {
+        throw new Error('Invalid response: fileUrl is missing');
+      }
       setValue(`files.${index}.url`, data.fileUrl);
       setValue(`files.${index}.originalUrl`, url);
-      setValue(`files.${index}.filename`, data.filename || url.split('/').pop());
+      setValue(`files.${index}.filename`, data.filename || url.split('/').pop() || 'unknown');
       setExtractionSuccess(prev => ({ ...prev, [index]: true }));
       showNotification({
         title: 'Success',
@@ -425,7 +424,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
         return;
       }
 
-      const validFiles = data.files.filter((file) => file.url.trim() !== "");
+      const validFiles = data.files.filter((file) => file.url?.trim() !== "");
       if (validFiles.length === 0) {
         setError("root", {
           type: "manual",
@@ -735,7 +734,7 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
               ENGLISH
             </Text>{" "}
-            and output as pdf to{" "}
+            and output as pdf to {" "}
             <Text component="span" style={{ backgroundColor: "#202020", padding: "2px 8px", borderRadius: "4px", color: "#ffffff" }}>
               {identity?.email?.toUpperCase() || "USER@EXAMPLE.COM"}
             </Text>
@@ -828,21 +827,21 @@ const JobCreateModal: React.FC<JobCreateModalProps> = ({
                             placeholder="URL TO A SOURCE AUDIO OR VIDEO"
                             {...register(`files.${index}.url`)}
                             onChange={(e) => {
-                              setValue(`files.${index}.url`, e.target.value);
+                              const url = e.target.value || "";
+                              setValue(`files.${index}.url`, url);
                               if (validationTimeouts[index]) {
                                 clearTimeout(validationTimeouts[index]);
                               }
                               const timeoutId = setTimeout(() => {
-                                handleUrlValidation(e.target.value, index);
+                                handleUrlValidation(url, index);
                               }, 1000);
                               setValidationTimeouts((prev) => ({
                                 ...prev,
                                 [index]: timeoutId,
                               }));
-                              if (e.target.value) {
+                              if (url) {
                                 try {
-                                  const filename =
-                                    e.target.value.split("/").pop() || "";
+                                  const filename = url.split("/").pop() || "";
                                   setValue(`files.${index}.filename`, filename);
                                 } catch (error) {
                                   console.warn(
