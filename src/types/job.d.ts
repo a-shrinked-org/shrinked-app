@@ -3,4 +3,5 @@ export interface JobMetadata {
   fileUrl?: string;
   originalUrl: string;
   output_format: string;
+  error?: string;
 }

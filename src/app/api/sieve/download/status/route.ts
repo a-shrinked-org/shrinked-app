@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getPresignedUploadUrl } from '@/utils/r2-utils';
 import { jobStore } from '@/lib/jobStore';
 import { JobMetadata } from '@/types/job';
 
