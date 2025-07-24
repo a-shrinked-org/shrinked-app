@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       // You might need a more robust JWT decoding/verification library here
       // For simplicity, we'll do a basic decode. In production, verify signature.
       const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      console.log('[Sieve Download API] JWT Payload:', payload); // Log the entire payload
       userId = payload.sub; // 'sub' is commonly used for user ID in JWTs
       if (!userId) {
         throw new Error('User ID not found in token payload.');
@@ -46,9 +47,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized', details: 'Invalid token' }, { status: 401 });
     }
     console.log('Authentication successful for user:', userId);
-    const supabase = createClient();
 
-    // 2. Check for the API key
+    // IMPORTANT: Ensure SIEVE_API_KEY is set in your environment variables.
+    // If not set, this API route will return a 500 error.
     if (!process.env.SIEVE_API_KEY) {
       console.error('SIEVE_API_KEY environment variable is not set.');
       return handleApiError(new Error('SIEVE_API_KEY environment variable is not set.'), 'Server configuration error');
