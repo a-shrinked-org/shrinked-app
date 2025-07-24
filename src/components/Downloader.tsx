@@ -18,11 +18,17 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [notFoundRetryCount, setNotFoundRetryCount] = useState(0);
-  const MAX_NOT_FOUND_RETRIES = 10;
-  const POLLING_INTERVAL_INITIAL = 3000;
-  const POLLING_BACKOFF_FACTOR = 1.3;
-  const POLLING_MAX_INTERVAL = 15000;
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastStatus, setLastStatus] = useState<string | null>(null);
+  const MAX_RETRIES = 10;
+  const POLLING_INTERVALS = {
+    queued: 2000,
+    started: 3000,
+    processing: 5000,
+    job_not_found: 4000,
+  };
+  const POLLING_BACKOFF_FACTOR = 1.2;
+  const POLLING_MAX_INTERVAL = 10000;
   const TOTAL_TIMEOUT = 5 * 60 * 1000;
 
   const handleDownload = async () => {
@@ -35,7 +41,8 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
     setError(null);
     setProgress(0);
     setJobId(null);
-    setNotFoundRetryCount(0);
+    setRetryCount(0);
+    setLastStatus(null);
     setStatus('Sending to Sieve...');
 
     try {
@@ -53,7 +60,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       if (responseData.jobId) {
         setJobId(responseData.jobId);
         setStatus(`Sieve job initiated: ${responseData.jobId}. Waiting for start...`);
-        setProgress(20);
+        setProgress(10);
       } else {
         throw new Error('Sieve job ID not received.');
       }
@@ -68,11 +75,12 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
     let pollingInterval: NodeJS.Timeout;
     let timeoutId: NodeJS.Timeout;
 
-    const getPollingInterval = (retry: number) => {
-      return Math.min(POLLING_MAX_INTERVAL, POLLING_INTERVAL_INITIAL * Math.pow(POLLING_BACKOFF_FACTOR, retry));
+    const getPollingInterval = (status: string | null, retry: number) => {
+      const baseInterval = POLLING_INTERVALS[status as keyof typeof POLLING_INTERVALS] || 3000;
+      return Math.min(POLLING_MAX_INTERVAL, baseInterval * Math.pow(POLLING_BACKOFF_FACTOR, retry));
     };
 
-    const pollJobStatus = async (retryCount = 0) => {
+    const pollJobStatus = async (retry = 0) => {
       if (!jobId) return;
 
       try {
@@ -86,7 +94,25 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
         const jobStatus = statusData.status;
         const fileUrl = statusData.fileUrl;
 
+        // Detect invalid state transitions
+        const validTransitions = {
+          null: ['queued', 'started', 'processing', 'job_not_found'],
+          job_not_found: ['queued', 'started', 'processing'],
+          queued: ['started', 'processing', 'finished', 'error', 'cancelled'],
+          started: ['processing', 'finished', 'error', 'cancelled'],
+          processing: ['finished', 'error', 'cancelled'],
+        };
+        if (!validTransitions[lastStatus as keyof typeof validTransitions]?.includes(jobStatus)) {
+          console.warn(`Invalid state transition for job ${jobId}: ${lastStatus} -> ${jobStatus}`);
+          clearInterval(pollingInterval);
+          clearTimeout(timeoutId);
+          setError(`Invalid job status transition: ${lastStatus} -> ${jobStatus}`);
+          setIsLoading(false);
+          return;
+        }
+
         setStatus(`Job ${jobId} status: ${jobStatus}`);
+        setLastStatus(jobStatus);
 
         if (jobStatus === 'finished' && fileUrl) {
           clearInterval(pollingInterval);
@@ -101,23 +127,24 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
           setError(`Sieve job ${jobId} failed. Details: ${statusData.error || 'No details provided.'}`);
           setIsLoading(false);
         } else if (jobStatus === 'job_not_found') {
-          if (notFoundRetryCount < MAX_NOT_FOUND_RETRIES) {
-            console.warn(`Sieve job ${jobId} not found (retry ${notFoundRetryCount + 1}/${MAX_NOT_FOUND_RETRIES}).`);
-            setNotFoundRetryCount((prev) => prev + 1);
-            const newInterval = getPollingInterval(retryCount);
+          if (retryCount < MAX_RETRIES) {
+            console.warn(`Sieve job ${jobId} not found (retry ${retryCount + 1}/${MAX_RETRIES}).`);
+            setRetryCount((prev) => prev + 1);
+            const newInterval = getPollingInterval(jobStatus, retry);
             clearInterval(pollingInterval);
-            pollingInterval = setInterval(() => pollJobStatus(retryCount + 1), newInterval);
+            pollingInterval = setInterval(() => pollJobStatus(retry + 1), newInterval);
+            setProgress((prev) => Math.min(90, prev + 5));
           } else {
             clearInterval(pollingInterval);
             clearTimeout(timeoutId);
-            setError(`Sieve job ${jobId} not found after ${MAX_NOT_FOUND_RETRIES} attempts.`);
+            setError(`Sieve job ${jobId} not found after ${MAX_RETRIES} attempts.`);
             setIsLoading(false);
           }
-        } else if (jobStatus === 'queued' || jobStatus === 'started' || jobStatus === 'processing') {
-          setProgress((prev) => Math.min(90, prev + (70 / (MAX_NOT_FOUND_RETRIES * 2))));
-          const newInterval = getPollingInterval(retryCount);
+        } else if (['queued', 'started', 'processing'].includes(jobStatus)) {
+          setProgress((prev) => Math.min(90, prev + 5));
+          const newInterval = getPollingInterval(jobStatus, retry);
           clearInterval(pollingInterval);
-          pollingInterval = setInterval(() => pollJobStatus(retryCount + 1), newInterval);
+          pollingInterval = setInterval(() => pollJobStatus(retry + 1), newInterval);
         } else if (jobStatus === 'cancelled') {
           clearInterval(pollingInterval);
           clearTimeout(timeoutId);
@@ -139,7 +166,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
     };
 
     if (jobId) {
-      pollingInterval = setInterval(() => pollJobStatus(0), POLLING_INTERVAL_INITIAL);
+      pollingInterval = setInterval(() => pollJobStatus(0), POLLING_INTERVALS.queued);
       timeoutId = setTimeout(() => {
         clearInterval(pollingInterval);
         setError(`Sieve job ${jobId} timed out after ${TOTAL_TIMEOUT / 1000 / 60} minutes.`);
@@ -151,7 +178,7 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
       clearInterval(pollingInterval);
       clearTimeout(timeoutId);
     };
-  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, notFoundRetryCount, index]);
+  }, [jobId, fetchWithAuth, handleAuthError, onUploadComplete, url, retryCount, lastStatus, index]);
 
   return (
     <Stack>
