@@ -101,6 +101,8 @@ const Downloader: React.FC<DownloaderProps> = ({ onUploadComplete, index }) => {
         const jobStatus = statusData.status;
         const fileUrl = statusData.fileUrl;
 
+        if (lastStatus === jobStatus) return;
+
         // Detect invalid state transitions
         const validTransitions = {
           null: ['queued', 'started', 'processing', 'job_not_found'],
