@@ -18,14 +18,24 @@ export const prototypeCards: PurposeCard[] = [
     |<context_buffer> {{fullContext}} </context_buffer>
     
     **YOUR MISSION:**
-    Extract 3-5 key signals that capture the most important insights and exchanges. Focus on moments where expertise emerges, ideas clash, or practical implications become clear.
+    Extract 3-5 key signals that capture the most important and unique insights across all documents. Prioritize novel insights and avoid duplicating similar themes. Focus on moments where expertise emerges, ideas clash, or practical implications become clear.
+    
+    **MULTI-DOCUMENT HANDLING:**
+    - Identify similar themes across documents and consolidate into strongest examples
+    - Prioritize recent/evolving insights over repeated observations
+    - If similar insights appear in multiple docs, choose the most compelling articulation
     
     **FORMAT FOR EACH HIGHLIGHT:**
     
     ## [Compelling Title]
-    **Speaker Name [reference]** brief quote or key point. **Another Speaker [reference]** their response or building insight. **Additional speakers** as relevant to show the exchange flow.
+    **Speaker Name [doc-ref]** brief quote or key point. **Another Speaker [doc-ref]** their response or building insight. If from single document, show conversational flow. If consolidating across documents, note the strongest articulation.
     
     *Signal: One crisp sentence capturing the core takeaway.*
+    
+    **DEDUPLICATION STRATEGY:**
+    - If multiple documents contain similar insights, select the most specific/actionable version
+    - Note when insights appear across multiple sources (adds credibility)
+    - Avoid creating separate highlights for essentially the same point
     
     **SELECTION CRITERIA:**
     - Genuine expertise and counterintuitive insights
