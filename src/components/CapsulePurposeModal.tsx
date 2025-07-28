@@ -58,14 +58,6 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
       prompt: summary,
       section: 'capsule.summary',
       isDefault: true
-    },
-    {
-      id: 'highlights',
-      name: 'Highlights',
-      description: 'Extract key highlights and important points from documents',
-      prompt: highlights || 'Extract key highlights and important points from documents',
-      section: 'capsule.highlights',
-      isDefault: true
     }
   ];
 
@@ -120,11 +112,6 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
 
   const isCardActive = (cardId: string) => {
     return activePurpose === cardId;
-  };
-
-  const isCardDisabled = (card: PurposeCard) => {
-    // Make highlights passive for now
-    return card.id === 'highlights';
   };
 
   return (
@@ -187,13 +174,13 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
                   backgroundColor: isCardActive(card.id) ? '#1a1a1a' : '#0a0a0a',
                   border: isCardActive(card.id) ? '1px solid #F5A623' : '1px solid #2B2B2B',
                   borderRadius: '8px',
-                  cursor: isCardDisabled(card) || isUpdating ? 'not-allowed' : 'pointer',
+                  cursor: isUpdating ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                   position: 'relative',
                   minHeight: '120px',
-                  opacity: isCardDisabled(card) || isUpdating ? 0.5 : 1
+                  opacity: isUpdating ? 0.5 : 1
                 }}
-                onClick={() => !isCardDisabled(card) && !isUpdating && handleCardSelect(card)}
+                onClick={() => !isUpdating && handleCardSelect(card)}
               >
                 <Flex direction="column" h="100%">
                   <Flex justify="space-between" align="flex-start" mb="xs">
@@ -217,19 +204,6 @@ const CapsulePurposeModal: React.FC<CapsulePurposeModalProps> = ({
                           }}
                         >
                           Default
-                        </Badge>
-                      )}
-                      {isCardDisabled(card) && (
-                        <Badge 
-                          size="xs" 
-                          style={{ 
-                            backgroundColor: '#444', 
-                            color: '#888',
-                            textTransform: 'uppercase',
-                            fontSize: '10px'
-                          }}
-                        >
-                          Soon
                         </Badge>
                       )}
                     </Flex>

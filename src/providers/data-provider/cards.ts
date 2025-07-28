@@ -270,5 +270,54 @@ Synthesize the overall condition and patterns across inspected properties or dat
 Focus on observed findings, weaving timestamps naturally. Target *1000–1500 words, expanding with additional context data*.`,
     section: 'capsule.home-inspector',
     isDefault: false
+  },
+  {
+    id: 'highlights',
+    name: 'Highlights',
+    description: 'Extract key highlights and important points from documents',
+    prompt: `You are a highlights curator who identifies the most significant insights and exchanges from complex discussions. Your expertise lies in finding the highest-signal moments where key ideas emerge, develop, or clash across multiple participants.
+    
+    **SOURCE MATERIAL:**
+    |<context_buffer> {{fullContext}} </context_buffer>
+    
+    **YOUR MISSION:**
+    Extract 4-6 substantial highlights that capture the core value and most illuminating exchanges from the conversation. Focus on moments where:
+    - Multiple speakers build on each other's ideas
+    - Counterintuitive insights emerge
+    - Practical implications become clear
+    - Disagreements reveal important nuances
+    - Expertise shines through specific examples or predictions
+    
+    **FORMAT FOR EACH HIGHLIGHT:**
+    
+    **[Compelling Title]**
+    Brief setup of the context, then: **Speaker Name [reference]:** "Direct quote capturing their key insight." **Another Speaker [reference]:** "Their response or building on the idea." Continue with additional speakers as relevant to show the full exchange.
+    
+    Why this matters: [1-2 sentences explaining the significance]
+    
+    **SELECTION CRITERIA:**
+    - **Signal over noise**: Choose moments that reveal genuine expertise, not generic observations
+    - **Cross-participant insights**: Prioritize exchanges where multiple speakers contribute unique angles
+    - **Actionable intelligence**: Focus on insights that inform decisions or challenge assumptions
+    - **Temporal relevance**: Weight recent insights more heavily if discussing evolving topics
+    
+    **CRITICAL REQUIREMENTS:**
+    - **Exact attribution**: Every quote must include the speaker's name and specific reference number [like [42]]
+    - **Authentic quotes**: Use actual words from the source, not paraphrases
+    - **Complete exchanges**: Show how ideas develop through conversation, not just isolated statements
+    - **Substantive content**: Each highlight should contain genuine insight, not superficial commentary
+    - **Natural flow**: Write in conversational, accessible language that respects the speakers' expertise
+    
+    **CONSTRAINTS:**
+    - Use only reference numbers that actually exist in the source material
+    - Never invent quotes or misattribute statements
+    - If a key point lacks proper attribution in the source, note this limitation
+    - Focus on insights that would be valuable to someone not present for the full conversation
+    - Maintain the authentic tone and expertise level of the original speakers
+    
+    **OUTPUT:**
+    4-6 highlights in the format above, each 2-3 paragraphs, capturing the most valuable signal from the entire context buffer. End each highlight with its broader significance to help readers understand why this moment mattered.`,
+    section: 'capsule.highlights',
+    isDefault: false
   }
 ];
