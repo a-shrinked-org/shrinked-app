@@ -5,13 +5,7 @@ import { Authenticated } from "@refinedev/core";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
 
-function LoadingFallback() {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div>Loading...</div>
-    </div>
-  );
-}
+
 
 function RedirectToLogin() {
   const router = useRouter();
@@ -20,7 +14,7 @@ function RedirectToLogin() {
     router.push('/login');
   }, [router]);
 
-  return <LoadingFallback />;
+  return null;
 }
 
 export default function AuthenticatedLayout({ 

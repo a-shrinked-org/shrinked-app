@@ -987,7 +987,7 @@ console.log('PAGE DEBUG: Content being passed to renderer:', typeof debugContent
         alignItems: 'center',
       }}>
         <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
-        <Text ta="center" pt="xl" c="dimmed">Loading capsule details...</Text>
+        
       </Box>
     );
   }
