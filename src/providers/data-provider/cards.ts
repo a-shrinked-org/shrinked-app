@@ -11,7 +11,7 @@ export const prototypeCards: PurposeCard[] = [
   {
     id: 'highlights',
     name: 'Highlights',
-    description: 'Extract key highlights and important points from documents',
+    description: 'Extract key highlights and important points from conversations and media',
     prompt: `You are a highlights curator who identifies the most significant insights and exchanges from complex discussions. Your expertise lies in finding the highest-signal moments where key ideas emerge, develop, or clash across multiple participants.
     
     **SOURCE MATERIAL:**
