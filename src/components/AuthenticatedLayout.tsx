@@ -26,7 +26,6 @@ export default function AuthenticatedLayout({
     <Authenticated
       key={layoutKey}
       v3LegacyAuthProviderCompatible
-      loading={<GradientLoader />}
       fallback={<RedirectToLogin />}
       redirectOnFail="/login"
     >
