@@ -194,11 +194,12 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   Following current research standards for Emotion Recognition in Conversations (ERC), analyze emotional dynamics through a progressive understanding approach. Focus on genuine emotional intelligence insights rather than forced categorization.
   
   **STEP 1: CONTEXTUAL FOUNDATION**
-  First understand what this conversation/meeting was actually about:
-  - What was the stated or implied purpose?
-  - Who were the key participants and their roles?
-  - What topics dominated the discussion?
-  - What decisions or outcomes were being pursued?
+  First understand what this ACTUAL conversation/meeting was about by looking for live dialogue with timestamps:
+  - Identify the real speakers/participants (ignore any meta-analysis documents)
+  - What was the stated meeting purpose or business objective?
+  - What specific topics were discussed by the actual participants?
+  - What decisions or outcomes were the speakers pursuing?
+  - Focus ONLY on the live conversation transcript, not any analysis documents
   
   **STEP 2: EMOTIONAL LANDSCAPE IDENTIFICATION**
   Identify moments where emotions actually surface in the conversation:
@@ -217,17 +218,27 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   Create your analysis with these sections:
   
   **Conversation Context & Emotional Climate**
-  Start by establishing what this conversation was really about and the overall emotional tone. Use 2-3 timestamps to ground this in actual content. If the conversation was primarily technical/business-focused with limited emotional content, acknowledge this upfront: "This discussion centered on [topic] with emotional dynamics playing a secondary role."
+  Start by establishing what the ACTUAL LIVE conversation was about (ignore any meta-analysis documents - focus only on timestamped dialogue between real speakers). Use 2-3 timestamps from the actual conversation to ground this in real content. If the conversation was primarily technical/business-focused with limited emotional content, acknowledge this upfront: "This discussion between [Speaker Names] centered on [actual topic discussed] with emotional dynamics playing a secondary role."
   
   **Key Emotional Moments** 
-  Identify 2-4 moments where emotions genuinely surface or EI skills are demonstrated. For each moment:
+  Identify 2-4 moments where emotions genuinely surface in the LIVE CONVERSATION or EI skills are demonstrated by actual speakers. For each moment:
   
-  [Timestamp] Context: Brief setup of what was happening
-  Quote: "Exact quote showing emotional content or EI behavior"  
+  [Timestamp] Speaker: "Exact quote from actual dialogue"
+  Context: Brief setup of what was happening in the conversation
   EI Analysis: What emotional intelligence skill or dynamic this demonstrates
-  Impact: How this affected the conversation flow (if observable)
+  Impact: How this affected the conversation flow between the actual participants
   
-  If fewer than 2 clear moments exist, acknowledge: "Limited explicit emotional content in this discussion. Analysis focuses on available interpersonal dynamics."
+  If fewer than 2 clear moments exist, acknowledge: "Limited explicit emotional content in this business discussion. Analysis focuses on available interpersonal dynamics between the speakers."
+  
+  **Speaker Alignment & Business Dynamics**
+  NEW SECTION - Analyze how well the participants are aligned:
+  - Goal Alignment: Are speakers working toward the same objectives? (with timestamps)
+  - Understanding Alignment: Do speakers grasp each other's points? (evidence from responses)
+  - Communication Effectiveness: How well do speakers build on each other's ideas?
+  - Decision Alignment: Are speakers converging on next steps and agreements?
+  - Gaps in Alignment: Where do speakers seem to be talking past each other?
+  
+  This is crucial for business conversations where alignment often matters more than emotional expression.
   
   **Relationship & Communication Patterns**
   Analyze the interpersonal dynamics you can actually observe:
@@ -265,14 +276,22 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   - Target 800-1200 words for typical business conversations, 1200-1800 for emotionally rich discussions
   
   **CRITICAL SUCCESS FACTORS:**
-  ✓ Understand context before analyzing emotions
-  ✓ Focus on genuine emotional intelligence moments
-  ✓ Provide actionable insights grounded in evidence
+  ✓ Analyze the ACTUAL LIVE CONVERSATION with timestamps, not meta-analysis documents
+  ✓ Identify real speakers by name from the dialogue
+  ✓ Understand business context before analyzing emotions  
+  ✓ Include speaker alignment analysis for business effectiveness
+  ✓ Focus on genuine emotional intelligence moments between actual participants
+  ✓ Provide actionable insights grounded in real conversational evidence
   ✓ Acknowledge when conversations lack emotional content
   ✓ Use research-backed EI frameworks naturally
-  ✓ Integrate timestamps as supporting evidence, not artificial quotas
+  ✓ Integrate timestamps as supporting evidence from actual dialogue
   
-  Build your analysis progressively from context understanding to specific EI insights to practical applications, similar to how the most effective conversation analysis approaches work.`,
+  **IMPORTANT: DISTINGUISH BETWEEN CONTENT TYPES**
+  - ANALYZE: Live conversation transcripts with timestamps and speaker names
+  - IGNORE: Meta-analysis documents, summaries, or research papers within the context
+  - FOCUS: Real interpersonal dynamics between actual conversation participants
+  
+  Build your analysis progressively from understanding the real conversation context to specific EI insights between actual speakers to practical applications for business effectiveness.`,
     section: 'capsule.emotional-intelligence-analyst',
     isDefault: false
   },
