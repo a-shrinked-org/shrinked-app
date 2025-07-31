@@ -190,87 +190,107 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   Source Material:
   |<context_buffer> {{fullContext}} </context_buffer>
   
-  CRITICAL: Every emotional observation, quote, and behavioral pattern must be tied to exact timestamps from the source material. Use timestamps like [14:23] exactly as they appear. ONLY include information explicitly present in the source. Never fabricate quotes, timestamps, or emotional states. If insufficient data exists for analysis, acknowledge limitations. *Scale output length beyond 1000 words when more context data is available.*
+  **ABSOLUTE CONSTRAINTS - VIOLATION RESULTS IN FAILED ANALYSIS:**
+  - ONLY use timestamps that exist exactly in the source material format (like [00:02:07] or [14:23])
+  - NEVER fabricate quotes, timestamps, or emotional states under any circumstances
+  - Every emotional claim MUST be supported by a direct quote with exact timestamp
+  - If insufficient emotional data exists, state limitations clearly and focus on available evidence
+  - Minimum 25-30 actual timestamp references from source material throughout analysis
+  - NO interpretation without explicit textual evidence of emotional language
+  
+  **EVIDENCE VERIFICATION PROCESS:**
+  Before making any emotional assessment, verify:
+  1. Does this exact timestamp exist in the source?
+  2. Is there a direct quote supporting this emotional claim?
+  3. Does the speaker use explicit emotional language or indicators?
+  4. Can I point to specific words that justify this emotional assessment?
   
   **RESEARCH-BASED METHODOLOGY:**
   Following Gao et al. (2022) "Emotion recognition in conversations with emotion shift detection":
-  - Emotion Recognition: Classify emotional states from actual utterances
-  - Emotion Shift Detection: Identify transitions using explicit conversational evidence
-  - Contextual Analysis: Ground analysis in stated purpose and relationships
-  - Evidence-Based Assessment: All conclusions supported by direct quotes with timestamps
+  - Emotion Recognition: Only from explicit emotional language in actual utterances
+  - Emotion Shift Detection: Only when clear textual evidence shows emotional transition
+  - Contextual Analysis: Grounded in explicitly stated meeting purpose and relationships
+  - Evidence-Based Assessment: All conclusions anchored to verifiable quotes with timestamps
   
   Create a comprehensive EI analysis with:
   
   **Meeting Snapshot**  
-  Open with the most significant emotional moment from actual discussions (with exact timestamps and direct quotes). What specific exchange or statement reveals the meeting's emotional core?
+  Lead with the most emotionally significant moment that has explicit evidence (exact timestamp + direct quote). If no clear emotional moments exist, state: "Limited emotional intelligence data available in this discussion. Primary focus was [actual topic] rather than emotional dynamics." Then provide the most relevant interpersonal exchange with timestamp.
   
   **Key Outcomes & Decisions**  
-  Primary results drawn directly from source material (with timestamps):
-  - [timestamp] "Direct quote of decision" - emotional context observed
-  - [timestamp] "Direct quote of agreement" - EI skills demonstrated
-  If no clear decisions, focus on key discussion points with emotional dimensions.
+  Only include decisions explicitly stated in source material:
+  - [exact timestamp] "Complete direct quote of decision/outcome" - observable emotional context
+  If no clear decisions with emotional dimensions, state: "No explicit decisions with emotional context identified. Discussion focused on [actual topics with timestamps]."
   
   **Emotional Intelligence Evidence**  
-  For each key emotional moment (with timestamps and direct quotes):
+  Only include moments with clear emotional language (frustration, excitement, concern, etc.):
   
-  **[timestamp] Speaker Name: "Exact quote from source"**
-  - Emotion Detected: [Based on explicit language, tone indicators, or emotional words used]
-  - EI Skills Demonstrated: [Specific evidence from the quote]
-  - Impact: [How this affected the conversation flow]
+  **[exact timestamp] Speaker: "Complete exact quote containing emotional language"**
+  - Emotion Detected: [Only if explicit emotional words/phrases are used]
+  - EI Skills Demonstrated: [Only if quote shows specific EI behavior]
+  - Impact: [Only if subsequent quotes show reaction]
+  
+  If fewer than 3 clear emotional moments exist, state: "Limited emotional intelligence evidence available. Analysis based on [X] identifiable moments."
   
   **Emotion Shift Detection**  
-  Only include shifts with explicit evidence (timestamps and quotes):
-  - [timestamp] "Direct quote showing initial emotion" → [timestamp] "Direct quote showing shifted emotion"
-  - Context: What specific event or statement triggered the shift
-  - Significance: How this affected meeting dynamics
+  Only include if you can show explicit textual evidence of emotional change:
+  - [timestamp] "Quote showing initial emotional state" → [timestamp] "Quote showing different emotional state"
+  If no clear shifts exist, state: "No explicit emotion shifts detected in available material."
   
   **EI Skills Assessment**  
-  For each participant mentioned in source material:
+  For each participant only if you have direct evidence:
   
-  **[Participant Name] (based on [timestamp] evidence):**
-  - Empathy: [timestamp] "Direct quote showing empathy" 
-  - Emotional Regulation: [timestamp] "Quote showing self-control"
-  - Effective Communication: [timestamp] "Quote showing clear emotional expression"
-  - Social Awareness: [timestamp] "Quote showing awareness of others"
-  If insufficient evidence, state "Limited data for [skill] assessment."
+  **[Participant Name]:**
+  - Empathy: [timestamp] "Exact quote showing empathy" OR "No evidence of empathy demonstration"
+  - Emotional Regulation: [timestamp] "Exact quote showing self-control" OR "No evidence available"
+  - Effective Communication: [timestamp] "Exact quote showing emotional clarity" OR "Limited evidence"
+  - Social Awareness: [timestamp] "Exact quote showing awareness of others" OR "No evidence available"
   
   **Action Items & Emotional Context**  
-  Only include items explicitly mentioned with timestamps:
-  - [timestamp] "Direct quote of commitment" - emotional undertones noted
-  If none mentioned, omit section.
+  Only if explicitly mentioned:
+  - [timestamp] "Exact quote of commitment/next step" - emotional undertones if evident
+  If none: "No explicit action items with emotional dimensions identified."
   
   **Relationship Dynamics**  
-  Based on explicit interactions (with timestamps and quotes):
-  - Power dynamics: Evidence from who spoke when and how
-  - Trust indicators: Specific supportive or challenging statements
-  - Collaboration quality: Examples of building on others' ideas
+  Only based on observable interaction patterns:
+  - Power dynamics: [timestamps] Evidence from actual speaking patterns and responses
+  - Trust indicators: [timestamps] Specific supportive or challenging language used
+  - Collaboration quality: [timestamps] Examples of building on ideas vs. conflict
+  
+  If insufficient evidence: "Limited relationship dynamic data available in this discussion."
+  
+  **Data Limitations Acknowledgment**  
+  Explicitly state what emotional intelligence analysis was not possible due to:
+  - Lack of explicit emotional language
+  - Limited interpersonal exchanges
+  - Focus on technical/business topics rather than emotional dynamics
+  - Insufficient evidence for comprehensive EI assessment
   
   **AI-Assisted Recommendations**  
-  Based on patterns observed in actual source material:
-  - Communication improvements: Tied to specific moments that could have gone better
-  - Emotional intelligence opportunities: Based on gaps observed in actual exchanges
-  - Future meeting considerations: Grounded in demonstrated patterns
+  Only based on actual gaps or opportunities observed:
+  - Communication improvements: [timestamps] Specific moments that could benefit from EI
+  - Emotional intelligence opportunities: Based on actual missing EI behaviors observed
+  - Future considerations: Grounded in patterns actually demonstrated
   
   **Research Application**  
-  Apply EI research framework to observed behaviors:
-  - Emotion recognition accuracy: How well participants read each other
-  - Shift detection: Evidence of participants adapting to emotional changes
-  - Contextual awareness: How meeting purpose influenced emotional expression
+  Apply framework only to observed evidence:
+  - Emotion recognition accuracy: How well participants actually responded to expressed emotions
+  - Contextual awareness: Evidence of adapting communication style to meeting purpose
   
   **Next Steps & Emotional Preparedness**  
-  Based on explicit mentions in source material (with timestamps):
-  - [timestamp] "Quote about follow-up" - emotional preparation needed
-  If no explicit next steps, focus on patterns that suggest future emotional considerations.
+  Only include if explicitly mentioned in source:
+  - [timestamp] "Exact quote about follow-up" - emotional preparation needed
+  If none: "No explicit next steps with emotional considerations identified."
   
-  **CONSTRAINTS:**
-  - Use only timestamps that exist in source material
-  - Never invent quotes or emotional states
-  - If analysis seems thin, acknowledge data limitations
-  - Focus on observable evidence over interpretation
-  - Minimum 25-30 timestamp references throughout analysis
-  - All emotional assessments must be justified by specific language used
+  **FINAL VERIFICATION:**
+  Before submitting analysis, confirm:
+  - Every timestamp used exists in source material
+  - Every quote is exact and complete
+  - Every emotional assessment is justified by explicit language
+  - Data limitations are clearly acknowledged
+  - No fabricated content included
   
-  Target *1200–1800 words of evidence-based analysis, expanding with additional context data*.
+  Target length scales with available emotional content - may be 600-800 words if limited emotional data, or 1200-1800 words if rich emotional material exists.
   
   **Research Citations Applied:**
   - Gao et al. (2022): Multi-task learning for emotion shift detection
