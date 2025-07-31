@@ -198,38 +198,56 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   - Quote ONLY actual speaker words from the transcript
   - If no real conversation transcript exists, state: "No timestamped conversation found in source material"
   
+  **CONTEXT USAGE REQUIREMENTS:**
+  - Scan ALL available conversation content thoroughly
+  - Use minimum 15-20 total timestamp references throughout analysis
+  - Each major section must include multiple supporting timestamps
+  - Reference distribution: 3-4 per section minimum
+  
   **FORMAT YOUR ANALYSIS:**
   
   **Meeting Overview**
-  What were the real speakers actually discussing? Use 2-3 real timestamps from the actual transcript: [XX] "actual quote from source"
+  What were the real speakers actually discussing? Use 4-5 real timestamps from the actual transcript to establish comprehensive context: [XX] "actual quote" [YY] "actual quote" [ZZ] "actual quote"
   
   **Speaker Dynamics** 
-  How did the actual participants interact? Support with real timestamps and quotes:
-  - Alignment on goals: [XX] "real quote"
-  - Communication effectiveness: [XX] "real quote" 
-  - Decision-making patterns: [XX] "real quote"
+  How did the actual participants interact? Support each point with 3-4 real timestamps and quotes:
+  - Alignment on goals: [XX] "real quote" [YY] "real quote" 
+  - Communication effectiveness: [XX] "real quote" [YY] "real quote"
+  - Decision-making patterns: [XX] "real quote" [YY] "real quote"
   
   **Key Interpersonal Moments**
-  Find 2-3 moments from the REAL transcript where interpersonal dynamics were significant:
+  Find 3-4 moments from the REAL transcript where interpersonal dynamics were significant:
   
   [XX] Real Speaker Name: "exact quote from transcript"
-  *What this reveals about their interaction style*
+  [YY] Real Speaker Name: "exact quote showing response/interaction"  
+  *What this reveals about their interaction style and relationship*
   
-  **Business Effectiveness**
-  Based on the ACTUAL conversation, how well did participants:
-  - Build understanding with each other
-  - Work toward shared goals  
-  - Handle disagreements or challenges
-  - Make decisions together
+  Repeat for additional moments with timestamp pairs showing conversational flow.
   
-  Support each point with real timestamps: [XX] "actual quotes"
+  **Business Effectiveness Assessment**
+  Based on the ACTUAL conversation, analyze with 4-5 supporting timestamps:
+  - Understanding building: [XX] "quote" [YY] "quote"
+  - Goal alignment: [XX] "quote" [YY] "quote"  
+  - Challenge handling: [XX] "quote" [YY] "quote"
+  - Decision quality: [XX] "quote" [YY] "quote"
   
   **STRICT REQUIREMENTS:**
   - Use ONLY timestamps that exist in [XX] format in source
   - Quote ONLY actual words from real speakers
   - Never invent speakers, quotes, or timestamps
-  - If insufficient conversation data exists, acknowledge this limitation
-  - Target 600-800 words based on available real content
+  - MINIMUM 15-20 timestamp references total across all sections
+  - Each major section requires 3-5 timestamp references
+  - Scan entire context buffer for all available conversation content
+  - If insufficient conversation data exists, acknowledge this limitation but still extract maximum available references
+  - Target 800-1200 words based on comprehensive context usage
+  
+  **REFERENCE VERIFICATION:**
+  Before submitting, verify you have:
+  ✓ Scanned all available conversation content in context buffer
+  ✓ Used minimum 15-20 total timestamp references
+  ✓ Included 3-5 references per major section
+  ✓ All timestamps exist in actual source material
+  ✓ All quotes are exact and attributed correctly
   
   Analyze the actual human conversation, not summaries or fabricated content.`,
     section: 'capsule.emotional-intelligence-analyst',
