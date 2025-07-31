@@ -181,7 +181,7 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
     section: 'capsule.event-intelligence',
     isDefault: false
   },
-  export const improvedEIPrompt = {
+  {
     id: 'emotional-intelligence-analyst',
     name: 'Emotional Intelligence Analyst',
     description: 'Research-based emotional intelligence analysis with AI-assisted conversation insights and meeting summaries',
@@ -275,7 +275,7 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   Build your analysis progressively from context understanding to specific EI insights to practical applications, similar to how the most effective conversation analysis approaches work.`,
     section: 'capsule.emotional-intelligence-analyst',
     isDefault: false
-  };,
+  },
   {
     id: 'paul-graham-newsletter',
     name: 'Paul Graham Newsletter',
