@@ -190,77 +190,87 @@ Transform data into concise intelligence, weaving timestamps naturally. Target *
   Source Material:
   |<context_buffer> {{fullContext}} </context_buffer>
   
-  CRITICAL: Every emotional observation, shift, and behavioral pattern must be tied to exact timestamps. Use timestamps like [14:23] exactly as they appear. ONLY include explicit information. Apply research-based EI methodology across all provided sources. *Scale output length beyond 1000 words when more context data is available.*
+  CRITICAL: Every emotional observation, quote, and behavioral pattern must be tied to exact timestamps from the source material. Use timestamps like [14:23] exactly as they appear. ONLY include information explicitly present in the source. Never fabricate quotes, timestamps, or emotional states. If insufficient data exists for analysis, acknowledge limitations. *Scale output length beyond 1000 words when more context data is available.*
   
   **RESEARCH-BASED METHODOLOGY:**
   Following Gao et al. (2022) "Emotion recognition in conversations with emotion shift detection":
-  - Emotion Recognition: Deep learning classification of emotional states (happiness, frustration, anger, empathy)
-  - Emotion Shift Detection: Multi-task learning to identify emotional transitions
-  - Contextual Analysis: Purpose, relationships, and situational factors
-  - Multimodal Fusion: Text, tone, and conversational context
+  - Emotion Recognition: Classify emotional states from actual utterances
+  - Emotion Shift Detection: Identify transitions using explicit conversational evidence
+  - Contextual Analysis: Ground analysis in stated purpose and relationships
+  - Evidence-Based Assessment: All conclusions supported by direct quotes with timestamps
   
   Create a comprehensive EI analysis with:
   
   **Meeting Snapshot**  
-  Open with the most significant emotional pattern or outcome from the discussions (with timestamps). What was the dominant emotional arc?
+  Open with the most significant emotional moment from actual discussions (with exact timestamps and direct quotes). What specific exchange or statement reveals the meeting's emotional core?
   
   **Key Outcomes & Decisions**  
-  Primary results with emotional context (with timestamps):
-  - Decisions made with emotional undertones
-  - Agreements reached through emotional intelligence
-  - Unresolved tensions or concerns
-  If none, state "Focused on discussion and emotional dynamics."
+  Primary results drawn directly from source material (with timestamps):
+  - [timestamp] "Direct quote of decision" - emotional context observed
+  - [timestamp] "Direct quote of agreement" - EI skills demonstrated
+  If no clear decisions, focus on key discussion points with emotional dimensions.
   
-  **Emotional Intelligence Analysis Table**
+  **Emotional Intelligence Evidence**  
+  For each key emotional moment (with timestamps and direct quotes):
   
-  | Timestamp | Speaker | Utterance/Key Moment | Emotion Detected | EI Skills Demonstrated | Notes |
-  |-----------|---------|---------------------|------------------|----------------------|-------|
-  | [XX:XX] | Name | "Direct quote..." | Frustration/Empathy/etc | Empathy, Regulation, etc | Context/Significance |
+  **[timestamp] Speaker Name: "Exact quote from source"**
+  - Emotion Detected: [Based on explicit language, tone indicators, or emotional words used]
+  - EI Skills Demonstrated: [Specific evidence from the quote]
+  - Impact: [How this affected the conversation flow]
   
   **Emotion Shift Detection**  
-  Critical emotional transitions (with timestamps):
-  - [timestamp] Shift from [emotion] to [emotion]: Context and significance
-  - [timestamp] De-escalation moment: How tension was resolved
-  - [timestamp] Escalation point: What triggered increased emotional intensity
+  Only include shifts with explicit evidence (timestamps and quotes):
+  - [timestamp] "Direct quote showing initial emotion" → [timestamp] "Direct quote showing shifted emotion"
+  - Context: What specific event or statement triggered the shift
+  - Significance: How this affected meeting dynamics
   
   **EI Skills Assessment**  
-  For each key participant (with timestamps):
+  For each participant mentioned in source material:
   
-  **[Participant Name]:**
-  - Empathy: Evidence of acknowledging others' emotions (with timestamps)
-  - Emotional Regulation: Managing their own emotional responses
-  - Effective Communication: Clear, constructive emotional expression
-  - Social Awareness: Reading room dynamics and group emotions
-  EI Score: High/Medium/Low with specific examples
+  **[Participant Name] (based on [timestamp] evidence):**
+  - Empathy: [timestamp] "Direct quote showing empathy" 
+  - Emotional Regulation: [timestamp] "Quote showing self-control"
+  - Effective Communication: [timestamp] "Quote showing clear emotional expression"
+  - Social Awareness: [timestamp] "Quote showing awareness of others"
+  If insufficient evidence, state "Limited data for [skill] assessment."
   
   **Action Items & Emotional Context**  
-  - [timestamp] Task/follow-up with emotional undertones or relationship implications
-  - [timestamp] Commitments made to address emotional concerns
-  If none, omit section.
+  Only include items explicitly mentioned with timestamps:
+  - [timestamp] "Direct quote of commitment" - emotional undertones noted
+  If none mentioned, omit section.
   
   **Relationship Dynamics**  
-  Power dynamics, trust indicators, conflict patterns, collaboration quality (with timestamps).
+  Based on explicit interactions (with timestamps and quotes):
+  - Power dynamics: Evidence from who spoke when and how
+  - Trust indicators: Specific supportive or challenging statements
+  - Collaboration quality: Examples of building on others' ideas
   
   **AI-Assisted Recommendations**  
-  Based on detected emotional patterns:
-  - Communication improvements for future meetings
-  - Emotional intelligence coaching opportunities
-  - AI system enhancements for emotional support
-  - Proactive interventions for identified tensions
+  Based on patterns observed in actual source material:
+  - Communication improvements: Tied to specific moments that could have gone better
+  - Emotional intelligence opportunities: Based on gaps observed in actual exchanges
+  - Future meeting considerations: Grounded in demonstrated patterns
   
-  **Research Insights**  
-  Apply findings to broader organizational patterns:
-  - Team emotional maturity assessment
-  - Meeting effectiveness correlation with EI
-  - Predictive indicators for future conflicts
-  - Cross-meeting emotional pattern analysis
+  **Research Application**  
+  Apply EI research framework to observed behaviors:
+  - Emotion recognition accuracy: How well participants read each other
+  - Shift detection: Evidence of participants adapting to emotional changes
+  - Contextual awareness: How meeting purpose influenced emotional expression
   
   **Next Steps & Emotional Preparedness**  
-  - [timestamp] Follow-up meetings with emotional considerations
-  - Relationship repair or strengthening opportunities
-  - Team dynamics interventions needed
+  Based on explicit mentions in source material (with timestamps):
+  - [timestamp] "Quote about follow-up" - emotional preparation needed
+  If no explicit next steps, focus on patterns that suggest future emotional considerations.
   
-  Focus on research-backed emotional intelligence insights, weaving timestamps naturally into professional analysis. Target *1200–1800 words, expanding with additional context data*.
+  **CONSTRAINTS:**
+  - Use only timestamps that exist in source material
+  - Never invent quotes or emotional states
+  - If analysis seems thin, acknowledge data limitations
+  - Focus on observable evidence over interpretation
+  - Minimum 25-30 timestamp references throughout analysis
+  - All emotional assessments must be justified by specific language used
+  
+  Target *1200–1800 words of evidence-based analysis, expanding with additional context data*.
   
   **Research Citations Applied:**
   - Gao et al. (2022): Multi-task learning for emotion shift detection
