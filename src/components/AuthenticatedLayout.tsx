@@ -4,6 +4,7 @@ import { Layout as BaseLayout } from "@components/layout";
 import { Authenticated } from "@refinedev/core";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
+import GradientLoader from "./GradientLoader";
 
 
 
@@ -25,7 +26,7 @@ export default function AuthenticatedLayout({
     <Authenticated
       key={layoutKey}
       v3LegacyAuthProviderCompatible
-      loading={<LoadingFallback />}
+      loading={<GradientLoader />}
       fallback={<RedirectToLogin />}
       redirectOnFail="/login"
     >
