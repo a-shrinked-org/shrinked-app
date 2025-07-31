@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
 import GradientLoader from "./GradientLoader";
 
-
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div>Loading...</div>
+    </div>
+  );
+}
 
 function RedirectToLogin() {
   const router = useRouter();
@@ -15,7 +21,7 @@ function RedirectToLogin() {
     router.push('/login');
   }, [router]);
 
-  return null;
+  return <LoadingFallback />;
 }
 
 export default function AuthenticatedLayout({ 

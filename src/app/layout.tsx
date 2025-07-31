@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Component, ErrorInfo, ReactNode, useState, useEffect } from "react";
+import React, { Component, ErrorInfo, ReactNode } from "react";
 import { RefineContext } from './_refine_context';
 import { MantineProvider, createTheme, ColorSchemeScript, Text, Button, Stack, Group } from '@mantine/core';
 import '@mantine/core/styles.css';
@@ -11,7 +11,6 @@ import { IconWrapper } from '@/utils/ui-utils';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { GradientLoader } from "@/components/GradientLoader";
-import CliLoadingAnimation from "@/components/CliLoadingAnimation";
 
 // Error Boundary Component
 class ErrorBoundary extends Component<{ children: ReactNode, fallback?: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
@@ -232,36 +231,17 @@ const theme = createTheme({
 });
 
 function LoadingFallback() {
-  const [showCliLoading, setShowCliLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowCliLoading(false);
-    }, 2000); // Show CLI loading for 2 seconds
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
     <div style={{ 
-      position: 'fixed', 
-      top: 0, 
-      left: 0, 
-      width: '100%', 
-      zIndex: 9999,
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      height: '100vh',
       backgroundColor: 'var(--mantine-color-dark-9)',
       color: '#fff',
       fontFamily: GeistMono.style.fontFamily,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'flex-start', // Align to top
-      paddingTop: '20px', // Add some padding from the top
-      height: '100vh', // Take full height to center content vertically if needed
     }}>
-      {showCliLoading ? (
-        <CliLoadingAnimation message="Initializing application" />
-      ) : (
-        <GradientLoader width={300} height={4} />
-      )}
+      <GradientLoader width={300} height={4} />
     </div>
   );
 }

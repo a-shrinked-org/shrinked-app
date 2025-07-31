@@ -130,7 +130,12 @@ export default function CapsuleDirectPage() {
 
   // Loading State
   if (isLoading || identityLoading) {
-    return null;
+    return (
+      <Box style={{ position: 'relative', minHeight: '300px', padding: '24px' }}>
+        <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+        <Text ta="center" pt="xl" c="dimmed">Loading capsule information...</Text>
+      </Box>
+    );
   }
 
   // Not Authenticated State
@@ -170,7 +175,14 @@ export default function CapsuleDirectPage() {
         CAPSULE
       </Title>
   
-      
+      {(isLoading || identityLoading) && (
+        <Box style={{ position: 'relative', minHeight: '300px', padding: '24px' }}>
+          <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+          <Text ta="center" pt="xl" c="dimmed">
+            Loading capsule information...
+          </Text>
+        </Box>
+      )}
   
       {!isLoading && !identityLoading && !identity?.token && (
         <Box style={{ padding: '24px' }}>
@@ -233,7 +245,14 @@ export default function CapsuleDirectPage() {
         </Card>
       )}
   
-      
+      {!isLoading && !identityLoading && identity?.token && !showCreateUI && (
+        <Box style={{ position: 'relative', minHeight: '300px', padding: '24px' }}>
+          <LoadingOverlay visible={true} overlayProps={{ blur: 2 }} />
+          <Text ta="center" pt="xl" c="dimmed">
+            Loading capsule information...
+          </Text>
+        </Box>
+      )}
     </Box>
   );
 }
